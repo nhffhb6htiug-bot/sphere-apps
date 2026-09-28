@@ -281,6 +281,7 @@ function toAppUser(profile){
     payoutAccount: profile.razorpay_account_id || '',
     avatar: profile.avatar_url || '',
     verified: !!profile.is_verified,
+    verificationNote: profile.verification_note || '',
     code: profile.verification_code,
     rating: 0, reviews: 0
   };
@@ -1465,9 +1466,13 @@ SCREENS.verificationStatus = () => {
     </div>`;
   }
   return `
+  ${u.verificationNote ? `<div class="card" style="margin:14px 16px 0; border:1.5px solid #c62828;">
+    <b style="color:#c62828;">Your verified badge was removed</b>
+    <p class="muted" style="font-size:13px; margin-top:4px;">Reason: ${esc(u.verificationNote)}</p>
+    <p class="muted" style="font-size:12px; margin-top:4px;">Talk to the Sphere team below to get verified again.</p></div>` : ''}
   <div class="vs-hero">
     <div class="vs-ic">${UI_ICONS.check}</div>
-    <h1>Application Submitted</h1>
+    <h1>${u.verificationNote ? 'Re-verification pending' : 'Application Submitted'}</h1>
     <p>Thank you, ${esc((u.name || '').split(' ')[0] || 'Editor')}! Your editor profile is under review.</p>
   </div>
   <div class="screen">
@@ -1935,6 +1940,7 @@ SCREENS.admin = async () => {
         ${ph ? `<div class="btn-row" style="margin-bottom:10px;">
           <a class="pill-btn primary" href="tel:+91${ph}">${UI_ICONS.phone} Call editor</a>
           <a class="pill-btn wa" href="${wa}" target="_blank" rel="noopener">WhatsApp</a></div>` : ''}
+        ${e.verification_note ? `<p style="font-size:12px; color:#c62828; margin-bottom:6px;">Badge removed earlier: ${esc(e.verification_note)}</p>` : ''}
         <div class="kv"><span>Category applied</span><b>${esc((e.categories&&e.categories[0])||'-')}</b></div>
         <div class="kv"><span>Experience</span><b>${e.experience_years ? esc(e.experience_years) + ' yrs' : '-'}</b></div>
         <div class="kv"><span>Skills</span><b>${esc((e.skills||[]).join(', ')) || '-'}</b></div>
@@ -1951,7 +1957,12 @@ SCREENS.admin = async () => {
     ${verified.map(e=>`<div class="card"><b>${esc(e.full_name)}</b> <span class="badge">✔ ${esc(e.verification_code)}</span><p class="muted">${esc((e.categories&&e.categories[0])||'')}${e.verified_at ? ' · verified ' + new Date(e.verified_at).toLocaleDateString() : ''}</p>
       <div class="field" style="margin:10px 0 6px;"><label>Razorpay Route Account ID ${e.razorpay_account_id?'✅':'(pending)'}</label>
         <input id="acc_${e.id}" placeholder="acc_XXXXXXXXXXXX" value="${esc(e.razorpay_account_id)}"></div>
-      <button class="btn-sm" onclick="savePayoutAccount('${e.id}')">Save Account</button></div>`).join('')}
+      <button class="btn-sm" onclick="savePayoutAccount('${e.id}')">Save Account</button>
+      <details style="margin-top:12px;"><summary style="color:#c62828; font-size:13px; font-weight:700; cursor:pointer;">Remove verification</summary>
+        <div class="field" style="margin-top:10px;"><label>Reason (editor will see this)</label><input id="unvReason_${e.id}" maxlength="300" placeholder="e.g. Repeated late deliveries"></div>
+        <div class="field"><label>Admin PIN</label><input id="unvPin_${e.id}" class="pin-input" type="password" inputmode="numeric" maxlength="8" placeholder="••••"></div>
+        <button class="btn btn-outline" style="color:#c62828; border-color:#c62828;" onclick="removeVerification('${e.id}')">Remove verified badge</button>
+      </details></div>`).join('')}
 
     <h3 style="margin:20px 0 10px;">🚩 Open Reports (${reports.length})</h3>
     ${reports.length===0?'<p class="muted">Koi open report nahi. 👍</p>':''}
@@ -2040,6 +2051,17 @@ async function verifyEditor(id){
   const { data: code, error } = await sb.rpc('sp_verify_editor', { p_editor: id, p_category: cat, p_pin: pin });
   if(error){ alert(error.message); if(pinEl) pinEl.value = ''; return; }
   alert('Editor verified ✅  Code: ' + code);
+  nav('admin');
+}
+async function removeVerification(id){
+  const reason = (document.getElementById('unvReason_'+id).value || '').trim();
+  const pin = (document.getElementById('unvPin_'+id).value || '').trim();
+  if(reason.length < 5){ alert('Write a clear reason (the editor will see it)'); return; }
+  if(!pin){ alert('Enter your Admin PIN'); return; }
+  if(!confirm('Remove this editor\'s verified badge? They will stop appearing to clients and cannot bid until verified again.')) return;
+  const { error } = await sb.rpc('sp_unverify_editor', { p_editor: id, p_reason: reason, p_pin: pin });
+  if(error){ alert(error.message); return; }
+  alert('Verified badge removed. The editor has been notified.');
   nav('admin');
 }
 async function setAdminPin(changing){
