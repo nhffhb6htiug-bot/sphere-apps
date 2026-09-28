@@ -225,11 +225,17 @@ async function signInWithGoogle(){
   if(error){ alert(error.message); }
 }
 
+function getMode(uid){ try { return localStorage.getItem('sphere_mode_' + uid); } catch(e){ return null; } }
+function setMode(uid, m){ try { localStorage.setItem('sphere_mode_' + uid, m); } catch(e){} }
 function toAppUser(profile){
   if(!profile) return null;
+  const baseRole = (profile.role||'').toLowerCase();
+  // Editor chahe toh Client mode me bhi app use kar sakta hai (editors hire karna, job post karna)
+  const role = (baseRole === 'editor' && getMode(profile.id) === 'client') ? 'client' : baseRole;
   return {
     id: profile.id,
-    role: (profile.role||'').toLowerCase(),
+    role,
+    baseRole,
     name: profile.full_name,
     email: profile.email,
     phone: profile.phone,
@@ -281,6 +287,32 @@ const CAT_ICON = {"Vlog Editing":"data:image/webp;base64,UklGRvgRAABXRUJQVlA4IOw
 
 /* ============ DATA HELPERS (Supabase) ============ */
 function getCurrentUser(){ return currentUser; }
+function modeSwitchCard(user){
+  if(!user || user.role === 'admin') return '';
+  if(user.baseRole === 'editor'){
+    const inEditor = user.role === 'editor';
+    return `<div class="card" style="border:2px solid var(--blue);" onclick="switchMode('${inEditor ? 'client' : 'editor'}')">
+      🔄 <b>${inEditor ? 'Client mode pe jao' : 'Editor mode pe jao'}</b>
+      <p class="muted" style="font-size:12px; margin-top:4px;">Abhi aap <b>${inEditor ? 'Editor' : 'Client'}</b> mode me ho. ${inEditor ? 'Client mode me editors hire kar sakte ho, job post kar sakte ho.' : 'Editor mode me jobs dhoondo aur bid karo.'}</p></div>`;
+  }
+  return `<div class="card" style="border:2px solid var(--blue);" onclick="becomeEditor()">
+    🎬 <b>Editor bhi bano</b>
+    <p class="muted" style="font-size:12px; margin-top:4px;">Client ke saath-saath editing ka kaam bhi lo. Baad me yahin se Client/Editor mode badal sakte ho.</p></div>`;
+}
+async function switchMode(mode){
+  setMode(currentUser.id, mode);
+  await fetchAndSetCurrentUser();
+  nav('home');
+}
+async function becomeEditor(){
+  if(!confirm('Editor profile banani hai? Aap Client bhi rahoge — Profile se kabhi bhi mode badal sakte ho.')) return;
+  const { error } = await sb.from('profiles').update({ role: 'EDITOR' }).eq('id', currentUser.id);
+  if(dbErr(error)) return;
+  setMode(currentUser.id, 'editor');
+  await fetchAndSetCurrentUser();
+  if(!currentUser || currentUser.baseRole !== 'editor'){ alert('Editor profile nahi ban payi. Support se baat karo.'); return; }
+  nav('editorDetails');
+}
 const SUPPORT = {
   name: 'Sphere by Syahi Films',
   phones: ['7739363798', '8708712986'],
@@ -432,7 +464,8 @@ async function getProfilesByIds(ids){
 async function getVerifiedEditors(){
   const { data, error } = await sb.from('profiles').select('*').eq('role', 'EDITOR').eq('is_verified', true);
   if(dbErr(error)) return [];
-  return attachRatings((data || []).map(toAppUser));
+  const me = getCurrentUser();
+  return attachRatings((data || []).map(toAppUser).filter(u => !me || u.id !== me.id));
 }
 
 const app = document.getElementById('app');
@@ -747,7 +780,7 @@ SCREENS.home = () => {
 
 async function editorHomeScreen(user){
   const [openRes, negRes] = await Promise.all([
-    sb.from('sp_jobs').select('*').eq('status', 'open').eq('category', user.category || '').order('created_at', { ascending: false }),
+    sb.from('sp_jobs').select('*').eq('status', 'open').eq('category', user.category || '').neq('client_id', user.id).order('created_at', { ascending: false }),
     sb.from('sp_jobs').select('*').eq('status', 'negotiating').eq('assigned_editor', user.id).order('created_at', { ascending: false })
   ]);
   if(openRes.error) console.error(openRes.error);
@@ -941,6 +974,7 @@ SCREENS.settingsScreen = () => `
     <div class="card" onclick="nav('profile')">👤 Profile</div>
     <div class="card" onclick="nav('notifications')">🔔 Notifications</div>
     <div class="card" onclick="nav('support')">🆘 Help, Support & Policies</div>
+    ${modeSwitchCard(getCurrentUser())}
     <div class="card" style="color:red;" onclick="logout()">🚪 Logout</div>
   </div>`;
 
@@ -1295,7 +1329,7 @@ SCREENS.jobs = async () => {
     list = (data || []).map(mapJob);
   } else if(user.role==='editor'){
     const [a, b] = await Promise.all([
-      sb.from('sp_jobs').select('*').eq('status', 'open').eq('category', user.category || ''),
+      sb.from('sp_jobs').select('*').eq('status', 'open').eq('category', user.category || '').neq('client_id', user.id),
       sb.from('sp_jobs').select('*').eq('assigned_editor', user.id)
     ]);
     const seen = new Set();
@@ -1717,6 +1751,7 @@ SCREENS.profile = async () => {
     <div class="card" onclick="nav('notifications')">🔔 Notifications</div>
     <div class="card" onclick="nav('support')">🆘 Help, Support & Policies</div>
     ${user.role==='admin'?`<div class="card" onclick="nav('admin')">🛠️ Admin Panel</div>`:''}
+    ${modeSwitchCard(getCurrentUser())}
     <div class="card" style="color:red;" onclick="logout()">🚪 Logout</div>
   </div>`;
 };
