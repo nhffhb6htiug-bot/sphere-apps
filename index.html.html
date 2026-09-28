@@ -125,6 +125,39 @@ h1,h2,h3{color:var(--text);}
 .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
 .avatar{width:56px; height:56px; border-radius:50%; background:#d9dde3; display:flex; align-items:center; justify-content:center; font-size:22px; color:#888; margin-bottom:10px; overflow:hidden;}
 .avatar img{width:100%; height:100%; object-fit:cover;}
+.menu-item{display:flex; align-items:center; gap:14px; background:var(--card); border:1px solid var(--border); border-radius:16px; padding:13px 14px; margin-bottom:10px; cursor:pointer; transition:transform .08s ease, box-shadow .15s ease;}
+.menu-item:active{transform:scale(.99);}
+.menu-item:hover{box-shadow:0 4px 14px rgba(22,87,255,.08);}
+.mi-icon{width:40px; height:40px; flex:0 0 40px; border-radius:12px; background:#eef3ff; color:var(--blue); display:flex; align-items:center; justify-content:center;}
+.mi-icon svg{width:20px; height:20px;}
+.mi-text{flex:1; display:flex; flex-direction:column; min-width:0;}
+.mi-text b{font-size:15px; font-weight:600; color:#111;}
+.mi-text small{font-size:12px; color:var(--muted); margin-top:2px;}
+.mi-chev{color:#b3b9c6; display:flex;} .mi-chev svg{width:18px; height:18px;}
+.menu-item.highlight{border:1.5px solid var(--blue); background:linear-gradient(135deg,#f3f6ff,#fff);}
+.menu-item.highlight .mi-icon{background:var(--blue); color:#fff;}
+.menu-item.danger .mi-icon{background:#fdecec; color:#d32f2f;} .menu-item.danger b{color:#d32f2f;}
+.mode-chip{display:inline-flex; align-items:center; gap:6px; margin-top:8px; padding:4px 10px; border-radius:20px; background:#eef3ff; color:var(--blue); font-size:12px; font-weight:700;}
+.mode-chip svg{width:14px; height:14px;}
+.vs-hero{background:linear-gradient(135deg,#0f3fcc,#1657ff); color:#fff; padding:34px 22px 28px; text-align:center; border-radius:0 0 28px 28px;}
+.vs-hero .vs-ic{width:64px; height:64px; border-radius:50%; background:rgba(255,255,255,.18); display:flex; align-items:center; justify-content:center; margin:0 auto 12px;}
+.vs-hero .vs-ic svg{width:34px; height:34px;}
+.vs-hero h1{font-size:22px; font-weight:800;} .vs-hero p{font-size:13px; opacity:.9; margin-top:6px;}
+.vs-call{text-align:center;}
+.vs-call .num{font-size:24px; font-weight:800; letter-spacing:.5px; margin:6px 0 2px;}
+.vs-steps{list-style:none; padding:0; margin:0;}
+.vs-steps li{display:flex; gap:12px; padding:10px 0; position:relative;}
+.vs-steps li:not(:last-child)::after{content:''; position:absolute; left:13px; top:38px; bottom:-4px; width:2px; background:var(--border);}
+.vs-dot{width:28px; height:28px; flex:0 0 28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; background:#e7e9ee; color:#6b7280;}
+.vs-steps li.done .vs-dot{background:#2e7d32; color:#fff;} .vs-steps li.now .vs-dot{background:var(--blue); color:#fff; box-shadow:0 0 0 5px rgba(22,87,255,.15);}
+.vs-steps b{font-size:14px;} .vs-steps small{display:block; color:var(--muted); font-size:12px; margin-top:2px;}
+.kv{display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px;}
+.kv:last-child{border-bottom:none;} .kv span{color:var(--muted);} .kv b{text-align:right; word-break:break-all;}
+.btn-row{display:flex; gap:8px; flex-wrap:wrap;} .btn-row a, .btn-row button{flex:1; min-width:120px; text-align:center; text-decoration:none;}
+.pill-btn{display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:10px 14px; border-radius:24px; font-size:13px; font-weight:700; border:1px solid var(--border); background:#fff; color:#111; cursor:pointer;}
+.pill-btn.primary{background:var(--blue); border-color:var(--blue); color:#fff;} .pill-btn.wa{background:#25D366; border-color:#25D366; color:#fff;}
+.pill-btn svg{width:16px; height:16px;}
+.pin-input{letter-spacing:6px; font-weight:700; text-align:center;}
 .badge{display:inline-block; background:var(--blue); color:#fff; font-size:10px; font-weight:700; padding:3px 8px; border-radius:20px; margin-left:6px;}
 .pill{display:inline-block; background:#fff; border:1px solid var(--border); padding:5px 12px; border-radius:20px; font-size:12px; margin:3px 4px 3px 0; cursor:pointer;}
 .pill.active{background:var(--blue); color:#fff; border-color:var(--blue);}
@@ -287,17 +320,40 @@ const CAT_ICON = {"Vlog Editing":"data:image/webp;base64,UklGRvgRAABXRUJQVlA4IOw
 
 /* ============ DATA HELPERS (Supabase) ============ */
 function getCurrentUser(){ return currentUser; }
+const UI_ICONS = {
+  jobs: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg>',
+  bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
+  help: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>',
+  shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>',
+  swap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/></svg>',
+  star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></svg>',
+  user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+  logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>',
+  chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',
+  camera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></svg>'
+};
+function menuItem(icon, label, onclick, opts){
+  opts = opts || {};
+  return `<div class="menu-item ${opts.cls || ''}" onclick="${onclick}">
+    <span class="mi-icon">${UI_ICONS[icon]}</span>
+    <span class="mi-text"><b>${label}</b>${opts.sub ? `<small>${opts.sub}</small>` : ''}</span>
+    <span class="mi-chev">${UI_ICONS.chevron}</span></div>`;
+}
 function modeSwitchCard(user){
   if(!user || user.role === 'admin') return '';
   if(user.baseRole === 'editor'){
-    const inEditor = user.role === 'editor';
-    return `<div class="card" style="border:2px solid var(--blue);" onclick="switchMode('${inEditor ? 'client' : 'editor'}')">
-      🔄 <b>${inEditor ? 'Client mode pe jao' : 'Editor mode pe jao'}</b>
-      <p class="muted" style="font-size:12px; margin-top:4px;">Abhi aap <b>${inEditor ? 'Editor' : 'Client'}</b> mode me ho. ${inEditor ? 'Client mode me editors hire kar sakte ho, job post kar sakte ho.' : 'Editor mode me jobs dhoondo aur bid karo.'}</p></div>`;
+    return user.role === 'editor'
+      ? menuItem('swap', 'Switch to Client', "switchMode('client')", { cls: 'highlight', sub: 'Hire editors and post jobs' })
+      : menuItem('swap', 'Switch to Editor', "switchMode('editor')", { cls: 'highlight', sub: 'Find work and place bids' });
   }
-  return `<div class="card" style="border:2px solid var(--blue);" onclick="becomeEditor()">
-    🎬 <b>Editor bhi bano</b>
-    <p class="muted" style="font-size:12px; margin-top:4px;">Client ke saath-saath editing ka kaam bhi lo. Baad me yahin se Client/Editor mode badal sakte ho.</p></div>`;
+  return menuItem('star', 'Become an Editor', 'becomeEditor()', { cls: 'highlight', sub: 'Earn by editing videos on Sphere' });
+}
+function modeChip(user){
+  if(!user || user.baseRole !== 'editor') return '';
+  return `<div class="mode-chip">${UI_ICONS.swap}${user.role === 'editor' ? 'Editor mode' : 'Client mode'}</div>`;
 }
 async function switchMode(mode){
   setMode(currentUser.id, mode);
@@ -305,12 +361,12 @@ async function switchMode(mode){
   nav('home');
 }
 async function becomeEditor(){
-  if(!confirm('Editor profile banani hai? Aap Client bhi rahoge — Profile se kabhi bhi mode badal sakte ho.')) return;
+  if(!confirm('Create your Editor profile? You will stay a Client too — switch anytime from Profile.')) return;
   const { error } = await sb.from('profiles').update({ role: 'EDITOR' }).eq('id', currentUser.id);
   if(dbErr(error)) return;
   setMode(currentUser.id, 'editor');
   await fetchAndSetCurrentUser();
-  if(!currentUser || currentUser.baseRole !== 'editor'){ alert('Editor profile nahi ban payi. Support se baat karo.'); return; }
+  if(!currentUser || currentUser.baseRole !== 'editor'){ alert('Could not create your Editor profile. Please contact Support.'); return; }
   nav('editorDetails');
 }
 const SUPPORT = {
@@ -734,20 +790,23 @@ async function doSignup(){
   if(selectedRole==='editor'){ nav('editorDetails'); } else { nav('home'); }
 }
 
-SCREENS.editorDetails = () => `
+SCREENS.editorDetails = () => {
+  const u = getCurrentUser() || {};
+  return `
   <div class="screen">
-    <h2>Editor Details</h2>
-    <p class="muted" style="margin-bottom:16px;">Fill this so Syahi Films can verify & categorize you.</p>
+    <h2>Editor Application</h2>
+    <p class="muted" style="margin-bottom:16px;">Tell us about your work. Our team will call you to verify your profile.</p>
     <div class="field"><label>Category</label>
-      <select id="edCat">${CATEGORIES.map(c=>`<option>${c}</option>`).join('')}</select>
+      <select id="edCat">${CATEGORIES.map(c=>`<option ${c===u.category?'selected':''}>${c}</option>`).join('')}</select>
     </div>
-    <div class="field"><label>Skills / Software</label><input id="edSkills" placeholder="Premiere Pro, After Effects..."></div>
-    <div class="field"><label>Experience (Years)</label><input id="edExp" type="number" placeholder="5"></div>
-    <div class="field"><label>Starting Price (₹ per video)</label><input id="edPrice" type="number" placeholder="500"></div>
-    <div class="field"><label>Portfolio Link</label><input id="edPortfolio" placeholder="YouTube / Drive link"></div>
-    <div class="field"><label>Sample Video Link</label><input id="edSample" placeholder="Unlisted YouTube link"></div>
+    <div class="field"><label>Skills / Software</label><input id="edSkills" value="${esc(u.skills)}" placeholder="Premiere Pro, After Effects..."></div>
+    <div class="field"><label>Experience (Years)</label><input id="edExp" type="number" value="${esc(u.experience)}" placeholder="5"></div>
+    <div class="field"><label>Starting Price (₹ per video)</label><input id="edPrice" type="number" value="${esc(u.price)}" placeholder="500"></div>
+    <div class="field"><label>Portfolio Link</label><input id="edPortfolio" value="${esc(u.portfolio)}" placeholder="YouTube / Drive link"></div>
+    <div class="field"><label>Sample Video Link</label><input id="edSample" value="${esc(u.sample)}" placeholder="Unlisted YouTube link"></div>
     <button class="btn btn-primary" onclick="saveEditorDetails()">Submit for Verification</button>
   </div>`;
+};
 async function saveEditorDetails(){
   const cat = document.getElementById('edCat').value;
   const skills = document.getElementById('edSkills').value;
@@ -765,8 +824,7 @@ async function saveEditorDetails(){
   }).eq('id', currentUser.id);
   if(error){ alert(error.message); return; }
   await fetchAndSetCurrentUser();
-  alert('Submitted! Wait for Admin verification.');
-  nav('home');
+  nav('verificationStatus');
 }
 
 /* ============ HOME — EXACT DESIGN MATCH ============ */
@@ -795,12 +853,13 @@ async function editorHomeScreen(user){
   </div>
 
   <div class="screen" style="padding-top:6px;">
-    <div class="card" style="display:flex; align-items:center; gap:12px; ${user.verified?'background:linear-gradient(135deg,#0f3fcc,#1657ff); color:#fff;':''}">
-      <div style="font-size:26px;">${user.verified?'✅':'⏳'}</div>
-      <div>
-        <b>${user.verified? 'Verified Editor':'Verification Pending'}</b>
-        <p style="font-size:12px; opacity:.9; margin-top:2px;">${user.verified? ('PC Editor Code: '+user.code) : 'Admin will review your sample soon'}</p>
+    <div class="card" onclick="nav('verificationStatus')" style="cursor:pointer; display:flex; align-items:center; gap:12px; ${user.verified?'background:linear-gradient(135deg,#0f3fcc,#1657ff); color:#fff;':'border:1.5px solid var(--blue);'}">
+      <div class="mi-icon" style="${user.verified?'background:rgba(255,255,255,.2); color:#fff;':''}">${user.verified ? UI_ICONS.check : UI_ICONS.clock}</div>
+      <div style="flex:1;">
+        <b>${user.verified ? 'Verified Editor' : 'Verification pending'}</b>
+        <p style="font-size:12px; opacity:.9; margin-top:2px;">${user.verified ? ('Editor code: ' + esc(user.code)) : ('Our team will call you on ' + esc(user.phone || 'your number') + ' · View status')}</p>
       </div>
+      <span class="mi-chev" style="${user.verified?'color:#fff;':''}">${UI_ICONS.chevron}</span>
     </div>
 
     <div class="section-title" style="padding:0; margin-top:18px;"><h3>Available Work — ${user.category||''}</h3></div>
@@ -971,11 +1030,11 @@ SCREENS.vaultScreen = async () => {
 SCREENS.settingsScreen = () => `
   <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Settings</h1></div>
   <div class="screen" style="padding-top:0;">
-    <div class="card" onclick="nav('profile')">👤 Profile</div>
-    <div class="card" onclick="nav('notifications')">🔔 Notifications</div>
-    <div class="card" onclick="nav('support')">🆘 Help, Support & Policies</div>
+    ${menuItem('user', 'Profile', "nav('profile')")}
+    ${menuItem('bell', 'Notifications', "nav('notifications')")}
+    ${menuItem('help', 'Help, Support & Policies', "nav('support')")}
     ${modeSwitchCard(getCurrentUser())}
-    <div class="card" style="color:red;" onclick="logout()">🚪 Logout</div>
+    ${menuItem('logout', 'Logout', 'logout()', { cls: 'danger' })}
   </div>`;
 
 function youtubeThumb(url){
@@ -1390,6 +1449,70 @@ async function selectEditor(jobId, editorId, bidAmount){
   nav('projectStatus');
 }
 
+/* ============ EDITOR VERIFICATION STATUS ============ */
+SCREENS.verificationStatus = () => {
+  const u = getCurrentUser();
+  if(!u) return '';
+  const phone = String(u.phone || '').replace(/^\+91/, '');
+  const pretty = phone.length === 10 ? `+91 ${phone.slice(0,5)} ${phone.slice(5)}` : (u.phone || '-');
+  const wa = `https://wa.me/${SUPPORT.whatsapp}?text=${encodeURIComponent('Hi Sphere team, I submitted my editor application (' + (u.name || '') + '). Please verify my profile.')}`;
+  if(u.verified){
+    return `
+    <div class="vs-hero"><div class="vs-ic">${UI_ICONS.check}</div><h1>You're a Verified Editor</h1><p>Your profile is live for clients on Sphere</p></div>
+    <div class="screen">
+      <div class="card vs-call"><p class="muted">Your editor code</p><div class="num">${esc(u.code)}</div><p class="muted" style="font-size:12px;">Category: ${esc(u.category)}</p></div>
+      <button class="btn btn-primary" onclick="nav('home')">Find work</button>
+    </div>`;
+  }
+  return `
+  <div class="vs-hero">
+    <div class="vs-ic">${UI_ICONS.check}</div>
+    <h1>Application Submitted</h1>
+    <p>Thank you, ${esc((u.name || '').split(' ')[0] || 'Editor')}! Your editor profile is under review.</p>
+  </div>
+  <div class="screen">
+    <div class="card vs-call">
+      <p class="muted" style="font-size:13px;">Our verification team will call you on</p>
+      <div class="num">${esc(pretty)}</div>
+      <p class="muted" style="font-size:12px;">Usually within 24–48 hours · ${SUPPORT.hours}</p>
+      <p style="margin-top:10px;"><span class="link" style="font-size:13px;" onclick="nav('addPhone')">Not your number? Update it</span></p>
+    </div>
+
+    <div class="card">
+      <b>Verification progress</b>
+      <ol class="vs-steps" style="margin-top:8px;">
+        <li class="done"><span class="vs-dot">${UI_ICONS.check}</span><div><b>Application submitted</b><small>We have your details and sample work</small></div></li>
+        <li class="now"><span class="vs-dot">2</span><div><b>Verification call</b><small>A short call about your experience, software and sample video</small></div></li>
+        <li><span class="vs-dot">3</span><div><b>Verified badge & editor code</b><small>Your profile goes live and you can bid on jobs</small></div></li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <b>Your application</b>
+      <div style="margin-top:6px;">
+        <div class="kv"><span>Category</span><b>${esc(u.category) || '-'}</b></div>
+        <div class="kv"><span>Experience</span><b>${u.experience ? esc(u.experience) + ' years' : '-'}</b></div>
+        <div class="kv"><span>Skills</span><b>${esc(u.skills) || '-'}</b></div>
+        <div class="kv"><span>Starting price</span><b>${u.price ? '₹' + esc(u.price) + ' / video' : '-'}</b></div>
+        <div class="kv"><span>Sample video</span><b>${linkOrText(u.sample)}</b></div>
+        <div class="kv"><span>Portfolio</span><b>${linkOrText(u.portfolio)}</b></div>
+      </div>
+      <button class="btn btn-outline" style="margin-top:12px;" onclick="nav('editorDetails')">Edit application</button>
+    </div>
+
+    <div class="card">
+      <b>Need help?</b>
+      <p class="muted" style="font-size:12px; margin:4px 0 10px;">Questions about verification? Talk to the Sphere team.</p>
+      <div class="btn-row">
+        <a class="pill-btn" href="tel:+91${SUPPORT.phones[0]}">${UI_ICONS.phone} Call us</a>
+        <a class="pill-btn wa" href="${wa}" target="_blank" rel="noopener">WhatsApp</a>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="nav('home')">Go to Home</button>
+    ${POLICY_LINKS}
+  </div>`;
+};
+
 /* ============ SUPPORT & REPORTS ============ */
 SCREENS.support = () => `
   <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Help & Support</h1><p>Hum yahan hain madad ke liye</p></div>
@@ -1739,20 +1862,22 @@ SCREENS.profile = async () => {
   <div class="screen" style="padding-top:0;">
     <div class="card center-text">
       ${avatarHtml(user, 'margin:0 auto 4px; width:84px; height:84px; font-size:34px;')}
-      <label class="avatar-edit">📷 Photo badlo<input type="file" accept="image/*" style="display:none;" onchange="changeAvatar(this)"></label><br>
+      <label class="avatar-edit" style="display:inline-flex; align-items:center; gap:5px;"><span style="width:15px; height:15px; display:inline-flex;">${UI_ICONS.camera}</span>Change photo<input type="file" accept="image/*" style="display:none;" onchange="changeAvatar(this)"></label><br>
       <b>${esc(user.name)}</b> ${user.verified?'<span class="badge">✔ Verified</span>':''}
       <p class="muted">${user.email}</p>
       <p class="muted">${user.phone||''}</p>
+      ${modeChip(user)}
       ${user.role==='editor'?`<p class="muted">Category: ${esc(user.category)||'-'}</p><p class="muted">Code: ${esc(user.code)||'Pending'}</p>
         <p class="muted">Payout account: ${user.payoutAccount ? '✅ Setup ho gaya' : '⏳ Pending — bank details Syahi Films ko bhejo'}</p>`:''}
     </div>
     ${user.role==='editor'?renderPortfolio(user, pfItems):''}
-    <div class="card" onclick="nav('jobs')">📁 My Jobs</div>
-    <div class="card" onclick="nav('notifications')">🔔 Notifications</div>
-    <div class="card" onclick="nav('support')">🆘 Help, Support & Policies</div>
-    ${user.role==='admin'?`<div class="card" onclick="nav('admin')">🛠️ Admin Panel</div>`:''}
-    ${modeSwitchCard(getCurrentUser())}
-    <div class="card" style="color:red;" onclick="logout()">🚪 Logout</div>
+    ${user.baseRole==='editor' && !user.verified ? menuItem('clock', 'Verification status', "nav('verificationStatus')", { sub: 'Our team will call you to verify' }) : ''}
+    ${menuItem('jobs', 'My Jobs', "nav('jobs')")}
+    ${menuItem('bell', 'Notifications', "nav('notifications')")}
+    ${menuItem('help', 'Help, Support & Policies', "nav('support')")}
+    ${user.role==='admin' ? menuItem('shield', 'Admin Panel', "nav('admin')", { sub: 'Verify editors, reports, payouts' }) : ''}
+    ${modeSwitchCard(user)}
+    ${menuItem('logout', 'Logout', 'logout()', { cls: 'danger' })}
   </div>`;
 };
 async function logout(){
@@ -1771,6 +1896,7 @@ SCREENS.admin = async () => {
   const { data: pendingData } = await sb.from('profiles').select('*').eq('role','EDITOR').eq('is_verified', false);
   const { data: verifiedData } = await sb.from('profiles').select('*').eq('role','EDITOR').eq('is_verified', true);
   const pending = pendingData || []; const verified = verifiedData || [];
+  const { data: pinSet } = await sb.rpc('sp_admin_pin_status');
   const { data: payJobs } = await sb.from('sp_jobs').select('*')
     .or('status.eq.delivered,payout_status.eq.manual,payout_status.eq.failed')
     .order('created_at', { ascending: false });
@@ -1787,20 +1913,42 @@ SCREENS.admin = async () => {
   return `
   <div class="header"><button class="back-btn" onclick="nav('profile')">‹</button><h1>Admin Panel</h1><p>Syahi Films Verification</p></div>
   <div class="screen" style="padding-top:0;">
+    ${pinSet ? '' : `<div class="card" style="border:1.5px solid #e67e22;">
+      <b>🔐 Set your Admin PIN</b>
+      <p class="muted" style="font-size:12px; margin:4px 0 10px;">Every editor verification needs this PIN. Keep it secret (4–8 digits).</p>
+      <div class="field"><label>New PIN</label><input id="pinNew" class="pin-input" type="password" inputmode="numeric" maxlength="8"></div>
+      <div class="field"><label>Confirm PIN</label><input id="pinNew2" class="pin-input" type="password" inputmode="numeric" maxlength="8"></div>
+      <button class="btn btn-primary" onclick="setAdminPin(false)">Save PIN</button></div>`}
+
     <h3 style="margin-bottom:10px;">Pending Verification (${pending.length})</h3>
     ${pending.length===0?'<p class="muted">No pending editors.</p>':''}
-    ${pending.map(e=>`
+    ${pending.map(e=>{
+      const ph = String(e.phone || '').replace(/\D/g, '').slice(-10);
+      const wa = `https://wa.me/91${ph}?text=${encodeURIComponent('Hi ' + (e.full_name || '') + ', this is the Sphere team (Syahi Films) calling about your editor verification.')}`;
+      return `
       <div class="card">
-        <b>${esc(e.full_name)}</b> — ${esc(e.email)}<br>
-        <p class="muted" style="font-size:12px;">Category applied: ${(e.categories&&e.categories[0])||'-'} | Skills: ${(e.skills||[]).join(', ')||'-'}</p>
-        <p class="muted" style="font-size:12px;">Sample: ${esc(e.sample_video_url)||'-'}</p>
-        <div class="field" style="margin-top:10px;"><label>Assign Category</label>
+        <div style="display:flex; align-items:center; gap:12px;">
+          ${avatarHtml(toAppUser(e), 'margin:0; width:48px; height:48px;')}
+          <div style="flex:1; min-width:0;"><b>${esc(e.full_name)}</b><p class="muted" style="font-size:12px; word-break:break-all;">${esc(e.email)}</p></div>
+        </div>
+        <div class="vs-call" style="margin:10px 0;"><div class="num" style="font-size:20px;">${ph ? '+91 ' + ph : 'No number'}</div></div>
+        ${ph ? `<div class="btn-row" style="margin-bottom:10px;">
+          <a class="pill-btn primary" href="tel:+91${ph}">${UI_ICONS.phone} Call editor</a>
+          <a class="pill-btn wa" href="${wa}" target="_blank" rel="noopener">WhatsApp</a></div>` : ''}
+        <div class="kv"><span>Category applied</span><b>${esc((e.categories&&e.categories[0])||'-')}</b></div>
+        <div class="kv"><span>Experience</span><b>${e.experience_years ? esc(e.experience_years) + ' yrs' : '-'}</b></div>
+        <div class="kv"><span>Skills</span><b>${esc((e.skills||[]).join(', ')) || '-'}</b></div>
+        <div class="kv"><span>Price</span><b>${e.price_range ? '₹' + esc(e.price_range) : '-'}</b></div>
+        <div class="kv"><span>Sample</span><b>${linkOrText(e.sample_video_url)}</b></div>
+        <div class="kv"><span>Portfolio</span><b>${linkOrText(e.portfolio_url)}</b></div>
+        <div class="field" style="margin-top:12px;"><label>Assign Category</label>
           <select id="assignCat_${e.id}">${CATEGORIES.map(c=>`<option ${c===(e.categories&&e.categories[0])?'selected':''}>${c}</option>`).join('')}</select>
         </div>
-        <button class="btn-sm" style="background:var(--blue); color:#fff;" onclick="verifyEditor('${e.id}')">✔ Verify & Assign Code</button>
-      </div>`).join('')}
+        <div class="field"><label>Admin PIN</label><input id="pin_${e.id}" class="pin-input" type="password" inputmode="numeric" maxlength="8" placeholder="••••"></div>
+        <button class="btn btn-primary" onclick="verifyEditor('${e.id}')">✔ Verify after call</button>
+      </div>`; }).join('')}
     <h3 style="margin:20px 0 10px;">Verified Editors (${verified.length})</h3>
-    ${verified.map(e=>`<div class="card"><b>${esc(e.full_name)}</b> <span class="badge">✔ ${esc(e.verification_code)}</span><p class="muted">${esc((e.categories&&e.categories[0])||'')}</p>
+    ${verified.map(e=>`<div class="card"><b>${esc(e.full_name)}</b> <span class="badge">✔ ${esc(e.verification_code)}</span><p class="muted">${esc((e.categories&&e.categories[0])||'')}${e.verified_at ? ' · verified ' + new Date(e.verified_at).toLocaleDateString() : ''}</p>
       <div class="field" style="margin:10px 0 6px;"><label>Razorpay Route Account ID ${e.razorpay_account_id?'✅':'(pending)'}</label>
         <input id="acc_${e.id}" placeholder="acc_XXXXXXXXXXXX" value="${esc(e.razorpay_account_id)}"></div>
       <button class="btn-sm" onclick="savePayoutAccount('${e.id}')">Save Account</button></div>`).join('')}
@@ -1826,6 +1974,12 @@ SCREENS.admin = async () => {
       <b>${esc(ed ? ed.name : 'Editor')}</b> ko bhejna hai: <b>₹${j.editorAmount || editorShare(j.lockedAmount)}</b>
       <p class="muted" style="font-size:12px;">${esc(j.category)} • ${PAYOUT_LABEL[j.payoutStatus]||esc(j.payoutStatus)}</p>
       <button class="btn-sm" style="margin-top:8px;" onclick="markPaidManually('${j.id}')">✔ Bhej diya — Mark Paid</button></div>`; }).join('')}
+
+    ${pinSet ? `<details class="card"><summary><b>🔐 Change Admin PIN</b></summary>
+      <div class="field" style="margin-top:10px;"><label>Current PIN</label><input id="pinOld" class="pin-input" type="password" inputmode="numeric" maxlength="8"></div>
+      <div class="field"><label>New PIN</label><input id="pinNew" class="pin-input" type="password" inputmode="numeric" maxlength="8"></div>
+      <div class="field"><label>Confirm new PIN</label><input id="pinNew2" class="pin-input" type="password" inputmode="numeric" maxlength="8"></div>
+      <button class="btn btn-outline" onclick="setAdminPin(true)">Update PIN</button></details>` : ''}
 
     <h3 style="margin:20px 0 10px;">⏳ Client Approval Pending (${deliveredJobs.length})</h3>
     ${deliveredJobs.length===0?'<p class="muted">Koi delivered job pending nahi.</p>':''}
@@ -1880,18 +2034,23 @@ async function adminRelease(jobId){
 }
 async function verifyEditor(id){
   const cat = document.getElementById('assignCat_'+id).value;
-  let code = '';
-  for(let i = 0; i < 5; i++){
-    code = 'SF-EDT-' + String(Math.floor(Math.random()*9000+1000));
-    const { data: taken } = await sb.from('profiles').select('id').eq('verification_code', code).maybeSingle();
-    if(!taken) break;
-  }
-  const { error } = await sb.from('profiles').update({
-    is_verified: true, categories:[cat], verification_code: code
-  }).eq('id', id);
+  const pinEl = document.getElementById('pin_'+id);
+  const pin = (pinEl && pinEl.value || '').trim();
+  if(!pin){ alert('Enter your Admin PIN'); return; }
+  const { data: code, error } = await sb.rpc('sp_verify_editor', { p_editor: id, p_category: cat, p_pin: pin });
+  if(error){ alert(error.message); if(pinEl) pinEl.value = ''; return; }
+  alert('Editor verified ✅  Code: ' + code);
+  nav('admin');
+}
+async function setAdminPin(changing){
+  const n1 = (document.getElementById('pinNew').value || '').trim();
+  const n2 = (document.getElementById('pinNew2').value || '').trim();
+  if(!/^\d{4,8}$/.test(n1)){ alert('PIN must be 4–8 digits'); return; }
+  if(n1 !== n2){ alert('PINs do not match'); return; }
+  const old = changing ? (document.getElementById('pinOld').value || '').trim() : null;
+  const { error } = await sb.rpc('sp_set_admin_pin', { p_new: n1, p_old: old });
   if(error){ alert(error.message); return; }
-  await notify(id, 'Congratulations! Aap Verified ho ✅', `Aapka code: ${code} • Category: ${cat}. Ab aap jobs pe bid kar sakte ho.`);
-  alert('Editor verified with code: '+code);
+  alert('Admin PIN saved ✅');
   nav('admin');
 }
 
