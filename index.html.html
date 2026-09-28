@@ -261,6 +261,8 @@ async function fetchAndSetCurrentUser(){
     ({ data: profile } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle());
   }
   if(profile && !profile.role) profile = null;  // role abhi chuna nahi -> chooseRole screen
+  // Onboarding adhoora (role/number kabhi confirm nahi kiya) -> Client/Editor + number wali screen dikhao
+  if(profile && String(profile.role).toUpperCase() !== 'ADMIN' && !cleanIndianPhone(profile.phone)) profile = null;
   currentUser = toAppUser(profile);
   return currentUser;
 }
@@ -560,7 +562,11 @@ async function confirmGoogleRole(){
   }, { onConflict: 'id' });
   if(error){ alert(error.message); return; }
   await fetchAndSetCurrentUser();
-  if(googleSelectedRole==='editor'){ nav('editorDetails'); } else { nav('home'); }
+  if(!currentUser){ alert('Profile save nahi hui. Dobara try karo.'); return; }
+  if(currentUser.role !== googleSelectedRole){
+    alert('Aapka account pehle se ' + (currentUser.role === 'editor' ? 'Editor' : 'Client') + ' hai. Role badalna ho toh Support se baat karo.');
+  }
+  if(currentUser.role==='editor'){ nav('editorDetails'); } else { nav('home'); }
 }
 
 SCREENS.addPhone = () => `
