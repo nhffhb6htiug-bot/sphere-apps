@@ -158,6 +158,21 @@ h1,h2,h3{color:var(--text);}
 .pill-btn.primary{background:var(--blue); border-color:var(--blue); color:#fff;} .pill-btn.wa{background:#25D366; border-color:#25D366; color:#fff;}
 .pill-btn svg{width:16px; height:16px;}
 .pin-input{letter-spacing:6px; font-weight:700; text-align:center;}
+.adm-head{display:flex; align-items:center; gap:10px;}
+.adm-title{flex:1; min-width:0;} .adm-title b{font-size:15px;} .adm-title small{display:block; color:var(--muted); font-size:12px; margin-top:2px;}
+.icon-act{width:34px; height:34px; flex:0 0 34px; border-radius:10px; border:1px solid var(--border); background:#fff; color:#4b5563; display:flex; align-items:center; justify-content:center; cursor:pointer;}
+.icon-act svg{width:18px; height:18px;} .icon-act.danger{color:#c62828; border-color:#f3c7c7; background:#fff6f6;}
+.adm-body{margin-top:12px;} .card.collapsed .adm-body{display:none;}
+.unv-box{margin-top:12px; padding:12px; border-radius:12px; background:#fff6f6; border:1px solid #f3c7c7;}
+.search-row{display:flex; align-items:center; gap:8px; background:#fff; border:1px solid var(--border); border-radius:14px; padding:10px 12px; margin-bottom:14px;}
+.search-row svg{width:18px; height:18px; color:var(--muted); flex:0 0 18px;} .search-row input{border:none; outline:none; flex:1; font-size:14px; background:transparent;}
+.raw-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:8px;}
+.raw-tile{position:relative; aspect-ratio:1/1; border-radius:12px; overflow:hidden; background:#111; display:flex; align-items:center; justify-content:center; color:#fff; text-decoration:none; font-size:11px;}
+.raw-tile img{width:100%; height:100%; object-fit:cover;}
+.raw-tile .rt-name{position:absolute; left:0; right:0; bottom:0; padding:4px 6px; background:linear-gradient(transparent,rgba(0,0,0,.8)); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.raw-tile .rt-play{font-size:22px;}
+.raw-del{position:absolute; top:4px; right:4px; width:22px; height:22px; border-radius:50%; border:none; background:rgba(0,0,0,.65); color:#fff; font-size:11px; cursor:pointer;}
+.badge.expired{background:#9aa0a6;}
 .badge{display:inline-block; background:var(--blue); color:#fff; font-size:10px; font-weight:700; padding:3px 8px; border-radius:20px; margin-left:6px;}
 .pill{display:inline-block; background:#fff; border:1px solid var(--border); padding:5px 12px; border-radius:20px; font-size:12px; margin:3px 4px 3px 0; cursor:pointer;}
 .pill.active{background:var(--blue); color:#fff; border-color:var(--blue);}
@@ -321,6 +336,51 @@ const CAT_ICON = {"Vlog Editing":"data:image/webp;base64,UklGRvgRAABXRUJQVlA4IOw
 
 /* ============ DATA HELPERS (Supabase) ============ */
 function getCurrentUser(){ return currentUser; }
+// India ki aaj ki date (YYYY-MM-DD) — deadline isi se check hoti hai
+function todayIST(){ return new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10); }
+function fmtDate(d){
+  if(!d) return '-';
+  const dt = new Date(String(d).slice(0, 10) + 'T00:00:00');
+  return isNaN(dt) ? esc(d) : dt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+function isExpired(j){ return !!(j && j.status === 'open' && j.deadline && String(j.deadline).slice(0, 10) < todayIST()); }
+function notExpiredFilter(){ return 'deadline.is.null,deadline.gte.' + todayIST(); }
+const RAW_BUCKET = 'sphere-raw';
+const MAX_RAW_FILES = 5, MAX_RAW_MB = 50;
+function rawUrl(path){ return path ? sb.storage.from(RAW_BUCKET).getPublicUrl(path).data.publicUrl : ''; }
+async function uploadRawFiles(fileList, statusEl){
+  const files = Array.from(fileList || []);
+  for(const f of files){
+    if(!/^(image|video)\//.test(f.type)) throw new Error(`"${f.name}" is not a photo or video`);
+    if(f.size > MAX_RAW_MB * 1024 * 1024) throw new Error(`"${f.name}" is bigger than ${MAX_RAW_MB} MB. Share big videos as a Google Drive / WeTransfer link.`);
+  }
+  const out = [];
+  for(let i = 0; i < files.length; i++){
+    const f = files[i];
+    if(statusEl) statusEl.textContent = `Uploading ${i + 1} of ${files.length}: ${f.name}…`;
+    const ext = (f.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'bin';
+    const path = `${currentUser.id}/raw/${Date.now()}_${i}.${ext}`;
+    const { error } = await sb.storage.from(RAW_BUCKET).upload(path, f, { contentType: f.type, upsert: false });
+    if(error){
+      if(out.length) await sb.storage.from(RAW_BUCKET).remove(out.map(x => x.path));
+      throw error;
+    }
+    out.push({ path, name: f.name.slice(0, 80), type: f.type, size: f.size });
+  }
+  if(statusEl) statusEl.textContent = '';
+  return out;
+}
+function renderRawFiles(files, opts){
+  opts = opts || {};
+  if(!files || !files.length) return '';
+  return `<div class="raw-grid">${files.map((f, i) => {
+    const url = rawUrl(f.path);
+    const del = opts.removable ? `<button class="raw-del" onclick="event.preventDefault(); event.stopPropagation(); removeRawFile('${opts.jobId}', ${i})">✕</button>` : '';
+    return String(f.type || '').startsWith('image/')
+      ? `<a class="raw-tile" href="${esc(url)}" target="_blank" rel="noopener">${del}<img src="${esc(url)}" alt="" loading="lazy"><span class="rt-name">${esc(f.name)}</span></a>`
+      : `<a class="raw-tile" href="${esc(url)}" target="_blank" rel="noopener">${del}<span class="rt-play">▶</span><span class="rt-name">${esc(f.name)}</span></a>`;
+  }).join('')}</div>`;
+}
 const UI_ICONS = {
   jobs: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg>',
   bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
@@ -334,6 +394,11 @@ const UI_ICONS = {
   check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
   phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>',
   clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',
+  minus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  userx: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="m17 8 5 5M22 8l-5 5"/></svg>',
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>',
+  upload: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg>',
   camera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></svg>'
 };
 function menuItem(icon, label, onclick, opts){
@@ -380,10 +445,10 @@ const SUPPORT = {
 const POLICY_LINKS = `<div class="policy-links">
   <a href="/terms.html" target="_blank">Terms</a>•<a href="/privacy.html" target="_blank">Privacy</a>•<a href="/refund.html" target="_blank">Refund</a>•<a href="/contact.html" target="_blank">Contact</a></div>`;
 function supportCard(){
-  const wa = `https://wa.me/${SUPPORT.whatsapp}?text=${encodeURIComponent('Hi Sphere Support, mujhe help chahiye:')}`;
+  const wa = `https://wa.me/${SUPPORT.whatsapp}?text=${encodeURIComponent('Hi Sphere Support, I need help with:')}`;
   return `<div class="card support-card">
     <b>🆘 Sphere Support</b>
-    <p class="muted" style="font-size:12px; margin-top:4px;">Payment, delivery ya kisi user se dikkat? Hume call ya WhatsApp karo — hum sort karenge. (${SUPPORT.hours})</p>
+    <p class="muted" style="font-size:12px; margin-top:4px;">Problem with a payment, a delivery or another user? Call or WhatsApp us — we will sort it out. (${SUPPORT.hours})</p>
     <div class="support-actions">
       ${SUPPORT.phones.map(ph => `<a href="tel:+91${ph}">📞 ${ph}</a>`).join('')}
       <a class="wa" href="${wa}" target="_blank" rel="noopener">💬 WhatsApp</a>
@@ -403,7 +468,7 @@ function loadImageFile(file){
     const url = URL.createObjectURL(file);
     const im = new Image();
     im.onload = () => { URL.revokeObjectURL(url); resolve(im); };
-    im.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Ye photo khul nahi payi. JPG ya PNG try karo.')); };
+    im.onerror = () => { URL.revokeObjectURL(url); reject(new Error('This photo could not be opened. Try a JPG or PNG.')); };
     im.src = url;
   });
 }
@@ -414,12 +479,12 @@ async function compressImage(file, maxDim, quality){
   const w = Math.round(im.naturalWidth * scale), h = Math.round(im.naturalHeight * scale);
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); ctx.drawImage(im, 0, 0, w, h);
-  return await new Promise((resolve, reject) => c.toBlob(b => b ? resolve(b) : reject(new Error('Photo process nahi hui')), 'image/jpeg', quality || 0.82));
+  return await new Promise((resolve, reject) => c.toBlob(b => b ? resolve(b) : reject(new Error('Could not process the photo')), 'image/jpeg', quality || 0.82));
 }
 async function uploadImage(file, folder, maxDim){
-  if(!file) throw new Error('Pehle photo chuno');
-  if(!file.type.startsWith('image/')) throw new Error('Sirf photo upload ho sakti hai (JPG/PNG). Video ke liye YouTube/Drive link do.');
-  if(file.size > 25 * 1024 * 1024) throw new Error('Photo 25 MB se badi hai');
+  if(!file) throw new Error('Choose a photo first');
+  if(!file.type.startsWith('image/')) throw new Error('Only photos can be uploaded here (JPG/PNG). For videos, add a YouTube or Drive link.');
+  if(file.size > 25 * 1024 * 1024) throw new Error('Photo is larger than 25 MB');
   const blob = await compressImage(file, maxDim || 1280);
   const path = `${currentUser.id}/${folder}/${Date.now()}.jpg`;
   const { error } = await sb.storage.from(MEDIA_BUCKET).upload(path, blob, { contentType: 'image/jpeg', upsert: false });
@@ -432,9 +497,9 @@ async function removeMedia(path){
 const PLATFORM_FEE_PERCENT = 5;  // Syahi Films commission (server pe bhi same)
 function editorShare(amount){ return Math.round(Number(amount || 0) * (100 - PLATFORM_FEE_PERCENT)) / 100; }
 const PAYOUT_LABEL = {
-  awaiting: '⏳ Payment ka wait', held: '🔒 Escrow me safe (approve pe release hoga)',
-  released: '✅ Editor ko release ho gaya', manual: '🧾 Syahi Films manually bhejega',
-  failed: '⚠️ Release me dikkat — Admin dekhega', 'paid-manually': '✅ Editor ko bhej diya gaya'
+  awaiting: '⏳ Waiting for payment', held: '🔒 Safe in escrow (released when the client approves)',
+  released: '✅ Released to the editor', manual: '🧾 Syahi Films will pay manually',
+  failed: '⚠️ Release issue — the admin will check', 'paid-manually': '✅ Paid to the editor'
 };
 function isClientRole(u){ return !!u && (u.role === 'client' || u.role === 'admin'); }
 function onlyDigits(el){ el.value = el.value.replace(/\D/g, '').slice(0, 10); }
@@ -447,15 +512,15 @@ function cleanIndianPhone(raw){
   if(['6789012345', '7890123456', '8901234567', '9012345678', '9876543210'].includes(d)) return null;
   return '+91' + d;
 }
-function phoneField(id, value){
+function phoneField(id, value, label){
   const digits = String(value || '').replace(/\D/g, '').slice(-10);
-  return `<div class="field"><label>Mobile Number</label>
+  return `<div class="field"><label>${label || 'Mobile Number'}</label>
     <div class="phone-wrap"><span class="phone-prefix">+91</span>
     <input id="${id}" type="tel" inputmode="numeric" maxlength="10" placeholder="98XXXXXXXX" value="${esc(digits)}" oninput="onlyDigits(this)"></div></div>`;
 }
 function readPhone(id){
   const phone = cleanIndianPhone(document.getElementById(id).value);
-  if(!phone){ alert('Number is not correct ❌\n\nSahi 10 digit mobile number daalo (6, 7, 8 ya 9 se shuru hona chahiye).'); }
+  if(!phone){ alert('Number is not correct ❌\n\nEnter a valid 10-digit mobile number (it starts with 6, 7, 8 or 9).'); }
   return phone;
 }
 function dbErr(error){
@@ -476,6 +541,7 @@ function mapJob(r){
     assignedEditor: r.assigned_editor, proposedAmount: r.proposed_amount, proposedBy: r.proposed_by,
     lockedAmount: r.locked_amount, payment: r.payment_status, deliveryLink: r.delivery_link,
     editorAmount: r.editor_amount, platformFee: r.platform_fee, payoutStatus: r.payout_status,
+    rawFiles: Array.isArray(r.raw_files) ? r.raw_files : [],
     createdAt: r.created_at
   };
 }
@@ -628,7 +694,7 @@ SCREENS.authLanding = () => `
 SCREENS.chooseRole = () => `
   <div class="screen">
     <h2>Welcome!</h2>
-    <p class="muted" style="margin-bottom:20px;">Aap Sphere kis role me use karenge?</p>
+    <p class="muted" style="margin-bottom:20px;">How do you want to use Sphere?</p>
     <div class="field">
       <span class="pill active" id="grClient" onclick="selectGoogleRole('client')">Client</span>
       <span class="pill" id="grEditor" onclick="selectGoogleRole('editor')">Editor</span>
@@ -652,9 +718,9 @@ async function confirmGoogleRole(){
   }, { onConflict: 'id' });
   if(error){ alert(error.message); return; }
   await fetchAndSetCurrentUser();
-  if(!currentUser){ alert('Profile save nahi hui. Dobara try karo.'); return; }
+  if(!currentUser){ alert('Could not save your profile. Please try again.'); return; }
   if(currentUser.role !== googleSelectedRole){
-    alert('Aapka account pehle se ' + (currentUser.role === 'editor' ? 'Editor' : 'Client') + ' hai. Role badalna ho toh Support se baat karo.');
+    alert('Your account is already set up as ' + (currentUser.role === 'editor' ? 'Editor' : 'Client') + '. To change your role, contact Support.');
   }
   if(currentUser.role==='editor'){ nav('editorDetails'); } else { nav('home'); }
 }
@@ -662,7 +728,7 @@ async function confirmGoogleRole(){
 SCREENS.addPhone = () => `
   <div class="screen">
     <h2>Mobile Number</h2>
-    <p class="muted" style="margin-bottom:20px;">Aage badhne ke liye apna sahi mobile number daalo.</p>
+    <p class="muted" style="margin-bottom:20px;">Enter your mobile number to continue.</p>
     ${phoneField('apPhone', currentUser ? currentUser.phone : '')}
     <button class="btn btn-primary" onclick="saveMissingPhone()">Continue</button>
   </div>`;
@@ -682,43 +748,43 @@ SCREENS.login = () => `
     <p class="muted" style="margin-bottom:20px;">Login to continue</p>
     <div class="field"><label>Email</label><input id="loginEmail" placeholder="example@email.com"></div>
     <div class="field"><label>Password</label><input id="loginPass" type="password" placeholder="••••••••"></div>
-    <p style="text-align:right; margin:-6px 0 14px;"><span class="link" style="font-size:13px;" onclick="forgotPassword()">Password bhool gaye?</span></p>
+    <p style="text-align:right; margin:-6px 0 14px;"><span class="link" style="font-size:13px;" onclick="forgotPassword()">Forgot password?</span></p>
     <button class="btn btn-primary" onclick="doLogin()">Log In</button>
     <p class="center-text muted" style="margin-top:16px;">Don't have an account? <span class="link" onclick="nav('signup')">Sign Up</span></p>
   </div>`;
 
 function friendlyAuthError(error){
   const m = String(error && error.message || '').toLowerCase();
-  if(m.includes('invalid login')) return 'Email ya password galat hai. Password yaad nahi? "Password bhool gaye?" dabao.';
-  if(m.includes('email not confirmed')) return 'Pehle email confirm karo — Gmail me Sphere/Supabase ka mail dekho (Spam folder bhi). Link pe tap karke phir login karo.';
-  if(m.includes('already registered')) return 'Is email se account pehle se bana hua hai. Log In karo.';
-  if(m.includes('rate limit') || m.includes('too many')) return 'Bahut zyada koshish ho gayi. 1 ghante baad try karo.';
-  if(m.includes('password should be')) return 'Password kam se kam 6 akshar ka rakho.';
+  if(m.includes('invalid login')) return 'Wrong email or password. Forgot it? Tap "Forgot password?".';
+  if(m.includes('email not confirmed')) return 'Please confirm your email first — open the link we emailed you (check Spam too), then log in.';
+  if(m.includes('already registered')) return 'An account with this email already exists. Please log in.';
+  if(m.includes('rate limit') || m.includes('too many')) return 'Too many attempts. Please try again in an hour.';
+  if(m.includes('password should be')) return 'Password must be at least 6 characters.';
   return error.message;
 }
 async function forgotPassword(){
   let email = (document.getElementById('loginEmail').value || '').trim();
-  if(!email) email = (prompt('Apna email daalo:') || '').trim();
+  if(!email) email = (prompt('Enter your email:') || '').trim();
   if(!email) return;
   const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
   if(error){ alert(friendlyAuthError(error)); return; }
-  alert('✉️ Password reset ka link ' + email + ' pe bhej diya. Mail me link pe tap karo (Spam folder bhi dekho).');
+  alert('✉️ We sent a password reset link to ' + email + '. Tap the link in the email (check Spam too).');
 }
 SCREENS.resetPassword = () => `
   <div class="screen">
-    <h2>Naya Password</h2>
-    <p class="muted" style="margin-bottom:20px;">Apna naya password set karo</p>
-    <div class="field"><label>Naya password</label><input id="npPass" type="password" placeholder="Kam se kam 6 akshar"></div>
-    <div class="field"><label>Dobara likho</label><input id="npPass2" type="password"></div>
+    <h2>New Password</h2>
+    <p class="muted" style="margin-bottom:20px;">Set your new password</p>
+    <div class="field"><label>New password</label><input id="npPass" type="password" placeholder="At least 6 characters"></div>
+    <div class="field"><label>Confirm password</label><input id="npPass2" type="password"></div>
     <button class="btn btn-primary" onclick="saveNewPassword()">Save Password</button>
   </div>`;
 async function saveNewPassword(){
   const a = document.getElementById('npPass').value, b = document.getElementById('npPass2').value;
-  if(a.length < 6){ alert('Password kam se kam 6 akshar ka rakho'); return; }
-  if(a !== b){ alert('Dono password same nahi hain'); return; }
+  if(a.length < 6){ alert('Password must be at least 6 characters'); return; }
+  if(a !== b){ alert('Passwords do not match'); return; }
   const { error } = await sb.auth.updateUser({ password: a });
   if(error){ alert(friendlyAuthError(error)); return; }
-  alert('Password badal gaya ✅');
+  alert('Password updated ✅');
   IS_RECOVERY = false;
   const user = await fetchAndSetCurrentUser();
   nav(user ? (user.role==='admin' ? 'admin' : 'home') : 'authLanding');
@@ -726,7 +792,7 @@ async function saveNewPassword(){
 async function doLogin(){
   const email = document.getElementById('loginEmail').value.trim();
   const pass = document.getElementById('loginPass').value.trim();
-  if(!email||!pass){ alert('Email aur password daalo'); return; }
+  if(!email||!pass){ alert('Enter your email and password'); return; }
   const { error } = await sb.auth.signInWithPassword({ email, password: pass });
   if(error){ alert(friendlyAuthError(error)); return; }
   const user = await fetchAndSetCurrentUser();
@@ -769,7 +835,7 @@ async function doSignup(){
   if(!name||!email||!pass){ alert('Please fill all fields'); return; }
   const phone = readPhone('suPhone');
   if(!phone) return;
-  if(pass.length < 6){ alert('Password kam se kam 6 characters ka ho'); return; }
+  if(pass.length < 6){ alert('Password must be at least 6 characters'); return; }
   const { data, error } = await sb.auth.signUp({
     email, password: pass,
     options: { data: { full_name: name, role: selectedRole.toUpperCase(), phone }, emailRedirectTo: window.location.origin }
@@ -782,12 +848,12 @@ async function doSignup(){
     return;
   }
   if(!data.session){
-    alert('Account ban gaya! ✉️ Aapke email pe confirmation link gaya hai. Link pe click karo, phir yahan login karo.');
+    alert('Account created! ✉️ We sent a confirmation link to your email. Open it, then log in here.');
     nav('login');
     return;
   }
   await fetchAndSetCurrentUser();
-  if(!currentUser){ alert('Profile banane me dikkat aayi. Dobara login karke dekho.'); nav('login'); return; }
+  if(!currentUser){ alert('Could not create your profile. Please log in again.'); nav('login'); return; }
   if(selectedRole==='editor'){ nav('editorDetails'); } else { nav('home'); }
 }
 
@@ -797,6 +863,7 @@ SCREENS.editorDetails = () => {
   <div class="screen">
     <h2>Editor Application</h2>
     <p class="muted" style="margin-bottom:16px;">Tell us about your work. Our team will call you to verify your profile.</p>
+    ${phoneField('edPhone', u.phone, 'Mobile number (our team will call you on this)')}
     <div class="field"><label>Category</label>
       <select id="edCat">${CATEGORIES.map(c=>`<option ${c===u.category?'selected':''}>${c}</option>`).join('')}</select>
     </div>
@@ -809,6 +876,8 @@ SCREENS.editorDetails = () => {
   </div>`;
 };
 async function saveEditorDetails(){
+  const phone = readPhone('edPhone');
+  if(!phone) return;
   const cat = document.getElementById('edCat').value;
   const skills = document.getElementById('edSkills').value;
   const exp = document.getElementById('edExp').value;
@@ -821,6 +890,7 @@ async function saveEditorDetails(){
     price_range: price,
     sample_video_url: sample,
     portfolio_url: document.getElementById('edPortfolio').value.trim() || null,
+    phone,
     is_verified: false
   }).eq('id', currentUser.id);
   if(error){ alert(error.message); return; }
@@ -839,7 +909,7 @@ SCREENS.home = () => {
 
 async function editorHomeScreen(user){
   const [openRes, negRes] = await Promise.all([
-    sb.from('sp_jobs').select('*').eq('status', 'open').eq('category', user.category || '').neq('client_id', user.id).order('created_at', { ascending: false }),
+    sb.from('sp_jobs').select('*').eq('status', 'open').eq('category', user.category || '').neq('client_id', user.id).or(notExpiredFilter()).order('created_at', { ascending: false }),
     sb.from('sp_jobs').select('*').eq('status', 'negotiating').eq('assigned_editor', user.id).order('created_at', { ascending: false })
   ]);
   if(openRes.error) console.error(openRes.error);
@@ -869,7 +939,7 @@ async function editorHomeScreen(user){
       <div class="card" onclick="currentJobId='${j.id}'; nav('jobBidScreen')">
         <b>${j.category}</b>
         <p class="muted" style="font-size:13px; margin:6px 0;">${esc(j.desc).slice(0,70)}...</p>
-        <p>Budget: <b>₹${j.budget}</b> ${j.deadline?`• Due ${j.deadline}`:''}</p>
+        <p>Budget: <b>₹${j.budget}</b> ${j.deadline?`• Due ${fmtDate(j.deadline)}`:''}</p>
       </div>`).join('')}
 
     ${negotiating.length>0?`
@@ -925,25 +995,25 @@ function clientHomeScreen(user){
 };
 
 const FAQ = [
-  { q: 'Payment kaise hota hai?', a: 'Client pehle app me payment karta hai. Paisa tab tak hold rehta hai jab tak editor video deliver na kare aur client approve na kare. Approve hone ke baad Syahi Films editor ko payment release karta hai.' },
-  { q: 'Verified editor kya hota hai?', a: 'Syahi Films har editor ka sample video khud check karta hai. Pass hone par editor ko ek unique code (jaise SF-EDT-123) aur ✔ Verified badge milta hai.' },
-  { q: 'Editor kaise chunein?', a: 'Post Job karo — us category ke verified editors bid bhejenge, aap unki profile aur price dekh kar select karo. Ya kisi editor ki profile se seedha "Hire Now" dabao.' },
-  { q: 'Raw footage kaise bhejein?', a: 'Google Drive ya WeTransfer par files upload karo aur uska link Post Job me daalo. Aapke saare project files Vault me ek jagah dikhenge.' },
-  { q: 'Editor kaise banu?', a: 'Sign Up karte waqt "Editor" chuno, apni details aur sample video ka link bharo. Syahi Films verify karega, uske baad aap jobs pe bid kar paoge.' }
+  { q: 'How does payment work?', a: 'The client pays inside the app. The money stays in escrow until the editor delivers and the client approves. After approval, the editor gets paid.' },
+  { q: 'What is a verified editor?', a: 'The Sphere team checks every editor on a call and reviews their sample work. Approved editors get a unique code (like SF-EDT-1234) and a ✔ Verified badge.' },
+  { q: 'How do I choose an editor?', a: 'Post a job — verified editors in that category send bids. Compare their profiles and prices, then select one. Or tap "Hire Now" on any editor profile.' },
+  { q: 'How do I send raw footage?', a: 'Attach photos or short videos (up to 50 MB each) when posting a job, or add a Google Drive / WeTransfer link for bigger files. All your project files appear in the Vault.' },
+  { q: 'How do I become an editor?', a: 'Tap "Become an Editor" in your Profile (or pick Editor at sign-up), fill in your details and sample link. Our team will call you to verify.' }
 ];
 
 SCREENS.sphereAI = () => `
-  <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Smart Match</h1><p>Apne kaam ke liye sahi editor dhoondo</p></div>
+  <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Smart Match</h1><p>Find the right editor for your project</p></div>
   <div class="screen" style="padding-top:0;">
     <div class="card">
-      <div class="field"><label>Kaisa video edit karwana hai?</label>
+      <div class="field"><label>What kind of video do you need edited?</label>
         <select id="smCat">${CATEGORIES.map(c=>`<option>${c}</option>`).join('')}</select></div>
-      <div class="field"><label>Aapka budget (₹ per video)</label>
+      <div class="field"><label>Your budget (₹ per video)</label>
         <input id="smBudget" type="number" inputmode="numeric" placeholder="1000"></div>
-      <button class="btn btn-primary" onclick="runSmartMatch()">Best Editors Dikhao</button>
+      <button class="btn btn-primary" onclick="runSmartMatch()">Show best editors</button>
     </div>
     <div id="smResults"></div>
-    <h3 style="margin:20px 0 10px;">Aksar pooche jaane wale sawaal</h3>
+    <h3 style="margin:20px 0 10px;">Frequently asked questions</h3>
     ${FAQ.map(f=>`<details class="card"><summary><b>${f.q}</b></summary><p class="muted" style="margin-top:8px;">${f.a}</p></details>`).join('')}
   </div>`;
 
@@ -952,7 +1022,7 @@ async function runSmartMatch(){
   const cat = document.getElementById('smCat').value;
   const budget = Number(document.getElementById('smBudget').value) || 0;
   const box = document.getElementById('smResults');
-  box.innerHTML = '<p class="muted center-text" style="margin:14px 0;">Dhoondh rahe hain…</p>';
+  box.innerHTML = '<p class="muted center-text" style="margin:14px 0;">Searching…</p>';
   const editors = (await getVerifiedEditors()).filter(e => e.category === cat);
   const score = e => (e.rating || 0) * 2 + Math.min(Number(e.experience) || 0, 10) * 0.3 + (e.reviews || 0) * 0.05;
   let list = budget ? editors.filter(e => editorPrice(e) && editorPrice(e) <= budget) : editors.slice();
@@ -960,10 +1030,10 @@ async function runSmartMatch(){
   let note = '';
   if(list.length === 0 && editors.length > 0){
     list = editors.slice().sort((a, b) => editorPrice(a) - editorPrice(b)).slice(0, 4);
-    note = `<p class="muted" style="margin:12px 0;">₹${budget} me koi editor nahi mila. Ye sabse kam price wale editors hain:</p>`;
+    note = `<p class="muted" style="margin:12px 0;">No editors within ₹${budget}. Here are the most affordable ones:</p>`;
   }
   if(list.length === 0){
-    box.innerHTML = `<p class="muted" style="margin:14px 0;">${esc(cat)} me abhi koi verified editor nahi hai. Job post kar do — naye editors apply karenge.</p>
+    box.innerHTML = `<p class="muted" style="margin:14px 0;">No verified editors in ${esc(cat)} yet. Post a job — new editors will apply.</p>
       <button class="btn btn-outline" onclick="nav('postJob')">+ Post Job</button>`;
     return;
   }
@@ -978,11 +1048,11 @@ SCREENS.savedList = async () => {
   const map = await getProfilesByIds(ids);
   const list = ids.map(id => map[id]).filter(Boolean);
   return `
-  <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Saved Editors</h1><p>Aapke pasand ke editors</p></div>
+  <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Saved Editors</h1><p>Editors you saved</p></div>
   <div class="screen" style="padding-top:0;">
     ${list.length===0
-      ? `<p class="muted">Abhi koi editor save nahi kiya. Kisi editor ki profile pe <b>🤍 Save Editor</b> dabao.</p>
-         <button class="btn btn-outline" style="margin-top:12px;" onclick="nav('allEditors')">Editors dekho</button>`
+      ? `<p class="muted">You have not saved any editors yet. Tap <b>🤍 Save Editor</b> on an editor's profile.</p>
+         <button class="btn btn-outline" style="margin-top:12px;" onclick="nav('allEditors')">Browse editors</button>`
       : `<div class="grid2">${renderEditorCards(list)}</div>`}
   </div>`;
 };
@@ -1012,18 +1082,19 @@ SCREENS.vaultScreen = async () => {
   const col = isClientRole(user) ? 'client_id' : 'assigned_editor';
   const { data, error } = await sb.from('sp_jobs').select('*').eq(col, user.id).order('created_at', { ascending: false });
   if(error) console.error(error);
-  const jobs = (data || []).map(mapJob).filter(j => j.files || j.deliveryLink);
+  const jobs = (data || []).map(mapJob).filter(j => j.files || j.deliveryLink || j.rawFiles.length);
   return `
-  <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Vault</h1><p>Aapke saare project files ek jagah</p></div>
+  <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Vault</h1><p>All your project files in one place</p></div>
   <div class="screen" style="padding-top:0;">
-    ${jobs.length===0?'<p class="muted">Abhi koi file nahi hai. Job ke raw files ka link aur editor ki final delivery yahan dikhegi.</p>':''}
+    ${jobs.length===0?'<p class="muted">No files yet. Raw files and final videos from your jobs will show up here.</p>':''}
     ${jobs.map(j=>`
       <div class="card">
         <b>${esc(j.category)}</b> <span class="badge" style="background:var(--blue);">${esc(j.status)}</span>
         <p class="muted" style="font-size:12px; margin:4px 0 8px;">${esc(j.desc).slice(0,60)}</p>
         ${j.files?`<p style="font-size:13px;">📂 Raw files: ${linkOrText(j.files)}</p>`:''}
+        ${j.rawFiles.length ? renderRawFiles(j.rawFiles) : ''}
         ${j.deliveryLink?`<p style="font-size:13px; margin-top:4px;">🎬 Final video: ${linkOrText(j.deliveryLink)}</p>`:''}
-        <button class="btn-sm" style="margin-top:10px;" onclick="openJob('${j.id}')">Project kholo</button>
+        <button class="btn-sm" style="margin-top:10px;" onclick="openJob('${j.id}')">Open project</button>
       </div>`).join('')}
   </div>`;
 };
@@ -1063,7 +1134,7 @@ function renderPortfolio(e, items, editable){
       <div class="play-ic">▶</div><div class="pf-title">${l.title}</div></a>`);
   });
   const head = `<div class="section-title" style="padding:0; margin-top:16px;"><h3>Portfolio</h3></div>`;
-  if(tiles.length === 0) return head + `<p class="muted">Abhi portfolio me kuch nahi hai.</p>`;
+  if(tiles.length === 0) return head + `<p class="muted">No portfolio items yet.</p>`;
   return head + `<div class="portfolio-grid">${tiles.join('')}</div>`;
 }
 function renderEditorCards(list){
@@ -1158,9 +1229,13 @@ SCREENS.postJob = (data) => `
     <div class="field"><label>Category</label><select id="jobCat">${CATEGORIES.map(c=>`<option>${c}</option>`).join('')}</select></div>
     <div class="field"><label>Project Details</label><textarea id="jobDesc" placeholder="Describe your project..."></textarea></div>
     <div class="field"><label>Budget (₹)</label><input id="jobBudget" type="number" placeholder="1500"></div>
-    <div class="field"><label>Deadline</label><input id="jobDeadline" type="date"></div>
-    <div class="field"><label>Raw File Link</label><input id="jobFiles" placeholder="Google Drive / WeTransfer link"></div>
-    <button class="btn btn-primary" onclick="submitJob('${data&&data.presetEditor?data.presetEditor:''}')">Post Job</button>
+    <div class="field"><label>Deadline</label><input id="jobDeadline" type="date" min="${todayIST()}"></div>
+    <div class="field"><label>Raw footage & photos (optional)</label>
+      <input id="jobRawFiles" type="file" accept="image/*,video/*" multiple>
+      <p class="muted" style="font-size:11px; margin-top:6px;">Up to ${MAX_RAW_FILES} files, ${MAX_RAW_MB} MB each. Bigger videos? Add a link below.</p></div>
+    <div class="field"><label>Raw files link (optional)</label><input id="jobFiles" placeholder="Google Drive / WeTransfer link"></div>
+    <p class="muted" id="jobUploadStatus" style="font-size:12px; margin-bottom:8px;"></p>
+    <button class="btn btn-primary" id="jobPostBtn" onclick="submitJob('${data&&data.presetEditor?data.presetEditor:''}')">Post Job</button>
   </div>`;
 async function submitJob(presetEditor){
   const user = getCurrentUser();
@@ -1170,13 +1245,22 @@ async function submitJob(presetEditor){
   const budget = document.getElementById('jobBudget').value.trim();
   const deadline = document.getElementById('jobDeadline').value;
   const files = document.getElementById('jobFiles').value.trim();
-  if(!desc||!budget){ alert('Fill required fields'); return; }
+  if(!desc||!budget){ alert('Please fill in the project details and budget'); return; }
+  if(deadline && deadline < todayIST()){ alert('Deadline cannot be in the past'); return; }
+  const picked = document.getElementById('jobRawFiles').files;
+  if(picked.length > MAX_RAW_FILES){ alert(`You can attach up to ${MAX_RAW_FILES} files`); return; }
+  const btn = document.getElementById('jobPostBtn'); const st = document.getElementById('jobUploadStatus');
+  btn.disabled = true;
+  let raw = [];
+  try { raw = await uploadRawFiles(picked, st); }
+  catch(e){ btn.disabled = false; st.textContent = ''; alert('Upload failed: ' + (e.message || e)); return; }
   const { error } = await sb.from('sp_jobs').insert({
     client_id: user.id, category: cat, description: desc, budget: Number(budget),
-    deadline: deadline || null, files_link: files || null,
+    deadline: deadline || null, files_link: files || null, raw_files: raw,
     status: presetEditor ? 'negotiating' : 'open', assigned_editor: presetEditor || null
   });
-  if(dbErr(error)) return;
+  btn.disabled = false;
+  if(error){ if(raw.length) await sb.storage.from(RAW_BUCKET).remove(raw.map(x => x.path)); dbErr(error); return; }
   if(presetEditor){
     await notify(presetEditor, 'You were hired directly!', `${user.name} hired you for a ${cat} project. Propose your price.`);
   } else {
@@ -1196,21 +1280,23 @@ SCREENS.jobBidScreen = async () => {
   <div class="screen" style="padding-top:0;">
     <div class="card">
       <p><b>Budget (client's estimate):</b> ₹${job.budget}</p>
-      <p><b>Deadline:</b> ${job.deadline||'-'}</p>
+      <p><b>Deadline:</b> ${fmtDate(job.deadline)}</p>
       <p style="margin-top:6px;"><b>Details:</b> ${esc(job.desc)}</p>
       ${job.files?`<p class="muted" style="margin-top:6px;">Raw files: ${linkOrText(job.files)}</p>`:''}
+      ${job.rawFiles.length ? `<p class="muted" style="margin-top:6px;">📎 ${job.rawFiles.length} file(s) attached — you get access once the client selects you.</p>` : ''}
     </div>
+    ${isExpired(job) ? `<p class="muted center-text" style="margin:20px 0;">This job expired on ${fmtDate(job.deadline)}. Bidding is closed.</p>` : `
     <div class="field"><label>Your Bid Amount (₹)</label><input id="bidAmount" type="number" placeholder="${job.budget}"></div>
     <div class="field"><label>Message to Client</label><textarea id="bidMsg" placeholder="Tell them why you're a good fit..."></textarea></div>
-    <button class="btn btn-primary" onclick="submitBid('${job.id}')">Submit Bid</button>
+    <button class="btn btn-primary" onclick="submitBid('${job.id}')">Submit Bid</button>`}
   </div>`;
 };
 async function submitBid(jobId){
   const user = getCurrentUser();
-  if(!user.verified){ alert('Pehle Admin verification complete hone do, uske baad bid kar paoge.'); return; }
+  if(!user.verified){ alert('You can bid once the Sphere team verifies your profile.'); return; }
   const amount = document.getElementById('bidAmount').value.trim();
   const msg = document.getElementById('bidMsg').value.trim();
-  if(!amount || Number(amount) <= 0){ alert('Bid amount daalo'); return; }
+  if(!amount || Number(amount) <= 0){ alert('Enter your bid amount'); return; }
   const job = await getJob(jobId);
   if(!job) return;
   const { error } = await sb.from('sp_applications').insert({
@@ -1218,11 +1304,11 @@ async function submitBid(jobId){
     message: msg || 'I would love to work on this project.', bid_amount: Number(amount)
   });
   if(error){
-    if(error.code === '23505'){ alert('Aap is job pe pehle hi bid kar chuke ho.'); return; }
+    if(error.code === '23505'){ alert('You have already placed a bid on this job.'); return; }
     dbErr(error); return;
   }
   await notify(job.clientId, 'New Bid Received', `${user.name} bid ₹${amount} on your ${job.category} job.`);
-  alert('Bid submit ho gaya!');
+  alert('Bid submitted!');
   nav('home');
 }
 
@@ -1230,19 +1316,19 @@ async function submitBid(jobId){
 SCREENS.portfolio = async () => {
   const user = getCurrentUser();
   if(user.role !== 'editor'){
-    return `<div class="header"><h1>Portfolio</h1><p>Ye section editors ke liye hai</p></div>
-    <div class="screen" style="padding-top:0;"><p class="muted">Editors ka kaam dekhne ke liye <span class="link" onclick="nav('allEditors')">All Editors</span> kholo.</p></div>`;
+    return `<div class="header"><h1>Portfolio</h1><p>This section is for editors</p></div>
+    <div class="screen" style="padding-top:0;"><p class="muted">To see editors' work, open <span class="link" onclick="nav('allEditors')">All Editors</span>.</p></div>`;
   }
   const items = await loadPortfolio(user.id);
   return `
-  <div class="header"><h1>My Portfolio</h1><p>Apna best kaam dikhao — clients yahi dekh kar hire karte hain</p></div>
+  <div class="header"><h1>My Portfolio</h1><p>Show your best work — clients hire based on this</p></div>
   <div class="screen" style="padding-top:0;">
     <div class="card">
-      <b>➕ Naya kaam jodo</b> <span class="muted" style="font-size:12px;">(${items.length}/${MAX_PORTFOLIO_ITEMS})</span>
+      <b>➕ Add new work</b> <span class="muted" style="font-size:12px;">(${items.length}/${MAX_PORTFOLIO_ITEMS})</span>
       <div class="field" style="margin-top:10px;"><label>Title</label><input id="pwTitle" maxlength="80" placeholder="Wedding Highlight, Travel Vlog..."></div>
       <div class="field"><label>Thumbnail / Photo</label><input type="file" id="pwPhoto" accept="image/*"></div>
       <div class="field"><label>Video Link (YouTube / Drive) — optional</label><input id="pwVideo" placeholder="https://youtu.be/..."></div>
-      <p class="muted" style="font-size:11px; margin:-6px 0 10px;">Video seedha upload nahi hota (free storage chhota hai) — YouTube (unlisted) ya Drive link do. Photo na ho toh YouTube ka thumbnail apne aap lag jayega.</p>
+      <p class="muted" style="font-size:11px; margin:-6px 0 10px;">Videos are not uploaded here — add a YouTube (unlisted) or Drive link. No photo? We use the YouTube thumbnail automatically.</p>
       <button class="btn btn-primary" id="pwBtn" onclick="addPortfolioItem()">Add to Portfolio</button>
     </div>
     ${renderPortfolio(user, items, true)}
@@ -1265,25 +1351,25 @@ async function addPortfolioItem(){
   const title = document.getElementById('pwTitle').value.trim();
   const file = document.getElementById('pwPhoto').files[0];
   const video = document.getElementById('pwVideo').value.trim();
-  if(!title){ alert('Title daalo'); return; }
-  if(video && !/^https?:\/\//i.test(video)){ alert('Video link https:// se shuru hona chahiye'); return; }
-  if(!file && !youtubeThumb(video)){ alert('Ek photo chuno, ya YouTube video ka link do'); return; }
+  if(!title){ alert('Enter a title'); return; }
+  if(video && !/^https?:\/\//i.test(video)){ alert('Video link must start with https://'); return; }
+  if(!file && !youtubeThumb(video)){ alert('Choose a photo or add a YouTube link'); return; }
   const btn = document.getElementById('pwBtn');
-  btn.disabled = true; btn.textContent = 'Upload ho raha hai…';
+  btn.disabled = true; btn.textContent = 'Uploading…';
   try {
     const { count } = await sb.from('sp_portfolio').select('id', { count: 'exact', head: true }).eq('editor_id', currentUser.id);
-    if((count || 0) >= MAX_PORTFOLIO_ITEMS) throw new Error(`Max ${MAX_PORTFOLIO_ITEMS} items. Pehle koi purana hatao.`);
+    if((count || 0) >= MAX_PORTFOLIO_ITEMS) throw new Error(`Max ${MAX_PORTFOLIO_ITEMS} items. Remove an old one first.`);
     const path = file ? await uploadImage(file, 'portfolio', 1280) : null;
     const { error } = await sb.from('sp_portfolio').insert({ editor_id: currentUser.id, title, image_path: path, video_url: video || null });
     if(error){ await removeMedia(path); throw error; }
     nav('portfolio');
   } catch(e){
-    alert('Upload nahi hua: ' + (e.message || e));
+    alert('Upload failed: ' + (e.message || e));
     btn.disabled = false; btn.textContent = 'Add to Portfolio';
   }
 }
 async function deletePortfolioItem(id, path){
-  if(!confirm('Ye item portfolio se hatana hai?')) return;
+  if(!confirm('Remove this item from your portfolio?')) return;
   const { error } = await sb.from('sp_portfolio').delete().eq('id', id);
   if(dbErr(error)) return;
   await removeMedia(path);
@@ -1300,7 +1386,7 @@ async function changeAvatar(input){
     await removeMedia(old);
     await fetchAndSetCurrentUser();
     nav('profile');
-  } catch(e){ alert('Photo upload nahi hui: ' + (e.message || e)); }
+  } catch(e){ alert('Photo upload failed: ' + (e.message || e)); }
 }
 async function savePortfolioInfo(){
   const name = document.getElementById('pfName').value.trim();
@@ -1332,14 +1418,14 @@ function renderNegotiateBlock(job, user){
         <button class="btn btn-primary" onclick="acceptAmount('${job.id}')">✔ Accept & Lock This Amount</button>
       `:''}
       ${youProposed?`<p class="muted" style="margin:8px 0;">You proposed ₹${job.proposedAmount} — waiting for the other side to respond.</p>`:''}
-      ${!isClient && job.proposedAmount ? `<p class="muted" style="font-size:12px;">₹${job.proposedAmount} pe aapko ₹${editorShare(job.proposedAmount)} milenge (${PLATFORM_FEE_PERCENT}% Sphere fee).</p>` : ''}
+      ${!isClient && job.proposedAmount ? `<p class="muted" style="font-size:12px;">At ₹${job.proposedAmount} you receive ₹${editorShare(job.proposedAmount)} (${PLATFORM_FEE_PERCENT}% Sphere fee).</p>` : ''}
       <div class="field" style="margin-top:10px;"><label>${otherHasProposed?'Or counter-propose (₹)':'Propose Amount (₹)'}</label><input id="proposeAmt" type="number" placeholder="${job.budget}"></div>
       <button class="btn btn-outline" onclick="proposeAmount('${job.id}')">Send Proposal</button>
     </div>`;
 }
 async function proposeAmount(jobId){
   const amt = document.getElementById('proposeAmt').value.trim();
-  if(!amt || Number(amt) <= 0){ alert('Amount daalo'); return; }
+  if(!amt || Number(amt) <= 0){ alert('Enter an amount'); return; }
   const user = getCurrentUser();
   const job = await getJob(jobId);
   if(!job) return;
@@ -1354,8 +1440,8 @@ async function acceptAmount(jobId){
   const job = await getJob(jobId);
   if(!job || !job.proposedAmount) return;
   if(!await updateJob(jobId, { locked_amount: job.proposedAmount, budget: job.proposedAmount, status: 'payment-pending' })) return;
-  await notify(job.clientId, 'Amount Locked 🔒', `Final amount ₹${job.proposedAmount} lock ho gaya. Ab payment karo.`);
-  await notify(job.assignedEditor, 'Amount Locked 🔒', `Final amount ₹${job.proposedAmount} lock ho gaya. Client ke payment ka wait karo.`);
+  await notify(job.clientId, 'Amount Locked 🔒', `Final amount ₹${job.proposedAmount} is locked. Please make the payment.`);
+  await notify(job.assignedEditor, 'Amount Locked 🔒', `Final amount ₹${job.proposedAmount} is locked. Waiting for the client's payment.`);
   alert('Amount locked! Client will be asked to pay.');
   currentJobId = jobId;
   nav('projectStatus');
@@ -1389,7 +1475,7 @@ SCREENS.jobs = async () => {
     list = (data || []).map(mapJob);
   } else if(user.role==='editor'){
     const [a, b] = await Promise.all([
-      sb.from('sp_jobs').select('*').eq('status', 'open').eq('category', user.category || '').neq('client_id', user.id),
+      sb.from('sp_jobs').select('*').eq('status', 'open').eq('category', user.category || '').neq('client_id', user.id).or(notExpiredFilter()),
       sb.from('sp_jobs').select('*').eq('assigned_editor', user.id)
     ]);
     const seen = new Set();
@@ -1405,9 +1491,9 @@ SCREENS.jobs = async () => {
     ${list.length===0?'<p class="muted">No jobs yet.</p>':''}
     ${list.map(j=>`
       <div class="card" onclick="openJob('${j.id}')">
-        <b>${esc(j.category)}</b> <span class="badge" style="background:${j.status==='open'?'#999':'var(--blue)'}">${esc(j.status)}</span>
+        <b>${esc(j.category)}</b> ${isExpired(j) ? '<span class="badge expired">expired</span>' : `<span class="badge" style="background:${j.status==='open'?'#999':'var(--blue)'}">${esc(j.status)}</span>`}
         <p class="muted" style="font-size:13px; margin:6px 0;">${esc(j.desc).slice(0,60)}...</p>
-        <p>Budget: <b>₹${j.budget}</b> ${j.deadline?`• Due ${j.deadline}`:''}</p>
+        <p>Budget: <b>₹${j.budget}</b> ${j.deadline?`• Due ${fmtDate(j.deadline)}`:''}</p>
       </div>`).join('')}
   </div>`;
 };
@@ -1445,7 +1531,7 @@ async function selectEditor(jobId, editorId, bidAmount){
   if(bidAmount){ fields.proposed_amount = bidAmount; fields.proposed_by = editorId; }
   if(!await updateJob(jobId, fields)) return;
   await sb.from('sp_applications').update({ status: 'selected' }).eq('job_id', jobId).eq('editor_id', editorId);
-  await notify(editorId, 'You got selected!', 'Client has selected you for the project. Final price confirm karo.');
+  await notify(editorId, 'You got selected!', 'The client selected you for the project. Please confirm the final price.');
   currentJobId = jobId;
   nav('projectStatus');
 }
@@ -1520,20 +1606,20 @@ SCREENS.verificationStatus = () => {
 
 /* ============ SUPPORT & REPORTS ============ */
 SCREENS.support = () => `
-  <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Help & Support</h1><p>Hum yahan hain madad ke liye</p></div>
+  <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Help & Support</h1><p>We are here to help</p></div>
   <div class="screen" style="padding-top:0;">
     ${supportCard()}
     <div class="card">
-      <b>Jhagda ho toh kya hota hai?</b>
-      <p class="muted" style="font-size:12px; margin-top:6px;">Paisa escrow me safe rehta hai. Client ke approve karne par hi editor ko jata hai. Client ya editor koi bhi <b>Report</b> kar sakta hai — Syahi Films chat, files aur delivery dekh kar faisla karta hai (release, re-edit ya refund).</p>
+      <b>What happens in a dispute?</b>
+      <p class="muted" style="font-size:12px; margin-top:6px;">Payments stay safe in escrow and go to the editor only after the client approves. Either side can file a <b>Report</b> — Syahi Films reviews the chat, files and delivery and decides (release, re-edit or refund).</p>
     </div>
     <p class="muted" style="font-size:12px;">📧 ${SUPPORT.email}</p>
     ${POLICY_LINKS}
   </div>`;
 
 const REPORT_REASONS = {
-  client: ['Editor ne deliver nahi kiya', 'Video ki quality theek nahi hai', 'Editor jawab nahi de raha', 'Galat behaviour', 'Kuch aur'],
-  editor: ['Client payment release nahi kar raha', 'Client jawab nahi de raha', 'Client extra kaam maang raha hai', 'Galat behaviour', 'Kuch aur']
+  client: ['Editor did not deliver', 'Video quality is not good', 'Editor is not responding', 'Bad behaviour', 'Something else'],
+  editor: ['Client is not releasing payment', 'Client is not responding', 'Client is asking for extra work', 'Bad behaviour', 'Something else']
 };
 let reportJobId = null, reportPreset = '';
 function openReport(jobId, preset){ reportJobId = jobId || null; reportPreset = preset || ''; nav('report'); }
@@ -1544,23 +1630,23 @@ SCREENS.report = async () => {
   return `
   <div class="header"><button class="back-btn" onclick="${job ? `currentJobId='${job.id}'; nav('projectStatus')` : `nav('support')`}">‹</button><h1>🚩 Report problem</h1><p>${job ? esc(job.category) + ' project' : 'General complaint'}</p></div>
   <div class="screen" style="padding-top:0;">
-    <div class="field"><label>Kya dikkat hai?</label>
+    <div class="field"><label>What is the problem?</label>
       <select id="rpReason">${reasons.map(r => `<option ${r===reportPreset?'selected':''}>${r}</option>`).join('')}</select></div>
-    <div class="field"><label>Poori baat batao</label>
-      <textarea id="rpDetails" maxlength="2000" placeholder="Kya hua, kab se, aapko kya chahiye..."></textarea></div>
-    <button class="btn btn-primary" id="rpBtn" onclick="submitReport()">Report bhejo</button>
-    <p class="muted" style="font-size:12px; margin-top:12px;">Syahi Films 24 ghante me contact karega. Urgent ho toh call karo: ${SUPPORT.phones.join(' / ')}</p>
+    <div class="field"><label>Describe the issue</label>
+      <textarea id="rpDetails" maxlength="2000" placeholder="What happened, since when, and what you need..."></textarea></div>
+    <button class="btn btn-primary" id="rpBtn" onclick="submitReport()">Submit report</button>
+    <p class="muted" style="font-size:12px; margin-top:12px;">The Sphere team will contact you within 24 hours. Urgent? Call ${SUPPORT.phones.join(' / ')}</p>
   </div>`;
 };
 async function submitReport(){
   const reason = document.getElementById('rpReason').value;
   const details = document.getElementById('rpDetails').value.trim();
-  if(details.length < 10){ alert('Thoda detail me batao (kam se kam 10 akshar)'); return; }
+  if(details.length < 10){ alert('Please add a few more details (at least 10 characters)'); return; }
   const btn = document.getElementById('rpBtn'); btn.disabled = true;
   const { error } = await sb.from('sp_reports').insert({ job_id: reportJobId, reporter_id: currentUser.id, reason, details });
   btn.disabled = false;
   if(dbErr(error)) return;
-  alert('Report ho gaya ✅ Syahi Films jaldi aapse contact karega.');
+  alert('Report submitted ✅ The Sphere team will contact you soon.');
   nav('myReports');
 }
 SCREENS.myReports = async () => {
@@ -1570,7 +1656,7 @@ SCREENS.myReports = async () => {
   return `
   <div class="header"><button class="back-btn" onclick="nav('support')">‹</button><h1>My Reports</h1></div>
   <div class="screen" style="padding-top:0;">
-    ${list.length===0 ? '<p class="muted">Aapne abhi tak koi report nahi ki.</p>' : ''}
+    ${list.length===0 ? '<p class="muted">You have not filed any reports.</p>' : ''}
     ${list.map(r => `<div class="card">
       <b>${esc(r.reason)}</b> <span class="badge" style="background:${r.status==='open'?'#e67e22':'#2e7d32'};">${r.status==='open'?'Open':'Resolved'}</span>
       <p class="muted" style="font-size:12px; margin-top:4px;">${esc(r.details)}</p>
@@ -1586,7 +1672,7 @@ let msgChannel = null;
 function startChat(otherUserId){
   const user = getCurrentUser();
   if(!user){ alert('Login first'); return; }
-  if(!otherUserId || otherUserId===user.id){ alert('Ye aapka hi account hai.'); return; }
+  if(!otherUserId || otherUserId===user.id){ alert('This is your own account.'); return; }
   currentChatWith = otherUserId;
   nav('chatThread');
 }
@@ -1680,10 +1766,10 @@ SCREENS.payment = async () => {
       <p class="big-price">₹${amount}</p>
     </div>
     ${razorpayReady ? `
-      <p class="muted" style="margin-bottom:16px;">Card, UPI, Netbanking — sab Razorpay ke andar hi.</p>
+      <p class="muted" style="margin-bottom:16px;">Pay by card, UPI or netbanking — securely via Razorpay.</p>
       <button class="btn btn-primary" onclick="payWithRazorpay('${job.id}')">Pay ₹${amount} Now</button>
     ` : `
-      <p class="muted center-text">Online payment abhi available nahi hai. Thodi der baad try karo.</p>
+      <p class="muted center-text">Online payment is not available right now. Please try again later.</p>
     `}
   </div>`;
 };
@@ -1694,13 +1780,13 @@ async function functionError(error){
 async function payWithRazorpay(jobId){
   const job = await getJob(jobId);
   if(!job) return;
-  if(typeof Razorpay === 'undefined'){ alert('Payment page load nahi hua. Internet check karke dobara try karo.'); return; }
+  if(typeof Razorpay === 'undefined'){ alert('The payment page did not load. Check your internet and try again.'); return; }
   const user = getCurrentUser();
   try {
     // Amount server khud job se nikalta hai — app se bheja hua amount use nahi hota
     const { data: order, error } = await sb.functions.invoke('create-razorpay-order', { body: { jobId } });
     if(error || !order || !order.id){
-      alert('Order banane me error: ' + (error ? await functionError(error) : 'unknown'));
+      alert('Could not start the payment: ' + (error ? await functionError(error) : 'unknown'));
       return;
     }
     const rzp = new Razorpay({
@@ -1721,21 +1807,21 @@ async function payWithRazorpay(jobId){
           }
         });
         if(!vErr && verify && verify.valid){
-          alert('Payment ho gaya! ✅ Paisa escrow me safe hai. Editor ab kaam shuru karega.');
+          alert('Payment successful ✅ Your money is safe in escrow. The editor will start now.');
           currentJobId = jobId;
           nav('projectStatus');
         } else {
-          alert('Payment verify nahi ho paya. Payment ID: ' + response.razorpay_payment_id + '\nIse note karke Syahi Films se contact karo.');
+          alert('We could not verify the payment. Payment ID: ' + response.razorpay_payment_id + '\nPlease note this ID and contact Support.');
         }
       },
       modal: { ondismiss: function(){ /* user ne popup band kiya */ } }
     });
     rzp.on('payment.failed', function(resp){
-      alert('Payment fail ho gaya: ' + ((resp.error && resp.error.description) || 'Dobara try karo'));
+      alert('Payment failed: ' + ((resp.error && resp.error.description) || 'Please try again'));
     });
     rzp.open();
   } catch(e){
-    alert('Kuch galat ho gaya: ' + e.message);
+    alert('Something went wrong: ' + e.message);
   }
 }
 
@@ -1765,22 +1851,32 @@ SCREENS.projectStatus = async () => {
     <div class="card">
       <p><b>Budget:</b> ₹${job.budget}</p>
       ${job.lockedAmount?`<p><b>Final Amount (locked):</b> ₹${job.lockedAmount}</p>`:''}
-      ${job.lockedAmount && isEditor ? `<p><b>Aapko milega:</b> ₹${job.editorAmount || editorShare(job.lockedAmount)} <span class="muted" style="font-size:12px;">(${PLATFORM_FEE_PERCENT}% Sphere fee)</span></p>` : ''}
+      ${job.lockedAmount && isEditor ? `<p><b>You receive:</b> ₹${job.editorAmount || editorShare(job.lockedAmount)} <span class="muted" style="font-size:12px;">(${PLATFORM_FEE_PERCENT}% Sphere fee)</span></p>` : ''}
       ${job.payoutStatus && (isClient||isEditor) ? `<p><b>Payment:</b> ${PAYOUT_LABEL[job.payoutStatus] || esc(job.payoutStatus)}</p>` : ''}
       <p><b>Deadline:</b> ${job.deadline||'-'}</p>
       <p><b>Details:</b> ${esc(job.desc)}</p>
-      ${job.files && (isClient||isEditor) ? `<p><b>Raw Files:</b> ${linkOrText(job.files)}</p>` : ''}
+      ${job.files && (isClient||isEditor) ? `<p><b>Raw files link:</b> ${linkOrText(job.files)}</p>` : ''}
+      ${job.rawFiles.length && (isClient||isEditor) ? `<p style="margin-top:6px;"><b>Raw footage & photos (${job.rawFiles.length})</b></p>${renderRawFiles(job.rawFiles, { removable: isClient && job.status==='open', jobId: job.id })}` : ''}
+      ${isClient && !['closed','refunded','approved'].includes(job.status) && job.rawFiles.length < MAX_RAW_FILES ? `
+        <div style="margin-top:10px;"><label class="pill-btn" style="cursor:pointer;">${UI_ICONS.upload} Add photos / videos
+          <input type="file" accept="image/*,video/*" multiple style="display:none;" onchange="addRawFiles('${job.id}', this)"></label>
+          <span class="muted" id="rawAddStatus" style="font-size:12px; margin-left:6px;"></span></div>` : ''}
       ${job.deliveryLink ? `<p><b>Delivered File:</b> ${linkOrText(job.deliveryLink)}</p>` : ''}
     </div>
-    ${job.status==='refunded' ? `<div class="card" style="border-color:#e67e22;"><b>💸 Is project ka refund ho chuka hai.</b><p class="muted" style="font-size:12px;">Sawaal ho toh Support se baat karo.</p></div>` : ''}
+    ${isClient && isExpired(job) ? `<div class="card" style="border:1.5px solid #e67e22;">
+      <b>This job expired on ${fmtDate(job.deadline)}</b>
+      <p class="muted" style="font-size:12px; margin:4px 0 10px;">Editors can no longer see it. Pick a new deadline to reopen it.</p>
+      <div class="field"><label>New deadline</label><input id="newDeadline" type="date" min="${todayIST()}"></div>
+      <button class="btn btn-primary" onclick="extendDeadline('${job.id}')">Reopen job</button></div>` : ''}
+    ${job.status==='refunded' ? `<div class="card" style="border-color:#e67e22;"><b>💸 This project has been refunded.</b><p class="muted" style="font-size:12px;">Questions? Contact Support.</p></div>` : ''}
     ${otherId ? `<button class="btn btn-outline" style="margin-bottom:10px;" onclick="startChat('${otherId}')">💬 Chat with ${isClient?'Editor':'Client'}</button>` : ''}
-    ${isEditor && job.status==='delivered' ? `<p class="muted" style="font-size:12px; margin-bottom:10px;">Client approve nahi kar raha? Pehle chat me poocho. 7 din tak jawab na aaye toh Report karo — Syahi Films review karke payment release karwa sakta hai.</p>` : ''}
-    ${otherId && job.status!=='open' ? `<button class="btn btn-outline" style="margin-bottom:10px; color:#c62828; border-color:#c62828;" onclick="openReport('${job.id}', '${isEditor && job.status==='delivered' ? 'Client payment release nahi kar raha' : ''}')">🚩 Report problem</button>` : ''}
+    ${isEditor && job.status==='delivered' ? `<p class="muted" style="font-size:12px; margin-bottom:10px;">Client not approving? Ask in the chat first. No reply in 7 days? File a Report — Syahi Films can review and release your payment.</p>` : ''}
+    ${otherId && job.status!=='open' ? `<button class="btn btn-outline" style="margin-bottom:10px; color:#c62828; border-color:#c62828;" onclick="openReport('${job.id}', '${isEditor && job.status==='delivered' ? 'Client is not releasing payment' : ''}')">🚩 Report problem</button>` : ''}
     ${user.role==='editor' && job.status==='open' ? `<button class="btn btn-primary" onclick="currentJobId='${job.id}'; nav('jobBidScreen')">Place Bid</button>` : ''}
     ${isClient && job.status==='open' ? `<button class="btn btn-outline" onclick="currentJobId='${job.id}'; nav('applications')">View Applications</button>` : ''}
     ${job.status==='negotiating' && (isClient||isEditor) ? renderNegotiateBlock(job, user) : ''}
     ${isClient && job.status==='payment-pending' ? `<button class="btn btn-primary" onclick="currentJobId='${job.id}'; nav('payment')">💳 Pay ₹${amount} Now</button>` : ''}
-    ${isEditor && job.status==='payment-pending' ? `<p class="muted center-text">Client ke payment ka wait ho raha hai...</p>` : ''}
+    ${isEditor && job.status==='payment-pending' ? `<p class="muted center-text">Waiting for the client's payment...</p>` : ''}
     ${isEditor && job.status==='in-progress' ? `
       <div class="field"><label>Delivery Link</label><input id="deliveryLink" placeholder="https://drive.google.com/..."></div>
       <button class="btn btn-primary" onclick="uploadDelivery('${job.id}')">Submit Final Video</button>` : ''}
@@ -1788,10 +1884,40 @@ SCREENS.projectStatus = async () => {
     ${isClient && job.status==='approved' && !rated ? `<button class="btn btn-outline" onclick="currentJobId='${job.id}'; selectedStars=5; nav('ratings')">⭐ Rate Editor</button>` : ''}
   </div>`;
 };
+async function extendDeadline(jobId){
+  const d = document.getElementById('newDeadline').value;
+  if(!d){ alert('Choose a new deadline'); return; }
+  if(d < todayIST()){ alert('Deadline cannot be in the past'); return; }
+  if(!await updateJob(jobId, { deadline: d })) return;
+  alert('Job reopened ✅');
+  currentJobId = jobId; nav('projectStatus');
+}
+async function addRawFiles(jobId, input){
+  const job = await getJob(jobId);
+  if(!job) return;
+  if(job.rawFiles.length + input.files.length > MAX_RAW_FILES){ alert(`You can attach up to ${MAX_RAW_FILES} files per job`); input.value = ''; return; }
+  try {
+    const added = await uploadRawFiles(input.files, document.getElementById('rawAddStatus'));
+    if(!await updateJob(jobId, { raw_files: [...job.rawFiles, ...added] })){
+      await sb.storage.from(RAW_BUCKET).remove(added.map(x => x.path)); return;
+    }
+    if(job.assignedEditor) await notify(job.assignedEditor, 'New files added 📎', `The client added ${added.length} file(s) to your ${job.category} project.`);
+    currentJobId = jobId; nav('projectStatus');
+  } catch(e){ alert('Upload failed: ' + (e.message || e)); input.value = ''; }
+}
+async function removeRawFile(jobId, idx){
+  if(!confirm('Remove this file?')) return;
+  const job = await getJob(jobId);
+  if(!job || !job.rawFiles[idx]) return;
+  const f = job.rawFiles[idx];
+  if(!await updateJob(jobId, { raw_files: job.rawFiles.filter((_, i) => i !== idx) })) return;
+  await sb.storage.from(RAW_BUCKET).remove([f.path]);
+  currentJobId = jobId; nav('projectStatus');
+}
 async function uploadDelivery(jobId){
   const link = document.getElementById('deliveryLink').value.trim();
   if(!link){ alert('Paste your delivery link'); return; }
-  if(!/^https?:\/\//i.test(link)){ alert('Link https:// se shuru hona chahiye'); return; }
+  if(!/^https?:\/\//i.test(link)){ alert('Link must start with https://'); return; }
   const job = await getJob(jobId);
   if(!job) return;
   if(!await updateJob(jobId, { delivery_link: link, status: 'delivered' })) return;
@@ -1803,12 +1929,12 @@ async function uploadDelivery(jobId){
 async function approveJob(jobId){
   const job = await getJob(jobId);
   if(!job) return;
-  if(!confirm('Video approve karke editor ka payment release karna hai?')) return;
+  if(!confirm('Approve the video and release payment to the editor?')) return;
   const { data, error } = await sb.functions.invoke('release-payout', { body: { jobId } });
-  if(error){ alert('Approve nahi ho paya: ' + await functionError(error)); return; }
+  if(error){ alert('Could not approve: ' + await functionError(error)); return; }
   alert(data && data.payout === 'released'
-    ? 'Approved! ✅ Editor ka payment release ho gaya.'
-    : 'Approved! ✅ Editor ka payment Syahi Films bhejega.');
+    ? 'Approved ✅ Payment released to the editor.'
+    : 'Approved ✅ Syahi Films will pay the editor.');
   currentJobId = jobId;
   nav('projectStatus');
 }
@@ -1832,12 +1958,12 @@ async function submitRating(jobId){
     stars: selectedStars, review: review || null
   });
   if(error){
-    if(error.code === '23505'){ alert('Is project ka review pehle hi de chuke ho.'); }
+    if(error.code === '23505'){ alert('You have already reviewed this project.'); }
     else { dbErr(error); }
     return;
   }
   await updateJob(jobId, { status: 'closed' });
-  await notify(job.assignedEditor, 'New Review ⭐', `Client ne aapko ${selectedStars}★ diye.`);
+  await notify(job.assignedEditor, 'New Review ⭐', `A client rated you ${selectedStars}★.`);
   alert('Thank you for your review!');
   nav('jobs');
 }
@@ -1873,7 +1999,7 @@ SCREENS.profile = async () => {
       <p class="muted">${user.phone||''}</p>
       ${modeChip(user)}
       ${user.role==='editor'?`<p class="muted">Category: ${esc(user.category)||'-'}</p><p class="muted">Code: ${esc(user.code)||'Pending'}</p>
-        <p class="muted">Payout account: ${user.payoutAccount ? '✅ Setup ho gaya' : '⏳ Pending — bank details Syahi Films ko bhejo'}</p>`:''}
+        <p class="muted">Payout account: ${user.payoutAccount ? '✅ Set up' : '⏳ Pending — share your bank details with the Sphere team'}</p>`:''}
     </div>
     ${user.role==='editor'?renderPortfolio(user, pfItems):''}
     ${user.baseRole==='editor' && !user.verified ? menuItem('clock', 'Verification status', "nav('verificationStatus')", { sub: 'Our team will call you to verify' }) : ''}
@@ -1896,7 +2022,7 @@ SCREENS.admin = async () => {
   const _u = getCurrentUser();
   if(!_u || _u.role!=='admin'){
     return `<div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Access Denied</h1></div>
-    <div class="screen center-text" style="padding-top:60px;"><p class="muted">🚫 Ye page sirf admin ke liye hai.</p></div>`;
+    <div class="screen center-text" style="padding-top:60px;"><p class="muted">🚫 This page is for admins only.</p></div>`;
   }
   const { data: pendingData } = await sb.from('profiles').select('*').eq('role','EDITOR').eq('is_verified', false);
   const { data: verifiedData } = await sb.from('profiles').select('*').eq('role','EDITOR').eq('is_verified', true);
@@ -1925,17 +2051,20 @@ SCREENS.admin = async () => {
       <div class="field"><label>Confirm PIN</label><input id="pinNew2" class="pin-input" type="password" inputmode="numeric" maxlength="8"></div>
       <button class="btn btn-primary" onclick="setAdminPin(false)">Save PIN</button></div>`}
 
+    <div class="search-row">${UI_ICONS.search}<input id="admSearch" placeholder="Search editors — name, phone, email or code" oninput="adminSearch(this.value)" autocomplete="off"></div>
     <h3 style="margin-bottom:10px;">Pending Verification (${pending.length})</h3>
     ${pending.length===0?'<p class="muted">No pending editors.</p>':''}
     ${pending.map(e=>{
       const ph = String(e.phone || '').replace(/\D/g, '').slice(-10);
       const wa = `https://wa.me/91${ph}?text=${encodeURIComponent('Hi ' + (e.full_name || '') + ', this is the Sphere team (Syahi Films) calling about your editor verification.')}`;
       return `
-      <div class="card">
-        <div style="display:flex; align-items:center; gap:12px;">
-          ${avatarHtml(toAppUser(e), 'margin:0; width:48px; height:48px;')}
-          <div style="flex:1; min-width:0;"><b>${esc(e.full_name)}</b><p class="muted" style="font-size:12px; word-break:break-all;">${esc(e.email)}</p></div>
+      <div class="card adm-ed" data-q="${esc(adminKey(e))}">
+        <div class="adm-head">
+          ${avatarHtml(toAppUser(e), 'margin:0; width:44px; height:44px;')}
+          <div class="adm-title"><b>${esc(e.full_name)}</b><small style="word-break:break-all;">${esc(e.email)}</small></div>
+          <button class="icon-act" title="Collapse" onclick="toggleCard(this)">${UI_ICONS.minus}</button>
         </div>
+        <div class="adm-body">
         <div class="vs-call" style="margin:10px 0;"><div class="num" style="font-size:20px;">${ph ? '+91 ' + ph : 'No number'}</div></div>
         ${ph ? `<div class="btn-row" style="margin-bottom:10px;">
           <a class="pill-btn primary" href="tel:+91${ph}">${UI_ICONS.phone} Call editor</a>
@@ -1952,20 +2081,32 @@ SCREENS.admin = async () => {
         </div>
         <div class="field"><label>Admin PIN</label><input id="pin_${e.id}" class="pin-input" type="password" inputmode="numeric" maxlength="8" placeholder="••••"></div>
         <button class="btn btn-primary" onclick="verifyEditor('${e.id}')">✔ Verify after call</button>
+        </div>
       </div>`; }).join('')}
     <h3 style="margin:20px 0 10px;">Verified Editors (${verified.length})</h3>
-    ${verified.map(e=>`<div class="card"><b>${esc(e.full_name)}</b> <span class="badge">✔ ${esc(e.verification_code)}</span><p class="muted">${esc((e.categories&&e.categories[0])||'')}${e.verified_at ? ' · verified ' + new Date(e.verified_at).toLocaleDateString() : ''}</p>
-      <div class="field" style="margin:10px 0 6px;"><label>Razorpay Route Account ID ${e.razorpay_account_id?'✅':'(pending)'}</label>
-        <input id="acc_${e.id}" placeholder="acc_XXXXXXXXXXXX" value="${esc(e.razorpay_account_id)}"></div>
-      <button class="btn-sm" onclick="savePayoutAccount('${e.id}')">Save Account</button>
-      <details style="margin-top:12px;"><summary style="color:#c62828; font-size:13px; font-weight:700; cursor:pointer;">Remove verification</summary>
-        <div class="field" style="margin-top:10px;"><label>Reason (editor will see this)</label><input id="unvReason_${e.id}" maxlength="300" placeholder="e.g. Repeated late deliveries"></div>
-        <div class="field"><label>Admin PIN</label><input id="unvPin_${e.id}" class="pin-input" type="password" inputmode="numeric" maxlength="8" placeholder="••••"></div>
-        <button class="btn btn-outline" style="color:#c62828; border-color:#c62828;" onclick="removeVerification('${e.id}')">Remove verified badge</button>
-      </details></div>`).join('')}
+    ${verified.map(e=>{ const ph = String(e.phone || '').replace(/\D/g, '').slice(-10); return `<div class="card adm-ed" data-q="${esc(adminKey(e))}">
+      <div class="adm-head">
+        ${avatarHtml(toAppUser(e), 'margin:0; width:44px; height:44px;')}
+        <div class="adm-title"><b>${esc(e.full_name)}</b> <span class="badge">✔ ${esc(e.verification_code)}</span>
+          <small>${esc((e.categories&&e.categories[0])||'')}${e.verified_at ? ' · verified ' + fmtDate(e.verified_at) : ''}</small></div>
+        <button class="icon-act danger" title="Remove verification" onclick="openUnverify('${e.id}', this)">${UI_ICONS.userx}</button>
+        <button class="icon-act" title="Collapse" onclick="toggleCard(this)">${UI_ICONS.minus}</button>
+      </div>
+      <div class="adm-body">
+        ${ph ? `<div class="kv"><span>Phone</span><b><a href="tel:+91${ph}">+91 ${ph}</a></b></div>` : ''}
+        <div class="field" style="margin:10px 0 6px;"><label>Razorpay Route Account ID ${e.razorpay_account_id?'✅':'(pending)'}</label>
+          <input id="acc_${e.id}" name="rzp-acc-${e.id}" autocomplete="off" placeholder="acc_XXXXXXXXXXXX" value="${esc(e.razorpay_account_id)}"></div>
+        <button class="btn-sm" onclick="savePayoutAccount('${e.id}')">Save Account</button>
+        <div class="unv-box" id="unv_${e.id}" style="display:none;">
+          <b style="color:#c62828;">Remove verified badge</b>
+          <div class="field" style="margin-top:10px;"><label>Reason (the editor will see this)</label><input id="unvReason_${e.id}" maxlength="300" autocomplete="off" placeholder="e.g. Repeated late deliveries"></div>
+          <div class="field"><label>Admin PIN</label><input id="unvPin_${e.id}" class="pin-input" type="password" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="••••"></div>
+          <button class="btn btn-outline" style="color:#c62828; border-color:#c62828;" onclick="removeVerification('${e.id}')">Remove verified badge</button>
+        </div>
+      </div></div>`; }).join('')}
 
     <h3 style="margin:20px 0 10px;">🚩 Open Reports (${reports.length})</h3>
-    ${reports.length===0?'<p class="muted">Koi open report nahi. 👍</p>':''}
+    ${reports.length===0?'<p class="muted">No open reports. 👍</p>':''}
     ${reports.map(r => { const j = r.job_id ? repJobs[r.job_id] : null; return `<div class="card" style="border-color:#c62828;">
       <b>${esc(r.reason)}</b>
       <p class="muted" style="font-size:12px; margin:4px 0;">${esc(r.details)}</p>
@@ -1973,18 +2114,18 @@ SCREENS.admin = async () => {
       ${r.against_id ? `<p style="font-size:12px;"><b>Kiske khilaf:</b> ${who(r.against_id)}</p>` : ''}
       ${j ? `<p style="font-size:12px;"><b>Project:</b> ${esc(j.category)} • ${esc(j.status)} • ₹${j.lockedAmount||j.budget}</p>` : ''}
       <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
-        ${j ? `<button class="btn-sm" onclick="openJob('${j.id}')">Project dekho</button>` : ''}
-        ${j && j.status==='delivered' ? `<button class="btn-sm" onclick="adminRelease('${j.id}')">Editor ko release</button>` : ''}
-        ${j && ['in-progress','delivered'].includes(j.status) && j.payment==='escrow-held' ? `<button class="btn-sm" style="color:#c62828;" onclick="adminRefund('${j.id}')">Client ko refund</button>` : ''}
+        ${j ? `<button class="btn-sm" onclick="openJob('${j.id}')">View project</button>` : ''}
+        ${j && j.status==='delivered' ? `<button class="btn-sm" onclick="adminRelease('${j.id}')">Release to editor</button>` : ''}
+        ${j && ['in-progress','delivered'].includes(j.status) && j.payment==='escrow-held' ? `<button class="btn-sm" style="color:#c62828;" onclick="adminRefund('${j.id}')">Refund client</button>` : ''}
         <button class="btn-sm" style="background:var(--blue); color:#fff;" onclick="resolveReport('${r.id}', '${r.reporter_id}', '${r.against_id||''}')">✔ Resolve</button>
       </div></div>`; }).join('')}
 
     <h3 style="margin:20px 0 10px;">💸 Manual Payout Pending (${manualJobs.length})</h3>
-    ${manualJobs.length===0?'<p class="muted">Sab payouts clear hain.</p>':''}
+    ${manualJobs.length===0?'<p class="muted">All payouts are cleared.</p>':''}
     ${manualJobs.map(j=>{ const ed = nameMap[j.assignedEditor]; return `<div class="card">
-      <b>${esc(ed ? ed.name : 'Editor')}</b> ko bhejna hai: <b>₹${j.editorAmount || editorShare(j.lockedAmount)}</b>
+      Pay <b>${esc(ed ? ed.name : 'Editor')}</b>: <b>₹${j.editorAmount || editorShare(j.lockedAmount)}</b>
       <p class="muted" style="font-size:12px;">${esc(j.category)} • ${PAYOUT_LABEL[j.payoutStatus]||esc(j.payoutStatus)}</p>
-      <button class="btn-sm" style="margin-top:8px;" onclick="markPaidManually('${j.id}')">✔ Bhej diya — Mark Paid</button></div>`; }).join('')}
+      <button class="btn-sm" style="margin-top:8px;" onclick="markPaidManually('${j.id}')">✔ Paid — mark as paid</button></div>`; }).join('')}
 
     ${pinSet ? `<details class="card"><summary><b>🔐 Change Admin PIN</b></summary>
       <div class="field" style="margin-top:10px;"><label>Current PIN</label><input id="pinOld" class="pin-input" type="password" inputmode="numeric" maxlength="8"></div>
@@ -1993,54 +2134,54 @@ SCREENS.admin = async () => {
       <button class="btn btn-outline" onclick="setAdminPin(true)">Update PIN</button></details>` : ''}
 
     <h3 style="margin:20px 0 10px;">⏳ Client Approval Pending (${deliveredJobs.length})</h3>
-    ${deliveredJobs.length===0?'<p class="muted">Koi delivered job pending nahi.</p>':''}
+    ${deliveredJobs.length===0?'<p class="muted">No delivered jobs waiting.</p>':''}
     ${deliveredJobs.map(j=>{ const ed = nameMap[j.assignedEditor]; return `<div class="card">
       <b>${esc(j.category)}</b> — ${esc(ed ? ed.name : 'Editor')}
       <p class="muted" style="font-size:12px;">Delivery: ${linkOrText(j.deliveryLink)}</p>
-      <p class="muted" style="font-size:12px;">Client approve nahi kar raha? Video check karke yahan se release kar sakte ho.</p>
+      <p class="muted" style="font-size:12px;">Client not approving? Check the video and release payment from here.</p>
       <button class="btn-sm" style="margin-top:8px;" onclick="adminRelease('${j.id}')">Approve & Release</button></div>`; }).join('')}
   </div>`;
 };
 async function savePayoutAccount(editorId){
   const acc = document.getElementById('acc_' + editorId).value.trim();
-  if(acc && !/^acc_[A-Za-z0-9]{8,}$/.test(acc)){ alert('Account ID "acc_" se shuru hona chahiye (Razorpay Route > Linked Accounts se copy karo).'); return; }
+  if(acc && !/^acc_[A-Za-z0-9]{8,}$/.test(acc)){ alert('Account ID must start with "acc_" (copy it from Razorpay Route > Linked Accounts).'); return; }
   const { error } = await sb.from('profiles').update({ razorpay_account_id: acc || null }).eq('id', editorId);
   if(dbErr(error)) return;
-  if(acc) await notify(editorId, 'Payout account ready ✅', 'Aapka payout account setup ho gaya. Ab payments seedha aapke bank me aayenge.');
+  if(acc) await notify(editorId, 'Payout account ready ✅', 'Your payout account is set up. Payments will now go straight to your bank.');
   alert('Saved!');
   nav('admin');
 }
 async function markPaidManually(jobId){
-  const ref = prompt('UPI/Bank transfer ka reference (UTR) number daalo:');
+  const ref = prompt('Enter the UPI / bank transfer reference (UTR) number:');
   if(ref === null) return;
   const job = await getJob(jobId);
   if(!job) return;
   const { error } = await sb.from('sp_jobs').update({ payout_status: 'paid-manually', razorpay_transfer_id: ref.trim() || 'manual' }).eq('id', jobId);
   if(dbErr(error)) return;
-  await notify(job.assignedEditor, 'Payment Sent 💸', `₹${job.editorAmount || editorShare(job.lockedAmount)} aapko bhej diya gaya.${ref.trim() ? ' Ref: ' + ref.trim() : ''}`);
+  await notify(job.assignedEditor, 'Payment Sent 💸', `₹${job.editorAmount || editorShare(job.lockedAmount)} has been sent to you.${ref.trim() ? ' Ref: ' + ref.trim() : ''}`);
   nav('admin');
 }
 async function resolveReport(reportId, reporterId, againstId){
-  const note = prompt('Kya faisla hua? (dono users ko dikhega)');
+  const note = prompt('What was decided? (both users will see this)');
   if(note === null) return;
-  if(!note.trim()){ alert('Faisla likhna zaroori hai'); return; }
+  if(!note.trim()){ alert('Please write the decision'); return; }
   const { error } = await sb.from('sp_reports').update({ status: 'resolved', admin_note: note.trim(), resolved_at: new Date().toISOString() }).eq('id', reportId);
   if(dbErr(error)) return;
   await notify([reporterId, againstId], 'Report resolved ✅', 'Syahi Films: ' + note.trim());
   nav('admin');
 }
 async function adminRefund(jobId){
-  if(!confirm('Pakka? Client ko POORA refund jayega aur editor ka hissa wapas liya jayega. Ye wapas nahi hoga.')) return;
+  if(!confirm('Are you sure? The client gets a FULL refund and the editor share is taken back. This cannot be undone.')) return;
   const { error } = await sb.functions.invoke('refund-payment', { body: { jobId } });
-  if(error){ alert('Refund nahi hua: ' + await functionError(error)); return; }
-  alert('Refund shuru ho gaya ✅ Client ko 5-7 din me paisa mil jayega.');
+  if(error){ alert('Refund failed: ' + await functionError(error)); return; }
+  alert('Refund started ✅ The client will get the money in 5–7 days.');
   nav('admin');
 }
 async function adminRelease(jobId){
-  if(!confirm('Delivery check kar li? Approve karke editor ka payment release karna hai?')) return;
+  if(!confirm('Have you checked the delivery? Approve and release payment to the editor?')) return;
   const { data, error } = await sb.functions.invoke('release-payout', { body: { jobId } });
-  if(error){ alert('Release nahi hua: ' + await functionError(error)); return; }
-  alert(data && data.payout === 'released' ? 'Released ✅' : 'Approved ✅ — manual payout list me dekho.');
+  if(error){ alert('Release failed: ' + await functionError(error)); return; }
+  alert(data && data.payout === 'released' ? 'Released ✅' : 'Approved ✅ — see the manual payout list.');
   nav('admin');
 }
 async function verifyEditor(id){
@@ -2052,6 +2193,27 @@ async function verifyEditor(id){
   if(error){ alert(error.message); if(pinEl) pinEl.value = ''; return; }
   alert('Editor verified ✅  Code: ' + code);
   nav('admin');
+}
+function adminKey(e){
+  return [e.full_name, e.email, e.phone, e.verification_code, (e.categories || []).join(' ')].filter(Boolean).join(' ').toLowerCase();
+}
+function adminSearch(q){
+  const v = String(q || '').trim().toLowerCase();
+  document.querySelectorAll('.adm-ed').forEach(c => { c.style.display = !v || (c.dataset.q || '').includes(v) ? '' : 'none'; });
+}
+function toggleCard(btn){
+  const card = btn.closest('.card');
+  const collapsed = card.classList.toggle('collapsed');
+  btn.innerHTML = collapsed ? UI_ICONS.plus : UI_ICONS.minus;
+  btn.title = collapsed ? 'Expand' : 'Collapse';
+}
+function openUnverify(id, btn){
+  const card = btn.closest('.card');
+  if(card.classList.contains('collapsed')) toggleCard(card.querySelector('.icon-act[title="Expand"]'));
+  const box = document.getElementById('unv_' + id);
+  const show = box.style.display === 'none';
+  box.style.display = show ? 'block' : 'none';
+  if(show) document.getElementById('unvReason_' + id).focus();
 }
 async function removeVerification(id){
   const reason = (document.getElementById('unvReason_'+id).value || '').trim();
