@@ -186,6 +186,11 @@ h1,h2,h3{color:var(--text);}
   body{padding-top:env(titlebar-area-height, 32px);}
   .wco-drag{display:block; position:fixed; top:0; left:0; right:0; height:env(titlebar-area-height, 32px); background:#dfe6fb; z-index:9999; app-region:drag; -webkit-app-region:drag;}
 }
+.install-banner{display:flex; align-items:center; gap:10px; margin:10px 16px 0; padding:10px 12px; border-radius:14px; background:#fff; border:1.5px solid var(--blue); box-shadow:0 4px 14px rgba(22,87,255,.10);}
+.install-banner img{width:36px; height:36px; border-radius:9px;}
+.install-banner .ib-text{flex:1; font-size:12px; color:var(--muted); line-height:1.35;} .install-banner .ib-text b{display:block; color:#111; font-size:14px;}
+.install-banner .ib-btn{background:var(--blue); color:#fff; border:none; border-radius:18px; padding:8px 12px; font-weight:700; font-size:12px; cursor:pointer;}
+.install-banner .ib-x{background:none; border:none; color:#9aa0a6; font-size:16px; cursor:pointer; padding:0 2px;}
 .badge{display:inline-block; background:var(--blue); color:#fff; font-size:10px; font-weight:700; padding:3px 8px; border-radius:20px; margin-left:6px;}
 .pill{display:inline-block; background:#fff; border:1px solid var(--border); padding:5px 12px; border-radius:20px; font-size:12px; margin:3px 4px 3px 0; cursor:pointer;}
 .pill.active{background:var(--blue); color:#fff; border-color:var(--blue);}
@@ -364,6 +369,20 @@ function installAppItem(){
   if(isStandalone()) return '';
   return menuItem('mobile', 'Install the Sphere app', 'installApp()', { sub: 'Open Sphere from your home screen, full screen' });
 }
+function installBanner(){
+  if(isStandalone()) return '';
+  try { if(localStorage.getItem('sphere_install_hide') === '1') return ''; } catch(e){}
+  return `<div class="install-banner" id="installBanner">
+    <img src="/icon-192.png" alt="">
+    <div class="ib-text"><b>Get the Sphere app</b>Full screen, opens from your home screen</div>
+    <button class="ib-btn" onclick="installApp()">Install</button>
+    <button class="ib-x" title="Hide" onclick="hideInstallBanner()">✕</button></div>`;
+}
+function hideInstallBanner(){
+  try { localStorage.setItem('sphere_install_hide', '1'); } catch(e){}
+  const b = document.getElementById('installBanner'); if(b) b.remove();
+}
+function inAppBrowser(){ return /(FBAN|FBAV|Instagram|WhatsApp|Line\/|; wv\))/i.test(navigator.userAgent); }
 async function installApp(){
   if(installPrompt){
     installPrompt.prompt();
@@ -373,9 +392,13 @@ async function installApp(){
     return;
   }
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if(inAppBrowser() || !installPrompt && !ios && document.referrer.includes('whatsapp')){
+    alert('To install: open this link in Chrome (menu ⋮ → "Open in Chrome"), then tap Install.');
+    return;
+  }
   alert(ios
-    ? 'On iPhone: tap the Share button (square with arrow) in Safari, then "Add to Home Screen".'
-    : 'Open the browser menu (⋮) and tap "Install app" or "Add to Home screen".');
+    ? 'On iPhone: open in Safari, tap the Share button (square with arrow), then "Add to Home Screen".'
+    : 'In Chrome, open the menu (⋮) and tap "Install app" or "Add to Home screen". If you opened this link from WhatsApp, first tap ⋮ → "Open in Chrome".');
 }
 // India ki aaj ki date (YYYY-MM-DD) — deadline isi se check hoti hai
 function todayIST(){ return new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10); }
@@ -945,8 +968,8 @@ SCREENS.home = () => {
   const user = getCurrentUser();
   if(!user){ nav('authLanding'); return ''; }
   if(user.role !== 'admin' && !cleanIndianPhone(user.phone)){ setTimeout(() => nav('addPhone'), 0); return ''; }
-  if(user.role==='editor'){ return editorHomeScreen(user); }
-  return clientHomeScreen(user);
+  const page = user.role==='editor' ? editorHomeScreen(user) : clientHomeScreen(user);
+  return page instanceof Promise ? page.then(h => installBanner() + h) : installBanner() + page;
 };
 
 async function editorHomeScreen(user){
