@@ -291,6 +291,16 @@ let currentUser = null;
 let pendingAuthUser = null;
 
 async function signInWithGoogle(){
+  if(IN_ANDROID_APP){
+    // Google does not allow login inside an app WebView -> open Chrome, come back via sphereapp://auth
+    const { data, error } = await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: 'sphereapp://auth', skipBrowserRedirect: true, queryParams: { prompt: 'select_account' } }
+    });
+    if(error || !data || !data.url){ alert((error && error.message) || 'Could not start Google login'); return; }
+    window.SphereAndroid.openExternal(data.url);
+    return;
+  }
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
     options: {
@@ -365,6 +375,34 @@ const CAT_ICON = {"Vlog Editing":"data:image/webp;base64,UklGRvgRAABXRUJQVlA4IOw
 
 /* ============ DATA HELPERS (Supabase) ============ */
 function getCurrentUser(){ return currentUser; }
+/* ============ ANDROID APP (Sphere APK) ============ */
+const IN_ANDROID_APP = /SphereApp\//.test(navigator.userAgent) && !!window.SphereAndroid;
+if(IN_ANDROID_APP){
+  // links that leave Sphere (WhatsApp, YouTube, Drive, files, policies...) open in the right phone app
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest && e.target.closest('a[href]');
+    if(!a) return;
+    const href = a.getAttribute('href') || '';
+    const external = a.target === '_blank' || /^(tel:|mailto:|upi:|whatsapp:|intent:)/i.test(href)
+      || (/^https?:/i.test(href) && new URL(href, location.href).host !== location.host);
+    if(external){ e.preventDefault(); window.SphereAndroid.openExternal(new URL(href, location.href).href); }
+  }, true);
+  const _open = window.open.bind(window);
+  window.open = (u, t, f) => {
+    if(u && /^https?:/i.test(u) && !/razorpay\.com/i.test(u) && new URL(u, location.href).host !== location.host){
+      window.SphereAndroid.openExternal(u); return null;
+    }
+    return _open(u, t, f);
+  };
+}
+// Android back button: go back to Home first, then close the app
+let currentScreenName = 'splash';
+window.sphereBack = function(){
+  const top = ['home', 'authLanding', 'splash', 'onboard1', 'admin'];
+  if(top.includes(currentScreenName)) return false;
+  nav(currentUser ? (currentUser.role === 'admin' && currentScreenName !== 'admin' ? 'admin' : 'home') : 'authLanding');
+  return true;
+};
 /* ============ INSTALL AS APP (PWA) ============ */
 let installPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; });
@@ -373,7 +411,7 @@ if('serviceWorker' in navigator){
   window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW', err)); });
 }
 function isStandalone(){
-  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  return IN_ANDROID_APP || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
 }
 function installAppItem(){
   if(isStandalone()) return '';
@@ -689,6 +727,7 @@ function renderBottomNav(){
 }
 
 async function nav(screen, data){
+  currentScreenName = screen;
   window.scrollTo(0,0);
   const visibleScreens = ['home','chatList','jobs','portfolio','profile'];
   bottomNav.classList.toggle('hidden', !visibleScreens.includes(screen));
