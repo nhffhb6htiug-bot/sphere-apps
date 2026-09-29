@@ -1,0 +1,55 @@
+# Builds the native Sphere Android app on GitHub's computers and saves the APK + build report in /builds
+name: Build Sphere Android app
+
+on:
+  push:
+    paths:
+      - "android-native/**"
+      - ".github/workflows/build-android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Build APK
+        id: build
+        continue-on-error: true
+        working-directory: android-native
+        run: |
+          chmod +x gradlew
+          set -o pipefail
+          ./gradlew assembleDebug --no-daemon --stacktrace --console=plain 2>&1 | tee ../build.log
+
+      - name: Save result in the repo
+        run: |
+          mkdir -p builds
+          if [ "${{ steps.build.outcome }}" = "success" ]; then
+            cp android-native/app/build/outputs/apk/debug/app-debug.apk builds/Sphere-native.apk
+            echo "SUCCESS $(date -u) ${{ github.sha }}" > builds/android-build-status.txt
+          else
+            echo "FAILED $(date -u) ${{ github.sha }}" > builds/android-build-status.txt
+          fi
+          grep -E "^e: |error:|What went wrong" -A4 build.log | head -400 > builds/android-build-errors.txt || true
+          tail -150 build.log > builds/android-build-tail.txt
+          git config user.name "sphere-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add builds
+          git commit -m "Android build ${{ steps.build.outcome }} for ${{ github.sha }}" || echo "nothing to commit"
+          git pull --rebase || true
+          git push
