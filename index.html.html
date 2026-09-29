@@ -1148,6 +1148,8 @@ async function sendAI(preset){
     aiHistory.push({ role: 'model', text: '⚠️ ' + msg });
     renderAIMessages();
     aiHistory.pop(); aiHistory.pop();   // failed turn is not sent again as context
+    const db = document.getElementById('aiDraftBtn');
+    if(db && !aiHistory.some(m => m.role === 'user')) db.style.display = 'none';
     return;
   }
   aiHistory.push({ role: 'model', text: data.reply });
