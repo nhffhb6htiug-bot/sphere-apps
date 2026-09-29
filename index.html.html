@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Sphere</title>
-<meta name="theme-color" content="#1657ff">
+<meta name="theme-color" content="#dfe6fb">
 <meta name="description" content="Hire verified video editors or find editing work — Sphere by Syahi Films.">
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" type="image/png" href="/favicon.png">
@@ -181,6 +181,11 @@ h1,h2,h3{color:var(--text);}
 .raw-tile .rt-play{font-size:22px;}
 .raw-del{position:absolute; top:4px; right:4px; width:22px; height:22px; border-radius:50%; border:none; background:rgba(0,0,0,.65); color:#fff; font-size:11px; cursor:pointer;}
 .badge.expired{background:#9aa0a6;}
+.wco-drag{display:none;}
+@media (display-mode: window-controls-overlay){
+  body{padding-top:env(titlebar-area-height, 32px);}
+  .wco-drag{display:block; position:fixed; top:0; left:0; right:0; height:env(titlebar-area-height, 32px); background:#dfe6fb; z-index:9999; app-region:drag; -webkit-app-region:drag;}
+}
 .badge{display:inline-block; background:var(--blue); color:#fff; font-size:10px; font-weight:700; padding:3px 8px; border-radius:20px; margin-left:6px;}
 .pill{display:inline-block; background:#fff; border:1px solid var(--border); padding:5px 12px; border-radius:20px; font-size:12px; margin:3px 4px 3px 0; cursor:pointer;}
 .pill.active{background:var(--blue); color:#fff; border-color:var(--blue);}
@@ -254,6 +259,7 @@ details.card[open] summary::after{content:'－';}
 </style>
 </head>
 <body>
+<div class="wco-drag"></div>
 
 <div id="app"></div>
 
