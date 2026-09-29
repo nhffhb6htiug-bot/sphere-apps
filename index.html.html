@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Sphere</title>
 <meta name="theme-color" content="#1657ff">
+<meta name="description" content="Hire verified video editors or find editing work — Sphere by Syahi Films.">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Sphere">
 <style>
 :root{
   --blue:#1657ff;
@@ -336,6 +344,33 @@ const CAT_ICON = {"Vlog Editing":"data:image/webp;base64,UklGRvgRAABXRUJQVlA4IOw
 
 /* ============ DATA HELPERS (Supabase) ============ */
 function getCurrentUser(){ return currentUser; }
+/* ============ INSTALL AS APP (PWA) ============ */
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; });
+window.addEventListener('appinstalled', () => { installPrompt = null; });
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW', err)); });
+}
+function isStandalone(){
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+}
+function installAppItem(){
+  if(isStandalone()) return '';
+  return menuItem('mobile', 'Install the Sphere app', 'installApp()', { sub: 'Open Sphere from your home screen, full screen' });
+}
+async function installApp(){
+  if(installPrompt){
+    installPrompt.prompt();
+    const choice = await installPrompt.userChoice.catch(() => null);
+    installPrompt = null;
+    if(choice && choice.outcome === 'accepted') alert('Sphere is being added to your home screen ✅');
+    return;
+  }
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  alert(ios
+    ? 'On iPhone: tap the Share button (square with arrow) in Safari, then "Add to Home Screen".'
+    : 'Open the browser menu (⋮) and tap "Install app" or "Add to Home screen".');
+}
 // India ki aaj ki date (YYYY-MM-DD) — deadline isi se check hoti hai
 function todayIST(){ return new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10); }
 function fmtDate(d){
@@ -399,6 +434,7 @@ const UI_ICONS = {
   userx: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="m17 8 5 5M22 8l-5 5"/></svg>',
   search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>',
   upload: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg>',
+  mobile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></svg>',
   camera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></svg>'
 };
 function menuItem(icon, label, onclick, opts){
@@ -2006,6 +2042,7 @@ SCREENS.profile = async () => {
     ${menuItem('jobs', 'My Jobs', "nav('jobs')")}
     ${menuItem('bell', 'Notifications', "nav('notifications')")}
     ${menuItem('help', 'Help, Support & Policies', "nav('support')")}
+    ${installAppItem()}
     ${user.role==='admin' ? menuItem('shield', 'Admin Panel', "nav('admin')", { sub: 'Verify editors, reports, payouts' }) : ''}
     ${modeSwitchCard(user)}
     ${menuItem('logout', 'Logout', 'logout()', { cls: 'danger' })}
