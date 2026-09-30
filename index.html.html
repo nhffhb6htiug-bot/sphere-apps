@@ -383,6 +383,12 @@ const CAT_ICON = {"Vlog Editing":"data:image/webp;base64,UklGRvgRAABXRUJQVlA4IOw
 
 /* ============ DATA HELPERS (Supabase) ============ */
 function getCurrentUser(){ return currentUser; }
+// Public editor directory (no phone/email). Falls back to profiles if update 8 is not installed yet.
+async function publicEditors(build){
+  let r = await build(sb.from('sp_public_profiles'));
+  if(r.error){ r = await build(sb.from('profiles')); if(!r.error && r.data) r.data = r.data.filter(p => String(p.role).toUpperCase() === 'EDITOR' && p.is_verified); }
+  return r;
+}
 const FREE_BIDS = 3;   // editors without the ✔ tick can place this many bids in total
 async function bidsUsed(uid){
   const { count } = await sb.from('sp_applications').select('id', { count: 'exact', head: true }).eq('editor_id', uid);
@@ -728,7 +734,7 @@ async function getProfilesByIds(ids){
   const got = new Set((data || []).map(r => r.id));
   const missing = unique.filter(id => !got.has(id));
   let pub = [];
-  if(missing.length){ const r = await sb.from('sp_public_profiles').select('*').in('id', missing); pub = r.data || []; }
+  if(missing.length){ const r = await publicEditors(t => t.select('*').in('id', missing)); pub = r.data || []; }
   const rows = [...(data || []), ...pub];
   const users = await attachRatings(rows.map(toAppUser));
   const map = {};
@@ -736,7 +742,7 @@ async function getProfilesByIds(ids){
   return map;
 }
 async function getVerifiedEditors(){
-  const { data, error } = await sb.from('sp_public_profiles').select('*');
+  const { data, error } = await publicEditors(t => t.select('*'));
   if(dbErr(error)) return [];
   const me = getCurrentUser();
   return attachRatings((data || []).map(toAppUser).filter(u => !me || u.id !== me.id));
@@ -1264,7 +1270,8 @@ async function aiDraftJob(){
   nav('postJob', { prefill: data.draft });
 }
 async function openEditorByCode(code){
-  const { data } = await sb.from('sp_public_profiles').select('id').eq('verification_code', code).maybeSingle();
+  const r = await publicEditors(t => t.select('*').eq('verification_code', code));
+  const data = (r.data || [])[0];
   if(!data){ alert('This editor is not available right now.'); return; }
   openEditorProfile(data.id);
 }
@@ -1518,7 +1525,7 @@ async function submitJob(presetEditor){
   if(presetEditor){
     await notify(presetEditor, 'You were hired directly!', `${user.name} hired you for a ${cat} project. Propose your price.`);
   } else {
-    const { data: eds } = await sb.from('sp_public_profiles').select('id').contains('categories', [cat]);
+    const { data: eds } = await publicEditors(t => t.select('*').contains('categories', [cat]));
     await notify((eds || []).map(e => e.id), 'New Job Posted', `${cat} job posted — Budget ₹${budget}`);
   }
   alert('Job posted successfully!');

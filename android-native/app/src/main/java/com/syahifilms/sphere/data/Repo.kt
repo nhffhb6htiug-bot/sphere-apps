@@ -6,6 +6,14 @@ import org.json.JSONObject
 /** Everything the app does with the backend. Same tables and rules as the website. */
 object Repo {
 
+    /** Public editor directory (no phone/email). Falls back to profiles if update 8 is not installed yet. */
+    private suspend fun publicEditors(query: String): org.json.JSONArray = try {
+        Api.select("sp_public_profiles?$query")
+    } catch (e: ApiException) {
+        val all = Api.select("profiles?role=eq.EDITOR&is_verified=eq.true&$query")
+        all
+    }
+
     // ---------------- profiles ----------------
     suspend fun loadMe(): Profile? {
         val uid = Api.userId ?: return null
@@ -71,15 +79,15 @@ object Repo {
     }
 
     suspend fun verifiedEditors(category: String? = null): List<Profile> {
-        var q = "sp_public_profiles?select=*"
+        var q = "select=*"
         if (!category.isNullOrBlank()) q += "&categories=cs.${Api.enc("{\"$category\"}")}"
         val me = Api.userId
-        return withRatings(Api.select(q).mapObjects { Profile.from(it) }.filter { it.id != me })
+        return withRatings(publicEditors(q).mapObjects { Profile.from(it) }.filter { it.id != me })
     }
 
     /** Full profile if you are connected (job / bid / chat), otherwise the public editor details. */
     suspend fun profile(id: String): Profile? {
-        val row = Api.selectOne("profiles?id=eq.$id&select=*") ?: Api.selectOne("sp_public_profiles?id=eq.$id&select=*")
+        val row = Api.selectOne("profiles?id=eq.$id&select=*") ?: publicEditors("id=eq.$id&select=*").let { if (it.length() > 0) it.getJSONObject(0) else null }
         return row?.let { withRatings(listOf(Profile.from(it))).first() }
     }
 
@@ -89,7 +97,7 @@ object Repo {
         val full = Api.select("profiles?id=in.(${u.joinToString(",")})&select=*").mapObjects { Profile.from(it) }
         val missing = u.filter { id -> full.none { it.id == id } }
         val pub = if (missing.isEmpty()) emptyList()
-            else Api.select("sp_public_profiles?id=in.(${missing.joinToString(",")})&select=*").mapObjects { Profile.from(it) }
+            else publicEditors("id=in.(${missing.joinToString(",")})&select=*").mapObjects { Profile.from(it) }
         val list = withRatings(full + pub)
         return list.associateBy { it.id }
     }
@@ -153,7 +161,7 @@ object Repo {
         if (presetEditor != null) {
             notify(listOf(presetEditor), "You were hired directly!", "${me.name} hired you for a $category project. Propose your price.")
         } else {
-            val eds = Api.select("sp_public_profiles?categories=cs.${Api.enc("{\"$category\"}")}&select=id")
+            val eds = publicEditors("categories=cs.${Api.enc("{\"$category\"}")}&select=id")
             notify(eds.mapObjects { it.str("id") }, "New Job Posted", "$category job posted — Budget ${money(budget)}")
         }
         return created?.str("id") ?: ""
