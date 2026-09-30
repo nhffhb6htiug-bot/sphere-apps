@@ -322,7 +322,9 @@ function toAppUser(profile){
   if(!profile) return null;
   const baseRole = (profile.role||'').toLowerCase();
   // Editor chahe toh Client mode me bhi app use kar sakta hai (editors hire karna, job post karna)
-  const role = (baseRole === 'editor' && getMode(profile.id) === 'client') ? 'client' : baseRole;
+  const mode = getMode(profile.id);
+  const role = (baseRole === 'editor' && mode === 'client') ? 'client'
+    : (baseRole === 'admin' && mode === 'editor') ? 'editor' : baseRole;
   return {
     id: profile.id,
     role,
@@ -416,7 +418,7 @@ let currentScreenName = 'splash';
 window.sphereBack = function(){
   const top = ['home', 'authLanding', 'splash', 'onboard1', 'admin'];
   if(top.includes(currentScreenName)) return false;
-  nav(currentUser ? (currentUser.role === 'admin' && currentScreenName !== 'admin' ? 'admin' : 'home') : 'authLanding');
+  nav(currentUser ? (currentUser.baseRole === 'admin' && currentUser.role === 'admin' && currentScreenName !== 'admin' ? 'admin' : 'home') : 'authLanding');
   return true;
 };
 /* ============ INSTALL AS APP (PWA) ============ */
@@ -539,7 +541,12 @@ function menuItem(icon, label, onclick, opts){
     <span class="mi-chev">${UI_ICONS.chevron}</span></div>`;
 }
 function modeSwitchCard(user){
-  if(!user || user.role === 'admin') return '';
+  if(!user) return '';
+  if(user.baseRole === 'admin'){
+    return user.role === 'editor'
+      ? menuItem('swap', 'Switch to Admin mode', "switchMode('client')", { cls: 'highlight', sub: 'Back to hiring and the Admin Panel' })
+      : menuItem('swap', 'Switch to Editor', "switchMode('editor')", { cls: 'highlight', sub: 'See available work and place bids' });
+  }
   if(user.baseRole === 'editor'){
     return user.role === 'editor'
       ? menuItem('swap', 'Switch to Client', "switchMode('client')", { cls: 'highlight', sub: 'Hire editors and post jobs' })
@@ -548,7 +555,8 @@ function modeSwitchCard(user){
   return menuItem('star', 'Become an Editor', 'becomeEditor()', { cls: 'highlight', sub: 'Earn by editing videos on Sphere' });
 }
 function modeChip(user){
-  if(!user || user.baseRole !== 'editor') return '';
+  if(!user || (user.baseRole !== 'editor' && user.baseRole !== 'admin')) return '';
+  if(user.baseRole === 'admin') return `<div class="mode-chip">${UI_ICONS.swap}${user.role === 'editor' ? 'Editor mode' : 'Admin mode'}</div>`;
   return `<div class="mode-chip">${UI_ICONS.swap}${user.role === 'editor' ? 'Editor mode' : 'Client mode'}</div>`;
 }
 async function switchMode(mode){
@@ -1032,7 +1040,7 @@ async function saveEditorDetails(){
   }).eq('id', currentUser.id);
   if(error){ alert(error.message); return; }
   await fetchAndSetCurrentUser();
-  nav('verificationStatus');
+  nav(currentUser && currentUser.baseRole === 'admin' ? 'home' : 'verificationStatus');
 }
 
 /* ============ HOME — EXACT DESIGN MATCH ============ */
@@ -1062,6 +1070,7 @@ async function editorHomeScreen(user){
   </div>
 
   <div class="screen" style="padding-top:6px;">
+    ${user.baseRole === 'admin' ? `<div class="card" onclick="nav('profile')" style="cursor:pointer; border:1.5px solid var(--blue);"><b>🛡️ Admin · Editor mode</b><p class="muted" style="font-size:12px; margin-top:2px;">You can bid on work. Switch back from Profile.</p></div>` : `
     <div class="card" onclick="nav('verificationStatus')" style="cursor:pointer; display:flex; align-items:center; gap:12px; ${user.verified?'background:linear-gradient(135deg,#0f3fcc,#1657ff); color:#fff;':'border:1.5px solid var(--blue);'}">
       <div class="mi-icon" style="${user.verified?'background:rgba(255,255,255,.2); color:#fff;':''}">${user.verified ? UI_ICONS.check : UI_ICONS.clock}</div>
       <div style="flex:1;">
@@ -1069,7 +1078,7 @@ async function editorHomeScreen(user){
         <p style="font-size:12px; opacity:.9; margin-top:2px;">${user.verified ? ('Editor code: ' + esc(user.code)) : ('Our team will call you on ' + esc(user.phone || 'your number') + ' · View status')}</p>
       </div>
       <span class="mi-chev" style="${user.verified?'color:#fff;':''}">${UI_ICONS.chevron}</span>
-    </div>
+    </div>`}
 
     <div class="section-title" style="padding:0; margin-top:18px;"><h3>Available Work</h3></div>
     <div class="pick-chips" id="workFilter" style="margin-bottom:10px;">
@@ -1526,7 +1535,7 @@ SCREENS.jobBidScreen = async () => {
 };
 async function submitBid(jobId){
   const user = getCurrentUser();
-  if(!user.verified){ alert('You can bid once the Sphere team verifies your profile.'); return; }
+  if(!user.verified && user.baseRole !== 'admin'){ alert('You can bid once the Sphere team verifies your profile.'); return; }
   const amount = document.getElementById('bidAmount').value.trim();
   const msg = document.getElementById('bidMsg').value.trim();
   if(!amount || Number(amount) <= 0){ alert('Enter your bid amount'); return; }
@@ -2244,7 +2253,8 @@ SCREENS.profile = async () => {
     ${menuItem('bell', 'Notifications', "nav('notifications')")}
     ${menuItem('help', 'Help, Support & Policies', "nav('support')")}
     ${installAppItem()}
-    ${user.role==='admin' ? menuItem('shield', 'Admin Panel', "nav('admin')", { sub: 'Verify editors, reports, payouts' }) : ''}
+    ${user.baseRole==='admin' && user.role==='editor' ? menuItem('user', 'Editor details', "nav('editorDetails')", { sub: 'Your categories and languages' }) : ''}
+    ${user.baseRole==='admin' ? menuItem('shield', 'Admin Panel', "nav('admin')", { sub: 'Verify editors, reports, payouts' }) : ''}
     ${modeSwitchCard(user)}
     ${menuItem('logout', 'Logout', 'logout()', { cls: 'danger' })}
   </div>`;
@@ -2258,7 +2268,7 @@ async function logout(){
 
 SCREENS.admin = async () => {
   const _u = getCurrentUser();
-  if(!_u || _u.role!=='admin'){
+  if(!_u || _u.baseRole!=='admin'){
     return `<div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Access Denied</h1></div>
     <div class="screen center-text" style="padding-top:60px;"><p class="muted">🚫 This page is for admins only.</p></div>`;
   }

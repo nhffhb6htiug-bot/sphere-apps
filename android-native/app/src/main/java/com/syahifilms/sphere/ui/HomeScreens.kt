@@ -116,7 +116,10 @@ private fun ClientHome(nav: NavHostController, me: Profile) {
 @Composable
 private fun EditorHome(nav: NavHostController, me: Profile) {
     Text("Hi, ${me.firstName} 👋", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
-    CardBox(onClick = { nav.go("verification") }, border = if (me.verified) Success else Blue) {
+    if (me.role == "admin") CardBox(onClick = { nav.go("profile") }, border = Blue) {
+        Text("🛡️ Admin · Editor mode", fontWeight = FontWeight.Bold)
+        MutedText("You can bid on work. Switch back from Profile.", 12)
+    } else CardBox(onClick = { nav.go("verification") }, border = if (me.verified) Success else Blue) {
         if (me.verified) {
             Text("✅ Verified editor", fontWeight = FontWeight.Bold)
             MutedText("Editor code: ${me.code} · ${me.categoriesLabel}", 12)
@@ -132,7 +135,7 @@ private fun EditorHome(nav: NavHostController, me: Profile) {
         open.data == null -> Loading()
         else -> WorkList(me, open.data) { j -> nav.go("project/${j.id}") }
     }
-    if (!me.verified) MutedText("You can bid once the Sphere team verifies your profile.", 12)
+    if (!me.verified && me.role != "admin") MutedText("You can bid once the Sphere team verifies your profile.", 12)
     SectionTitle("Your projects")
     val mine = load(Unit) { Repo.myEditorJobs().filter { it.status !in listOf("closed", "refunded") } }
     when {

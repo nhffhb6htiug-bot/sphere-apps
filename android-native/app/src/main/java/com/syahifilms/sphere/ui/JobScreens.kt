@@ -222,7 +222,7 @@ fun ProjectScreen(nav: NavHostController, id: String) {
             // editor: place a bid
             job.status == "open" && !isClient && AppState.editorSide -> {
                 if (job.expired) MutedText("This job expired on ${prettyDate(job.deadline)}. Bidding is closed.")
-                else if (!me.verified) MutedText("You can bid once the Sphere team verifies your profile.")
+                else if (!me.verified && me.role != "admin") MutedText("You can bid once the Sphere team verifies your profile.")
                 else BidForm(job, busy) { amount, msg -> act { Repo.placeBid(me, job, amount, msg); toast(ctx, "Bid sent ✅") } }
             }
             // client: bids / reopen

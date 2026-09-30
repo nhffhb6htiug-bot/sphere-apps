@@ -180,9 +180,9 @@ fun ProfileScreen(nav: NavHostController) {
             Text(me.name, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
             MutedText(me.email)
             MutedText(me.phone)
-            if (me.role == "editor") {
+            if (me.role == "editor" || me.role == "admin") {
                 Text(
-                    if (AppState.editorSide) "Editor mode" else "Client mode",
+                    if (AppState.editorSide) "Editor mode" else if (me.role == "admin") "Admin mode" else "Client mode",
                     color = Blue, fontWeight = FontWeight.Bold, fontSize = 12.sp,
                     modifier = Modifier.padding(top = 6.dp).clip(RoundedCornerShape(12.dp)).background(BlueSoft).padding(horizontal = 10.dp, vertical = 4.dp)
                 )
@@ -201,7 +201,15 @@ fun ProfileScreen(nav: NavHostController) {
             else
                 MenuRow("🔄", "Switch to Editor", "Find work and place bids", Blue) { AppState.switchMode(false); nav.resetTo("home") }
             "client" -> MenuRow("⭐", "Become an Editor", "Earn by editing videos on Sphere", Blue) { confirmEditor = true }
-            "admin" -> MenuRow("🛡️", "Admin Panel (website)", "Verify editors, reports, payouts") { openUrl(ctx, Config.WEBSITE) }
+            "admin" -> {
+                if (AppState.editorSide) {
+                    MenuRow("✏️", "Editor details", "Your categories and languages") { nav.go("editorDetails") }
+                    MenuRow("🔄", "Switch to Admin mode", "Back to hiring and the Admin Panel", Blue) { AppState.switchMode(true); nav.resetTo("home") }
+                } else {
+                    MenuRow("🔄", "Switch to Editor", "See available work and place bids", Blue) { AppState.switchMode(false); nav.resetTo("home") }
+                }
+                MenuRow("🛡️", "Admin Panel (website)", "Verify editors, reports, payouts") { openUrl(ctx, Config.WEBSITE) }
+            }
         }
         MenuRow("🚪", "Logout", color = Danger) { confirmLogout = true }
     }

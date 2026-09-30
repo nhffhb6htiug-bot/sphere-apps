@@ -255,8 +255,8 @@ fun EditorDetailsScreen(nav: NavHostController) {
                     busy = true
                     try {
                         Repo.saveEditorDetails(p, categories, languages, skills, exp.toIntOrNull(), price, portfolio, sample)
-                        AppState.refreshMe()
-                        nav.resetTo("verification")
+                        val updated = AppState.refreshMe()
+                        nav.resetTo(if (updated?.role == "admin") "home" else "verification")
                     } catch (e: Exception) { toast(ctx, e.message ?: "Could not save") }
                     busy = false
                 }

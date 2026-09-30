@@ -68,7 +68,11 @@ object AppState {
     val role: String
         get() {
             val p = me ?: return ""
-            return if (p.role == "editor" && mode == "client") "client" else p.role
+            return when {
+                p.role == "editor" && mode == "client" -> "client"
+                p.role == "admin" && mode == "editor" -> "editor"   // admins can also work as editors
+                else -> p.role
+            }
         }
     val clientSide: Boolean get() = role == "client" || role == "admin"
     val editorSide: Boolean get() = role == "editor"
