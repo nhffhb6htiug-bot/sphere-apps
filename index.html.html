@@ -201,6 +201,10 @@ h1,h2,h3{color:var(--text);}
 .ai-typing i:nth-child(2){animation-delay:.15s;} .ai-typing i:nth-child(3){animation-delay:.3s;}
 @keyframes aiDot{0%,80%,100%{opacity:.3; transform:translateY(0);} 40%{opacity:1; transform:translateY(-3px);}}
 .ai-note{font-size:11px; color:var(--muted); text-align:center; margin:4px 0 10px;}
+.pick-chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:6px;}
+.pick-chip{padding:8px 12px; border-radius:18px; border:1.5px solid var(--border); background:#fff; font-size:13px; font-weight:600; cursor:pointer; user-select:none;}
+.pick-chip.on{background:var(--blue); border-color:var(--blue); color:#fff;}
+.tag{display:inline-block; padding:2px 8px; border-radius:10px; background:#eef3ff; color:var(--blue); font-size:11px; font-weight:700; margin-right:4px;}
 .badge{display:inline-block; background:var(--blue); color:#fff; font-size:10px; font-weight:700; padding:3px 8px; border-radius:20px; margin-left:6px;}
 .pill{display:inline-block; background:#fff; border:1px solid var(--border); padding:5px 12px; border-radius:20px; font-size:12px; margin:3px 4px 3px 0; cursor:pointer;}
 .pill.active{background:var(--blue); color:#fff; border-color:var(--blue);}
@@ -327,6 +331,8 @@ function toAppUser(profile){
     email: profile.email,
     phone: profile.phone,
     category: (profile.categories && profile.categories[0]) || '',
+    categories: Array.isArray(profile.categories) ? profile.categories : [],
+    languages: Array.isArray(profile.languages) ? profile.languages : [],
     skills: (profile.skills||[]).join(', '),
     experience: profile.experience_years || '',
     price: profile.price_range || '',
@@ -375,6 +381,16 @@ const CAT_ICON = {"Vlog Editing":"data:image/webp;base64,UklGRvgRAABXRUJQVlA4IOw
 
 /* ============ DATA HELPERS (Supabase) ============ */
 function getCurrentUser(){ return currentUser; }
+const LANGUAGES = ['Hindi', 'English', 'Hinglish', 'Punjabi', 'Haryanvi', 'Bhojpuri', 'Rajasthani', 'Marathi',
+  'Gujarati', 'Bengali', 'Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Urdu', 'Other'];
+function catsLabel(u){ return (u && u.categories && u.categories.length) ? u.categories.join(', ') : ((u && u.category) || '-'); }
+function langsLabel(u){ return (u && u.languages && u.languages.length) ? u.languages.join(', ') : '-'; }
+function pickChips(id, options, selected){
+  return `<div class="pick-chips" id="${id}">${options.map(o => `<span class="pick-chip ${selected.includes(o) ? 'on' : ''}" data-v="${esc(o)}" onclick="this.classList.toggle('on')">${esc(o)}</span>`).join('')}</div>`;
+}
+function pickedValues(id){
+  return Array.from(document.querySelectorAll('#' + id + ' .pick-chip.on')).map(el => el.dataset.v);
+}
 /* ============ ANDROID APP (Sphere APK) ============ */
 const IN_ANDROID_APP = /SphereApp\//.test(navigator.userAgent) && !!window.SphereAndroid;
 if(IN_ANDROID_APP){
@@ -551,7 +567,7 @@ async function becomeEditor(){
 }
 const SUPPORT = {
   name: 'Sphere by Syahi Films',
-  phones: ['7739363798', '8708712986'],
+  phones: ['7739363798', '9468289750', '8708712986'],
   whatsapp: '917739363798',
   email: 'niteshkumarmatho37@gmail.com',
   hours: '10 AM – 7 PM (Mon–Sat)'
@@ -656,6 +672,7 @@ function mapJob(r){
     lockedAmount: r.locked_amount, payment: r.payment_status, deliveryLink: r.delivery_link,
     editorAmount: r.editor_amount, platformFee: r.platform_fee, payoutStatus: r.payout_status,
     rawFiles: Array.isArray(r.raw_files) ? r.raw_files : [],
+    language: r.language || '',
     createdAt: r.created_at
   };
 }
@@ -979,9 +996,10 @@ SCREENS.editorDetails = () => {
     <h2>Editor Application</h2>
     <p class="muted" style="margin-bottom:16px;">Tell us about your work. Our team will call you to verify your profile.</p>
     ${phoneField('edPhone', u.phone, 'Mobile number (our team will call you on this)')}
-    <div class="field"><label>Category</label>
-      <select id="edCat">${CATEGORIES.map(c=>`<option ${c===u.category?'selected':''}>${c}</option>`).join('')}</select>
-    </div>
+    <div class="field"><label>Categories you work in (choose one or more)</label>
+      ${pickChips('edCats', CATEGORIES, u.categories || [])}</div>
+    <div class="field"><label>Languages you edit in (choose one or more)</label>
+      ${pickChips('edLangs', LANGUAGES, u.languages || [])}</div>
     <div class="field"><label>Skills / Software</label><input id="edSkills" value="${esc(u.skills)}" placeholder="Premiere Pro, After Effects..."></div>
     <div class="field"><label>Experience (Years)</label><input id="edExp" type="number" value="${esc(u.experience)}" placeholder="5"></div>
     <div class="field"><label>Starting Price (₹ per video)</label><input id="edPrice" type="number" value="${esc(u.price)}" placeholder="500"></div>
@@ -993,13 +1011,17 @@ SCREENS.editorDetails = () => {
 async function saveEditorDetails(){
   const phone = readPhone('edPhone');
   if(!phone) return;
-  const cat = document.getElementById('edCat').value;
+  const cats = pickedValues('edCats');
+  const langs = pickedValues('edLangs');
+  if(!cats.length){ alert('Choose at least one category'); return; }
+  if(!langs.length){ alert('Choose at least one language'); return; }
   const skills = document.getElementById('edSkills').value;
   const exp = document.getElementById('edExp').value;
   const price = document.getElementById('edPrice').value;
   const sample = document.getElementById('edSample').value;
   const { error } = await sb.from('profiles').update({
-    categories: [cat],
+    categories: cats,
+    languages: langs,
     skills: skills.split(',').map(s=>s.trim()).filter(Boolean),
     experience_years: exp ? parseInt(exp) : null,
     price_range: price,
@@ -1024,11 +1046,12 @@ SCREENS.home = () => {
 
 async function editorHomeScreen(user){
   const [openRes, negRes] = await Promise.all([
-    sb.from('sp_jobs').select('*').eq('status', 'open').eq('category', user.category || '').neq('client_id', user.id).or(notExpiredFilter()).order('created_at', { ascending: false }),
+    sb.from('sp_jobs').select('*').eq('status', 'open').neq('client_id', user.id).or(notExpiredFilter()).order('created_at', { ascending: false }),
     sb.from('sp_jobs').select('*').eq('status', 'negotiating').eq('assigned_editor', user.id).order('created_at', { ascending: false })
   ]);
   if(openRes.error) console.error(openRes.error);
-  const openJobs = (openRes.data || []).map(mapJob);
+  workJobs = (openRes.data || []).map(mapJob);
+  workMine = user.categories && user.categories.length ? user.categories : (user.category ? [user.category] : []);
   const negotiating = (negRes.data || []).map(mapJob);
   return `
   <div class="topbar">
@@ -1048,14 +1071,11 @@ async function editorHomeScreen(user){
       <span class="mi-chev" style="${user.verified?'color:#fff;':''}">${UI_ICONS.chevron}</span>
     </div>
 
-    <div class="section-title" style="padding:0; margin-top:18px;"><h3>Available Work — ${user.category||''}</h3></div>
-    ${openJobs.length===0?'<p class="muted">No open jobs in your category right now.</p>':''}
-    ${openJobs.map(j=>`
-      <div class="card" onclick="currentJobId='${j.id}'; nav('jobBidScreen')">
-        <b>${j.category}</b>
-        <p class="muted" style="font-size:13px; margin:6px 0;">${esc(j.desc).slice(0,70)}...</p>
-        <p>Budget: <b>₹${j.budget}</b> ${j.deadline?`• Due ${fmtDate(j.deadline)}`:''}</p>
-      </div>`).join('')}
+    <div class="section-title" style="padding:0; margin-top:18px;"><h3>Available Work</h3></div>
+    <div class="pick-chips" id="workFilter" style="margin-bottom:10px;">
+      ${['All', 'My categories', ...CATEGORIES].map(c => `<span class="pick-chip ${c === workFilter ? 'on' : ''}" data-v="${esc(c)}" onclick="setWorkFilter(this.dataset.v)">${esc(c)}</span>`).join('')}
+    </div>
+    <div id="workList">${renderWorkList()}</div>
 
     ${negotiating.length>0?`
     <div class="section-title" style="padding:0; margin-top:18px;"><h3>Active Negotiations</h3></div>
@@ -1069,6 +1089,24 @@ async function editorHomeScreen(user){
   </div>
   <div style="height:20px;"></div>
   `;
+}
+
+let workJobs = [], workMine = [], workFilter = 'All';
+function renderWorkList(){
+  const list = workJobs.filter(j => workFilter === 'All' ? true
+    : workFilter === 'My categories' ? workMine.includes(j.category) : j.category === workFilter);
+  if(!list.length) return `<p class="muted">No open jobs ${workFilter === 'All' ? '' : 'in ' + esc(workFilter) + ' '}right now. We will notify you when new work is posted.</p>`;
+  return list.map(j => `
+      <div class="card" onclick="currentJobId='${j.id}'; nav('jobBidScreen')">
+        <span class="tag">${esc(j.category)}</span>${j.language ? `<span class="tag">🗣 ${esc(j.language)}</span>` : ''}
+        <p class="muted" style="font-size:13px; margin:6px 0;">${esc(j.desc).slice(0,70)}...</p>
+        <p>Budget: <b>₹${j.budget}</b> ${j.deadline?`• Due ${fmtDate(j.deadline)}`:''}</p>
+      </div>`).join('');
+}
+function setWorkFilter(v){
+  workFilter = v;
+  document.querySelectorAll('#workFilter .pick-chip').forEach(el => el.classList.toggle('on', el.dataset.v === v));
+  const box = document.getElementById('workList'); if(box) box.innerHTML = renderWorkList();
 }
 
 function clientHomeScreen(user){
@@ -1215,7 +1253,7 @@ async function runSmartMatch(){
   const budget = Number(document.getElementById('smBudget').value) || 0;
   const box = document.getElementById('smResults');
   box.innerHTML = '<p class="muted center-text" style="margin:14px 0;">Searching…</p>';
-  const editors = (await getVerifiedEditors()).filter(e => e.category === cat);
+  const editors = (await getVerifiedEditors()).filter(e => (e.categories.length ? e.categories : [e.category]).includes(cat));
   const score = e => (e.rating || 0) * 2 + Math.min(Number(e.experience) || 0, 10) * 0.3 + (e.reviews || 0) * 0.05;
   let list = budget ? editors.filter(e => editorPrice(e) && editorPrice(e) <= budget) : editors.slice();
   list.sort((a, b) => score(b) - score(a));
@@ -1349,7 +1387,7 @@ SCREENS.categories = async () => {
     ${CATEGORIES.map(c=>`
       <div class="card" style="display:flex; align-items:center; gap:14px;" onclick="openCategory('${c}')">
         <div class="cat-icon-box">${img(CAT_ICON[c], CAT_EMOJI[c])}</div>
-        <div><b>${c}</b><p class="muted" style="font-size:12px;">${editors.filter(e=>e.category===c).length} editors</p></div>
+        <div><b>${c}</b><p class="muted" style="font-size:12px;">${editors.filter(e=>(e.categories.length ? e.categories : [e.category]).includes(c)).length} editors</p></div>
       </div>`).join('')}
   </div>`;
 };
@@ -1357,7 +1395,7 @@ SCREENS.categories = async () => {
 let currentCategory = null;
 function openCategory(cat){ currentCategory = cat; nav('categoryDetail'); }
 SCREENS.categoryDetail = async () => {
-  const list = (await getVerifiedEditors()).filter(e=>e.category===currentCategory);
+  const list = (await getVerifiedEditors()).filter(e=>(e.categories.length ? e.categories : [e.category]).includes(currentCategory));
   return `
   <div class="header"><button class="back-btn" onclick="nav('categories')">‹</button><h1>${esc(currentCategory)}</h1><p>Verified professionals</p></div>
   <div class="screen" style="padding-top:0;"><div class="grid2">${renderEditorCards(list)}</div></div>`;
@@ -1390,7 +1428,7 @@ SCREENS.editorProfile = async () => {
     <div style="display:flex; align-items:center; gap:14px; margin-top:10px;">
       ${avatarHtml(e, 'background:#fff;')}
       <div><h2 style="color:#fff;">${esc(e.name)} ${e.verified?'<span class="badge">✔ Verified</span>':''}</h2>
-      <p>${esc(e.category)} • ${esc(e.experience)||0} Yrs Exp</p></div>
+      <p>${esc(catsLabel(e))} • ${esc(e.experience)||0} Yrs Exp</p><p style="font-size:12px; opacity:.9;">🗣 ${esc(langsLabel(e))}</p></div>
     </div>
   </div>
   <div class="screen" style="padding-top:0;">
@@ -1422,6 +1460,7 @@ SCREENS.postJob = (data) => `
     <div class="field"><label>Category</label><select id="jobCat">${CATEGORIES.map(c=>`<option ${data&&data.prefill&&data.prefill.category===c?'selected':''}>${c}</option>`).join('')}</select></div>
     <div class="field"><label>Project Details</label><textarea id="jobDesc" placeholder="Describe your project..." style="min-height:120px;">${esc(data&&data.prefill?data.prefill.description:'')}</textarea></div>
     <div class="field"><label>Budget (₹)</label><input id="jobBudget" type="number" placeholder="1500" value="${data&&data.prefill&&data.prefill.budget?Number(data.prefill.budget):''}"></div>
+    <div class="field"><label>Video language (optional)</label><select id="jobLang"><option value="">Any</option>${LANGUAGES.map(l=>`<option>${l}</option>`).join('')}</select></div>
     <div class="field"><label>Deadline</label><input id="jobDeadline" type="date" min="${todayIST()}" value="${data&&data.prefill?addDaysIST(data.prefill.deadline_days):''}"></div>
     <div class="field"><label>Raw footage & photos (optional)</label>
       <input id="jobRawFiles" type="file" accept="image/*,video/*" multiple>
@@ -1450,6 +1489,7 @@ async function submitJob(presetEditor){
   const { error } = await sb.from('sp_jobs').insert({
     client_id: user.id, category: cat, description: desc, budget: Number(budget),
     deadline: deadline || null, files_link: files || null, raw_files: raw,
+    language: (document.getElementById('jobLang') || {}).value || null,
     status: presetEditor ? 'negotiating' : 'open', assigned_editor: presetEditor || null
   });
   btn.disabled = false;
@@ -1668,7 +1708,7 @@ SCREENS.jobs = async () => {
     list = (data || []).map(mapJob);
   } else if(user.role==='editor'){
     const [a, b] = await Promise.all([
-      sb.from('sp_jobs').select('*').eq('status', 'open').eq('category', user.category || '').neq('client_id', user.id).or(notExpiredFilter()),
+      sb.from('sp_jobs').select('*').eq('status', 'open').neq('client_id', user.id).or(notExpiredFilter()),
       sb.from('sp_jobs').select('*').eq('assigned_editor', user.id)
     ]);
     const seen = new Set();
@@ -1774,7 +1814,8 @@ SCREENS.verificationStatus = () => {
     <div class="card">
       <b>Your application</b>
       <div style="margin-top:6px;">
-        <div class="kv"><span>Category</span><b>${esc(u.category) || '-'}</b></div>
+        <div class="kv"><span>Categories</span><b>${esc(catsLabel(u))}</b></div>
+        <div class="kv"><span>Languages</span><b>${esc(langsLabel(u))}</b></div>
         <div class="kv"><span>Experience</span><b>${u.experience ? esc(u.experience) + ' years' : '-'}</b></div>
         <div class="kv"><span>Skills</span><b>${esc(u.skills) || '-'}</b></div>
         <div class="kv"><span>Starting price</span><b>${u.price ? '₹' + esc(u.price) + ' / video' : '-'}</b></div>
@@ -2194,7 +2235,7 @@ SCREENS.profile = async () => {
       <p class="muted">${user.email}</p>
       <p class="muted">${user.phone||''}</p>
       ${modeChip(user)}
-      ${user.role==='editor'?`<p class="muted">Category: ${esc(user.category)||'-'}</p><p class="muted">Code: ${esc(user.code)||'Pending'}</p>
+      ${user.role==='editor'?`<p class="muted">Categories: ${esc(catsLabel(user))}</p><p class="muted">Languages: ${esc(langsLabel(user))}</p><p class="muted">Code: ${esc(user.code)||'Pending'}</p>
         <p class="muted">Payout account: ${user.payoutAccount ? '✅ Set up' : '⏳ Pending — share your bank details with the Sphere team'}</p>`:''}
     </div>
     ${user.role==='editor'?renderPortfolio(user, pfItems):''}
@@ -2267,15 +2308,13 @@ SCREENS.admin = async () => {
           <a class="pill-btn primary" href="tel:+91${ph}">${UI_ICONS.phone} Call editor</a>
           <a class="pill-btn wa" href="${wa}" target="_blank" rel="noopener">WhatsApp</a></div>` : ''}
         ${e.verification_note ? `<p style="font-size:12px; color:#c62828; margin-bottom:6px;">Badge removed earlier: ${esc(e.verification_note)}</p>` : ''}
-        <div class="kv"><span>Category applied</span><b>${esc((e.categories&&e.categories[0])||'-')}</b></div>
+        <div class="kv"><span>Categories</span><b>${esc((e.categories||[]).join(', ') || '-')}</b></div>
+        <div class="kv"><span>Languages</span><b>${esc((e.languages||[]).join(', ') || '-')}</b></div>
         <div class="kv"><span>Experience</span><b>${e.experience_years ? esc(e.experience_years) + ' yrs' : '-'}</b></div>
         <div class="kv"><span>Skills</span><b>${esc((e.skills||[]).join(', ')) || '-'}</b></div>
         <div class="kv"><span>Price</span><b>${e.price_range ? '₹' + esc(e.price_range) : '-'}</b></div>
         <div class="kv"><span>Sample</span><b>${linkOrText(e.sample_video_url)}</b></div>
         <div class="kv"><span>Portfolio</span><b>${linkOrText(e.portfolio_url)}</b></div>
-        <div class="field" style="margin-top:12px;"><label>Assign Category</label>
-          <select id="assignCat_${e.id}">${CATEGORIES.map(c=>`<option ${c===(e.categories&&e.categories[0])?'selected':''}>${c}</option>`).join('')}</select>
-        </div>
         <div class="field"><label>Admin PIN</label><input id="pin_${e.id}" class="pin-input" type="password" inputmode="numeric" maxlength="8" placeholder="••••"></div>
         <button class="btn btn-primary" onclick="verifyEditor('${e.id}')">✔ Verify after call</button>
         </div>
@@ -2285,7 +2324,7 @@ SCREENS.admin = async () => {
       <div class="adm-head">
         ${avatarHtml(toAppUser(e), 'margin:0; width:44px; height:44px;')}
         <div class="adm-title"><b>${esc(e.full_name)}</b> <span class="badge">✔ ${esc(e.verification_code)}</span>
-          <small>${esc((e.categories&&e.categories[0])||'')}${e.verified_at ? ' · verified ' + fmtDate(e.verified_at) : ''}</small></div>
+          <small>${esc((e.categories||[]).join(', '))}${e.verified_at ? ' · verified ' + fmtDate(e.verified_at) : ''}</small></div>
         <button class="icon-act danger" title="Remove verification" onclick="openUnverify('${e.id}', this)">${UI_ICONS.userx}</button>
         <button class="icon-act" title="Collapse" onclick="toggleCard(this)">${UI_ICONS.minus}</button>
       </div>
@@ -2382,11 +2421,10 @@ async function adminRelease(jobId){
   nav('admin');
 }
 async function verifyEditor(id){
-  const cat = document.getElementById('assignCat_'+id).value;
   const pinEl = document.getElementById('pin_'+id);
   const pin = (pinEl && pinEl.value || '').trim();
   if(!pin){ alert('Enter your Admin PIN'); return; }
-  const { data: code, error } = await sb.rpc('sp_verify_editor', { p_editor: id, p_category: cat, p_pin: pin });
+  const { data: code, error } = await sb.rpc('sp_verify_editor', { p_editor: id, p_category: '', p_pin: pin });
   if(error){ alert(error.message); if(pinEl) pinEl.value = ''; return; }
   alert('Editor verified ✅  Code: ' + code);
   nav('admin');
