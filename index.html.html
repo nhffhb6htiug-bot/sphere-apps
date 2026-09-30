@@ -724,13 +724,19 @@ async function getProfilesByIds(ids){
   const unique = [...new Set(ids.filter(Boolean))];
   if(unique.length === 0) return {};
   const { data } = await sb.from('profiles').select('*').in('id', unique);
-  const users = await attachRatings((data || []).map(toAppUser));
+  // people you are not connected to yet: public editor details only (no phone/email)
+  const got = new Set((data || []).map(r => r.id));
+  const missing = unique.filter(id => !got.has(id));
+  let pub = [];
+  if(missing.length){ const r = await sb.from('sp_public_profiles').select('*').in('id', missing); pub = r.data || []; }
+  const rows = [...(data || []), ...pub];
+  const users = await attachRatings(rows.map(toAppUser));
   const map = {};
   users.forEach(u => { map[u.id] = u; });
   return map;
 }
 async function getVerifiedEditors(){
-  const { data, error } = await sb.from('profiles').select('*').eq('role', 'EDITOR').eq('is_verified', true);
+  const { data, error } = await sb.from('sp_public_profiles').select('*');
   if(dbErr(error)) return [];
   const me = getCurrentUser();
   return attachRatings((data || []).map(toAppUser).filter(u => !me || u.id !== me.id));
@@ -1258,7 +1264,7 @@ async function aiDraftJob(){
   nav('postJob', { prefill: data.draft });
 }
 async function openEditorByCode(code){
-  const { data } = await sb.from('profiles').select('id').eq('verification_code', code).maybeSingle();
+  const { data } = await sb.from('sp_public_profiles').select('id').eq('verification_code', code).maybeSingle();
   if(!data){ alert('This editor is not available right now.'); return; }
   openEditorProfile(data.id);
 }
@@ -1512,7 +1518,7 @@ async function submitJob(presetEditor){
   if(presetEditor){
     await notify(presetEditor, 'You were hired directly!', `${user.name} hired you for a ${cat} project. Propose your price.`);
   } else {
-    const { data: eds } = await sb.from('profiles').select('id').eq('role', 'EDITOR').eq('is_verified', true).contains('categories', [cat]);
+    const { data: eds } = await sb.from('sp_public_profiles').select('id').contains('categories', [cat]);
     await notify((eds || []).map(e => e.id), 'New Job Posted', `${cat} job posted — Budget ₹${budget}`);
   }
   alert('Job posted successfully!');

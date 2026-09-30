@@ -71,19 +71,26 @@ object Repo {
     }
 
     suspend fun verifiedEditors(category: String? = null): List<Profile> {
-        var q = "profiles?role=eq.EDITOR&is_verified=eq.true&select=*"
+        var q = "sp_public_profiles?select=*"
         if (!category.isNullOrBlank()) q += "&categories=cs.${Api.enc("{\"$category\"}")}"
         val me = Api.userId
         return withRatings(Api.select(q).mapObjects { Profile.from(it) }.filter { it.id != me })
     }
 
-    suspend fun profile(id: String): Profile? =
-        Api.selectOne("profiles?id=eq.$id&select=*")?.let { withRatings(listOf(Profile.from(it))).first() }
+    /** Full profile if you are connected (job / bid / chat), otherwise the public editor details. */
+    suspend fun profile(id: String): Profile? {
+        val row = Api.selectOne("profiles?id=eq.$id&select=*") ?: Api.selectOne("sp_public_profiles?id=eq.$id&select=*")
+        return row?.let { withRatings(listOf(Profile.from(it))).first() }
+    }
 
     suspend fun profilesByIds(ids: Collection<String>): Map<String, Profile> {
         val u = ids.filter { it.isNotBlank() }.distinct()
         if (u.isEmpty()) return emptyMap()
-        val list = withRatings(Api.select("profiles?id=in.(${u.joinToString(",")})&select=*").mapObjects { Profile.from(it) })
+        val full = Api.select("profiles?id=in.(${u.joinToString(",")})&select=*").mapObjects { Profile.from(it) }
+        val missing = u.filter { id -> full.none { it.id == id } }
+        val pub = if (missing.isEmpty()) emptyList()
+            else Api.select("sp_public_profiles?id=in.(${missing.joinToString(",")})&select=*").mapObjects { Profile.from(it) }
+        val list = withRatings(full + pub)
         return list.associateBy { it.id }
     }
 
@@ -146,7 +153,7 @@ object Repo {
         if (presetEditor != null) {
             notify(listOf(presetEditor), "You were hired directly!", "${me.name} hired you for a $category project. Propose your price.")
         } else {
-            val eds = Api.select("profiles?role=eq.EDITOR&is_verified=eq.true&categories=cs.${Api.enc("{\"$category\"}")}&select=id")
+            val eds = Api.select("sp_public_profiles?categories=cs.${Api.enc("{\"$category\"}")}&select=id")
             notify(eds.mapObjects { it.str("id") }, "New Job Posted", "$category job posted — Budget ${money(budget)}")
         }
         return created?.str("id") ?: ""
