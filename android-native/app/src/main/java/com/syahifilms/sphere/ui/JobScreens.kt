@@ -222,8 +222,10 @@ fun ProjectScreen(nav: NavHostController, id: String) {
             // editor: place a bid
             job.status == "open" && !isClient && AppState.editorSide -> {
                 if (job.expired) MutedText("This job expired on ${prettyDate(job.deadline)}. Bidding is closed.")
-                else if (!me.verified && me.role != "admin") MutedText("You can bid once the Sphere team verifies your profile.")
-                else BidForm(job, busy) { amount, msg -> act { Repo.placeBid(me, job, amount, msg); toast(ctx, "Bid sent ✅") } }
+                else {
+                    if (!me.verified && me.role != "admin") FreeBidsNote()
+                    BidForm(job, busy) { amount, msg -> act { Repo.placeBid(me, job, amount, msg); toast(ctx, "Bid sent ✅") } }
+                }
             }
             // client: bids / reopen
             job.status == "open" && isClient -> {
@@ -263,6 +265,16 @@ fun ProjectScreen(nav: NavHostController, id: String) {
         if ((isClient || isEditor) && job.status != "open") {
             SecondaryButton("🚩 Report a problem", Danger) { nav.go("report?job=${job.id}") }
         }
+    }
+}
+
+@Composable
+private fun FreeBidsNote() {
+    val used = load(Unit) { Repo.myBidCount() }
+    val left = (Config.FREE_BIDS - (used.data ?: 0)).coerceAtLeast(0)
+    CardBox(border = if (left > 0) Blue else Danger) {
+        Text(if (used.data == null) "Checking your free bids…" else if (left > 0) "Free bids left: $left of ${Config.FREE_BIDS}" else "No free bids left", fontWeight = FontWeight.Bold)
+        MutedText("Editors without the ✔ tick can place ${Config.FREE_BIDS} bids. Get verified by the Sphere team to bid without limits.", 12)
     }
 }
 

@@ -7,6 +7,7 @@ object Config {
     const val GOOGLE_WEB_CLIENT_ID = "258192736968-ocmgvgkm00t0sglunn6tqgodpf6d4ak2.apps.googleusercontent.com"
     const val WEBSITE = "https://sphere-live.onrender.com"
     const val FEE_PERCENT = 5
+    const val FREE_BIDS = 3   // editors without the ✔ tick can place this many bids
     const val WHATSAPP = "917739363798"
     val SUPPORT_PHONES = listOf("7739363798", "9468289750", "8708712986")
     val LANGUAGES = listOf(

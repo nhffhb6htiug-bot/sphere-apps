@@ -125,7 +125,7 @@ private fun EditorHome(nav: NavHostController, me: Profile) {
             MutedText("Editor code: ${me.code} · ${me.categoriesLabel}", 12)
         } else {
             Text("⏳ Verification pending", fontWeight = FontWeight.Bold)
-            MutedText("Our team will call you on ${me.phone.ifBlank { "your number" }} · View status", 12)
+            MutedText("${Config.FREE_BIDS} free bids until verified · Our team will call you on ${me.phone.ifBlank { "your number" }}", 12)
         }
     }
     SectionTitle("Available work")
@@ -135,7 +135,7 @@ private fun EditorHome(nav: NavHostController, me: Profile) {
         open.data == null -> Loading()
         else -> WorkList(me, open.data) { j -> nav.go("project/${j.id}") }
     }
-    if (!me.verified && me.role != "admin") MutedText("You can bid once the Sphere team verifies your profile.", 12)
+    if (!me.verified && me.role != "admin") MutedText("Not verified yet — you can place ${Config.FREE_BIDS} bids. Get the ✔ tick for unlimited bids.", 12)
     SectionTitle("Your projects")
     val mine = load(Unit) { Repo.myEditorJobs().filter { it.status !in listOf("closed", "refunded") } }
     when {

@@ -383,6 +383,12 @@ const CAT_ICON = {"Vlog Editing":"data:image/webp;base64,UklGRvgRAABXRUJQVlA4IOw
 
 /* ============ DATA HELPERS (Supabase) ============ */
 function getCurrentUser(){ return currentUser; }
+const FREE_BIDS = 3;   // editors without the ✔ tick can place this many bids in total
+async function bidsUsed(uid){
+  const { count } = await sb.from('sp_applications').select('id', { count: 'exact', head: true }).eq('editor_id', uid);
+  return count || 0;
+}
+function needsFreeBids(u){ return !!u && !u.verified && u.baseRole !== 'admin'; }
 const LANGUAGES = ['Hindi', 'English', 'Hinglish', 'Punjabi', 'Haryanvi', 'Bhojpuri', 'Rajasthani', 'Marathi',
   'Gujarati', 'Bengali', 'Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Urdu', 'Other'];
 function catsLabel(u){ return (u && u.categories && u.categories.length) ? u.categories.join(', ') : ((u && u.category) || '-'); }
@@ -1075,7 +1081,7 @@ async function editorHomeScreen(user){
       <div class="mi-icon" style="${user.verified?'background:rgba(255,255,255,.2); color:#fff;':''}">${user.verified ? UI_ICONS.check : UI_ICONS.clock}</div>
       <div style="flex:1;">
         <b>${user.verified ? 'Verified Editor' : 'Verification pending'}</b>
-        <p style="font-size:12px; opacity:.9; margin-top:2px;">${user.verified ? ('Editor code: ' + esc(user.code)) : ('Our team will call you on ' + esc(user.phone || 'your number') + ' · View status')}</p>
+        <p style="font-size:12px; opacity:.9; margin-top:2px;">${user.verified ? ('Editor code: ' + esc(user.code)) : ('Not verified yet — you can place ' + FREE_BIDS + ' bids. Our team will call you on ' + esc(user.phone || 'your number') + ' for the ✔ tick')}</p>
       </div>
       <span class="mi-chev" style="${user.verified?'color:#fff;':''}">${UI_ICONS.chevron}</span>
     </div>`}
@@ -1516,6 +1522,8 @@ async function submitJob(presetEditor){
 /* ============ EDITOR: JOB BID SCREEN ============ */
 SCREENS.jobBidScreen = async () => {
   const job = await getJob(currentJobId);
+  const bu = getCurrentUser();
+  const freeLeft = needsFreeBids(bu) ? Math.max(0, FREE_BIDS - await bidsUsed(bu.id)) : null;
   if(!job) return `<div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Job not found</h1></div>`;
   return `
   <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>${esc(job.category)}</h1><p>Place your bid</p></div>
@@ -1527,6 +1535,7 @@ SCREENS.jobBidScreen = async () => {
       ${job.files?`<p class="muted" style="margin-top:6px;">Raw files: ${linkOrText(job.files)}</p>`:''}
       ${job.rawFiles.length ? `<p class="muted" style="margin-top:6px;">📎 ${job.rawFiles.length} file(s) attached — you get access once the client selects you.</p>` : ''}
     </div>
+    ${freeLeft !== null ? `<div class="card" style="border:1.5px solid ${freeLeft ? 'var(--blue)' : '#c62828'};"><b>${freeLeft ? `Free bids left: ${freeLeft} of ${FREE_BIDS}` : 'No free bids left'}</b><p class="muted" style="font-size:12px; margin-top:4px;">Editors without the ✔ tick can place ${FREE_BIDS} bids. Get verified by the Sphere team to bid without limits.</p></div>` : ''}
     ${isExpired(job) ? `<p class="muted center-text" style="margin:20px 0;">This job expired on ${fmtDate(job.deadline)}. Bidding is closed.</p>` : `
     <div class="field"><label>Your Bid Amount (₹)</label><input id="bidAmount" type="number" placeholder="${job.budget}"></div>
     <div class="field"><label>Message to Client</label><textarea id="bidMsg" placeholder="Tell them why you're a good fit..."></textarea></div>
@@ -1535,7 +1544,9 @@ SCREENS.jobBidScreen = async () => {
 };
 async function submitBid(jobId){
   const user = getCurrentUser();
-  if(!user.verified && user.baseRole !== 'admin'){ alert('You can bid once the Sphere team verifies your profile.'); return; }
+  if(needsFreeBids(user) && await bidsUsed(user.id) >= FREE_BIDS){
+    alert(`You have used your ${FREE_BIDS} free bids. Get verified by the Sphere team (✔ tick) to bid without limits.`); return;
+  }
   const amount = document.getElementById('bidAmount').value.trim();
   const msg = document.getElementById('bidMsg').value.trim();
   if(!amount || Number(amount) <= 0){ alert('Enter your bid amount'); return; }
@@ -1547,6 +1558,12 @@ async function submitBid(jobId){
   });
   if(error){
     if(error.code === '23505'){ alert('You have already placed a bid on this job.'); return; }
+    if(/row-level security/i.test(error.message || '')){
+      alert(needsFreeBids(user)
+        ? `Could not place the bid. You may have used your ${FREE_BIDS} free bids, or this job is no longer open.`
+        : 'Could not place the bid. This job is no longer open (or it is your own job).');
+      return;
+    }
     dbErr(error); return;
   }
   await notify(job.clientId, 'New Bid Received', `${user.name} bid ₹${amount} on your ${job.category} job.`);
