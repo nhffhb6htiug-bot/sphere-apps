@@ -102,7 +102,7 @@ private fun ClientHome(nav: NavHostController, me: Profile) {
                     Avatar(e.avatarUrl, e.name, 56.dp)
                     Spacer(Modifier.height(6.dp))
                     Text(e.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    MutedText(e.category, 11)
+                    MutedText(e.categoriesLabel, 11)
                     Text(if (e.reviews > 0) "⭐ ${e.rating}" else "New", fontSize = 12.sp)
                     if (e.price.isNotBlank()) Text("₹${e.price}", fontWeight = FontWeight.Bold, color = Blue, fontSize = 13.sp)
                 }
@@ -119,19 +119,18 @@ private fun EditorHome(nav: NavHostController, me: Profile) {
     CardBox(onClick = { nav.go("verification") }, border = if (me.verified) Success else Blue) {
         if (me.verified) {
             Text("✅ Verified editor", fontWeight = FontWeight.Bold)
-            MutedText("Editor code: ${me.code} · ${me.category}", 12)
+            MutedText("Editor code: ${me.code} · ${me.categoriesLabel}", 12)
         } else {
             Text("⏳ Verification pending", fontWeight = FontWeight.Bold)
             MutedText("Our team will call you on ${me.phone.ifBlank { "your number" }} · View status", 12)
         }
     }
-    SectionTitle("Available work — ${me.category.ifBlank { "your category" }}")
-    val open = load(me.category) { Repo.openJobsFor(me.category) }
+    SectionTitle("Available work")
+    val open = load(Unit) { Repo.openJobs() }
     when {
         open.error != null -> ErrorBox(open.error) { open.reload() }
         open.data == null -> Loading()
-        open.data.isEmpty() -> MutedText("No open jobs in your category right now. We'll notify you when one is posted.")
-        else -> open.data.forEach { j -> JobCard(j) { nav.go("project/${j.id}") } }
+        else -> WorkList(me, open.data) { j -> nav.go("project/${j.id}") }
     }
     if (!me.verified) MutedText("You can bid once the Sphere team verifies your profile.", 12)
     SectionTitle("Your projects")
@@ -146,12 +145,16 @@ private fun EditorHome(nav: NavHostController, me: Profile) {
 }
 
 @Composable
-fun JobCard(j: Job, onClick: () -> Unit) {
+fun JobCard(j: Job, onClick: () -> Unit) = JobCardUi(j, onClick)
+
+@Composable
+fun JobCardUi(j: Job, onClick: () -> Unit) {
     CardBox(onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(j.category, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             StatusChip(j.status, j.expired)
         }
+        if (j.language.isNotBlank()) MutedText("🗣 ${j.language}", 12)
         Text(j.description, color = Muted, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(vertical = 4.dp))
         Text(
             "Budget ${money(j.finalAmount)}" + (if (j.deadline.isNotBlank()) " • Due ${prettyDate(j.deadline)}" else ""),
@@ -172,7 +175,7 @@ fun EditorCard(e: Profile, onClick: () -> Unit) {
                     Spacer(Modifier.width(6.dp))
                     if (e.verified) VerifiedBadge(e.code)
                 }
-                MutedText("${e.category} · ${e.experience ?: 0} yrs exp", 12)
+                MutedText("${e.categoriesLabel} · ${e.experience ?: 0} yrs exp", 12)
                 Text(if (e.reviews > 0) "⭐ ${e.rating} (${e.reviews})" else "New editor", fontSize = 12.sp)
             }
             if (e.price.isNotBlank()) Text("₹${e.price}", color = Blue, fontWeight = FontWeight.Bold)
@@ -223,7 +226,8 @@ fun EditorProfileScreen(nav: NavHostController, id: String) {
                     Spacer(Modifier.height(8.dp))
                     Text(e.name, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
                     if (e.verified) VerifiedBadge(e.code)
-                    MutedText("${e.category} · ${e.experience ?: 0} years experience")
+                    MutedText("${e.categoriesLabel} · ${e.experience ?: 0} years experience")
+                    MutedText("🗣 ${e.languagesLabel}", 12)
                     Text(if (e.reviews > 0) "⭐ ${e.rating} · ${e.reviews} reviews" else "New editor — no reviews yet", fontSize = 13.sp)
                 }
                 CardBox {

@@ -64,6 +64,7 @@ fun PostJobScreen(nav: NavHostController, presetEditor: String?) {
     var budget by remember { mutableStateOf("") }
     var deadline by remember { mutableStateOf("") }
     var link by remember { mutableStateOf("") }
+    var language by remember { mutableStateOf("Any") }
     var busy by remember { mutableStateOf(false) }
     val hired = if (presetEditor != null) load(presetEditor) { Repo.profile(presetEditor) }.data else null
     Page(if (presetEditor != null) "Hire editor" else "Post a job", onBack = { nav.popBackStack() }) {
@@ -71,6 +72,7 @@ fun PostJobScreen(nav: NavHostController, presetEditor: String?) {
         Dropdown("Category", category, Config.CATEGORIES) { category = it }
         Field(details, { details = it }, "Project details", "Video type, length, style, references…", minLines = 4)
         Field(budget, { budget = it.filter { c -> c.isDigit() }.take(7) }, "Budget (₹)", keyboard = KeyboardType.Number)
+        Dropdown("Video language (optional)", language, listOf("Any") + Config.LANGUAGES) { language = it }
         DeadlinePicker(deadline) { deadline = it }
         Field(link, { link = it.trim() }, "Raw files link (optional)", "Google Drive / WeTransfer link")
         MutedText("Tip: share big raw videos as a Google Drive link.", 12)
@@ -83,7 +85,7 @@ fun PostJobScreen(nav: NavHostController, presetEditor: String?) {
                 else -> scope.launch {
                     busy = true
                     try {
-                        val id = Repo.postJob(me, category, details.trim(), b, deadline.ifBlank { null }, link, presetEditor)
+                        val id = Repo.postJob(me, category, details.trim(), b, deadline.ifBlank { null }, link, presetEditor, if (language == "Any") "" else language)
                         toast(ctx, "Job posted ✅")
                         if (id.isNotBlank()) { nav.popBackStack(); nav.go("project/$id") } else nav.resetTo("jobs")
                     } catch (e: Exception) { toast(ctx, e.message ?: "Could not post the job") }
@@ -117,12 +119,11 @@ fun JobsScreen(nav: NavHostController) {
                 }
             } else {
                 SectionTitle("Available work")
-                val open = load(me.category) { Repo.openJobsFor(me.category) }
+                val open = load(Unit) { Repo.openJobs() }
                 when {
                     open.error != null -> ErrorBox(open.error) { open.reload() }
                     open.data == null -> Loading()
-                    open.data.isEmpty() -> MutedText("No open jobs in ${me.category.ifBlank { "your category" }} right now.")
-                    else -> open.data.forEach { j -> JobCard(j) { nav.go("project/${j.id}") } }
+                    else -> WorkList(me, open.data) { j -> nav.go("project/${j.id}") }
                 }
                 SectionTitle("My projects")
                 val mine = load(Unit) { Repo.myEditorJobs() }
@@ -196,6 +197,7 @@ fun ProjectScreen(nav: NavHostController, id: String) {
             if (job.lockedAmount != null) KeyValue("Final amount (locked)", money(job.lockedAmount))
             if (isEditor && job.lockedAmount != null) KeyValue("You receive", money(job.editorAmount ?: editorShare(job.lockedAmount)) + " (${Config.FEE_PERCENT}% fee)")
             KeyValue("Deadline", if (job.deadline.isBlank()) "-" else prettyDate(job.deadline))
+            if (job.language.isNotBlank()) KeyValue("Language", job.language)
             Spacer(Modifier.height(6.dp))
             Text(job.description, fontSize = 14.sp)
             if (job.filesLink.isNotBlank() && (isClient || isEditor)) TextButton(onClick = { openUrl(ctx, job.filesLink) }) { Text("📂 Raw files") }
@@ -362,7 +364,7 @@ fun BidsScreen(nav: NavHostController, jobId: String) {
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
                             Text(e?.name ?: "Editor", fontWeight = FontWeight.Bold)
-                            MutedText((e?.category ?: "") + (if ((e?.reviews ?: 0) > 0) " · ⭐ ${e?.rating}" else ""), 12)
+                            MutedText((e?.categoriesLabel ?: "") + (if ((e?.reviews ?: 0) > 0) " · ⭐ ${e?.rating}" else ""), 12)
                         }
                         Text(money(b.amount), color = Blue, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
                     }

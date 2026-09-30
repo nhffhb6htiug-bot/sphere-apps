@@ -36,13 +36,14 @@ object Repo {
     }
 
     suspend fun saveEditorDetails(
-        phone: String, category: String, skills: String, experience: Int?,
+        phone: String, categories: List<String>, languages: List<String>, skills: String, experience: Int?,
         price: String, portfolio: String, sample: String
     ) {
         val uid = Api.userId ?: return
         val f = JSONObject()
             .put("phone", phone)
-            .put("categories", JSONArray().put(category))
+            .put("categories", JSONArray(categories))
+            .put("languages", JSONArray(languages))
             .put("skills", JSONArray(skills.split(",").map { it.trim() }.filter { it.isNotBlank() }))
             .put("experience_years", experience ?: JSONObject.NULL)
             .put("price_range", price)
@@ -112,10 +113,10 @@ object Repo {
     // ---------------- jobs ----------------
     suspend fun job(id: String): Job? = Api.selectOne("sp_jobs?id=eq.$id&select=*")?.let { Job.from(it) }
 
-    suspend fun openJobsFor(category: String): List<Job> {
+    /** All open work (every category), newest first. The app lets the editor filter it. */
+    suspend fun openJobs(): List<Job> {
         val me = Api.userId ?: return emptyList()
-        if (category.isBlank()) return emptyList()
-        val q = "sp_jobs?status=eq.open&category=eq.${Api.enc(category)}&client_id=neq.$me" +
+        val q = "sp_jobs?status=eq.open&client_id=neq.$me" +
             "&or=(deadline.is.null,deadline.gte.${todayIST()})&order=created_at.desc&select=*"
         return Api.select(q).mapObjects { Job.from(it) }
     }
@@ -132,12 +133,13 @@ object Repo {
 
     suspend fun postJob(
         me: Profile, category: String, description: String, budget: Double,
-        deadline: String?, filesLink: String, presetEditor: String?
+        deadline: String?, filesLink: String, presetEditor: String?, language: String = ""
     ): String {
         val row = JSONObject()
             .put("client_id", me.id).put("category", category).put("description", description)
             .put("budget", budget).put("deadline", deadline ?: JSONObject.NULL)
             .put("files_link", filesLink.ifBlank { null } ?: JSONObject.NULL)
+            .put("language", language.ifBlank { null } ?: JSONObject.NULL)
             .put("status", if (presetEditor != null) "negotiating" else "open")
             .put("assigned_editor", presetEditor ?: JSONObject.NULL)
         val created = Api.insert("sp_jobs", row)

@@ -43,6 +43,7 @@ data class Profile(
     val email: String,
     val phone: String,
     val categories: List<String>,
+    val languages: List<String>,
     val skills: List<String>,
     val experience: Int?,
     val price: String,
@@ -55,6 +56,8 @@ data class Profile(
     var reviews: Int = 0
 ) {
     val category: String get() = categories.firstOrNull() ?: ""
+    val categoriesLabel: String get() = categories.joinToString(", ").ifBlank { "-" }
+    val languagesLabel: String get() = languages.joinToString(", ").ifBlank { "-" }
     val avatarUrl: String get() =
         if (avatarPath.isBlank()) "" else "${Config.SUPABASE_URL}/storage/v1/object/public/sphere-media/$avatarPath"
     val firstName: String get() = name.trim().split(" ").firstOrNull()?.ifBlank { null } ?: "there"
@@ -68,6 +71,7 @@ data class Profile(
             email = o.str("email"),
             phone = o.str("phone"),
             categories = o.optJSONArray("categories").strings(),
+            languages = o.optJSONArray("languages").strings(),
             skills = o.optJSONArray("skills").strings(),
             experience = if (o.isNull("experience_years")) null else o.optInt("experience_years"),
             price = o.str("price_range"),
@@ -97,6 +101,7 @@ data class Job(
     val deliveryLink: String,
     val editorAmount: Double?,
     val payoutStatus: String,
+    val language: String,
     val createdAt: String
 ) {
     val expired: Boolean get() = status == "open" && deadline.isNotBlank() && deadline.take(10) < todayIST()
@@ -120,6 +125,7 @@ data class Job(
             deliveryLink = o.str("delivery_link"),
             editorAmount = o.numOrNull("editor_amount"),
             payoutStatus = o.str("payout_status"),
+            language = o.str("language"),
             createdAt = o.str("created_at")
         )
     }

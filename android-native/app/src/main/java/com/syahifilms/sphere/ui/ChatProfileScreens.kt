@@ -186,7 +186,7 @@ fun ProfileScreen(nav: NavHostController) {
                     color = Blue, fontWeight = FontWeight.Bold, fontSize = 12.sp,
                     modifier = Modifier.padding(top = 6.dp).clip(RoundedCornerShape(12.dp)).background(BlueSoft).padding(horizontal = 10.dp, vertical = 4.dp)
                 )
-                if (me.verified) MutedText("✔ ${me.code} · ${me.category}", 12)
+                if (me.verified) MutedText("✔ ${me.code} · ${me.categoriesLabel}", 12)
             }
         }
         Spacer(Modifier.height(10.dp))

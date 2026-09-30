@@ -224,7 +224,8 @@ fun EditorDetailsScreen(nav: NavHostController) {
     val scope = rememberCoroutineScope()
     val me = AppState.me
     var phone by remember { mutableStateOf((me?.phone ?: "").filter { it.isDigit() }.takeLast(10)) }
-    var category by remember { mutableStateOf(me?.category?.ifBlank { null } ?: Config.CATEGORIES.first()) }
+    var categories by remember { mutableStateOf(me?.categories ?: emptyList()) }
+    var languages by remember { mutableStateOf(me?.languages ?: emptyList()) }
     var skills by remember { mutableStateOf(me?.skills?.joinToString(", ") ?: "") }
     var exp by remember { mutableStateOf(me?.experience?.toString() ?: "") }
     var price by remember { mutableStateOf(me?.price ?: "") }
@@ -235,7 +236,8 @@ fun EditorDetailsScreen(nav: NavHostController) {
         MutedText("Tell us about your work. Our team will call you to verify your profile.")
         Spacer(Modifier.height(8.dp))
         PhoneField(phone, { phone = it }, "Mobile number (our team will call you on this)")
-        Dropdown("Category", category, Config.CATEGORIES) { category = it }
+        MultiPick("Categories you work in (choose one or more)", Config.CATEGORIES, categories) { categories = it }
+        MultiPick("Languages you edit in (choose one or more)", Config.LANGUAGES, languages) { languages = it }
         Field(skills, { skills = it }, "Skills / Software", "Premiere Pro, After Effects…")
         Field(exp, { exp = it.filter { c -> c.isDigit() }.take(2) }, "Experience (years)", keyboard = KeyboardType.Number)
         Field(price, { price = it.filter { c -> c.isDigit() }.take(6) }, "Starting price (₹ per video)", keyboard = KeyboardType.Number)
@@ -245,12 +247,14 @@ fun EditorDetailsScreen(nav: NavHostController) {
             val p = cleanIndianPhone(phone)
             when {
                 p == null -> toast(ctx, "Number is not correct. Enter a valid 10-digit mobile number.")
+                categories.isEmpty() -> toast(ctx, "Choose at least one category")
+                languages.isEmpty() -> toast(ctx, "Choose at least one language")
                 price.isBlank() -> toast(ctx, "Enter your starting price")
                 sample.isNotBlank() && !sample.startsWith("http") -> toast(ctx, "Sample link must start with https://")
                 else -> scope.launch {
                     busy = true
                     try {
-                        Repo.saveEditorDetails(p, category, skills, exp.toIntOrNull(), price, portfolio, sample)
+                        Repo.saveEditorDetails(p, categories, languages, skills, exp.toIntOrNull(), price, portfolio, sample)
                         AppState.refreshMe()
                         nav.resetTo("verification")
                     } catch (e: Exception) { toast(ctx, e.message ?: "Could not save") }
@@ -270,7 +274,8 @@ fun VerificationScreen(nav: NavHostController) {
             CardBox(border = Success) {
                 Text("✅ You're a verified editor", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 KeyValue("Editor code", me.code)
-                KeyValue("Category", me.category)
+                KeyValue("Categories", me.categoriesLabel)
+                KeyValue("Languages", me.languagesLabel)
             }
             PrimaryButton("Find work") { nav.resetTo("home") }
             return@Page
@@ -291,7 +296,8 @@ fun VerificationScreen(nav: NavHostController) {
         }
         CardBox {
             Text("Your application", fontWeight = FontWeight.Bold)
-            KeyValue("Category", me.category.ifBlank { "-" })
+            KeyValue("Categories", me.categoriesLabel)
+            KeyValue("Languages", me.languagesLabel)
             KeyValue("Experience", me.experience?.let { "$it years" } ?: "-")
             KeyValue("Skills", me.skills.joinToString(", ").ifBlank { "-" })
             KeyValue("Starting price", if (me.price.isBlank()) "-" else "₹${me.price} / video")

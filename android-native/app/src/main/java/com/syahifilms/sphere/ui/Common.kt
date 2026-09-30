@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 
 package com.syahifilms.sphere.ui
 
@@ -8,6 +8,7 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -329,6 +330,44 @@ fun Dropdown(label: String, value: String, options: List<String>, onSelect: (Str
             }
         }
     }
+}
+
+/** Tap-to-select chips (choose one or more). */
+@Composable
+fun MultiPick(label: String, options: List<String>, selected: List<String>, onChange: (List<String>) -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        MutedText(label, 12)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            options.forEach { o ->
+                val on = o in selected
+                FilterChip(
+                    selected = on,
+                    onClick = { onChange(if (on) selected - o else selected + o) },
+                    label = { Text(o) }
+                )
+            }
+        }
+    }
+}
+
+/** Available work with a filter: All / My categories / each category. */
+@Composable
+fun WorkList(me: Profile, jobs: List<Job>, onOpen: (Job) -> Unit) {
+    var filter by remember { mutableStateOf("All") }
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        (listOf("All", "My categories") + Config.CATEGORIES).forEach { c ->
+            FilterChip(selected = filter == c, onClick = { filter = c }, label = { Text(c) })
+        }
+    }
+    val list = jobs.filter { j ->
+        when (filter) {
+            "All" -> true
+            "My categories" -> j.category in me.categories
+            else -> j.category == filter
+        }
+    }
+    if (list.isEmpty()) MutedText("No open jobs ${if (filter == "All") "" else "in $filter "}right now. We will notify you when new work is posted.")
+    list.forEach { j -> JobCardUi(j) { onOpen(j) } }
 }
 
 @Composable
