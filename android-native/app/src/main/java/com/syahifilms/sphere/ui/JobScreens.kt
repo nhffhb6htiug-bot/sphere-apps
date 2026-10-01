@@ -195,7 +195,7 @@ fun ProjectScreen(nav: NavHostController, id: String) {
         CardBox {
             KeyValue("Budget", money(job.budget))
             if (job.lockedAmount != null) KeyValue("Final amount (locked)", money(job.lockedAmount))
-            if (isEditor && job.lockedAmount != null) KeyValue("You receive", money(job.editorAmount ?: editorShare(job.lockedAmount)) + " (${Config.FEE_PERCENT}% fee)")
+            if (isEditor && job.lockedAmount != null) KeyValue("You receive", money(job.editorAmount ?: editorShare(job.lockedAmount)) + " (${feeLabel()}% fee)")
             KeyValue("Deadline", if (job.deadline.isBlank()) "-" else prettyDate(job.deadline))
             if (job.language.isNotBlank()) KeyValue("Language", job.language)
             Spacer(Modifier.height(6.dp))
@@ -292,7 +292,7 @@ private fun BidForm(job: Job, busy: Boolean, onSubmit: (Double, String) -> Unit)
         MutedText("Client's budget: ${money(job.budget)}", 12)
         Field(amount, { amount = it.filter { c -> c.isDigit() }.take(7) }, "Your price (₹)", keyboard = KeyboardType.Number)
         val a = amount.toDoubleOrNull()
-        if (a != null) MutedText("You will receive ${money(editorShare(a))} (${Config.FEE_PERCENT}% Sphere fee)", 12)
+        if (a != null) MutedText("You will receive ${money(editorShare(a))} (${feeLabel()}% Sphere fee)", 12)
         Field(msg, { msg = it }, "Message to the client", "Why you're a good fit…", minLines = 3)
         PrimaryButton(if (busy) "Sending…" else "Submit bid", enabled = !busy) {
             if (a == null || a <= 0) toast(ctx, "Enter your price") else onSubmit(a, msg)

@@ -79,6 +79,7 @@ object AppState {
 
     suspend fun refreshMe(): Profile? {
         val p = Repo.loadMe()
+        Repo.loadFee()
         me = p
         mode = Api.getPref("mode_" + (p?.id ?: "")) ?: ""
         return p

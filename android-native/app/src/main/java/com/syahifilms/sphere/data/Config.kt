@@ -6,7 +6,7 @@ object Config {
     const val SUPABASE_KEY = "sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW"
     const val GOOGLE_WEB_CLIENT_ID = "258192736968-ocmgvgkm00t0sglunn6tqgodpf6d4ak2.apps.googleusercontent.com"
     const val WEBSITE = "https://sphere-live.onrender.com"
-    const val FEE_PERCENT = 5
+    const val FEE_PERCENT = 5   // default only; real value comes from Admin Panel → Settings
     const val FREE_WORKS = 3          // paid works an editor can do before verification
     const val VERIFY_FEE = 29         // ₹ verification fee
     const val FEE_PHONE = "8708712986"

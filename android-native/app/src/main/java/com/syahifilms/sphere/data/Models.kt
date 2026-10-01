@@ -22,8 +22,13 @@ fun money(v: Double?): String {
     return if (v % 1.0 == 0.0) "₹" + v.toLong() else "₹" + String.format("%.2f", v)
 }
 
+/** Commission % set by the admin (Admin Panel → Settings). */
+object Fees { @Volatile var percent: Double = Config.FEE_PERCENT.toDouble() }
+
+fun feeLabel(): String = if (Fees.percent % 1.0 == 0.0) Fees.percent.toLong().toString() else Fees.percent.toString()
+
 fun editorShare(amount: Double?): Double =
-    Math.round((amount ?: 0.0) * (100 - Config.FEE_PERCENT)) / 100.0
+    Math.round((amount ?: 0.0) * (100 - Fees.percent)) / 100.0
 
 /** Valid Indian mobile -> "+91XXXXXXXXXX", otherwise null (same rules as the website). */
 fun cleanIndianPhone(raw: String?): String? {

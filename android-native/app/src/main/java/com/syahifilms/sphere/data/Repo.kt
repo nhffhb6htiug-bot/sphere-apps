@@ -32,6 +32,14 @@ object Repo {
         return row?.let { Profile.from(it) }
     }
 
+    /** Loads the commission % that the admin set (Admin Panel → Settings). */
+    suspend fun loadFee() {
+        try {
+            val v = Api.selectOne("sp_settings?key=eq.platform_fee_percent&select=value")?.str("value")?.toDoubleOrNull()
+            if (v != null && v >= 0 && v <= 30) Fees.percent = v
+        } catch (e: Exception) { }
+    }
+
     /** Role + number not confirmed yet -> show the "choose role" screen. */
     fun needsOnboarding(p: Profile?): Boolean =
         p == null || p.role.isBlank() || (p.role != "admin" && cleanIndianPhone(p.phone) == null)

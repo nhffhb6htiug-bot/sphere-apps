@@ -166,6 +166,7 @@ h1,h2,h3{color:var(--text);}
 .pill-btn{display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:10px 14px; border-radius:24px; font-size:13px; font-weight:700; border:1px solid var(--border); background:#fff; color:#111; cursor:pointer;}
 .pill-btn.primary{background:var(--blue); border-color:var(--blue); color:#fff;} .pill-btn.wa{background:#25D366; border-color:#25D366; color:#fff;}
 .pill-btn svg{width:16px; height:16px;}
+.pin-mask{-webkit-text-security:disc; text-security:disc;}
 .pin-input{letter-spacing:6px; font-weight:700; text-align:center;}
 .adm-head{display:flex; align-items:center; gap:10px;}
 .adm-title{flex:1; min-width:0;} .adm-title b{font-size:15px;} .adm-title small{display:block; color:var(--muted); font-size:12px; margin-top:2px;}
@@ -349,6 +350,7 @@ function toAppUser(profile){
   };
 }
 async function fetchAndSetCurrentUser(){
+  loadPlatformFee();
   const { data:{ user } } = await sb.auth.getUser();
   if(!user){ currentUser = null; return null; }
   let { data: profile } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
@@ -383,6 +385,7 @@ const CAT_ICON = {"Vlog Editing":"data:image/webp;base64,UklGRvgRAABXRUJQVlA4IOw
 
 /* ============ DATA HELPERS (Supabase) ============ */
 function getCurrentUser(){ return currentUser; }
+let ADMIN_PIN = '';   // admin panel unlock (kept only in memory)
 // Public editor directory (no phone/email). Falls back to profiles if update 8 is not installed yet.
 async function publicEditors(build){
   let r = await build(sb.from('sp_public_profiles'));
@@ -674,7 +677,14 @@ async function uploadImage(file, folder, maxDim){
 async function removeMedia(path){
   if(path) { const { error } = await sb.storage.from(MEDIA_BUCKET).remove([path]); if(error) console.error(error); }
 }
-const PLATFORM_FEE_PERCENT = 5;  // Syahi Films commission (server pe bhi same)
+let PLATFORM_FEE_PERCENT = 5;  // Syahi Films commission — real value comes from Admin Panel → Settings
+async function loadPlatformFee(){
+  try {
+    const { data } = await sb.from('sp_settings').select('value').eq('key', 'platform_fee_percent').maybeSingle();
+    const v = Number(data && data.value);
+    if(Number.isFinite(v) && v >= 0 && v <= 30) PLATFORM_FEE_PERCENT = v;
+  } catch(e) {}
+}
 function editorShare(amount){ return Math.round(Number(amount || 0) * (100 - PLATFORM_FEE_PERCENT)) / 100; }
 const PAYOUT_LABEL = {
   awaiting: '⏳ Waiting for payment', held: '🔒 Safe in escrow (released when the client approves)',
@@ -2340,6 +2350,9 @@ SCREENS.admin = async () => {
   const { data: verifiedData } = await sb.from('profiles').select('*').eq('role','EDITOR').eq('is_verified', true);
   const pending = pendingData || []; const verified = verifiedData || [];
   const { data: pinSet } = await sb.rpc('sp_admin_pin_status');
+  await loadPlatformFee();
+  const { data: adminRows } = await sb.from('profiles').select('id, full_name, email, phone').eq('role', 'ADMIN');
+  const meId = (getCurrentUser() || {}).id;
   const { data: payJobs } = await sb.from('sp_jobs').select('*')
     .or('status.eq.delivered,payout_status.eq.manual,payout_status.eq.failed')
     .order('created_at', { ascending: false });
@@ -2359,11 +2372,34 @@ SCREENS.admin = async () => {
     ${pinSet ? '' : `<div class="card" style="border:1.5px solid #e67e22;">
       <b>🔐 Set your Admin PIN</b>
       <p class="muted" style="font-size:12px; margin:4px 0 10px;">Every editor verification needs this PIN. Keep it secret (4–8 digits).</p>
-      <div class="field"><label>New PIN</label><input id="pinNew" class="pin-input" type="password" inputmode="numeric" maxlength="8"></div>
-      <div class="field"><label>Confirm PIN</label><input id="pinNew2" class="pin-input" type="password" inputmode="numeric" maxlength="8"></div>
+      <div class="field"><label>New PIN</label><input id="pinNew" class="pin-input pin-mask" type="text" inputmode="numeric" autocomplete="off" maxlength="8"></div>
+      <div class="field"><label>Confirm PIN</label><input id="pinNew2" class="pin-input pin-mask" type="text" inputmode="numeric" autocomplete="off" maxlength="8"></div>
       <button class="btn btn-primary" onclick="setAdminPin(false)">Save PIN</button></div>`}
 
-    <div class="search-row">${UI_ICONS.search}<input id="admSearch" placeholder="Search editors — name, phone, email or code" oninput="adminSearch(this.value)" autocomplete="off"></div>
+    ${pinSet ? (ADMIN_PIN
+      ? `<div class="card" style="border:1.5px solid #2e7d32; display:flex; align-items:center; gap:10px;"><b style="flex:1;">🔓 Admin panel unlocked</b><button class="btn-sm" onclick="ADMIN_PIN=''; nav('admin')">Lock</button></div>`
+      : `<div class="card" style="border:1.5px solid var(--blue);">
+          <b>🔐 Enter your Admin PIN</b>
+          <p class="muted" style="font-size:12px; margin:4px 0 10px;">Unlock once to verify editors, change settings and manage admins.</p>
+          <div class="field"><input id="unlockPin" name="sp-unlock-pin" class="pin-input pin-mask" type="text" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="PIN" onkeypress="if(event.key==='Enter')unlockAdmin()"></div>
+          <button class="btn btn-primary" onclick="unlockAdmin()">Unlock</button></div>`) : ''}
+
+    <details class="card"><summary><b>⚙️ Settings — Sphere commission: ${PLATFORM_FEE_PERCENT}%</b></summary>
+      <p class="muted" style="font-size:12px; margin:8px 0;">Commission is kept from the editor's payout. A new % applies to new payments only.</p>
+      <div class="field"><label>Commission (%)</label><input id="feeInput" type="number" inputmode="decimal" min="0" max="30" step="0.5" value="${PLATFORM_FEE_PERCENT}" autocomplete="off"></div>
+      <button class="btn btn-primary" onclick="saveFee()">Save commission</button>
+    </details>
+
+    <details class="card"><summary><b>👥 Admins (${(adminRows || []).length})</b></summary>
+      ${(adminRows || []).map(a => `<div class="kv"><span>${esc(a.full_name || '-')}<br><small>${esc(a.email || '')}</small></span>
+        ${a.id === meId ? '<b>You</b>' : `<button class="btn-sm" style="color:#c62828;" onclick="removeAdmin('${esc(a.email || '')}')">Remove</button>`}</div>`).join('')}
+      <div class="field" style="margin-top:10px;"><label>Make someone admin (their Sphere email)</label>
+        <input id="newAdminEmail" type="email" name="sp-new-admin" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" placeholder="friend@gmail.com"></div>
+      <button class="btn btn-outline" onclick="makeAdmin()">Make admin</button>
+      <p class="muted" style="font-size:11px; margin-top:6px;">They must log in to Sphere once before you can make them admin. Each admin sets their own PIN.</p>
+    </details>
+
+    <div class="search-row">${UI_ICONS.search}<input id="admSearch" type="search" name="sp-admin-search" placeholder="Search editors — name, phone, email or code" oninput="adminSearch(this.value)" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')"></div>
     <h3 style="margin-bottom:10px;">Pending Verification (${pending.length})</h3>
     ${pending.length===0?'<p class="muted">No pending editors.</p>':''}
     ${pending.map(e=>{
@@ -2390,7 +2426,6 @@ SCREENS.admin = async () => {
         <div class="kv"><span>Price</span><b>${e.price_range ? '₹' + esc(e.price_range) : '-'}</b></div>
         <div class="kv"><span>Sample</span><b>${linkOrText(e.sample_video_url)}</b></div>
         <div class="kv"><span>Portfolio</span><b>${linkOrText(e.portfolio_url)}</b></div>
-        <div class="field"><label>Admin PIN</label><input id="pin_${e.id}" class="pin-input" type="password" inputmode="numeric" maxlength="8" placeholder="••••"></div>
         <button class="btn btn-primary" onclick="verifyEditor('${e.id}')">✔ Verify after call</button>
         </div>
       </div>`; }).join('')}
@@ -2411,7 +2446,6 @@ SCREENS.admin = async () => {
         <div class="unv-box" id="unv_${e.id}" style="display:none;">
           <b style="color:#c62828;">Remove verified badge</b>
           <div class="field" style="margin-top:10px;"><label>Reason (the editor will see this)</label><input id="unvReason_${e.id}" maxlength="300" autocomplete="off" placeholder="e.g. Repeated late deliveries"></div>
-          <div class="field"><label>Admin PIN</label><input id="unvPin_${e.id}" class="pin-input" type="password" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="••••"></div>
           <button class="btn btn-outline" style="color:#c62828; border-color:#c62828;" onclick="removeVerification('${e.id}')">Remove verified badge</button>
         </div>
       </div></div>`; }).join('')}
@@ -2439,9 +2473,9 @@ SCREENS.admin = async () => {
       <button class="btn-sm" style="margin-top:8px;" onclick="markPaidManually('${j.id}')">✔ Paid — mark as paid</button></div>`; }).join('')}
 
     ${pinSet ? `<details class="card"><summary><b>🔐 Change Admin PIN</b></summary>
-      <div class="field" style="margin-top:10px;"><label>Current PIN</label><input id="pinOld" class="pin-input" type="password" inputmode="numeric" maxlength="8"></div>
-      <div class="field"><label>New PIN</label><input id="pinNew" class="pin-input" type="password" inputmode="numeric" maxlength="8"></div>
-      <div class="field"><label>Confirm new PIN</label><input id="pinNew2" class="pin-input" type="password" inputmode="numeric" maxlength="8"></div>
+      <div class="field" style="margin-top:10px;"><label>Current PIN</label><input id="pinOld" class="pin-input pin-mask" type="text" inputmode="numeric" autocomplete="off" maxlength="8"></div>
+      <div class="field"><label>New PIN</label><input id="pinNew" class="pin-input pin-mask" type="text" inputmode="numeric" autocomplete="off" maxlength="8"></div>
+      <div class="field"><label>Confirm new PIN</label><input id="pinNew2" class="pin-input pin-mask" type="text" inputmode="numeric" autocomplete="off" maxlength="8"></div>
       <button class="btn btn-outline" onclick="setAdminPin(true)">Update PIN</button></details>` : ''}
 
     <h3 style="margin:20px 0 10px;">⏳ Client Approval Pending (${deliveredJobs.length})</h3>
@@ -2495,12 +2529,54 @@ async function adminRelease(jobId){
   alert(data && data.payout === 'released' ? 'Released ✅' : 'Approved ✅ — see the manual payout list.');
   nav('admin');
 }
-async function verifyEditor(id){
-  const pinEl = document.getElementById('pin_'+id);
-  const pin = (pinEl && pinEl.value || '').trim();
+function needPin(){
+  if(ADMIN_PIN) return false;
+  alert('Enter your Admin PIN at the top of the Admin Panel first.');
+  window.scrollTo(0, 0);
+  const el = document.getElementById('unlockPin'); if(el) el.focus();
+  return true;
+}
+async function unlockAdmin(){
+  const pin = (document.getElementById('unlockPin').value || '').trim();
   if(!pin){ alert('Enter your Admin PIN'); return; }
-  const { data: code, error } = await sb.rpc('sp_verify_editor', { p_editor: id, p_category: '', p_pin: pin });
-  if(error){ alert(error.message); if(pinEl) pinEl.value = ''; return; }
+  const { error } = await sb.rpc('sp_admin_check_pin', { p_pin: pin });
+  if(error){ alert(error.message); document.getElementById('unlockPin').value = ''; return; }
+  ADMIN_PIN = pin;
+  nav('admin');
+}
+async function saveFee(){
+  if(needPin()) return;
+  const v = Number(document.getElementById('feeInput').value);
+  if(!Number.isFinite(v) || v < 0 || v > 30){ alert('Commission must be between 0 and 30%'); return; }
+  if(!confirm(`Set Sphere commission to ${v}%? It applies to new payments.`)) return;
+  const { error } = await sb.rpc('sp_set_platform_fee', { p_percent: v, p_pin: ADMIN_PIN });
+  if(error){ alert(error.message); return; }
+  PLATFORM_FEE_PERCENT = v;
+  alert(`Commission saved: ${v}% ✅`);
+  nav('admin');
+}
+async function makeAdmin(){
+  if(needPin()) return;
+  const email = (document.getElementById('newAdminEmail').value || '').trim();
+  if(!/^\S+@\S+\.\S+$/.test(email)){ alert('Enter a valid email'); return; }
+  if(!confirm(`Make ${email} an admin? They will see everything in the Admin Panel.`)) return;
+  const { error } = await sb.rpc('sp_make_admin', { p_email: email, p_pin: ADMIN_PIN });
+  if(error){ alert(error.message); return; }
+  alert(`${email} is now an admin ✅ They should refresh the app and set their own PIN.`);
+  nav('admin');
+}
+async function removeAdmin(email){
+  if(needPin()) return;
+  if(!confirm(`Remove admin access for ${email}?`)) return;
+  const { error } = await sb.rpc('sp_remove_admin', { p_email: email, p_pin: ADMIN_PIN });
+  if(error){ alert(error.message); return; }
+  alert('Admin access removed.');
+  nav('admin');
+}
+async function verifyEditor(id){
+  if(needPin()) return;
+  const { data: code, error } = await sb.rpc('sp_verify_editor', { p_editor: id, p_category: '', p_pin: ADMIN_PIN });
+  if(error){ alert(error.message); if(/PIN/i.test(error.message)){ ADMIN_PIN = ''; nav('admin'); } return; }
   alert('Editor verified ✅  Code: ' + code);
   nav('admin');
 }
@@ -2527,9 +2603,9 @@ function openUnverify(id, btn){
 }
 async function removeVerification(id){
   const reason = (document.getElementById('unvReason_'+id).value || '').trim();
-  const pin = (document.getElementById('unvPin_'+id).value || '').trim();
   if(reason.length < 5){ alert('Write a clear reason (the editor will see it)'); return; }
-  if(!pin){ alert('Enter your Admin PIN'); return; }
+  if(needPin()) return;
+  const pin = ADMIN_PIN;
   if(!confirm('Remove this editor\'s verified badge? They will stop appearing to clients and cannot bid until verified again.')) return;
   const { error } = await sb.rpc('sp_unverify_editor', { p_editor: id, p_reason: reason, p_pin: pin });
   if(error){ alert(error.message); return; }
