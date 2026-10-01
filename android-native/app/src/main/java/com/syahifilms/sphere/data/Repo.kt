@@ -274,6 +274,41 @@ object Repo {
         return Api.select(q).mapObjects { ChatMessage.from(it) }
     }
 
+    suspend fun markDelivered() {
+        val me = Api.userId ?: return
+        try { Api.update("sp_messages?receiver_id=eq.$me&delivered_at=is.null", JSONObject().put("delivered_at", java.time.Instant.now().toString())) } catch (e: Exception) { }
+    }
+
+    suspend fun markRead(otherId: String) {
+        val me = Api.userId ?: return
+        try { Api.update("sp_messages?receiver_id=eq.$me&sender_id=eq.$otherId&read_at=is.null", JSONObject().put("read_at", java.time.Instant.now().toString())) } catch (e: Exception) { }
+    }
+
+    suspend fun unreadByUser(): Map<String, Int> {
+        val me = Api.userId ?: return emptyMap()
+        val rows = Api.select("sp_messages?receiver_id=eq.$me&read_at=is.null&select=sender_id&limit=500")
+        val out = HashMap<String, Int>()
+        for (i in 0 until rows.length()) { val s = rows.getJSONObject(i).str("sender_id"); out[s] = (out[s] ?: 0) + 1 }
+        return out
+    }
+
+    /** Photo / video in chat: upload, then send as a message. */
+    suspend fun sendMedia(me: Profile, otherId: String, bytes: ByteArray, mime: String, caption: String) {
+        val kind = when { mime.startsWith("image/") -> "image"; mime.startsWith("video/") -> "video"; else -> throw ApiException(400, "You can send photos and videos here.") }
+        if (bytes.size > 50 * 1024 * 1024) throw ApiException(400, "File is bigger than 50 MB. Share big videos as a Google Drive link.")
+        val ext = mime.substringAfter("/").substringBefore(";").filter { it.isLetterOrDigit() }.take(5).ifBlank { if (kind == "image") "jpg" else "mp4" }
+        val path = "${me.id}/chat/${System.currentTimeMillis()}.$ext"
+        Api.uploadBytes("sphere-chat", path, bytes, mime)
+        Api.insert("sp_messages", JSONObject().put("sender_id", me.id).put("receiver_id", otherId)
+            .put("text", caption).put("media_path", path).put("media_type", kind))
+        notify(listOf(otherId), "New Message", "${me.name}: ${if (kind == "image") "📷 Photo" else "🎥 Video"}")
+    }
+
+    suspend fun updateName(name: String) {
+        val me = Api.userId ?: return
+        Api.update("profiles?id=eq.$me", JSONObject().put("full_name", name))
+    }
+
     suspend fun sendMessage(me: Profile, otherId: String, text: String) {
         try {
             Api.insert("sp_messages", JSONObject().put("sender_id", me.id).put("receiver_id", otherId).put("text", text))

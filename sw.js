@@ -1,7 +1,7 @@
 // Sphere service worker — makes the app installable and opens fast.
 // Pages: network first (always newest version), falls back to the saved copy when offline.
 // Supabase / Razorpay / other sites are never cached.
-const CACHE = 'sphere-v1';
+const CACHE = 'sphere-v2';
 const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/favicon.png'];
 
 self.addEventListener('install', (event) => {
@@ -44,6 +44,17 @@ self.addEventListener('fetch', (event) => {
         return res;
       }).catch(() => cached);
       return cached || fresh;
+    })
+  );
+});
+
+// Tapping a message notification opens (or focuses) Sphere
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const c of list) { if ('focus' in c) return c.focus(); }
+      return self.clients.openWindow('/');
     })
   );
 });

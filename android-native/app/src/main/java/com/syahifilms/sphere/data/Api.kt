@@ -203,6 +203,23 @@ object Api {
 
     suspend fun rpc(fn: String, args: JSONObject): String = raw("POST", "/rest/v1/rpc/$fn", args.toString())
 
+    /** Uploads a file to Supabase Storage (bucket/path). */
+    suspend fun uploadBytes(bucket: String, path: String, bytes: ByteArray, contentType: String) = withContext(Dispatchers.IO) {
+        val t = token() ?: throw ApiException(401, "Please log in again")
+        val req = Request.Builder()
+            .url("${Config.SUPABASE_URL}/storage/v1/object/$bucket/$path")
+            .header("apikey", Config.SUPABASE_KEY)
+            .header("Authorization", "Bearer $t")
+            .header("x-upsert", "false")
+            .post(bytes.toRequestBody(contentType.toMediaType()))
+            .build()
+        http.newCall(req).execute().use { res ->
+            if (res.code !in 200..299) throw toError(res.code, res.body?.string() ?: "")
+        }
+    }
+
+    fun publicUrl(bucket: String, path: String) = "${Config.SUPABASE_URL}/storage/v1/object/public/$bucket/$path"
+
     /** Calls a Supabase Edge Function (release-payout, sphere-ai, ...). */
     suspend fun function(name: String, body: JSONObject): JSONObject {
         val t = raw("POST", "/functions/v1/$name", body.toString())

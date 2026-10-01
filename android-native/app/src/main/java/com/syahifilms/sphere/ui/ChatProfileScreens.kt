@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -27,12 +28,35 @@ import com.syahifilms.sphere.data.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+private fun timeOf(iso: String): String = try {
+    val t = java.time.OffsetDateTime.parse(iso).atZoneSameInstant(java.time.ZoneId.of("Asia/Kolkata"))
+    val h = t.hour % 12; "${if (h == 0) 12 else h}:${t.minute.toString().padStart(2, '0')} ${if (t.hour < 12) "am" else "pm"}"
+} catch (e: Exception) { "" }
+
+private fun dayOf(iso: String): String = try {
+    val d = java.time.OffsetDateTime.parse(iso).atZoneSameInstant(java.time.ZoneId.of("Asia/Kolkata")).toLocalDate()
+    val today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Kolkata"))
+    when (d) { today -> "Today"; today.minusDays(1) -> "Yesterday"; else -> prettyDate(d.toString()) }
+} catch (e: Exception) { "" }
+
+@Composable
+private fun Ticks(m: ChatMessage, onDark: Boolean) {
+    val (t, c) = when {
+        m.readAt.isNotBlank() -> "✓✓" to Color(0xFF7EE3FF)
+        m.deliveredAt.isNotBlank() -> "✓✓" to (if (onDark) Color.White.copy(alpha = 0.75f) else Muted)
+        else -> "✓" to (if (onDark) Color.White.copy(alpha = 0.75f) else Muted)
+    }
+    Text(t, color = c, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = (-2).sp, modifier = Modifier.padding(start = 3.dp))
+}
+
 @Composable
 fun ChatsScreen(nav: NavHostController) {
     val data = load(Unit) {
         val convs = Repo.conversations()
-        convs to Repo.profilesByIds(convs.map { it.otherId })
+        Repo.markDelivered()
+        Triple(convs, Repo.profilesByIds(convs.map { it.otherId }), Repo.unreadByUser())
     }
+    val meId = AppState.me?.id ?: ""
     Page("Messages", bottomBar = { MainBottomBar(nav, "chats") }) {
         SupportCard()
         val d = data.data
@@ -42,13 +66,23 @@ fun ChatsScreen(nav: NavHostController) {
             d.first.isEmpty() -> MutedText("No conversations yet. Open an editor's profile or a project to start chatting.")
             else -> d.first.forEach { c ->
                 val p = d.second[c.otherId]
+                val unread = d.third[c.otherId] ?: 0
                 CardBox(onClick = { nav.go("chat/${c.otherId}") }) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Avatar(p?.avatarUrl ?: "", p?.name ?: "User", 44.dp)
+                        Avatar(p?.avatarUrl ?: "", p?.name ?: "User", 46.dp)
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(p?.name ?: "User", fontWeight = FontWeight.Bold)
-                            Text(c.last.text, color = Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(p?.name ?: "User", fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                Text(timeOf(c.last.createdAt), fontSize = 11.sp, color = if (unread > 0) Color(0xFF25D366) else Muted)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (c.last.senderId == meId) Ticks(c.last, false)
+                                Text(c.last.preview, color = Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f).padding(start = 4.dp))
+                                if (unread > 0) Text("$unread", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(Color(0xFF25D366)).padding(horizontal = 7.dp, vertical = 2.dp))
+                            }
                         }
                     }
                 }
@@ -68,10 +102,28 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
     var sending by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
+    val pickMedia = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) scope.launch {
+            sending = true
+            try {
+                val mime = ctx.contentResolver.getType(uri) ?: "image/jpeg"
+                val bytes = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                } ?: throw ApiException(400, "Could not read the file")
+                val caption = text.trim(); text = ""
+                Repo.sendMedia(me, otherId, bytes, mime, caption)
+                messages = Repo.thread(otherId)
+            } catch (e: Exception) { toast(ctx, e.message ?: "Upload failed") }
+            sending = false
+        }
+    }
+
     LaunchedEffect(otherId) {
         try { other = Repo.profile(otherId) } catch (e: Exception) { }
         while (true) {                       // refresh every 4 seconds while this screen is open
-            try { messages = Repo.thread(otherId) } catch (e: Exception) { }
+            try { messages = Repo.thread(otherId); Repo.markRead(otherId) } catch (e: Exception) { }
             delay(4000)
         }
     }
@@ -85,9 +137,13 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
                 Modifier.fillMaxWidth().background(Color.White).navigationBarsPadding().imePadding().padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                IconButton(enabled = !sending, onClick = {
+                    pickMedia.launch(androidx.activity.result.PickVisualMediaRequest(
+                        androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageAndVideo))
+                }) { Text("📎", fontSize = 20.sp) }
                 OutlinedTextField(
                     value = text, onValueChange = { text = it.take(2000) },
-                    placeholder = { Text("Type a message…") },
+                    placeholder = { Text(if (sending) "Sending…" else "Type a message…") },
                     modifier = Modifier.weight(1f), shape = RoundedCornerShape(24.dp), maxLines = 4
                 )
                 IconButton(enabled = !sending && text.isNotBlank(), onClick = {
@@ -108,17 +164,39 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
             verticalArrangement = Arrangement.spacedBy(6.dp),
             contentPadding = PaddingValues(vertical = 10.dp)
         ) {
-            items(messages, key = { it.id }) { m ->
+            itemsIndexed(messages, key = { _, m -> m.id }) { i, m ->
                 val mine = m.senderId == me.id
+                val day = dayOf(m.createdAt)
+                if (i == 0 || dayOf(messages[i - 1].createdAt) != day) {
+                    Box(Modifier.fillMaxWidth().padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
+                        Text(day, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4B5563),
+                            modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(Color(0xFFDFE6FB)).padding(horizontal = 10.dp, vertical = 4.dp))
+                    }
+                }
                 Box(Modifier.fillMaxWidth(), contentAlignment = if (mine) Alignment.CenterEnd else Alignment.CenterStart) {
-                    Text(
-                        m.text,
-                        color = if (mine) Color.White else Color.Black,
-                        modifier = Modifier.widthIn(max = 290.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(if (mine) Blue else Color.White)
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
-                    )
+                    Column(
+                        Modifier.widthIn(max = 290.dp).clip(RoundedCornerShape(16.dp))
+                            .background(if (mine) Blue else Color.White).padding(horizontal = 10.dp, vertical = 7.dp)
+                    ) {
+                        when (m.mediaType) {
+                            "image" -> coil.compose.AsyncImage(
+                                model = m.mediaUrl, contentDescription = "Photo",
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                modifier = Modifier.width(230.dp).heightIn(max = 300.dp).clip(RoundedCornerShape(12.dp))
+                                    .clickable { openUrl(ctx, m.mediaUrl) }
+                            )
+                            "video" -> Text("▶  Play video", color = if (mine) Color.White else Blue, fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { openUrl(ctx, m.mediaUrl) }.padding(vertical = 6.dp))
+                            "audio" -> Text("🎤  Play voice message (${m.duration / 60}:${(m.duration % 60).toString().padStart(2, '0')})",
+                                color = if (mine) Color.White else Blue, fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { openUrl(ctx, m.mediaUrl) }.padding(vertical = 6.dp))
+                        }
+                        if (m.text.isNotBlank()) Text(m.text, color = if (mine) Color.White else Color.Black)
+                        Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                            Text(timeOf(m.createdAt), fontSize = 10.sp, color = if (mine) Color.White.copy(alpha = 0.75f) else Muted)
+                            if (mine) Ticks(m, true)
+                        }
+                    }
                 }
             }
         }
@@ -173,11 +251,14 @@ fun ProfileScreen(nav: NavHostController) {
     val me = AppState.me ?: return
     var confirmLogout by remember { mutableStateOf(false) }
     var confirmEditor by remember { mutableStateOf(false) }
+    var editName by remember { mutableStateOf(false) }
+    var newName by remember { mutableStateOf(me.name) }
     Page("Profile", bottomBar = { MainBottomBar(nav, "profile") }) {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             Avatar(me.avatarUrl, me.name, 84.dp)
             Spacer(Modifier.height(8.dp))
             Text(me.name, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+            TextButton(onClick = { editName = true }) { Text("✏️ Edit name") }
             MutedText(me.email)
             MutedText(me.phone)
             if (me.role == "editor" || me.role == "admin") {
@@ -218,6 +299,23 @@ fun ProfileScreen(nav: NavHostController) {
         title = { Text("Log out?") },
         confirmButton = { TextButton(onClick = { confirmLogout = false; scope.launch { Api.signOut(); AppState.me = null; nav.resetTo("welcome") } }) { Text("Log out") } },
         dismissButton = { TextButton(onClick = { confirmLogout = false }) { Text("Cancel") } }
+    )
+    if (editName) AlertDialog(
+        onDismissRequest = { editName = false },
+        title = { Text("Your name") },
+        text = { OutlinedTextField(value = newName, onValueChange = { newName = it.take(60) }, singleLine = true) },
+        confirmButton = {
+            TextButton(onClick = {
+                val n = newName.trim()
+                if (n.length < 2) { toast(ctx, "Name must be at least 2 characters"); return@TextButton }
+                editName = false
+                scope.launch {
+                    try { Repo.updateName(n); AppState.refreshMe(); toast(ctx, "Name updated ✅") }
+                    catch (e: Exception) { toast(ctx, e.message ?: "Could not update") }
+                }
+            }) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = { editName = false }) { Text("Cancel") } }
     )
     if (confirmEditor) AlertDialog(
         onDismissRequest = { confirmEditor = false },
