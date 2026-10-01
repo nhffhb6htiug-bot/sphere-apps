@@ -290,7 +290,7 @@ details.card[open] summary::after{content:'－';}
 const SUPABASE_URL = 'https://pwcchgjsgkwrsvbzqspp.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-const RAZORPAY_KEY_ID = 'rzp_test_TgjXNstdNBkSsP';
+const RAZORPAY_KEY_ID = 'rzp_test_TiF5Py5F7SLGDs';
 let currentUser = null;
 let pendingAuthUser = null;
 
@@ -397,6 +397,7 @@ async function bidsUsed(uid){
 function needsFreeBids(u){ return !!u && !u.verified && u.baseRole !== 'admin'; }
 function unverifiedEditor(u){ return !!u && u.baseRole === 'editor' && !u.verified; }
 const FREE_WORKS = 3, VERIFY_FEE = 29, FEE_PHONE = '8708712986';
+const FEE_UPI = '8708712986-1@nyes', FEE_UPI_NAME = 'NEERAJ KUMAR MEHTO';
 const VERIFY_MSG = `You have finished ${FREE_WORKS} paid works. Get verified (✔ tick, ₹${VERIFY_FEE} fee) to keep getting new work. See Profile → Verification status.`;
 async function paidWorks(uid){
   const { count } = await sb.from('sp_jobs').select('id', { count: 'exact', head: true })
@@ -405,15 +406,22 @@ async function paidWorks(uid){
 }
 function verifyFeeCard(u){
   const wa = `https://wa.me/91${FEE_PHONE}?text=${encodeURIComponent('Hi Sphere team, I paid the ₹' + VERIFY_FEE + ' verification fee. My Sphere account: ' + ((u && u.email) || '') + '. Screenshot attached.')}`;
+  const upi = `upi://pay?pa=${encodeURIComponent(FEE_UPI)}&pn=${encodeURIComponent(FEE_UPI_NAME)}&am=${VERIFY_FEE}&cu=INR&tn=${encodeURIComponent('Sphere verification')}`;
+  const mobile = /android|iphone|ipad/i.test(navigator.userAgent);
   return `<div class="card" style="border:1.5px solid var(--blue);">
     <b>💳 Verification fee: ₹${VERIFY_FEE}</b>
     <ol class="muted" style="font-size:13px; margin:8px 0 10px 18px; line-height:1.6;">
-      <li>Pay <b>₹${VERIFY_FEE}</b> by UPI (GPay / PhonePe / Paytm) to <b>${FEE_PHONE}</b></li>
+      <li>Pay <b>₹${VERIFY_FEE}</b> by any UPI app${mobile ? ' (tap the button below)' : ' — scan the QR with your phone'}</li>
       <li>Send the payment <b>screenshot on WhatsApp</b> to <b>${FEE_PHONE}</b></li>
       <li>Our team calls you and gives your ✔ tick</li>
     </ol>
+    ${mobile ? `<a class="btn btn-primary" style="display:block; text-align:center; text-decoration:none; margin-bottom:10px;" href="${upi}">Pay ₹${VERIFY_FEE} now</a>` : ''}
+    <div style="text-align:center; margin:6px 0 10px;">
+      <img src="/verify-fee-qr.png" alt="UPI QR code" style="width:200px; max-width:70%; border-radius:12px; border:1px solid var(--border);">
+      <p class="muted" style="font-size:12px; margin-top:6px;">UPI ID: <b>${FEE_UPI}</b> · ${FEE_UPI_NAME}</p>
+    </div>
     <div class="btn-row">
-      <button class="pill-btn" onclick="navigator.clipboard && navigator.clipboard.writeText('${FEE_PHONE}').then(() => alert('Number copied: ${FEE_PHONE}'))">📋 Copy number</button>
+      <button class="pill-btn" onclick="navigator.clipboard && navigator.clipboard.writeText('${FEE_UPI}').then(() => alert('UPI ID copied: ${FEE_UPI}'))">📋 Copy UPI ID</button>
       <a class="pill-btn wa" href="${wa}" target="_blank" rel="noopener">💬 Send screenshot</a>
     </div></div>`;
 }

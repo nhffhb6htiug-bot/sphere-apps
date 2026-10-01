@@ -389,16 +389,28 @@ fun VerifyFeeCard(me: Profile) {
     CardBox(border = Blue) {
         Text("💳 Verification fee: ₹${Config.VERIFY_FEE}", fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
-        MutedText("1. Pay ₹${Config.VERIFY_FEE} by UPI (GPay / PhonePe / Paytm) to ${Config.FEE_PHONE}")
+        MutedText("1. Pay ₹${Config.VERIFY_FEE} with any UPI app (button below)")
         MutedText("2. Send the payment screenshot on WhatsApp to ${Config.FEE_PHONE}")
         MutedText("3. Our team calls you and gives your ✔ tick")
+        Spacer(Modifier.height(8.dp))
+        PrimaryButton("Pay ₹${Config.VERIFY_FEE} now") {
+            openUrl(ctx, "upi://pay?pa=" + Uri.encode(Config.FEE_UPI) + "&pn=" + Uri.encode(Config.FEE_UPI_NAME) +
+                "&am=${Config.VERIFY_FEE}&cu=INR&tn=" + Uri.encode("Sphere verification"))
+        }
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            androidx.compose.foundation.Image(
+                androidx.compose.ui.res.painterResource(com.syahifilms.sphere.R.drawable.fee_qr), "UPI QR code",
+                Modifier.width(180.dp).clip(RoundedCornerShape(12.dp))
+            )
+            MutedText("UPI ID: ${Config.FEE_UPI} · ${Config.FEE_UPI_NAME}", 12)
+        }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AssistChip(onClick = {
                 val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                cm.setPrimaryClip(android.content.ClipData.newPlainText("UPI number", Config.FEE_PHONE))
-                toast(ctx, "Number copied: ${Config.FEE_PHONE}")
-            }, label = { Text("📋 Copy number") })
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("UPI ID", Config.FEE_UPI))
+                toast(ctx, "UPI ID copied: ${Config.FEE_UPI}")
+            }, label = { Text("📋 Copy UPI ID") })
             AssistChip(onClick = {
                 openUrl(ctx, "https://wa.me/91${Config.FEE_PHONE}?text=" + Uri.encode(
                     "Hi Sphere team, I paid the ₹${Config.VERIFY_FEE} verification fee. My Sphere account: ${me.email}. Screenshot attached."))
