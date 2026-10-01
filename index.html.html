@@ -250,6 +250,13 @@ h1,h2,h3{color:var(--text);}
 .chat-img{display:block; max-width:240px; width:100%; border-radius:12px; margin-bottom:4px;}
 .chat-video{display:block; max-width:260px; width:100%; border-radius:12px; margin-bottom:4px; background:#000;}
 .chat-audio{display:block; width:230px; max-width:100%; margin-bottom:2px;}
+.chat-topbar{position:fixed; top:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; z-index:60;
+  display:flex; align-items:center; gap:10px; padding:calc(10px + env(safe-area-inset-top, 0px)) 12px 10px;
+  background:var(--blue); color:#fff; box-shadow:0 2px 10px rgba(0,0,0,.12);}
+.chat-topbar .back-btn{color:#fff; font-size:26px; background:none; border:none; padding:0 4px; cursor:pointer; line-height:1;}
+.chat-topbar .avatar{width:40px; height:40px; margin:0; flex:0 0 40px; font-size:16px;}
+.chat-topbar .ct-name{flex:1; min-width:0; font-weight:800; font-size:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.chat-topbar .help-btn{position:static; margin:0; float:none;}
 .chat-day{text-align:center; margin:12px 0 8px;} .chat-day span{background:#dfe6fb; color:#4b5563; font-size:11px; font-weight:700; padding:4px 10px; border-radius:10px;}
 .chat-tool{background:transparent !important; color:var(--blue) !important; font-size:20px !important; width:36px !important;}
 .rec-bar{display:none; flex:1; align-items:center; gap:8px; font-weight:700; color:#c62828;}
@@ -2178,8 +2185,8 @@ SCREENS.chatThread = async () => {
   const body = (data || []).map(m => withDay(m, user.id)).join('');
   scrollChat();
   return `
-  <div class="header"><button class="back-btn" onclick="nav('chatList')">‹</button><h1>${other?esc(other.name):'Chat'}</h1><button class="help-btn" onclick="nav('support')">🆘 Help</button></div>
-  <div class="screen" id="chatBox" style="padding-top:0; padding-bottom:84px;">${body || '<p class="muted center-text" style="margin-top:20px;">Say hi 👋</p>'}</div>
+  <div class="chat-topbar"><button class="back-btn" onclick="nav('chatList')">‹</button>${avatarHtml(other)}<div class="ct-name">${other?esc(other.name):'Chat'}</div><button class="help-btn" onclick="nav('support')">🆘 Help</button></div>
+  <div class="screen" id="chatBox" style="padding-top:calc(76px + env(safe-area-inset-top, 0px)); padding-bottom:84px;">${body || '<p class="muted center-text" style="margin-top:20px;">Say hi 👋</p>'}</div>
   <input type="file" id="chatFile" accept="image/*,video/*" style="display:none;" onchange="sendChatMedia(this)">
   <div class="chat-input-bar">
     <button class="chat-tool" title="Photo or video" onclick="document.getElementById('chatFile').click()">📎</button>
