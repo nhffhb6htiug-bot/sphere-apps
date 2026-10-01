@@ -287,6 +287,7 @@ fun VerificationScreen(nav: NavHostController) {
             Text(me.phone.ifBlank { "your number" }, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
             MutedText("Usually within 24–48 hours · 10 AM – 7 PM", 12)
         }
+        VerifyFeeCard(me)
         CardBox {
             Text("Verification progress", fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))

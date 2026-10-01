@@ -395,6 +395,28 @@ async function bidsUsed(uid){
   return count || 0;
 }
 function needsFreeBids(u){ return !!u && !u.verified && u.baseRole !== 'admin'; }
+function unverifiedEditor(u){ return !!u && u.baseRole === 'editor' && !u.verified; }
+const FREE_WORKS = 3, VERIFY_FEE = 29, FEE_PHONE = '7739363798';
+const VERIFY_MSG = `You have finished ${FREE_WORKS} paid works. Get verified (✔ tick, ₹${VERIFY_FEE} fee) to keep getting new work. See Profile → Verification status.`;
+async function paidWorks(uid){
+  const { count } = await sb.from('sp_jobs').select('id', { count: 'exact', head: true })
+    .eq('assigned_editor', uid).in('status', ['in-progress', 'delivered', 'approved', 'closed']);
+  return count || 0;
+}
+function verifyFeeCard(u){
+  const wa = `https://wa.me/91${FEE_PHONE}?text=${encodeURIComponent('Hi Sphere team, I paid the ₹' + VERIFY_FEE + ' verification fee. My Sphere account: ' + ((u && u.email) || '') + '. Screenshot attached.')}`;
+  return `<div class="card" style="border:1.5px solid var(--blue);">
+    <b>💳 Verification fee: ₹${VERIFY_FEE}</b>
+    <ol class="muted" style="font-size:13px; margin:8px 0 10px 18px; line-height:1.6;">
+      <li>Pay <b>₹${VERIFY_FEE}</b> by UPI (GPay / PhonePe / Paytm) to <b>${FEE_PHONE}</b></li>
+      <li>Send the payment <b>screenshot on WhatsApp</b> to <b>${FEE_PHONE}</b></li>
+      <li>Our team calls you and gives your ✔ tick</li>
+    </ol>
+    <div class="btn-row">
+      <button class="pill-btn" onclick="navigator.clipboard && navigator.clipboard.writeText('${FEE_PHONE}').then(() => alert('Number copied: ${FEE_PHONE}'))">📋 Copy number</button>
+      <a class="pill-btn wa" href="${wa}" target="_blank" rel="noopener">💬 Send screenshot</a>
+    </div></div>`;
+}
 const LANGUAGES = ['Hindi', 'English', 'Hinglish', 'Punjabi', 'Haryanvi', 'Bhojpuri', 'Rajasthani', 'Marathi',
   'Gujarati', 'Bengali', 'Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Urdu', 'Other'];
 function catsLabel(u){ return (u && u.categories && u.categories.length) ? u.categories.join(', ') : ((u && u.category) || '-'); }
@@ -1093,7 +1115,7 @@ async function editorHomeScreen(user){
       <div class="mi-icon" style="${user.verified?'background:rgba(255,255,255,.2); color:#fff;':''}">${user.verified ? UI_ICONS.check : UI_ICONS.clock}</div>
       <div style="flex:1;">
         <b>${user.verified ? 'Verified Editor' : 'Verification pending'}</b>
-        <p style="font-size:12px; opacity:.9; margin-top:2px;">${user.verified ? ('Editor code: ' + esc(user.code)) : ('Not verified yet — you can place ' + FREE_BIDS + ' bids. Our team will call you on ' + esc(user.phone || 'your number') + ' for the ✔ tick')}</p>
+        <p style="font-size:12px; opacity:.9; margin-top:2px;">${user.verified ? ('Editor code: ' + esc(user.code)) : ('Not verified yet — you can do ' + FREE_WORKS + ' paid works, then get the ✔ tick (₹' + VERIFY_FEE + ')')}</p>
       </div>
       <span class="mi-chev" style="${user.verified?'color:#fff;':''}">${UI_ICONS.chevron}</span>
     </div>`}
@@ -1536,7 +1558,8 @@ async function submitJob(presetEditor){
 SCREENS.jobBidScreen = async () => {
   const job = await getJob(currentJobId);
   const bu = getCurrentUser();
-  const freeLeft = needsFreeBids(bu) ? Math.max(0, FREE_BIDS - await bidsUsed(bu.id)) : null;
+  const works = needsFreeBids(bu) ? await paidWorks(bu.id) : 0;
+  const blocked = needsFreeBids(bu) && works >= FREE_WORKS;
   if(!job) return `<div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Job not found</h1></div>`;
   return `
   <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>${esc(job.category)}</h1><p>Place your bid</p></div>
@@ -1548,8 +1571,9 @@ SCREENS.jobBidScreen = async () => {
       ${job.files?`<p class="muted" style="margin-top:6px;">Raw files: ${linkOrText(job.files)}</p>`:''}
       ${job.rawFiles.length ? `<p class="muted" style="margin-top:6px;">📎 ${job.rawFiles.length} file(s) attached — you get access once the client selects you.</p>` : ''}
     </div>
-    ${freeLeft !== null ? `<div class="card" style="border:1.5px solid ${freeLeft ? 'var(--blue)' : '#c62828'};"><b>${freeLeft ? `Free bids left: ${freeLeft} of ${FREE_BIDS}` : 'No free bids left'}</b><p class="muted" style="font-size:12px; margin-top:4px;">Editors without the ✔ tick can place ${FREE_BIDS} bids. Get verified by the Sphere team to bid without limits.</p></div>` : ''}
-    ${isExpired(job) ? `<p class="muted center-text" style="margin:20px 0;">This job expired on ${fmtDate(job.deadline)}. Bidding is closed.</p>` : `
+    ${blocked ? `<div class="card" style="border:1.5px solid #c62828;"><b>🔒 Verification needed</b><p class="muted" style="font-size:12px; margin-top:4px;">${VERIFY_MSG}</p></div>${verifyFeeCard(bu)}`
+      : needsFreeBids(bu) ? `<div class="card"><b>Paid works before verification: ${works} of ${FREE_WORKS}</b><p class="muted" style="font-size:12px; margin-top:4px;">After ${FREE_WORKS} paid works, the ✔ tick (₹${VERIFY_FEE}) is needed to keep getting new work.</p></div>` : ''}
+    ${blocked ? '' : isExpired(job) ? `<p class="muted center-text" style="margin:20px 0;">This job expired on ${fmtDate(job.deadline)}. Bidding is closed.</p>` : `
     <div class="field"><label>Your Bid Amount (₹)</label><input id="bidAmount" type="number" placeholder="${job.budget}"></div>
     <div class="field"><label>Message to Client</label><textarea id="bidMsg" placeholder="Tell them why you're a good fit..."></textarea></div>
     <button class="btn btn-primary" onclick="submitBid('${job.id}')">Submit Bid</button>`}
@@ -1557,9 +1581,7 @@ SCREENS.jobBidScreen = async () => {
 };
 async function submitBid(jobId){
   const user = getCurrentUser();
-  if(needsFreeBids(user) && await bidsUsed(user.id) >= FREE_BIDS){
-    alert(`You have used your ${FREE_BIDS} free bids. Get verified by the Sphere team (✔ tick) to bid without limits.`); return;
-  }
+  if(needsFreeBids(user) && await paidWorks(user.id) >= FREE_WORKS){ alert(VERIFY_MSG); return; }
   const amount = document.getElementById('bidAmount').value.trim();
   const msg = document.getElementById('bidMsg').value.trim();
   if(!amount || Number(amount) <= 0){ alert('Enter your bid amount'); return; }
@@ -1572,9 +1594,7 @@ async function submitBid(jobId){
   if(error){
     if(error.code === '23505'){ alert('You have already placed a bid on this job.'); return; }
     if(/row-level security/i.test(error.message || '')){
-      alert(needsFreeBids(user)
-        ? `Could not place the bid. You may have used your ${FREE_BIDS} free bids, or this job is no longer open.`
-        : 'Could not place the bid. This job is no longer open (or it is your own job).');
+      alert(needsFreeBids(user) ? VERIFY_MSG : 'Could not place the bid. This job is no longer open (or it is your own job).');
       return;
     }
     dbErr(error); return;
@@ -1841,6 +1861,7 @@ SCREENS.verificationStatus = () => {
       <p style="margin-top:10px;"><span class="link" style="font-size:13px;" onclick="nav('addPhone')">Not your number? Update it</span></p>
     </div>
 
+    ${verifyFeeCard(u)}
     <div class="card">
       <b>Verification progress</b>
       <ol class="vs-steps" style="margin-top:8px;">
@@ -2019,6 +2040,11 @@ async function sendMsg(){
   const user = getCurrentUser();
   input.value = '';
   const { error } = await sb.from('sp_messages').insert({ sender_id: user.id, receiver_id: currentChatWith, text });
+  if(error && /row-level security/i.test(error.message || '')){
+    input.value = text;
+    alert('This message could not be sent. Please try again.');
+    return;
+  }
   if(dbErr(error)){ input.value = text; return; }
   const box = document.getElementById('chatBox');
   if(box){
@@ -2348,6 +2374,7 @@ SCREENS.admin = async () => {
           <a class="pill-btn primary" href="tel:+91${ph}">${UI_ICONS.phone} Call editor</a>
           <a class="pill-btn wa" href="${wa}" target="_blank" rel="noopener">WhatsApp</a></div>` : ''}
         ${e.verification_note ? `<p style="font-size:12px; color:#c62828; margin-bottom:6px;">Badge removed earlier: ${esc(e.verification_note)}</p>` : ''}
+        <p style="font-size:12px; color:#e67e22; margin-bottom:6px;">💳 Check the ₹${VERIFY_FEE} payment screenshot on WhatsApp (${FEE_PHONE}) before verifying.</p>
         <div class="kv"><span>Categories</span><b>${esc((e.categories||[]).join(', ') || '-')}</b></div>
         <div class="kv"><span>Languages</span><b>${esc((e.languages||[]).join(', ') || '-')}</b></div>
         <div class="kv"><span>Experience</span><b>${e.experience_years ? esc(e.experience_years) + ' yrs' : '-'}</b></div>

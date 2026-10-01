@@ -125,7 +125,7 @@ private fun EditorHome(nav: NavHostController, me: Profile) {
             MutedText("Editor code: ${me.code} · ${me.categoriesLabel}", 12)
         } else {
             Text("⏳ Verification pending", fontWeight = FontWeight.Bold)
-            MutedText("${Config.FREE_BIDS} free bids until verified · Our team will call you on ${me.phone.ifBlank { "your number" }}", 12)
+            MutedText("${Config.FREE_WORKS} paid works free, then ✔ tick (₹${Config.VERIFY_FEE}) · View status", 12)
         }
     }
     SectionTitle("Available work")
@@ -135,7 +135,7 @@ private fun EditorHome(nav: NavHostController, me: Profile) {
         open.data == null -> Loading()
         else -> WorkList(me, open.data) { j -> nav.go("project/${j.id}") }
     }
-    if (!me.verified && me.role != "admin") MutedText("Not verified yet — you can place ${Config.FREE_BIDS} bids. Get the ✔ tick for unlimited bids.", 12)
+    if (!me.verified && me.role != "admin") MutedText("Not verified yet — you can do ${Config.FREE_WORKS} paid works, then get the ✔ tick (₹${Config.VERIFY_FEE}).", 12)
     SectionTitle("Your projects")
     val mine = load(Unit) { Repo.myEditorJobs().filter { it.status !in listOf("closed", "refunded") } }
     when {

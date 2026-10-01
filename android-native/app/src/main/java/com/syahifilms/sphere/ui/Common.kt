@@ -382,6 +382,31 @@ fun KeyValue(key: String, value: String) {
     }
 }
 
+/** ₹29 verification fee: pay by UPI to the number, send the screenshot on WhatsApp. */
+@Composable
+fun VerifyFeeCard(me: Profile) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    CardBox(border = Blue) {
+        Text("💳 Verification fee: ₹${Config.VERIFY_FEE}", fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(6.dp))
+        MutedText("1. Pay ₹${Config.VERIFY_FEE} by UPI (GPay / PhonePe / Paytm) to ${Config.FEE_PHONE}")
+        MutedText("2. Send the payment screenshot on WhatsApp to ${Config.FEE_PHONE}")
+        MutedText("3. Our team calls you and gives your ✔ tick")
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AssistChip(onClick = {
+                val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("UPI number", Config.FEE_PHONE))
+                toast(ctx, "Number copied: ${Config.FEE_PHONE}")
+            }, label = { Text("📋 Copy number") })
+            AssistChip(onClick = {
+                openUrl(ctx, "https://wa.me/91${Config.FEE_PHONE}?text=" + Uri.encode(
+                    "Hi Sphere team, I paid the ₹${Config.VERIFY_FEE} verification fee. My Sphere account: ${me.email}. Screenshot attached."))
+            }, label = { Text("💬 Send screenshot") })
+        }
+    }
+}
+
 @Composable
 fun SupportCard() {
     val ctx = androidx.compose.ui.platform.LocalContext.current

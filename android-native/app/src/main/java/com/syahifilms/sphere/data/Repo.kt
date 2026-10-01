@@ -176,16 +176,20 @@ object Repo {
         } catch (e: ApiException) {
             if (e.pgCode == "23505") throw ApiException(409, "You have already placed a bid on this job.")
             if (e.pgCode == "42501" || e.message?.contains("row-level security") == true) {
-                throw ApiException(403, if (!me.verified && me.role != "admin")
-                    "You have used your ${Config.FREE_BIDS} free bids (or this job is closed). Get the ✔ tick from the Sphere team to bid without limits."
-                else "This job is no longer open.")
+                throw ApiException(403, if (!me.verified && me.role != "admin") Config.VERIFY_MSG else "This job is no longer open.")
             }
             throw e
         }
         notify(listOf(job.clientId), "New Bid Received", "${me.name} bid ${money(amount)} on your ${job.category} job.")
     }
 
-    /** How many bids this user has placed in total (for the 3 free bids rule). */
+    /** Paid works done by this editor (client has paid: in-progress or later). */
+    suspend fun paidWorks(): Int {
+        val me = Api.userId ?: return 0
+        return Api.select("sp_jobs?assigned_editor=eq.$me&status=in.(in-progress,delivered,approved,closed)&select=id&limit=50").length()
+    }
+
+    /** How many bids this user has placed in total. */
     suspend fun myBidCount(): Int {
         val me = Api.userId ?: return 0
         return Api.select("sp_applications?editor_id=eq.$me&select=id&limit=50").length()
@@ -263,7 +267,14 @@ object Repo {
     }
 
     suspend fun sendMessage(me: Profile, otherId: String, text: String) {
-        Api.insert("sp_messages", JSONObject().put("sender_id", me.id).put("receiver_id", otherId).put("text", text))
+        try {
+            Api.insert("sp_messages", JSONObject().put("sender_id", me.id).put("receiver_id", otherId).put("text", text))
+        } catch (e: ApiException) {
+            if (e.pgCode == "42501" || e.message?.contains("row-level security") == true) {
+                throw ApiException(403, "This message could not be sent. Please try again.")
+            }
+            throw e
+        }
         notify(listOf(otherId), "New Message", "${me.name}: ${text.take(80)}")
     }
 
