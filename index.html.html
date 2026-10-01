@@ -396,7 +396,7 @@ async function bidsUsed(uid){
 }
 function needsFreeBids(u){ return !!u && !u.verified && u.baseRole !== 'admin'; }
 function unverifiedEditor(u){ return !!u && u.baseRole === 'editor' && !u.verified; }
-const FREE_WORKS = 3, VERIFY_FEE = 29, FEE_PHONE = '7739363798';
+const FREE_WORKS = 3, VERIFY_FEE = 29, FEE_PHONE = '8708712986';
 const VERIFY_MSG = `You have finished ${FREE_WORKS} paid works. Get verified (✔ tick, ₹${VERIFY_FEE} fee) to keep getting new work. See Profile → Verification status.`;
 async function paidWorks(uid){
   const { count } = await sb.from('sp_jobs').select('id', { count: 'exact', head: true })

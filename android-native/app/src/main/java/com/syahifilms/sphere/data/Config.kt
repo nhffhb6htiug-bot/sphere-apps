@@ -9,7 +9,7 @@ object Config {
     const val FEE_PERCENT = 5
     const val FREE_WORKS = 3          // paid works an editor can do before verification
     const val VERIFY_FEE = 29         // ₹ verification fee
-    const val FEE_PHONE = "7739363798"
+    const val FEE_PHONE = "8708712986"
     const val VERIFY_MSG = "You have finished 3 paid works. Get verified (✔ tick, ₹29 fee) to keep getting new work. See Profile → Verification status."
     const val WHATSAPP = "917739363798"
     val SUPPORT_PHONES = listOf("7739363798", "9468289750", "8708712986")
