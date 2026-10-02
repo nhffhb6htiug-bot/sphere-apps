@@ -2,7 +2,8 @@ package com.syahifilms.sphere.data
 
 /** Public settings (same as the website). Secret keys are NEVER stored in the app. */
 object Config {
-    const val SUPABASE_URL = "https://pwcchgjsgkwrsvbzqspp.supabase.co"
+    // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
+    const val SUPABASE_URL = "https://sphere-api.niteshkumarmatho37.workers.dev"
     const val SUPABASE_KEY = "sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW"
     const val GOOGLE_WEB_CLIENT_ID = "258192736968-ocmgvgkm00t0sglunn6tqgodpf6d4ak2.apps.googleusercontent.com"
     const val WEBSITE = "https://sphere-live.onrender.com"

@@ -315,9 +315,11 @@ details.card[open] summary::after{content:'－';}
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const SUPABASE_URL = 'https://pwcchgjsgkwrsvbzqspp.supabase.co';
+// All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
+const SUPABASE_URL = 'https://sphere-api.niteshkumarmatho37.workers.dev';
 const SUPABASE_KEY = 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// keep the same login storage key as before, so nobody gets logged out by the switch
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storageKey: 'sb-pwcchgjsgkwrsvbzqspp-auth-token' } });
 const RAZORPAY_KEY_ID = 'rzp_test_TiF5Py5F7SLGDs';
 let currentUser = null;
 let pendingAuthUser = null;
