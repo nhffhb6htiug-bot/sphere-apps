@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -38,6 +39,13 @@ private fun dayOf(iso: String): String = try {
     val today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Kolkata"))
     when (d) { today -> "Today"; today.minusDays(1) -> "Yesterday"; else -> prettyDate(d.toString()) }
 } catch (e: Exception) { "" }
+
+private fun roleLine(p: Profile?): String = when {
+    p == null -> ""
+    p.role == "admin" -> "Sphere team"
+    p.role == "editor" -> if (p.verified) "Editor · ✔ ${p.code}" else "Editor"
+    else -> "Client"
+}
 
 @Composable
 private fun Ticks(m: ChatMessage, onDark: Boolean) {
@@ -101,6 +109,12 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
     var text by remember { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
+    var menuOpen by remember { mutableStateOf(false) }
+    var infoOpen by remember { mutableStateOf(false) }
+    var confirmClear by remember { mutableStateOf(false) }
+    var confirmBlock by remember { mutableStateOf(false) }
+    var blocked by remember { mutableStateOf(false) }
+    LaunchedEffect(otherId) { blocked = Repo.iBlocked(otherId) }
 
     val pickMedia = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()
@@ -131,9 +145,40 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
 
     Scaffold(
         containerColor = Bg,
-        topBar = { SphereTopBar(other?.name ?: "Chat", onBack = { nav.popBackStack() }) },
+        topBar = {
+            TopAppBar(
+                navigationIcon = { IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White) } },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { infoOpen = true }) {
+                        Avatar(other?.avatarUrl ?: "", other?.name ?: "Chat", 38.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(other?.name ?: "Chat", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(roleLine(other), color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp)
+                        }
+                    }
+                },
+                actions = {
+                    Box {
+                        IconButton(onClick = { menuOpen = true }) { Text("⋮", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold) }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(text = { Text("👤 View info") }, onClick = { menuOpen = false; infoOpen = true })
+                            DropdownMenuItem(text = { Text("🧹 Clear chat") }, onClick = { menuOpen = false; confirmClear = true })
+                            DropdownMenuItem(text = { Text(if (blocked) "✅ Unblock" else "🚫 Block", color = Danger) }, onClick = { menuOpen = false; confirmBlock = true })
+                            DropdownMenuItem(text = { Text("🚩 Report", color = Danger) }, onClick = { menuOpen = false; nav.go("report") })
+                            DropdownMenuItem(text = { Text("🆘 Help") }, onClick = { menuOpen = false; nav.go("support") })
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Blue)
+            )
+        },
         bottomBar = {
-            Row(
+            if (blocked) {
+                Box(Modifier.fillMaxWidth().background(Color.White).navigationBarsPadding().clickable { confirmBlock = true }.padding(16.dp), contentAlignment = Alignment.Center) {
+                    Text("You blocked this contact. Tap to unblock.", color = Muted, fontSize = 13.sp)
+                }
+            } else Row(
                 Modifier.fillMaxWidth().background(Color.White).navigationBarsPadding().imePadding().padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -201,6 +246,33 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
             }
         }
     }
+    if (infoOpen) AlertDialog(
+        onDismissRequest = { infoOpen = false },
+        title = { Text(other?.name ?: "Contact") },
+        text = { Column { Text(roleLine(other), color = Muted); if (other?.role == "editor" && other?.verified == true) Text("Tap below to see the full profile.", fontSize = 13.sp) } },
+        confirmButton = {
+            if (other?.role == "editor" && other?.verified == true) TextButton(onClick = { infoOpen = false; nav.go("editor/$otherId") }) { Text("View full profile") }
+            else TextButton(onClick = { infoOpen = false }) { Text("OK") }
+        },
+        dismissButton = { TextButton(onClick = { infoOpen = false }) { Text("Close") } }
+    )
+    if (confirmClear) AlertDialog(
+        onDismissRequest = { confirmClear = false },
+        title = { Text("Clear this chat?") },
+        text = { Text("Messages are removed only for you.") },
+        confirmButton = { TextButton(onClick = { confirmClear = false; scope.launch {
+            try { Repo.clearChat(otherId); messages = Repo.thread(otherId) } catch (e: Exception) { toast(ctx, e.message ?: "Could not clear") } } }) { Text("Clear") } },
+        dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancel") } }
+    )
+    if (confirmBlock) AlertDialog(
+        onDismissRequest = { confirmBlock = false },
+        title = { Text(if (blocked) "Unblock ${other?.name ?: ""}?" else "Block ${other?.name ?: ""}?") },
+        text = { Text(if (blocked) "You will be able to message each other again." else "They will not be able to message you, and you cannot message them.") },
+        confirmButton = { TextButton(onClick = { confirmBlock = false; scope.launch {
+            try { Repo.setBlocked(otherId, !blocked); blocked = !blocked } catch (e: Exception) { toast(ctx, e.message ?: "Could not update") } } }) {
+            Text(if (blocked) "Unblock" else "Block", color = Danger) } },
+        dismissButton = { TextButton(onClick = { confirmBlock = false }) { Text("Cancel") } }
+    )
 }
 
 @Composable

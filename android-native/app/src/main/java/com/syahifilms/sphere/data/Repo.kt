@@ -262,16 +262,52 @@ object Repo {
         val me = Api.userId ?: return emptyList()
         val msgs = Api.select("sp_messages?or=(sender_id.eq.$me,receiver_id.eq.$me)&order=created_at.desc&limit=300&select=*")
             .mapObjects { ChatMessage.from(it) }
+        val clears = HashMap<String, String>()
+        try {
+            val rows = Api.select("sp_chat_clears?user_id=eq.$me&select=other_id,cleared_at")
+            for (i in 0 until rows.length()) { val r = rows.getJSONObject(i); clears[r.str("other_id")] = r.str("cleared_at") }
+        } catch (e: Exception) { }
         val seen = LinkedHashMap<String, ChatMessage>()
-        msgs.forEach { m -> val other = if (m.senderId == me) m.receiverId else m.senderId; if (!seen.containsKey(other)) seen[other] = m }
+        msgs.forEach { m ->
+            val other = if (m.senderId == me) m.receiverId else m.senderId
+            val c = clears[other]
+            val hidden = c != null && c.isNotBlank() && try {
+                java.time.OffsetDateTime.parse(m.createdAt).toInstant() <= java.time.OffsetDateTime.parse(c).toInstant()
+            } catch (e: Exception) { false }
+            if (!hidden && !seen.containsKey(other)) seen[other] = m
+        }
         return seen.map { Conversation(it.key, it.value) }
     }
 
     suspend fun thread(otherId: String): List<ChatMessage> {
         val me = Api.userId ?: return emptyList()
+        val cleared = clearedAt(otherId)
         val q = "sp_messages?or=(and(sender_id.eq.$me,receiver_id.eq.$otherId),and(sender_id.eq.$otherId,receiver_id.eq.$me))" +
+            (if (cleared.isNotBlank()) "&created_at=gt.${Api.enc(cleared)}" else "") +
             "&order=created_at.asc&limit=500&select=*"
         return Api.select(q).mapObjects { ChatMessage.from(it) }
+    }
+
+    // ---------------- block / clear chat ----------------
+    suspend fun iBlocked(otherId: String): Boolean {
+        val me = Api.userId ?: return false
+        return try { Api.select("sp_blocks?blocker_id=eq.$me&blocked_id=eq.$otherId&select=blocked_id").length() > 0 } catch (e: Exception) { false }
+    }
+    suspend fun setBlocked(otherId: String, block: Boolean) {
+        val me = Api.userId ?: return
+        if (block) {
+            try { Api.insert("sp_blocks", JSONObject().put("blocker_id", me).put("blocked_id", otherId)) }
+            catch (e: ApiException) { if (e.pgCode != "23505") throw e }
+        } else Api.delete("sp_blocks?blocker_id=eq.$me&blocked_id=eq.$otherId")
+    }
+    suspend fun clearedAt(otherId: String): String {
+        val me = Api.userId ?: return ""
+        return try { Api.selectOne("sp_chat_clears?user_id=eq.$me&other_id=eq.$otherId&select=cleared_at")?.str("cleared_at") ?: "" } catch (e: Exception) { "" }
+    }
+    suspend fun clearChat(otherId: String) {
+        val me = Api.userId ?: return
+        Api.upsert("sp_chat_clears", JSONObject().put("user_id", me).put("other_id", otherId)
+            .put("cleared_at", java.time.Instant.now().toString()), "user_id,other_id")
     }
 
     suspend fun markDelivered() {
@@ -314,7 +350,7 @@ object Repo {
             Api.insert("sp_messages", JSONObject().put("sender_id", me.id).put("receiver_id", otherId).put("text", text))
         } catch (e: ApiException) {
             if (e.pgCode == "42501" || e.message?.contains("row-level security") == true) {
-                throw ApiException(403, "This message could not be sent. Please try again.")
+                throw ApiException(403, "Message not sent. You cannot message this person right now.")
             }
             throw e
         }
