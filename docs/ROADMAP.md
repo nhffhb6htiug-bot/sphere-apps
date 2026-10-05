@@ -11,6 +11,7 @@ Budget: ₹0 (free tiers). One part at a time: build → test → fix → next. 
 | — | Contact protection (number block, strikes, suspicious users) | 2.0 | `001_contact_protection.sql` |
 | 1 | Foundation: structure, config, roles helpers, settings, system status, docs | 2.1.0 | `002_foundation.sql` |
 | 2 | Auth + user roles: route protection, session end handling, logout cleanup, DB role checks, suspended banner | 2.2.0 | `003_auth_roles.sql` |
+| 3 | Client profile + dashboard: home dashboard, My Projects (Active/History/All), friendly status, Edit Profile, client nav, empty states | 2.3.0 | none (app only) |
 
 ## Still to build (order decided by Nitesh)
 Hidden names · AI job intake · bidding + selection + price model · upfront payment + work room + watermarked preview ·
@@ -25,3 +26,13 @@ revisions (3 free, 4th ₹50) + approval + payout + bonus · disputes (AI summar
 5. Admin account: lands on Admin Panel; can switch to Editor mode and back.
 6. Logout → back to welcome; browser Back/reload does not show private screens.
 7. Close and reopen the browser → still logged in (session kept).
+
+## Part 3 — test checklist
+1. Upload the new `index.html.html` → Settings shows **Sphere v2.3.0**.
+2. Client account with **no** projects: Home shows "No projects yet" with *Post a job* / *Browse editors*; Projects tab shows the same.
+3. Client account **with** projects: Home shows Hi + Active / Need you / Completed; "Needs your action" lists jobs that need you.
+4. Bottom bar says **Projects**; tabs Active / History / All switch and show counts.
+5. Open a project → top line shows the status + your next step.
+6. Profile → account type, member since, Projects / Completed / Paid via Sphere.
+7. Profile → **Edit profile** → change photo, name, mobile → **Save** → Profile shows the new values.
+8. Editor account: bottom bar still Home · Chat · Portfolio · Profile; Jobs list unchanged.

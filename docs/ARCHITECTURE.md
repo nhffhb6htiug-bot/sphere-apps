@@ -59,6 +59,7 @@ The script starts with a **map of headings**. Search for them:
 | `CHAT` | WhatsApp-style chat, realtime, media, voice notes |
 | `PAYMENT` / `PROJECT STATUS` | Razorpay checkout, escrow, delivery, approve & release |
 | `ADMIN` | Admin Panel (PIN unlock), verification, reports, payouts, suspicious users, system status |
+| `PART 3: CLIENT PROFILE + DASHBOARD` | `CLIENT_STATUS`, `loadClientProjects()`, home dashboard, My Projects, Edit Profile |
 | `PART 2: AUTH + ROLE ACCESS` | `ROUTE_ACCESS`, `routeGate()`, `clearSessionState()`, account status (suspended banner) |
 | `CONTACT PROTECTION` | Warning popups for hidden contact details |
 
@@ -80,7 +81,7 @@ The script starts with a **map of headings**. Search for them:
 |---|---|---|
 | public | anyone | splash, onboard1-3, authLanding, login, signup, resetPassword |
 | auth | logged in, profile not finished | chooseRole, addPhone |
-| user | any finished account | home, profile, settings, notifications, chats, support, reports, Sphere AI, categories, editors, editor profile, jobs, project, portfolio, escrow, vault |
+| user | any finished account | home, editProfile, profile, settings, notifications, chats, support, reports, Sphere AI, categories, editors, editor profile, jobs, project, portfolio, escrow, vault |
 | client | Client mode (client · editor switched to Client · admin in Admin mode) | postJob, applications, payment, savedList, ratings |
 | editor | Editor mode (editor · admin switched to Editor) | jobBidScreen |
 | editorAccount | Editor account (any mode) or admin in Editor mode | editorDetails, verificationStatus |
@@ -88,6 +89,15 @@ The script starts with a **map of headings**. Search for them:
 
 * **Job screens** also check the job: `applications`, `payment`, `ratings` → only the job's client (or an admin); `projectStatus` → client, assigned editor, admin, or anyone while the job is open.
 * **The database enforces the same rules** (`sp_core_role_guard`): only editors bid (for themselves), only editors edit their own portfolio, only the job's client reviews that job's editor. Screen checks are for the user experience; database checks are the real security.
+
+### Client side (Part 3)
+* **Home (Client mode):** greeting + 3 counters (Active · Need you · Completed), "Needs your action" (bids to choose, price to answer, payment, video to review), recent projects, and an empty state with *Post a job* / *Browse editors*. It loads after Home appears, so Home stays fast.
+* **Bottom bar for clients:** Home · Chat · **Projects** · Profile (editors keep Home · Chat · Portfolio · Profile).
+* **My Projects** (`jobs` screen for Client mode): tabs **Active / History / All** with counts, friendly status chip, progress bar, "what you need to do" line, editor name, amount, dates. Editors still see the old Jobs list.
+* **Friendly status names** (`CLIENT_STATUS`): open → Waiting for bids · negotiating → Agreeing on price · payment-pending → Payment needed · in-progress → Editor is working · delivered → Ready for review · approved → Approved · closed → Completed · refunded → Refunded · expired → Expired.
+* **Project page:** clients see one line on top with the status and their next step.
+* **Profile:** account type, member since, Projects / Completed / Paid via Sphere.
+* **Edit Profile** (`editProfile`, every role): photo, full name, mobile number; email is read-only.
 
 ### Job lifecycle (today)
 `open → negotiating → payment-pending → in-progress → delivered → approved → closed` (+ `refunded`)

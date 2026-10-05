@@ -248,6 +248,32 @@ h1,h2,h3{color:var(--text);}
 .chat-head .ch-back, .chat-head .ch-more{background:transparent; border:none; color:#fff; font-size:24px; line-height:1; cursor:pointer; padding:4px 8px;}
 .chat-head .avatar{margin:0 !important; width:40px !important; height:40px !important; flex:0 0 40px; font-size:18px;}
 .chat-head .ch-name{flex:1; min-width:0; cursor:pointer;}
+/* PART 3: client dashboard + projects */
+.cl-dash{padding:0 16px; margin-top:6px;}
+.cl-hello{display:flex; align-items:center; gap:12px; margin:6px 0 14px;}
+.cl-hello .avatar{width:46px; height:46px; font-size:20px; flex:none; margin:0;}
+.cl-hello b{display:block; font-size:17px;} .cl-hello span{font-size:12px; color:var(--muted);}
+.cl-stats{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px;}
+.cl-stat{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px 6px; text-align:center; cursor:pointer;}
+.cl-stat b{display:block; font-size:22px; line-height:1.2;} .cl-stat span{font-size:11px; color:var(--muted);}
+.cl-stat.warn b{color:#b45309;}
+.cl-status{display:inline-block; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; white-space:nowrap;}
+.cl-proj{cursor:pointer;}
+.cl-proj-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+.cl-proj-top b{font-size:15px;}
+.cl-proj p{font-size:13px; margin:6px 0 0;}
+.cl-bar{height:5px; border-radius:5px; background:var(--border); overflow:hidden; margin:10px 0 2px;}
+.cl-bar i{display:block; height:100%; background:var(--blue); border-radius:5px;}
+.cl-action{border-left:4px solid #f59e0b;}
+.cl-action-txt{color:#b45309; font-weight:700;}
+.cl-tabs{display:flex; gap:8px; margin-bottom:14px;}
+.cl-tabs button{flex:1; padding:9px 6px; border-radius:20px; border:1px solid var(--border); background:#fff; font-size:13px; font-weight:600; cursor:pointer; color:var(--text);}
+.cl-tabs button.on{background:var(--blue); border-color:var(--blue); color:#fff;}
+.cl-empty{text-align:center; padding:26px 16px;}
+.cl-empty-ic{font-size:40px; margin-bottom:6px;}
+.cl-empty p{font-size:13px; color:var(--muted); margin:6px 0 14px;}
+.cl-empty .btn{margin-top:8px;}
+.cl-row{display:flex; gap:10px;} .cl-row .btn{flex:1;}
 .chat-warn{flex:0 0 calc(100% + 16px); max-width:none; overflow:hidden; white-space:nowrap; margin:-4px -8px -10px; padding:5px 0; background:#ffd54f; color:#3b2a00; font-size:12px; font-weight:600;}
 .chat-warn span{display:inline-block; padding-left:100%; animation:chatWarnSlide 18s linear infinite;}
 @keyframes chatWarnSlide{from{transform:translateX(0);} to{transform:translateX(-100%);}}
@@ -326,7 +352,7 @@ details.card[open] summary::after{content:'－';}
      HOME · EDITOR: JOB BID SCREEN · EDITOR: PORTFOLIO BUILDER ·
      EDITOR VERIFICATION STATUS · SUPPORT & REPORTS · CHAT · PAYMENT ·
      PROJECT STATUS · ADMIN · CONTACT PROTECTION · SYSTEM STATUS ·
-     PART 2: AUTH + ROLE ACCESS
+     PART 2: AUTH + ROLE ACCESS · PART 3: CLIENT PROFILE + DASHBOARD
    Adding a new part: put its code in a block "PART n: <name>" near the end of
    this script, its database SQL in supabase/migrations/00n_<name>.sql, and
    turn it on with SPHERE_CONFIG.features. See docs/ARCHITECTURE.md.
@@ -337,8 +363,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.2.0',
-  build: 'part2-auth-roles',
+  appVersion: '2.3.0',
+  build: 'part3-client-dashboard',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
@@ -473,6 +499,7 @@ function toAppUser(profile){
     portfolio: profile.portfolio_url || '',
     payoutAccount: profile.razorpay_account_id || '',
     avatar: profile.avatar_url || '',
+    createdAt: profile.created_at || '',
     verified: !!profile.is_verified,
     verificationNote: profile.verification_note || '',
     code: profile.verification_code,
@@ -984,7 +1011,7 @@ function renderBottomNav(){
   const user = getCurrentUser();
   const items = (user && user.role==='editor')
     ? [['home','Home'],['chatList','Chat'],['portfolio','Portfolio'],['profile','Profile']]
-    : [['home','Home'],['chatList','Chat'],['jobs','Jobs'],['profile','Profile']];
+    : [['home','Home'],['chatList','Chat'],['jobs','Projects'],['profile','Profile']];
   bottomNav.innerHTML = items.map(([key,label])=>{
     const iconKey = key==='chatList' ? 'chat' : key;
     return `<button onclick="nav('${key}')" data-nav="${key}"><span class="icon">${NAV_ICONS[iconKey]}</span>${label}${key==='chatList' ? '<span class="nav-badge" id="navChatBadge"></span>' : ''}</button>`;
@@ -1370,6 +1397,7 @@ function setWorkFilter(v){
 }
 
 function clientHomeScreen(user){
+  setTimeout(renderClientDashboard, 0);
   return `
   <div class="topbar">
     <div class="icon-btn" onclick="nav('notifications')">🔔</div>
@@ -1377,6 +1405,8 @@ function clientHomeScreen(user){
     <div class="search-box"><span>🔍</span><input placeholder="Search"></div>
     <div class="topbar-logo">${img('data:image/webp;base64,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','🔷')}<span>Sphere</span></div>
   </div>
+
+  <div id="clientDash" class="cl-dash">${clientDashSkeleton(user)}</div>
 
   <div class="section-title"><h3>Explore</h3><a onclick="nav('categories')">See all</a></div>
   <div class="explore-row">
@@ -1985,8 +2015,9 @@ SCREENS.escrowScreen = async () => {
   </div>`;
 };
 
-SCREENS.jobs = async () => {
+SCREENS.jobs = async (data) => {
   const user = getCurrentUser();
+  if(isClientRole(user)) return clientProjectsScreen(user, data);
   let list = [];
   if(isClientRole(user)){
     const { data, error } = await sb.from('sp_jobs').select('*').eq('client_id', user.id).order('created_at', { ascending: false });
@@ -2671,6 +2702,7 @@ SCREENS.projectStatus = async () => {
   return `
   <div class="header"><button class="back-btn" onclick="nav('jobs')">‹</button><h1>Project Status</h1><p>${esc(job.category)}</p></div>
   <div class="screen" style="padding-top:0;">
+    ${isClient ? clientStatusLine(job) : ''}
     <div class="status-track">
       ${['Posted','Negotiate','Payment','In Progress','Delivered','Approved'].map((s,i)=>`
         <div class="status-step ${i<=stepIndex?'done':''}"><div class="dot"></div>${s}</div>`).join('')}
@@ -2816,23 +2848,25 @@ SCREENS.notifications = async () => {
 SCREENS.profile = async () => {
   const user = getCurrentUser();
   const pfItems = user.role==='editor' ? await loadPortfolio(user.id) : [];
+  const clientInfo = isClientRole(user) ? await loadClientProjects(user) : null;
   return `
   <div class="header"><h1>My Profile</h1></div>
   <div class="screen" style="padding-top:0;">
     <div class="card center-text">
       ${avatarHtml(user, 'margin:0 auto 4px; width:84px; height:84px; font-size:34px;')}
-      <span class="avatar-edit" style="display:inline-flex; align-items:center; gap:5px; margin-right:12px;" onclick="editName()">✏️ Edit name</span>
+      <span class="avatar-edit" style="display:inline-flex; align-items:center; gap:5px; margin-right:12px;" onclick="nav('editProfile')">✏️ Edit profile</span>
       <label class="avatar-edit" style="display:inline-flex; align-items:center; gap:5px;"><span style="width:15px; height:15px; display:inline-flex;">${UI_ICONS.camera}</span>Change photo<input type="file" accept="image/*" style="display:none;" onchange="changeAvatar(this)"></label><br>
       <b>${esc(user.name)}</b> ${user.verified?'<span class="badge">✔ Verified</span>':''}
       <p class="muted">${user.email}</p>
       <p class="muted">${user.phone||''}</p>
       ${modeChip(user)}
+      ${clientInfo ? clientProfileInfo(user, clientInfo) : ''}
       ${user.role==='editor'?`<p class="muted">Categories: ${esc(catsLabel(user))}</p><p class="muted">Languages: ${esc(langsLabel(user))}</p><p class="muted">Code: ${esc(user.code)||'Pending'}</p>
         <p class="muted">Payout account: ${user.payoutAccount ? '✅ Set up' : '⏳ Pending — share your bank details with the Sphere team'}</p>`:''}
     </div>
     ${user.role==='editor'?renderPortfolio(user, pfItems):''}
     ${user.baseRole==='editor' && !user.verified ? menuItem('clock', 'Verification status', "nav('verificationStatus')", { sub: 'Our team will call you to verify' }) : ''}
-    ${menuItem('jobs', 'My Jobs', "nav('jobs')")}
+    ${menuItem('jobs', isClientRole(user) ? 'My Projects' : 'My Jobs', "nav('jobs')", isClientRole(user) ? { sub: 'Active projects and history' } : undefined)}
     ${menuItem('bell', 'Notifications', "nav('notifications')")}
     ${menuItem('help', 'Help, Support & Policies', "nav('support')")}
     ${installAppItem()}
@@ -3242,7 +3276,7 @@ const ROUTE_ACCESS = Object.freeze({
   support: 'user', report: 'user', myReports: 'user', sphereAI: 'user',
   categories: 'user', categoryDetail: 'user', allEditors: 'user', verifiedEditorsScreen: 'user',
   editorProfile: 'user', jobs: 'user', projectStatus: 'user', portfolio: 'user',
-  escrowScreen: 'user', vaultScreen: 'user',
+  escrowScreen: 'user', vaultScreen: 'user', editProfile: 'user',
   postJob: 'client', applications: 'client', payment: 'client', savedList: 'client', ratings: 'client',
   jobBidScreen: 'editor',
   editorDetails: 'editorAccount', verificationStatus: 'editorAccount',
@@ -3332,6 +3366,219 @@ sb.auth.onAuthStateChange((event) => {
     setTimeout(() => { alert('You have been logged out. Please log in again.'); nav('authLanding'); }, 0);
   }
 });
+
+/* ============ PART 3: CLIENT PROFILE + DASHBOARD ============
+   Client home dashboard, My Projects (Active / History / All), friendly project
+   status, client profile info and the Edit Profile screen (all roles). */
+const CLIENT_STATUS = Object.freeze({
+  'open':            { label: 'Waiting for bids',  color: '#475569', bg: '#eef2f7', step: 1 },
+  'negotiating':     { label: 'Agreeing on price', color: '#6d28d9', bg: '#f1ebff', step: 2 },
+  'payment-pending': { label: 'Payment needed',    color: '#b45309', bg: '#fff4e0', step: 3 },
+  'in-progress':     { label: 'Editor is working', color: '#1657ff', bg: '#e8efff', step: 4 },
+  'delivered':       { label: 'Ready for review',  color: '#b45309', bg: '#fff4e0', step: 5 },
+  'approved':        { label: 'Approved',          color: '#15803d', bg: '#e7f7ec', step: 6 },
+  'closed':          { label: 'Completed',         color: '#15803d', bg: '#e7f7ec', step: 7 },
+  'refunded':        { label: 'Refunded',          color: '#6b7280', bg: '#f1f2f4', step: 0 },
+  'expired':         { label: 'Expired',           color: '#6b7280', bg: '#f1f2f4', step: 0 }
+});
+const CLIENT_ACTIVE = ['open', 'negotiating', 'payment-pending', 'in-progress', 'delivered'];
+const CLIENT_PAID = ['in-progress', 'delivered', 'approved', 'closed'];
+
+// One project as the client sees it: friendly status, what (if anything) they need to do
+function clientProjectView(j, bidCount, editor, user){
+  const key = isExpired(j) ? 'expired' : (CLIENT_STATUS[j.status] ? j.status : 'open');
+  let action = '';
+  if(key === 'open' && bidCount > 0) action = bidCount + (bidCount === 1 ? ' bid' : ' bids') + ' received — choose an editor';
+  if(key === 'negotiating' && j.proposedBy && j.proposedBy !== user.id) action = 'The editor sent a price — reply';
+  if(key === 'payment-pending') action = 'Pay to start the work';
+  if(key === 'delivered') action = 'Check the video and approve';
+  return {
+    job: j, key, meta: CLIENT_STATUS[key], action, bids: bidCount,
+    active: CLIENT_ACTIVE.includes(key),
+    editorName: editor ? (editor.name || 'Editor') : '',
+    amount: Number(j.lockedAmount || j.budget || 0)
+  };
+}
+async function loadClientProjects(user){
+  const { data, error } = await sb.from('sp_jobs').select('*').eq('client_id', user.id).order('created_at', { ascending: false });
+  if(error){ console.error(error); return { ok: false, items: [], stats: clientStats([]) }; }
+  const list = (data || []).map(mapJob);
+  const openIds = list.filter(j => j.status === 'open' && !isExpired(j)).map(j => j.id);
+  const bids = {};
+  if(openIds.length){
+    const { data: apps } = await sb.from('sp_applications').select('job_id').in('job_id', openIds);
+    (apps || []).forEach(a => { bids[a.job_id] = (bids[a.job_id] || 0) + 1; });
+  }
+  const edIds = [...new Set(list.map(j => j.assignedEditor).filter(Boolean))];
+  const eds = edIds.length ? await getProfilesByIds(edIds) : {};
+  const items = list.map(j => clientProjectView(j, bids[j.id] || 0, eds[j.assignedEditor], user));
+  return { ok: true, items, stats: clientStats(items) };
+}
+function clientStats(items){
+  return {
+    total: items.length,
+    active: items.filter(x => x.active).length,
+    needYou: items.filter(x => x.action).length,
+    done: items.filter(x => x.key === 'approved' || x.key === 'closed').length,
+    spent: items.filter(x => CLIENT_PAID.includes(x.key)).reduce((t, x) => t + x.amount, 0)
+  };
+}
+function rupees(n){ return '₹' + Number(n || 0).toLocaleString('en-IN'); }
+function clientStatusChip(meta){
+  return `<span class="cl-status" style="color:${meta.color}; background:${meta.bg};">${esc(meta.label)}</span>`;
+}
+function clientProjectCard(x, compact){
+  const j = x.job;
+  const pct = x.meta.step ? Math.round(x.meta.step / 7 * 100) : 0;
+  return `<div class="card cl-proj ${x.action ? 'cl-action' : ''}" onclick="openJob('${esc(j.id)}')">
+    <div class="cl-proj-top"><b>${esc(j.category || 'Project')}</b>${clientStatusChip(x.meta)}</div>
+    ${compact ? '' : `<p class="muted">${esc(j.desc).slice(0, 70)}${j.desc.length > 70 ? '…' : ''}</p>`}
+    ${x.active ? `<div class="cl-bar"><i style="width:${pct}%"></i></div>` : ''}
+    ${x.action ? `<p class="cl-action-txt">👉 ${esc(x.action)}</p>` : ''}
+    <p class="muted">${x.editorName ? '🎬 ' + esc(x.editorName) + ' · ' : ''}${rupees(x.amount)} · Posted ${fmtDate(j.createdAt)}${j.deadline && x.active ? ' · Due ' + fmtDate(j.deadline) : ''}</p>
+  </div>`;
+}
+function clientEmptyState(kind){
+  if(kind === 'history') return `<div class="card cl-empty"><div class="cl-empty-ic">🗂️</div><b>No finished projects yet</b>
+    <p>Projects move here after you approve the final video.</p></div>`;
+  if(kind === 'active') return `<div class="card cl-empty"><div class="cl-empty-ic">🎬</div><b>No active projects</b>
+    <p>Post a job and verified editors will send you bids.</p>
+    <div class="cl-row"><button class="btn btn-primary" onclick="nav('postJob')">Post a job</button><button class="btn btn-outline" onclick="nav('allEditors')">Browse editors</button></div></div>`;
+  return `<div class="card cl-empty"><div class="cl-empty-ic">🎬</div><b>No projects yet</b>
+    <p>Your first project is one step away. Post a job, or find an editor you like and hire them directly.</p>
+    <div class="cl-row"><button class="btn btn-primary" onclick="nav('postJob')">Post a job</button><button class="btn btn-outline" onclick="nav('allEditors')">Browse editors</button></div></div>`;
+}
+
+// ---- Home dashboard (fills in after the home screen shows, so Home stays fast)
+function clientDashSkeleton(user){
+  const first = esc(String((user && user.name) || '').split(' ')[0] || 'there');
+  return `<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first} 👋</b><span>Loading your projects…</span></div></div>`;
+}
+async function renderClientDashboard(){
+  const box = document.getElementById('clientDash');
+  const user = getCurrentUser();
+  if(!box || !isClientRole(user)) return;
+  const res = await loadClientProjects(user);
+  const el = document.getElementById('clientDash');
+  if(!el) return;   // user already left Home
+  const first = esc(String(user.name || '').split(' ')[0] || 'there');
+  const st = res.stats;
+  if(!res.ok){
+    el.innerHTML = `<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first} 👋</b><span>Couldn't load your projects. Pull down to refresh.</span></div></div>`;
+    return;
+  }
+  if(st.total === 0){
+    el.innerHTML = `<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first} 👋</b><span>Welcome to Sphere</span></div></div>${clientEmptyState('all')}`;
+    return;
+  }
+  const needs = res.items.filter(x => x.action).slice(0, 3);
+  const recent = res.items.filter(x => !x.action).slice(0, 3);
+  el.innerHTML = `
+    <div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first} 👋</b><span>${st.active ? 'Here is how your projects are going' : 'All your projects are finished'}</span></div></div>
+    <div class="cl-stats">
+      <div class="cl-stat" onclick="nav('jobs', { tab: 'active' })"><b>${st.active}</b><span>Active</span></div>
+      <div class="cl-stat ${st.needYou ? 'warn' : ''}" onclick="nav('jobs', { tab: 'active' })"><b>${st.needYou}</b><span>Need you</span></div>
+      <div class="cl-stat" onclick="nav('jobs', { tab: 'history' })"><b>${st.done}</b><span>Completed</span></div>
+    </div>
+    ${needs.length ? `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Needs your action</h3></div>${needs.map(x => clientProjectCard(x, true)).join('')}` : ''}
+    ${recent.length ? `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Recent projects</h3><a onclick="nav('jobs')">See all</a></div>${recent.map(x => clientProjectCard(x, true)).join('')}` : ''}`;
+}
+
+// ---- My Projects (client view of the Jobs tab)
+async function clientProjectsScreen(user, data){
+  const tab = (data && ['active', 'history', 'all'].includes(data.tab)) ? data.tab : 'active';
+  const res = await loadClientProjects(user);
+  const items = res.items;
+  const groups = {
+    active: items.filter(x => x.active).sort((a, b) => (b.action ? 1 : 0) - (a.action ? 1 : 0)),
+    history: items.filter(x => !x.active),
+    all: items
+  };
+  const list = groups[tab];
+  const tabBtn = (k, label) => `<button class="${tab === k ? 'on' : ''}" onclick="nav('jobs', { tab: '${k}' })">${label} (${groups[k].length})</button>`;
+  return `
+  <div class="header"><h1>My Projects</h1><p>${res.stats.total ? `${res.stats.total} total · ${rupees(res.stats.spent)} paid through Sphere` : 'Everything you hire for, in one place'}</p></div>
+  <div class="screen" style="padding-top:0;">
+    <button class="btn btn-primary" style="margin-bottom:16px;" onclick="nav('postJob')">+ Post New Job</button>
+    <div class="cl-tabs">${tabBtn('active', 'Active')}${tabBtn('history', 'History')}${tabBtn('all', 'All')}</div>
+    ${!res.ok ? '<p class="muted">Could not load your projects. Please try again.</p>' : ''}
+    ${res.ok && list.length === 0 ? clientEmptyState(items.length === 0 ? 'all' : tab) : ''}
+    ${list.map(x => clientProjectCard(x, false)).join('')}
+  </div>`;
+}
+
+// ---- Project page: one friendly line for the client
+function clientStatusLine(job){
+  const x = clientProjectView(job, 0, null, getCurrentUser());
+  return `<div class="card" style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:12px 14px;">
+    <span style="font-size:13px;">${x.action ? '👉 ' + esc(x.action) : 'Status'}</span>${clientStatusChip(x.meta)}</div>`;
+}
+
+// ---- Profile: client account info
+function clientProfileInfo(user, info){
+  const st = info.stats;
+  const kind = user.baseRole === 'admin' ? 'Admin account' : (user.baseRole === 'editor' ? 'Editor account · using Client mode' : 'Client account');
+  return `<p class="muted" style="font-size:12px; margin-top:6px;">${kind}${user.createdAt ? ' · Member since ' + fmtDate(user.createdAt) : ''}</p>
+    <div class="cl-stats" style="margin:12px 0 0;">
+      <div class="cl-stat" onclick="nav('jobs', { tab: 'all' })"><b>${st.total}</b><span>Projects</span></div>
+      <div class="cl-stat" onclick="nav('jobs', { tab: 'history' })"><b>${st.done}</b><span>Completed</span></div>
+      <div class="cl-stat" onclick="nav('jobs', { tab: 'all' })"><b style="font-size:16px; line-height:1.9;">${rupees(st.spent)}</b><span>Paid via Sphere</span></div>
+    </div>`;
+}
+
+// ---- Edit profile (every role): name, photo, mobile number
+SCREENS.editProfile = () => {
+  const u = getCurrentUser();
+  const kind = u.baseRole === 'admin' ? 'Admin' : (u.baseRole === 'editor' ? 'Editor' : 'Client');
+  return `
+  <div class="header"><button class="back-btn" onclick="nav('profile')">‹</button><h1>Edit Profile</h1></div>
+  <div class="screen" style="padding-top:0;">
+    <div class="card center-text">
+      <div id="epAvatar">${avatarHtml(u, 'margin:0 auto 8px; width:84px; height:84px; font-size:34px;')}</div>
+      <label class="avatar-edit" style="display:inline-flex; align-items:center; gap:5px;"><span style="width:15px; height:15px; display:inline-flex;">${UI_ICONS.camera}</span>Change photo<input type="file" accept="image/*" style="display:none;" onchange="editProfilePhoto(this)"></label>
+    </div>
+    <div class="field"><label>Full name</label><input id="epName" maxlength="60" value="${esc(u.name || '')}" placeholder="Your name"></div>
+    ${phoneField('epPhone', u.phone)}
+    <div class="field"><label>Email</label><input value="${esc(u.email || '')}" disabled style="opacity:.7;"></div>
+    <p class="muted" style="font-size:12px; margin:-6px 0 14px;">To change your email, contact Sphere support.</p>
+    <div class="kv"><span>Account type</span><b>${kind}</b></div>
+    ${u.createdAt ? `<div class="kv"><span>Member since</span><b>${fmtDate(u.createdAt)}</b></div>` : ''}
+    <button class="btn btn-primary" style="margin-top:18px;" id="epSave" onclick="saveEditProfile()">Save changes</button>
+  </div>`;
+};
+async function editProfilePhoto(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  try {
+    const old = currentUser.avatar;
+    const path = await uploadImage(file, 'avatar', 400);
+    const { error } = await sb.from('profiles').update({ avatar_url: path }).eq('id', currentUser.id);
+    if(error){ await removeMedia(path); throw error; }
+    await removeMedia(old);
+    await fetchAndSetCurrentUser();
+    const box = document.getElementById('epAvatar');
+    if(box) box.innerHTML = avatarHtml(getCurrentUser(), 'margin:0 auto 8px; width:84px; height:84px; font-size:34px;');
+  } catch(e){ alert('Photo upload failed: ' + (e.message || e)); }
+}
+async function saveEditProfile(){
+  const u = getCurrentUser();
+  const name = document.getElementById('epName').value.trim();
+  if(name.length < 2 || name.length > 60){ alert('Name must be 2–60 characters'); return; }
+  const phone = readPhone('epPhone');
+  if(!phone) return;
+  const changes = {};
+  if(name !== u.name) changes.full_name = name;
+  if(phone !== cleanIndianPhone(u.phone)) changes.phone = phone;
+  if(Object.keys(changes).length === 0){ nav('profile'); return; }
+  const btn = document.getElementById('epSave'); if(btn) btn.disabled = true;
+  const { error } = await sb.from('profiles').update(changes).eq('id', u.id);
+  if(btn) btn.disabled = false;
+  if(dbErr(error)) return;
+  await fetchAndSetCurrentUser();
+  if(changes.full_name) contactCheck(name, (getCurrentUser() || {}).name);
+  alert('Profile saved ✅');
+  nav('profile');
+}
 
 (function(){
   const q = new URLSearchParams(window.location.search);
