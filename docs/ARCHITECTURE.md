@@ -59,6 +59,7 @@ The script starts with a **map of headings**. Search for them:
 | `CHAT` | WhatsApp-style chat, realtime, media, voice notes |
 | `PAYMENT` / `PROJECT STATUS` | Razorpay checkout, escrow, delivery, approve & release |
 | `ADMIN` | Admin Panel (PIN unlock), verification, reports, payouts, suspicious users, system status |
+| `PART 2: AUTH + ROLE ACCESS` | `ROUTE_ACCESS`, `routeGate()`, `clearSessionState()`, account status (suspended banner) |
 | `CONTACT PROTECTION` | Warning popups for hidden contact details |
 
 ### Roles and modes
@@ -67,6 +68,26 @@ The script starts with a **map of headings**. Search for them:
   * An **editor** can switch to **Client mode** (hire / post jobs).
   * An **admin** can switch to **Editor mode**.
 * Only admins can create admins (`sp_make_admin`) or give the ✔ tick (`sp_verify_editor`). The `sp_core_profile_guard` trigger blocks anyone trying to do this directly through the API.
+
+### Login, session and access (Part 2)
+* **Register:** email + password (role Client or Editor, phone) or Google (then pick role + phone). Nobody can register as Admin — the database turns it into Client.
+* **Login:** email/password or Google. Admins land on the Admin Panel, everyone else on Home.
+* **Session:** kept in the browser (`sb-pwcchgjsgkwrsvbzqspp-auth-token`) and refreshed automatically. If the session ends (logout in another tab, expired login) the app clears everything and returns to the welcome screen.
+* **Logout:** clears the user, chat connection, Admin PIN, open job/chat and AI history.
+* **Every screen is checked** by `routeGate()` inside `nav()` using `ROUTE_ACCESS`:
+
+| Access | Who | Screens |
+|---|---|---|
+| public | anyone | splash, onboard1-3, authLanding, login, signup, resetPassword |
+| auth | logged in, profile not finished | chooseRole, addPhone |
+| user | any finished account | home, profile, settings, notifications, chats, support, reports, Sphere AI, categories, editors, editor profile, jobs, project, portfolio, escrow, vault |
+| client | Client mode (client · editor switched to Client · admin in Admin mode) | postJob, applications, payment, savedList, ratings |
+| editor | Editor mode (editor · admin switched to Editor) | jobBidScreen |
+| editorAccount | Editor account (any mode) or admin in Editor mode | editorDetails, verificationStatus |
+| admin | Admin accounts | admin |
+
+* **Job screens** also check the job: `applications`, `payment`, `ratings` → only the job's client (or an admin); `projectStatus` → client, assigned editor, admin, or anyone while the job is open.
+* **The database enforces the same rules** (`sp_core_role_guard`): only editors bid (for themselves), only editors edit their own portfolio, only the job's client reviews that job's editor. Screen checks are for the user experience; database checks are the real security.
 
 ### Job lifecycle (today)
 `open → negotiating → payment-pending → in-progress → delivered → approved → closed` (+ `refunded`)

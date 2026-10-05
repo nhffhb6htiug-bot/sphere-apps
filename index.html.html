@@ -325,7 +325,8 @@ details.card[open] summary::after{content:'－';}
      CONFIG · ROLES · SETTINGS · DATA HELPERS · ANDROID APP · INSTALL AS APP ·
      HOME · EDITOR: JOB BID SCREEN · EDITOR: PORTFOLIO BUILDER ·
      EDITOR VERIFICATION STATUS · SUPPORT & REPORTS · CHAT · PAYMENT ·
-     PROJECT STATUS · ADMIN · CONTACT PROTECTION · SYSTEM STATUS
+     PROJECT STATUS · ADMIN · CONTACT PROTECTION · SYSTEM STATUS ·
+     PART 2: AUTH + ROLE ACCESS
    Adding a new part: put its code in a block "PART n: <name>" near the end of
    this script, its database SQL in supabase/migrations/00n_<name>.sql, and
    turn it on with SPHERE_CONFIG.features. See docs/ARCHITECTURE.md.
@@ -336,8 +337,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.1.0',
-  build: 'part1-foundation',
+  appVersion: '2.2.0',
+  build: 'part2-auth-roles',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
@@ -345,16 +346,16 @@ const SPHERE_CONFIG = Object.freeze({
   razorpayKeyId: 'rzp_test_TiF5Py5F7SLGDs',                        // rzp_test_ = test money, rzp_live_ = real money
   googleClientId: '258192736968-ocmgvgkm00t0sglunn6tqgodpf6d4ak2.apps.googleusercontent.com',
   website: 'https://sphere-live.onrender.com',
-  // Switches for the upcoming parts. Each part flips its own switch to true when it is ready.
+  // Switches for upcoming modules. Each module flips its own switch to true when it is ready.
   features: Object.freeze({
-    hiddenNames: false,   // Part 2
-    aiJobIntake: false,   // Part 3
-    smartBids: false,     // Part 4
-    previews: false,      // Part 5
-    revisions: false,     // Part 6
-    editorLevels: false,  // Part 7
-    proPlan: false,       // Part 8
-    sponsored: false      // Part 8
+    hiddenNames: false,
+    aiJobIntake: false,
+    smartBids: false,
+    previews: false,
+    revisions: false,
+    editorLevels: false,
+    proPlan: false,
+    sponsored: false
   })
 });
 function featureOn(name){ return !!(SPHERE_CONFIG.features && SPHERE_CONFIG.features[name]); }
@@ -499,6 +500,7 @@ async function fetchAndSetCurrentUser(){
   // Onboarding adhoora (role/number kabhi confirm nahi kiya) -> Client/Editor + number wali screen dikhao
   if(profile && String(profile.role).toUpperCase() !== 'ADMIN' && !cleanIndianPhone(profile.phone)) profile = null;
   currentUser = toAppUser(profile);
+  if(currentUser) await loadAccountStatus(currentUser);
   return currentUser;
 }
 
@@ -990,6 +992,13 @@ function renderBottomNav(){
 }
 
 async function nav(screen, data){
+  // PART 2: every screen is checked against the user's role before it opens
+  const gate = await routeGate(screen);
+  if(!gate.ok){
+    if(gate.msg) alert(gate.msg);
+    if(gate.to && gate.to !== screen) return nav(gate.to);
+    return;
+  }
   currentScreenName = screen;
   window.scrollTo(0,0);
   const visibleScreens = ['home','chatList','jobs','portfolio','profile'];
@@ -1290,7 +1299,8 @@ SCREENS.home = () => {
   if(!user){ nav('authLanding'); return ''; }
   if(user.role !== 'admin' && !cleanIndianPhone(user.phone)){ setTimeout(() => nav('addPhone'), 0); return ''; }
   const page = user.role==='editor' ? editorHomeScreen(user) : clientHomeScreen(user);
-  return page instanceof Promise ? page.then(h => installBanner() + h) : installBanner() + page;
+  const top = installBanner() + accountStatusBanner(user);
+  return page instanceof Promise ? page.then(h => top + h) : top + page;
 };
 
 async function editorHomeScreen(user){
@@ -2833,9 +2843,10 @@ SCREENS.profile = async () => {
   </div>`;
 };
 async function logout(){
-  if(msgChannel){ sb.removeChannel(msgChannel); msgChannel = null; }
+  loggingOut = true;
+  clearSessionState();
   await sb.auth.signOut();
-  currentUser = null;
+  loggingOut = false;
   nav('authLanding');
 }
 
@@ -3210,6 +3221,117 @@ async function setAdminPin(changing){
   alert('Admin PIN saved ✅');
   nav('admin');
 }
+
+/* ============ PART 2: AUTH + ROLE ACCESS ============
+   Who can open which screen. nav() asks routeGate() first.
+   Access levels:
+     public       — anyone, even logged out (welcome, login, sign up, password reset)
+     auth         — logged in, profile not finished yet (pick role, add phone)
+     user         — any finished account (Client, Editor or Admin)
+     client       — Client mode (clients, editors switched to Client, admins in Admin mode)
+     editor       — Editor mode (editors, admins switched to Editor)
+     editorAccount— an Editor account in any mode, or an admin in Editor mode
+     admin        — Admin accounts only
+   This protects the screens. The database (RLS + triggers) protects the data. */
+const ROUTE_ACCESS = Object.freeze({
+  splash: 'public', onboard1: 'public', onboard2: 'public', onboard3: 'public',
+  authLanding: 'public', login: 'public', signup: 'public', resetPassword: 'public',
+  chooseRole: 'auth', addPhone: 'auth',
+  home: 'user', profile: 'user', settingsScreen: 'user', notifications: 'user',
+  chatList: 'user', chatThread: 'user', chatInfo: 'user',
+  support: 'user', report: 'user', myReports: 'user', sphereAI: 'user',
+  categories: 'user', categoryDetail: 'user', allEditors: 'user', verifiedEditorsScreen: 'user',
+  editorProfile: 'user', jobs: 'user', projectStatus: 'user', portfolio: 'user',
+  escrowScreen: 'user', vaultScreen: 'user',
+  postJob: 'client', applications: 'client', payment: 'client', savedList: 'client', ratings: 'client',
+  jobBidScreen: 'editor',
+  editorDetails: 'editorAccount', verificationStatus: 'editorAccount',
+  admin: 'admin'
+});
+// Screens that belong to one job: only the people in that job (or an admin) may open them.
+const JOB_SCREENS = Object.freeze({ projectStatus: 'party', applications: 'owner', payment: 'owner', ratings: 'owner' });
+
+function routeAccess(screen){ return ROUTE_ACCESS[screen] || 'user'; }
+function hasRouteAccess(level, u){
+  switch(level){
+    case 'public': return true;
+    case 'auth': return !!(u || pendingAuthUser);
+    case 'user': return !!u;
+    case 'client': return isClientRole(u);
+    case 'editor': return usingMode(u, ROLES.EDITOR);
+    case 'editorAccount': return isEditorAccount(u) || (isAdminUser(u) && usingMode(u, ROLES.EDITOR));
+    case 'admin': return isAdminUser(u);
+    default: return !!u;
+  }
+}
+async function routeGate(screen){
+  const level = routeAccess(screen);
+  const u = getCurrentUser();
+  if(level === 'public') return { ok: true };
+  if(!u && !(level === 'auth' && pendingAuthUser)) return { ok: false, to: 'authLanding' };
+  if(!hasRouteAccess(level, u)){
+    if(level === 'admin') return { ok: false, to: 'home', msg: 'This page is for admins only.' };
+    if(level === 'editor' || level === 'editorAccount'){
+      return { ok: false, to: 'home', msg: isEditorAccount(u) || isAdminUser(u)
+        ? 'This is part of Editor mode. Switch to Editor from Settings.'
+        : 'This page is for editors. You can become an editor from Settings.' };
+    }
+    if(level === 'client') return { ok: false, to: 'home', msg: isAdminUser(u)
+      ? 'This is part of Admin mode. Switch back to Admin mode from Settings.'
+      : 'This is part of Client mode. Switch to Client from Settings to hire editors.' };
+    return { ok: false, to: 'home' };
+  }
+  const rule = JOB_SCREENS[screen];
+  if(rule && typeof currentJobId !== 'undefined' && currentJobId){
+    const job = await getJob(currentJobId);
+    if(job){
+      const owner = job.clientId === u.id;
+      const party = owner || job.assignedEditor === u.id;
+      const allowed = isAdminUser(u) || (rule === 'owner' ? owner : (party || job.status === 'open'));
+      if(!allowed) return { ok: false, to: 'jobs', msg: 'You do not have access to this project.' };
+    }
+  }
+  return { ok: true };
+}
+
+// Account status straight from the database (role, ✔ tick, suspension). Never blocks login if it fails.
+async function loadAccountStatus(u){
+  try {
+    const { data, error } = await sb.rpc('sp_core_whoami');
+    if(error || !data) return;
+    u.suspended = !!data.suspended;
+    if(data.role && normRole(data.role) && normRole(data.role) !== u.baseRole) console.warn('Sphere: role changed on the server, reloading profile next time.');
+  } catch(e) {}
+}
+function accountStatusBanner(u){
+  if(!u || !u.suspended) return '';
+  return `<div class="card" style="border:1.5px solid #c62828; margin:12px 16px 0;">
+    <b style="color:#c62828;">⛔ Your account is suspended</b>
+    <p class="muted" style="font-size:12px; margin-top:4px;">You can't send messages, place bids or post jobs right now. Contact Sphere support: ${esc(SUPPORT.phones.join(' / '))}</p>
+  </div>`;
+}
+
+// Everything that belongs to the logged-in account is cleared on logout / session end
+let loggingOut = false;
+function clearSessionState(){
+  if(msgChannel){ try { sb.removeChannel(msgChannel); } catch(e){} msgChannel = null; }
+  currentUser = null;
+  pendingAuthUser = null;
+  ADMIN_PIN = '';
+  if(typeof currentChatWith !== 'undefined') currentChatWith = null;
+  if(typeof currentJobId !== 'undefined') currentJobId = null;
+  if(typeof aiHistory !== 'undefined') aiHistory = [];
+}
+
+// Session ended somewhere else (logged out in another tab, or the login expired) → back to the welcome screen
+sb.auth.onAuthStateChange((event) => {
+  if(event !== 'SIGNED_OUT' || loggingOut) return;
+  const wasIn = !!currentUser;
+  clearSessionState();
+  if(wasIn && routeAccess(currentScreenName) !== 'public'){
+    setTimeout(() => { alert('You have been logged out. Please log in again.'); nav('authLanding'); }, 0);
+  }
+});
 
 (function(){
   const q = new URLSearchParams(window.location.search);

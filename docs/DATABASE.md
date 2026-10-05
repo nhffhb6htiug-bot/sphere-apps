@@ -35,6 +35,8 @@
 | `sp_mod_admin_action` | Admin + PIN | Warn / suspend / unsuspend / clear strikes |
 | `sp_core_status` | Admin | System status card |
 | `sp_core_role`, `sp_core_has_role` | Anyone logged in | Role helpers |
+| `sp_core_whoami` | Anyone logged in | Own role, ✔ tick, suspended (Part 2) |
+| `sp_core_job_parties` | Internal | Who is the client / editor of a job |
 | `sp_mod_mask`, `sp_mod_numeric_only`, `sp_mod_re` | Internal | Contact protection |
 
 ## Triggers
@@ -42,6 +44,7 @@
 | Trigger | On | What |
 |---|---|---|
 | `sp_core_profile_guard` | `profiles` | Keeps roles in capitals; blocks self-made admins and self-given ✔ ticks |
+| `sp_core_role_guard` | `sp_applications` (insert), `sp_portfolio`, `sp_ratings` (insert) | Only editors bid / have a portfolio; only the job's client reviews its editor (Part 2) |
 | `zz_sp_mod_guard` | `sp_messages`, `sp_jobs`, `sp_applications`, `profiles`, `sp_portfolio`, `sp_ratings`, `sp_notifications` | Hides phone numbers, emails, links, @IDs; records strikes; blocks suspended users |
 
 ## Storage buckets
@@ -58,4 +61,5 @@
 | `001_contact_protection.sql` | ✅ Run (re-run the latest copy once — it is safe) |
 | `001b_optional_clean_old_messages.sql` | Optional |
 | `001_undo_contact_protection.sql` | Emergency only — do **not** run normally |
-| `002_foundation.sql` | Part 1 |
+| `002_foundation.sql` | ✅ Part 1 |
+| `003_auth_roles.sql` | Part 2 |
