@@ -248,6 +248,10 @@ h1,h2,h3{color:var(--text);}
 .chat-head .ch-back, .chat-head .ch-more{background:transparent; border:none; color:#fff; font-size:24px; line-height:1; cursor:pointer; padding:4px 8px;}
 .chat-head .avatar{margin:0 !important; width:40px !important; height:40px !important; flex:0 0 40px; font-size:18px;}
 .chat-head .ch-name{flex:1; min-width:0; cursor:pointer;}
+.chat-warn{flex:0 0 calc(100% + 16px); max-width:none; overflow:hidden; white-space:nowrap; margin:-4px -8px -10px; padding:5px 0; background:#ffd54f; color:#3b2a00; font-size:12px; font-weight:600;}
+.chat-warn span{display:inline-block; padding-left:100%; animation:chatWarnSlide 18s linear infinite;}
+@keyframes chatWarnSlide{from{transform:translateX(0);} to{transform:translateX(-100%);}}
+@media (prefers-reduced-motion: reduce){ .chat-warn{white-space:normal;} .chat-warn span{animation:none; padding:0 10px;} }
 .chat-head .ch-name b{display:block; font-size:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .chat-head .ch-name small{font-size:12px; opacity:.85;}
 .chat-menu{position:fixed; top:calc(62px + env(safe-area-inset-top, 0px)); right:max(8px, calc(50% - 232px)); background:#fff; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.2); z-index:70; min-width:200px; overflow:hidden; display:none;}
@@ -795,7 +799,16 @@ function dbErr(error){
 /* ============ PART 1: CONTACT PROTECTION ============
    The database hides phone numbers, emails, outside links and @IDs (shows 📵).
    These helpers only show the warning to the person who typed it. */
-const CONTACT_HIDDEN_MSG = '📵 Contact details are not allowed on Sphere.\n\nPhone numbers, emails, social media IDs and outside links were hidden. Keep all talks and payments inside Sphere. Your payment is protected only inside the app.\n\nRepeated attempts can get your account suspended.';
+const CONTACT_HIDDEN_MSG = '📵 Contact details are not allowed on Sphere.\n\nPhone numbers (even in pieces, words or Roman numerals), emails, social media IDs and outside links were hidden. Keep all talks and payments inside Sphere. Your payment is protected only inside the app.\n\nSharing contact details in any form can get your account suspended or deleted.';
+const CHAT_WARN_TEXT = '⚠️ Sharing phone numbers, emails, social media IDs or any contact details in any form can get your Sphere account deleted. Keep all talks and payments inside the app.';
+function refreshBubble(m){
+  const el = document.querySelector(`.chat-bubble[data-id="${m.id}"]`);
+  if(!el || !currentUser) return;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = bubbleHtml(m, currentUser.id);
+  const nb = tmp.firstElementChild;
+  if(nb) el.replaceWith(nb);
+}
 const CONTACT_SOFT_MSG = 'Reminder: keep all talks and payments inside Sphere. Asking to move to WhatsApp, Instagram, calls or outside payment is not allowed and is recorded.';
 const CONTACT_SOFT_RE = /\b(whats ?app|watsapp|whatsap|wtsp|insta|instagram|telegram|snapchat|g ?pay|google pay|paytm|phone ?pe|call me|call kar|call karo|call karna|number do|number de|number bhej|number bhejo|mera number|mera no|apna number|apna no|contact number|personal number|direct pay|direct payment|outside the app|bahar deal)\b|व्हाट्सएप|व्हाट्सऐप|मेरा नंबर|अपना नंबर/i;
 function contactCheck(typed, saved){
@@ -2205,8 +2218,13 @@ function listenForMessages(){
     })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sp_messages', filter: `sender_id=eq.${me}` }, (payload) => {
       const m = payload.new;
+      if(m.text && m.text.includes('📵')){ refreshBubble(m); return; }
       const t = document.querySelector(`.chat-bubble[data-id="${m.id}"] .tick`);
       if(t) t.outerHTML = tickHtml(m);
+    })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sp_messages', filter: `receiver_id=eq.${me}` }, (payload) => {
+      const m = payload.new;
+      if(m.text && m.text.includes('📵')) refreshBubble(m);
     })
     .subscribe();
 }
@@ -2266,11 +2284,12 @@ SCREENS.chatThread = async () => {
   const body = (data || []).map(m => withDay(m, user.id)).join('');
   scrollChat();
   return `
-  <div class="chat-head">
+  <div class="chat-head" style="flex-wrap:wrap;">
     <button class="ch-back" onclick="nav('chatList')">‹</button>
     ${avatarHtml(other)}
     <div class="ch-name" onclick="nav('chatInfo')"><b>${other?esc(other.name):'Chat'}</b><small>${roleLine(other)}</small></div>
     <button class="ch-more" title="More" onclick="toggleChatMenu(event)">⋮</button>
+    <div class="chat-warn" role="note"><span>${CHAT_WARN_TEXT}</span></div>
   </div>
   <div class="chat-menu" id="chatMenu" onclick="event.stopPropagation()">
     <div onclick="nav('chatInfo')">👤 View info</div>
@@ -2280,7 +2299,7 @@ SCREENS.chatThread = async () => {
     <div class="danger" onclick="openReport(null, '', '${currentChatWith}')">🚩 Report</div>
     <div onclick="nav('support')">🆘 Help</div>
   </div>
-  <div class="screen" id="chatBox" style="padding-top:calc(76px + env(safe-area-inset-top, 0px)); padding-bottom:84px;">${body || '<p class="muted center-text" style="margin-top:20px;">Say hi 👋</p>'}</div>
+  <div class="screen" id="chatBox" style="padding-top:calc(104px + env(safe-area-inset-top, 0px)); padding-bottom:84px;">${body || '<p class="muted center-text" style="margin-top:20px;">Say hi 👋</p>'}</div>
   ${st.iBlocked ? `<div class="blocked-bar" onclick="setBlocked('${currentChatWith}', false)">You blocked this contact. <b style="color:var(--blue);">Tap to unblock.</b></div>` : `
   <input type="file" id="chatFile" accept="image/*,video/*" style="display:none;" onchange="sendChatMedia(this)">
   <div class="chat-input-bar">
