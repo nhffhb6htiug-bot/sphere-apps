@@ -248,6 +248,15 @@ h1,h2,h3{color:var(--text);}
 .chat-head .ch-back, .chat-head .ch-more{background:transparent; border:none; color:#fff; font-size:24px; line-height:1; cursor:pointer; padding:4px 8px;}
 .chat-head .avatar{margin:0 !important; width:40px !important; height:40px !important; flex:0 0 40px; font-size:18px;}
 .chat-head .ch-name{flex:1; min-width:0; cursor:pointer;}
+/* PART 4: editor profile + verification */
+.av-dot{display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; vertical-align:middle;}
+.av-chip{display:inline-flex; align-items:center; font-size:12px; font-weight:700; padding:4px 10px; border-radius:20px; background:#fff; border:1px solid var(--border); color:var(--text);}
+.av-pick{display:flex; gap:8px; margin:8px 0 2px;}
+.av-pick button{flex:1; padding:8px 4px; border-radius:20px; border:1px solid var(--border); background:#fff; font-size:12px; font-weight:700; cursor:pointer; color:var(--text);}
+.av-pick button.on{border-color:var(--blue); background:#e8efff; color:var(--blue);}
+.ed-bio{font-size:13px; line-height:1.5; margin:8px 0 2px; white-space:pre-wrap; word-break:break-word;}
+.vs-state{display:inline-block; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px;}
+textarea.ed-text{width:100%; min-height:84px; padding:12px 14px; border-radius:12px; border:1px solid var(--border); font:inherit; font-size:14px; resize:vertical; background:#fff;}
 /* PART 3: client dashboard + projects */
 .cl-dash{padding:0 16px; margin-top:6px;}
 .cl-hello{display:flex; align-items:center; gap:12px; margin:6px 0 14px;}
@@ -352,7 +361,8 @@ details.card[open] summary::after{content:'－';}
      HOME · EDITOR: JOB BID SCREEN · EDITOR: PORTFOLIO BUILDER ·
      EDITOR VERIFICATION STATUS · SUPPORT & REPORTS · CHAT · PAYMENT ·
      PROJECT STATUS · ADMIN · CONTACT PROTECTION · SYSTEM STATUS ·
-     PART 2: AUTH + ROLE ACCESS · PART 3: CLIENT PROFILE + DASHBOARD
+     PART 2: AUTH + ROLE ACCESS · PART 3: CLIENT PROFILE + DASHBOARD ·
+     PART 4: EDITOR PROFILE + VERIFICATION
    Adding a new part: put its code in a block "PART n: <name>" near the end of
    this script, its database SQL in supabase/migrations/00n_<name>.sql, and
    turn it on with SPHERE_CONFIG.features. See docs/ARCHITECTURE.md.
@@ -363,8 +373,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.3.0',
-  build: 'part3-client-dashboard',
+  appVersion: '2.4.0',
+  build: 'part4-editor-profile',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
@@ -502,6 +512,12 @@ function toAppUser(profile){
     createdAt: profile.created_at || '',
     verified: !!profile.is_verified,
     verificationNote: profile.verification_note || '',
+    bio: profile.bio || '',
+    availability: profile.availability || 'available',
+    verificationStatus: profile.verification_status || (profile.is_verified ? 'approved' : ((profile.categories && profile.categories.length) ? 'pending' : 'not_applied')),
+    feeStatus: profile.verification_fee_status || 'unpaid',
+    feeRef: profile.verification_fee_ref || '',
+    feeAt: profile.verification_fee_at || '',
     code: profile.verification_code,
     rating: 0, reviews: 0
   };
@@ -1315,6 +1331,7 @@ async function saveEditorDetails(){
     is_verified: false
   }).eq('id', currentUser.id);
   if(error){ alert(error.message); return; }
+  if(currentUser.baseRole !== 'admin') await profileUpdate({ verification_status: 'pending' });
   await fetchAndSetCurrentUser();
   contactCheck(price, (getCurrentUser() || {}).price);
   nav(currentUser && currentUser.baseRole === 'admin' ? 'home' : 'verificationStatus');
@@ -1331,6 +1348,7 @@ SCREENS.home = () => {
 };
 
 async function editorHomeScreen(user){
+  setTimeout(renderEditorDashboard, 0);
   const [openRes, negRes] = await Promise.all([
     sb.from('sp_jobs').select('*').eq('status', 'open').neq('client_id', user.id).or(notExpiredFilter()).order('created_at', { ascending: false }),
     sb.from('sp_jobs').select('*').eq('status', 'negotiating').eq('assigned_editor', user.id).order('created_at', { ascending: false })
@@ -1349,14 +1367,8 @@ async function editorHomeScreen(user){
 
   <div class="screen" style="padding-top:6px;">
     ${user.baseRole === 'admin' ? `<div class="card" onclick="nav('profile')" style="cursor:pointer; border:1.5px solid var(--blue);"><b>🛡️ Admin · Editor mode</b><p class="muted" style="font-size:12px; margin-top:2px;">You can bid on work. Switch back from Profile.</p></div>` : `
-    <div class="card" onclick="nav('verificationStatus')" style="cursor:pointer; display:flex; align-items:center; gap:12px; ${user.verified?'background:linear-gradient(135deg,#0f3fcc,#1657ff); color:#fff;':'border:1.5px solid var(--blue);'}">
-      <div class="mi-icon" style="${user.verified?'background:rgba(255,255,255,.2); color:#fff;':''}">${user.verified ? UI_ICONS.check : UI_ICONS.clock}</div>
-      <div style="flex:1;">
-        <b>${user.verified ? 'Verified Editor' : 'Verification pending'}</b>
-        <p style="font-size:12px; opacity:.9; margin-top:2px;">${user.verified ? ('Editor code: ' + esc(user.code)) : ('Not verified yet — you can do ' + FREE_WORKS + ' paid works, then get the ✔ tick (₹' + VERIFY_FEE + ')')}</p>
-      </div>
-      <span class="mi-chev" style="${user.verified?'color:#fff;':''}">${UI_ICONS.chevron}</span>
-    </div>`}
+    ${editorVerifyCard(user)}`}
+    <div id="edDash">${editorDashSkeleton(user)}</div>
 
     <div class="section-title" style="padding:0; margin-top:18px;"><h3>Available Work</h3></div>
     <div class="pick-chips" id="workFilter" style="margin-bottom:10px;">
@@ -1724,6 +1736,7 @@ SCREENS.editorProfile = async () => {
     </div>
   </div>
   <div class="screen" style="padding-top:0;">
+    ${await editorPublicExtra(e)}
     <div class="card">
       <p><b>⭐ ${e.rating||0}</b> (${e.reviews||0} reviews)</p>
       <p class="muted" style="margin-top:6px;">Skills: ${esc(e.skills)||'-'}</p>
@@ -2034,6 +2047,7 @@ SCREENS.jobs = async (data) => {
       .map(mapJob)
       .sort((x, y) => new Date(y.createdAt) - new Date(x.createdAt));
   }
+  if(user.role === 'editor') return editorJobsView(user, list, data);
   return `
   <div class="header"><h1>Jobs</h1><p>${isClientRole(user)?'Your posted jobs':'Available & assigned jobs'}</p></div>
   <div class="screen" style="padding-top:0;">
@@ -2090,6 +2104,8 @@ async function selectEditor(jobId, editorId, bidAmount){
 SCREENS.verificationStatus = () => {
   const u = getCurrentUser();
   if(!u) return '';
+  if(!u.verified && u.verificationStatus === 'rejected') return verificationRejectedScreen(u);
+  if(!u.verified && u.verificationStatus === 'not_applied') return verificationNotAppliedScreen(u);
   const phone = String(u.phone || '').replace(/^\+91/, '');
   const pretty = phone.length === 10 ? `+91 ${phone.slice(0,5)} ${phone.slice(5)}` : (u.phone || '-');
   const wa = `https://wa.me/${SUPPORT.whatsapp}?text=${encodeURIComponent('Hi Sphere team, I submitted my editor application (' + (u.name || '') + '). Please verify my profile.')}`;
@@ -2119,7 +2135,7 @@ SCREENS.verificationStatus = () => {
       <p style="margin-top:10px;"><span class="link" style="font-size:13px;" onclick="nav('addPhone')">Not your number? Update it</span></p>
     </div>
 
-    ${verifyFeeCard(u)}
+    ${verifyFeeSection(u)}
     <div class="card">
       <b>Verification progress</b>
       <ol class="vs-steps" style="margin-top:8px;">
@@ -2861,11 +2877,13 @@ SCREENS.profile = async () => {
       <p class="muted">${user.phone||''}</p>
       ${modeChip(user)}
       ${clientInfo ? clientProfileInfo(user, clientInfo) : ''}
+      ${user.role==='editor' ? editorProfileExtra(user) : ''}
       ${user.role==='editor'?`<p class="muted">Categories: ${esc(catsLabel(user))}</p><p class="muted">Languages: ${esc(langsLabel(user))}</p><p class="muted">Code: ${esc(user.code)||'Pending'}</p>
         <p class="muted">Payout account: ${user.payoutAccount ? '✅ Set up' : '⏳ Pending — share your bank details with the Sphere team'}</p>`:''}
     </div>
     ${user.role==='editor'?renderPortfolio(user, pfItems):''}
-    ${user.baseRole==='editor' && !user.verified ? menuItem('clock', 'Verification status', "nav('verificationStatus')", { sub: 'Our team will call you to verify' }) : ''}
+    ${user.role==='editor' ? menuItem('user', 'Edit editor profile', "nav('editorProfileEdit')", { sub: 'Bio, skills, categories, availability' }) : ''}
+    ${user.baseRole==='editor' ? menuItem(user.verified ? 'check' : 'clock', 'Verification status', "nav('verificationStatus')", { sub: verifySubline(user) }) : ''}
     ${menuItem('jobs', isClientRole(user) ? 'My Projects' : 'My Jobs', "nav('jobs')", isClientRole(user) ? { sub: 'Active projects and history' } : undefined)}
     ${menuItem('bell', 'Notifications', "nav('notifications')")}
     ${menuItem('help', 'Help, Support & Policies', "nav('support')")}
@@ -2966,7 +2984,7 @@ SCREENS.admin = async () => {
           <a class="pill-btn primary" href="tel:+91${ph}">${UI_ICONS.phone} Call editor</a>
           <a class="pill-btn wa" href="${wa}" target="_blank" rel="noopener">WhatsApp</a></div>` : ''}
         ${e.verification_note ? `<p style="font-size:12px; color:#c62828; margin-bottom:6px;">Badge removed earlier: ${esc(e.verification_note)}</p>` : ''}
-        <p style="font-size:12px; color:#e67e22; margin-bottom:6px;">💳 Check the ₹${VERIFY_FEE} payment screenshot on WhatsApp (${FEE_PHONE}) before verifying.</p>
+        ${adminVerifyBlock(e)}
         <div class="kv"><span>Categories</span><b>${esc((e.categories||[]).join(', ') || '-')}</b></div>
         <div class="kv"><span>Languages</span><b>${esc((e.languages||[]).join(', ') || '-')}</b></div>
         <div class="kv"><span>Experience</span><b>${e.experience_years ? esc(e.experience_years) + ' yrs' : '-'}</b></div>
@@ -2975,6 +2993,7 @@ SCREENS.admin = async () => {
         <div class="kv"><span>Sample</span><b>${linkOrText(e.sample_video_url)}</b></div>
         <div class="kv"><span>Portfolio</span><b>${linkOrText(e.portfolio_url)}</b></div>
         <button class="btn btn-primary" onclick="verifyEditor('${e.id}')">✔ Verify after call</button>
+        ${adminVerifyActions(e)}
         </div>
       </div>`; }).join('')}
     <h3 style="margin:20px 0 10px;">Verified Editors (${verified.length})</h3>
@@ -3279,7 +3298,7 @@ const ROUTE_ACCESS = Object.freeze({
   escrowScreen: 'user', vaultScreen: 'user', editProfile: 'user',
   postJob: 'client', applications: 'client', payment: 'client', savedList: 'client', ratings: 'client',
   jobBidScreen: 'editor',
-  editorDetails: 'editorAccount', verificationStatus: 'editorAccount',
+  editorDetails: 'editorAccount', verificationStatus: 'editorAccount', editorProfileEdit: 'editorAccount',
   admin: 'admin'
 });
 // Screens that belong to one job: only the people in that job (or an admin) may open them.
@@ -3578,6 +3597,372 @@ async function saveEditProfile(){
   if(changes.full_name) contactCheck(name, (getCurrentUser() || {}).name);
   alert('Profile saved ✅');
   nav('profile');
+}
+
+/* ============ PART 4: EDITOR PROFILE + VERIFICATION ============
+   Editor dashboard, availability, bio, editor profile editing, My Jobs tabs,
+   rating / performance, verification states (pending / approved / rejected),
+   ₹29 fee with UPI transaction ID, admin fee checks + reject with reason. */
+const AVAILABILITY = Object.freeze({
+  available: { label: 'Available', color: '#16a34a', sub: 'Taking new work' },
+  busy:      { label: 'Busy',      color: '#f59e0b', sub: 'Slow to reply' },
+  away:      { label: 'Away',      color: '#9ca3af', sub: 'Not taking work' }
+});
+const VERIFY_STATES = Object.freeze({
+  not_applied: { label: 'Not applied', color: '#475569', bg: '#eef2f7' },
+  pending:     { label: 'Pending',     color: '#b45309', bg: '#fff4e0' },
+  approved:    { label: 'Verified ✔',  color: '#15803d', bg: '#e7f7ec' },
+  rejected:    { label: 'Not approved', color: '#c62828', bg: '#fdecec' }
+});
+const EDITOR_STATUS = Object.freeze({
+  'open':            { label: 'Open for bids',            color: '#475569', bg: '#eef2f7' },
+  'negotiating':     { label: 'Agreeing on price',        color: '#6d28d9', bg: '#f1ebff' },
+  'payment-pending': { label: 'Waiting for client payment', color: '#b45309', bg: '#fff4e0' },
+  'in-progress':     { label: 'Working on it',            color: '#1657ff', bg: '#e8efff' },
+  'delivered':       { label: 'Waiting for client review', color: '#b45309', bg: '#fff4e0' },
+  'approved':        { label: 'Approved',                 color: '#15803d', bg: '#e7f7ec' },
+  'closed':          { label: 'Completed',                color: '#15803d', bg: '#e7f7ec' },
+  'refunded':        { label: 'Refunded',                 color: '#6b7280', bg: '#f1f2f4' }
+});
+const EDITOR_ACTIVE = ['negotiating', 'payment-pending', 'in-progress', 'delivered'];
+const EDITOR_DONE = ['approved', 'closed'];
+const PART4_COLUMNS = ['bio', 'availability', 'verification_status', 'verification_fee_status', 'verification_fee_ref'];
+
+// Update my profile; if the Part 4 SQL isn't installed yet, retry without the new columns
+async function profileUpdate(changes){
+  let { error } = await sb.from('profiles').update(changes).eq('id', currentUser.id);
+  if(error && /column|schema cache|does not exist|Could not find/i.test(error.message || '')){
+    const old = Object.fromEntries(Object.entries(changes).filter(([k]) => !PART4_COLUMNS.includes(k)));
+    if(Object.keys(old).length === 0) return { error: { message: 'This needs the latest database update (004_editor_profile.sql).' }, skipped: true };
+    ({ error } = await sb.from('profiles').update(old).eq('id', currentUser.id));
+    return { error, skipped: true };
+  }
+  return { error, skipped: false };
+}
+
+function availabilityChip(v){
+  const a = AVAILABILITY[v] || AVAILABILITY.available;
+  return `<span class="av-chip"><span class="av-dot" style="background:${a.color};"></span>${a.label}</span>`;
+}
+function verifyStateChip(state){
+  const m = VERIFY_STATES[state] || VERIFY_STATES.pending;
+  return `<span class="vs-state" style="color:${m.color}; background:${m.bg};">${m.label}</span>`;
+}
+function verifySubline(u){
+  if(u.verified) return 'Verified ✔ · Code ' + (u.code || '-');
+  if(u.verificationStatus === 'rejected') return 'Not approved — see the reason';
+  if(u.feeStatus === 'submitted') return 'Fee submitted — Sphere is checking';
+  if(u.verificationStatus === 'not_applied') return 'Apply to get the ✔ tick';
+  return 'Our team will call you to verify';
+}
+function editorVerifyCard(user){
+  const v = user.verified;
+  const st = v ? 'approved' : user.verificationStatus;
+  const title = v ? 'Verified Editor' : (st === 'rejected' ? 'Verification not approved' : (st === 'not_applied' ? 'Get verified' : 'Verification pending'));
+  const line = v ? ('Editor code: ' + esc(user.code))
+    : st === 'rejected' ? ('Reason: ' + esc(user.verificationNote || 'see details') + ' — tap to apply again')
+    : user.feeStatus === 'submitted' ? 'Fee submitted — Sphere is checking your payment'
+    : ('Not verified yet — you can do ' + FREE_WORKS + ' paid works, then get the ✔ tick (₹' + VERIFY_FEE + ')');
+  const red = st === 'rejected' && !v;
+  return `<div class="card" onclick="nav('verificationStatus')" style="cursor:pointer; display:flex; align-items:center; gap:12px; ${v ? 'background:linear-gradient(135deg,#0f3fcc,#1657ff); color:#fff;' : (red ? 'border:1.5px solid #c62828;' : 'border:1.5px solid var(--blue);')}">
+      <div class="mi-icon" style="${v ? 'background:rgba(255,255,255,.2); color:#fff;' : ''}">${v ? UI_ICONS.check : UI_ICONS.clock}</div>
+      <div style="flex:1;">
+        <b style="${red ? 'color:#c62828;' : ''}">${title}</b>
+        <p style="font-size:12px; opacity:.9; margin-top:2px;">${line}</p>
+      </div>
+      <span class="mi-chev" style="${v ? 'color:#fff;' : ''}">${UI_ICONS.chevron}</span>
+    </div>`;
+}
+
+// ---- Work + rating numbers for one editor (from jobs assigned to them + reviews)
+async function loadEditorWork(user){
+  const [mine, rates] = await Promise.all([
+    sb.from('sp_jobs').select('*').eq('assigned_editor', user.id).order('created_at', { ascending: false }),
+    sb.from('sp_ratings').select('stars, review, created_at').eq('editor_id', user.id).order('created_at', { ascending: false })
+  ]);
+  const jobs = (mine.data || []).map(mapJob);
+  const r = rates.data || [];
+  const done = jobs.filter(j => EDITOR_DONE.includes(j.status));
+  return {
+    ok: !mine.error,
+    jobs,
+    active: jobs.filter(j => EDITOR_ACTIVE.includes(j.status)),
+    done,
+    earned: done.reduce((t, j) => t + Number(j.editorAmount || editorShare(j.lockedAmount || j.budget)), 0),
+    rating: r.length ? Math.round(r.reduce((t, x) => t + Number(x.stars || 0), 0) / r.length * 10) / 10 : 0,
+    reviews: r.length,
+    lastReviews: r.filter(x => x.review).slice(0, 3)
+  };
+}
+function editorJobAction(j, user){
+  if(j.status === 'negotiating' && j.proposedBy && j.proposedBy !== user.id) return 'The client sent a price — reply';
+  if(j.status === 'in-progress') return 'Work on it and deliver the video';
+  return '';
+}
+function editorJobCard(j, user){
+  const m = EDITOR_STATUS[isExpired(j) ? 'refunded' : j.status] || EDITOR_STATUS.open;
+  const label = isExpired(j) ? 'Expired' : m.label;
+  const action = j.assignedEditor === user.id ? editorJobAction(j, user) : '';
+  const amount = j.assignedEditor === user.id && j.lockedAmount ? Number(j.editorAmount || editorShare(j.lockedAmount)) : Number(j.budget || 0);
+  return `<div class="card cl-proj ${action ? 'cl-action' : ''}" onclick="openJob('${esc(j.id)}')">
+    <div class="cl-proj-top"><b>${esc(j.category || 'Project')}</b><span class="cl-status" style="color:${m.color}; background:${m.bg};">${esc(label)}</span></div>
+    <p class="muted">${esc(j.desc).slice(0, 70)}${j.desc.length > 70 ? '…' : ''}</p>
+    ${action ? `<p class="cl-action-txt">👉 ${esc(action)}</p>` : ''}
+    <p class="muted">${j.assignedEditor === user.id && j.lockedAmount ? 'You get ' : 'Budget '}${rupees(amount)}${j.deadline ? ' · Due ' + fmtDate(j.deadline) : ''}</p>
+  </div>`;
+}
+
+// ---- Editor home dashboard (fills in after Home shows)
+function editorDashSkeleton(user){
+  return `<div class="cl-hello" style="margin-top:14px;">${avatarHtml(user)}<div><b>Hi, ${esc(String(user.name || '').split(' ')[0] || 'Editor')} 👋</b><span>Loading your work…</span></div></div>`;
+}
+async function renderEditorDashboard(tries){
+  const user = getCurrentUser();
+  if(!usingMode(user, ROLES.EDITOR)) return;
+  if(!document.getElementById('edDash')){
+    // Home is still loading its job list — try again shortly
+    if((tries || 0) < 20 && currentScreenName === 'home') setTimeout(() => renderEditorDashboard((tries || 0) + 1), 150);
+    return;
+  }
+  const w = await loadEditorWork(user);
+  const el = document.getElementById('edDash');
+  if(!el) return;
+  const first = esc(String(user.name || '').split(' ')[0] || 'Editor');
+  el.innerHTML = `
+    <div class="cl-hello" style="margin-top:14px;">${avatarHtml(user)}<div style="flex:1;"><b>Hi, ${first} 👋</b><span>${w.active.length ? w.active.length + ' active project' + (w.active.length > 1 ? 's' : '') : 'Ready for new work'}</span></div>${availabilityChip(user.availability)}</div>
+    <div class="card" style="padding:12px 14px;">
+      <p style="font-size:12px; color:var(--muted);">Your status for clients</p>
+      <div class="av-pick">${Object.entries(AVAILABILITY).map(([k, a]) => `<button class="${user.availability === k ? 'on' : ''}" onclick="setAvailability('${k}')"><span class="av-dot" style="background:${a.color};"></span>${a.label}</button>`).join('')}</div>
+    </div>
+    <div class="cl-stats">
+      <div class="cl-stat" onclick="nav('profile')"><b>${w.reviews ? '⭐ ' + w.rating : '–'}</b><span>${w.reviews} review${w.reviews === 1 ? '' : 's'}</span></div>
+      <div class="cl-stat" onclick="nav('jobs', { tab: 'mine' })"><b>${w.active.length}</b><span>Active</span></div>
+      <div class="cl-stat" onclick="nav('jobs', { tab: 'history' })"><b>${w.done.length}</b><span>Completed</span></div>
+    </div>
+    ${w.done.length ? `<p class="muted" style="font-size:12px; margin:-6px 0 12px; text-align:center;">Earned on Sphere: <b style="color:var(--text);">${rupees(w.earned)}</b></p>` : ''}
+    ${w.active.length ? `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Your active work</h3><a onclick="nav('jobs', { tab: 'mine' })">See all</a></div>${w.active.slice(0, 3).map(j => editorJobCard(j, user)).join('')}` : ''}`;
+}
+async function setAvailability(v){
+  if(!AVAILABILITY[v] || !currentUser) return;
+  const { error } = await profileUpdate({ availability: v });
+  if(error){ alert(error.message || 'Could not save'); return; }
+  currentUser.availability = v;
+  if(currentScreenName === 'home') renderEditorDashboard(); else nav(currentScreenName);
+}
+
+// ---- My Jobs for editors: Available · My work · History
+function editorJobsView(user, list, data){
+  const tab = (data && ['available', 'mine', 'history'].includes(data.tab)) ? data.tab : 'available';
+  const groups = {
+    available: list.filter(j => j.status === 'open' && j.assignedEditor !== user.id),
+    mine: list.filter(j => j.assignedEditor === user.id && EDITOR_ACTIVE.includes(j.status)),
+    history: list.filter(j => j.assignedEditor === user.id && !EDITOR_ACTIVE.includes(j.status) && j.status !== 'open')
+  };
+  const items = groups[tab];
+  const tabBtn = (k, label) => `<button class="${tab === k ? 'on' : ''}" onclick="nav('jobs', { tab: '${k}' })">${label} (${groups[k].length})</button>`;
+  const empty = {
+    available: ['🔎', 'No open jobs right now', 'New jobs from clients show up here. Keep your status on Available.'],
+    mine: ['🎬', 'No active work', 'Projects you are hired for appear here.'],
+    history: ['🗂️', 'No finished projects yet', 'Approved and completed projects move here.']
+  }[tab];
+  return `
+  <div class="header"><h1>My Jobs</h1><p>Find work and track your projects</p></div>
+  <div class="screen" style="padding-top:0;">
+    <div class="cl-tabs">${tabBtn('available', 'Available')}${tabBtn('mine', 'My work')}${tabBtn('history', 'History')}</div>
+    ${items.length === 0 ? `<div class="card cl-empty"><div class="cl-empty-ic">${empty[0]}</div><b>${empty[1]}</b><p>${empty[2]}</p></div>` : ''}
+    ${items.map(j => editorJobCard(j, user)).join('')}
+  </div>`;
+}
+
+// ---- Own profile (Editor mode): bio, availability, performance
+function editorProfileExtra(user){
+  setTimeout(fillEditorPerformance, 0);
+  return `<div style="margin-top:8px;">${availabilityChip(user.availability)} ${user.baseRole === 'editor' ? verifyStateChip(user.verified ? 'approved' : user.verificationStatus) : ''}</div>
+    ${user.bio ? `<p class="ed-bio">${esc(user.bio)}</p>` : `<p class="muted" style="font-size:12px; margin-top:8px;">Add a short bio so clients know you — <span class="link" onclick="nav('editorProfileEdit')">add now</span></p>`}
+    <div id="edPerf" class="cl-stats" style="margin:12px 0 4px;"><div class="cl-stat"><b>…</b><span>Rating</span></div><div class="cl-stat"><b>…</b><span>Completed</span></div><div class="cl-stat"><b>…</b><span>Active</span></div></div>`;
+}
+async function fillEditorPerformance(){
+  const user = getCurrentUser();
+  if(!document.getElementById('edPerf') || !user) return;
+  const w = await loadEditorWork(user);
+  const el = document.getElementById('edPerf');
+  if(!el) return;
+  el.innerHTML = `<div class="cl-stat"><b>${w.reviews ? '⭐ ' + w.rating : '–'}</b><span>${w.reviews} review${w.reviews === 1 ? '' : 's'}</span></div>
+    <div class="cl-stat" onclick="nav('jobs', { tab: 'history' })"><b>${w.done.length}</b><span>Completed</span></div>
+    <div class="cl-stat" onclick="nav('jobs', { tab: 'mine' })"><b>${w.active.length}</b><span>Active</span></div>`;
+  if(w.lastReviews.length){
+    el.insertAdjacentHTML('afterend', `<div style="text-align:left; margin-top:8px;">${w.lastReviews.map(x => `<p class="muted" style="font-size:12px; margin:4px 0;">${'★'.repeat(Number(x.stars) || 0)} “${esc(x.review)}”</p>`).join('')}</div>`);
+  }
+}
+
+// ---- Edit editor profile (bio, skills, categories, languages, price, availability, links)
+SCREENS.editorProfileEdit = () => {
+  const u = getCurrentUser();
+  return `
+  <div class="header"><button class="back-btn" onclick="nav('profile')">‹</button><h1>Editor Profile</h1><p>What clients see about you</p></div>
+  <div class="screen" style="padding-top:0;">
+    <div class="field"><label>Bio (up to 300 letters)</label>
+      <textarea id="eeBio" class="ed-text" maxlength="300" placeholder="Example: I edit wedding films and Instagram reels with cinematic colour grading. 4 years experience.">${esc(u.bio)}</textarea></div>
+    <div class="field"><label>Your status</label>
+      <div class="av-pick" id="eeAvail">${Object.entries(AVAILABILITY).map(([k, a]) => `<button type="button" data-v="${k}" class="${u.availability === k ? 'on' : ''}" onclick="document.querySelectorAll('#eeAvail button').forEach(b => b.classList.toggle('on', b === this))"><span class="av-dot" style="background:${a.color};"></span>${a.label}</button>`).join('')}</div></div>
+    <div class="field"><label>Categories / specializations</label>
+      ${pickChips('eeCats', CATEGORIES, u.categories || [])}
+      ${u.verified ? '<p class="muted" style="font-size:12px; margin-top:6px;">⚠️ Changing categories removes your ✔ tick until Sphere checks you again.</p>' : ''}</div>
+    <div class="field"><label>Languages you edit in</label>${pickChips('eeLangs', LANGUAGES, u.languages || [])}</div>
+    <div class="field"><label>Skills / Software</label><input id="eeSkills" value="${esc(u.skills)}" placeholder="Premiere Pro, After Effects, DaVinci…"></div>
+    <div class="field"><label>Experience (years)</label><input id="eeExp" type="number" min="0" max="50" value="${esc(u.experience)}"></div>
+    <div class="field"><label>Starting price (₹ per video)</label><input id="eePrice" type="number" min="0" value="${esc(u.price)}"></div>
+    <div class="field"><label>Portfolio link</label><input id="eePortfolio" value="${esc(u.portfolio)}" placeholder="YouTube / Drive link"></div>
+    <div class="field"><label>Sample video link</label><input id="eeSample" value="${esc(u.sample)}" placeholder="Unlisted YouTube link"></div>
+    <p class="muted" style="font-size:12px; margin:-4px 0 14px;">Photo, name and mobile number: Profile → Edit profile. Work samples: Portfolio tab.</p>
+    <button class="btn btn-primary" id="eeSave" onclick="saveEditorProfile()">Save</button>
+  </div>`;
+};
+async function saveEditorProfile(){
+  const u = getCurrentUser();
+  const cats = pickedValues('eeCats'), langs = pickedValues('eeLangs');
+  if(!cats.length){ alert('Choose at least one category'); return; }
+  if(!langs.length){ alert('Choose at least one language'); return; }
+  const bio = document.getElementById('eeBio').value.trim();
+  const availBtn = document.querySelector('#eeAvail button.on');
+  const sameCats = cats.slice().sort().join('|') === (u.categories || []).slice().sort().join('|');
+  if(u.verified && !sameCats && u.baseRole !== 'admin'){
+    if(!confirm('You changed your categories. Your ✔ tick will be removed until the Sphere team checks you again. Continue?')) return;
+  }
+  const exp = document.getElementById('eeExp').value;
+  const price = document.getElementById('eePrice').value;
+  const changes = {
+    bio: bio || null,
+    availability: availBtn ? availBtn.dataset.v : (u.availability || 'available'),
+    categories: cats,
+    languages: langs,
+    skills: document.getElementById('eeSkills').value.split(',').map(x => x.trim()).filter(Boolean),
+    experience_years: exp ? parseInt(exp, 10) : null,
+    price_range: price,
+    portfolio_url: document.getElementById('eePortfolio').value.trim() || null,
+    sample_video_url: document.getElementById('eeSample').value.trim() || null
+  };
+  if(u.verified && !sameCats && u.baseRole !== 'admin') changes.is_verified = false;
+  const btn = document.getElementById('eeSave'); if(btn) btn.disabled = true;
+  const { error, skipped } = await profileUpdate(changes);
+  if(btn) btn.disabled = false;
+  if(dbErr(error)) return;
+  await fetchAndSetCurrentUser();
+  contactCheck(bio + ' ' + price, ((getCurrentUser() || {}).bio || '') + ' ' + ((getCurrentUser() || {}).price || ''));
+  alert(skipped ? 'Saved ✅ (bio and status need the latest database update)' : 'Editor profile saved ✅');
+  nav('profile');
+}
+
+// ---- Verification: ₹29 fee with UPI transaction ID
+function verifyFeeSection(u){
+  if(u.feeStatus === 'confirmed'){
+    return `<div class="card" style="border:1.5px solid #15803d;"><b style="color:#15803d;">💳 Verification fee received ✅</b>
+      <p class="muted" style="font-size:12px; margin-top:4px;">Our team will call you for the verification.</p></div>`;
+  }
+  if(u.feeStatus === 'submitted'){
+    return `<div class="card" style="border:1.5px solid #f59e0b;"><b>💳 Payment submitted — Sphere is checking</b>
+      <div class="kv" style="margin-top:6px;"><span>UPI transaction ID</span><b>${esc(u.feeRef || '-')}</b></div>
+      ${u.feeAt ? `<div class="kv"><span>Submitted</span><b>${fmtDate(u.feeAt)}</b></div>` : ''}
+      <p class="muted" style="font-size:12px; margin-top:6px;">Usually checked within a day. You can also send the screenshot on WhatsApp to ${FEE_PHONE}.</p></div>`;
+  }
+  return verifyFeeCard(u) + `<div class="card">
+      <b>Already paid? Tell us here</b>
+      <p class="muted" style="font-size:12px; margin:4px 0 10px;">Enter the 12-digit UPI transaction ID (UTR) from your payment app.</p>
+      <div class="field" style="margin-bottom:10px;"><input id="feeRef" inputmode="numeric" maxlength="22" placeholder="e.g. 412345678901"></div>
+      <button class="btn btn-primary" id="feeBtn" onclick="submitVerifyFee()">I have paid ₹${VERIFY_FEE}</button></div>`;
+}
+async function submitVerifyFee(){
+  const ref = (document.getElementById('feeRef').value || '').replace(/\s+/g, '').toUpperCase();
+  if(!/^[A-Z0-9]{10,22}$/.test(ref)){ alert('Please enter the UPI transaction ID (UTR) — usually 12 digits.'); return; }
+  const btn = document.getElementById('feeBtn'); if(btn) btn.disabled = true;
+  const { error } = await profileUpdate({ verification_fee_status: 'submitted', verification_fee_ref: ref });
+  if(btn) btn.disabled = false;
+  if(dbErr(error)) return;
+  await fetchAndSetCurrentUser();
+  alert('Thank you! ✅ The Sphere team will check your payment and call you.');
+  nav('verificationStatus');
+}
+function verificationRejectedScreen(u){
+  return `
+  <div class="vs-hero" style="background:linear-gradient(135deg,#9b1c1c,#c62828);"><div class="vs-ic">${UI_ICONS.clock}</div><h1>Verification not approved</h1><p>Don't worry — you can fix it and apply again</p></div>
+  <div class="screen">
+    <div class="card" style="border:1.5px solid #c62828;"><b style="color:#c62828;">Reason from the Sphere team</b>
+      <p style="font-size:14px; margin-top:6px;">${esc(u.verificationNote || 'No reason given')}</p></div>
+    <div class="card"><b>What to do next</b>
+      <ol class="muted" style="font-size:13px; margin:8px 0 0 18px; line-height:1.7;">
+        <li>Fix the problem (for example a better sample video or portfolio link)</li>
+        <li>Update your editor profile</li>
+        <li>Tap <b>Apply again</b> — our team will call you</li>
+      </ol></div>
+    <button class="btn btn-outline" style="margin-bottom:10px;" onclick="nav('editorProfileEdit')">Update editor profile</button>
+    <button class="btn btn-primary" onclick="reapplyVerification()">Apply again</button>
+  </div>`;
+}
+function verificationNotAppliedScreen(u){
+  return `
+  <div class="vs-hero"><div class="vs-ic">${UI_ICONS.check}</div><h1>Get the ✔ Verified tick</h1><p>Verified editors get more trust and more work</p></div>
+  <div class="screen">
+    <div class="card"><b>How it works</b>
+      <ol class="muted" style="font-size:13px; margin:8px 0 0 18px; line-height:1.7;">
+        <li>Fill your editor application (categories, languages, sample video)</li>
+        <li>Pay the ₹${VERIFY_FEE} verification fee</li>
+        <li>Our team calls you and gives your ✔ tick + editor code</li>
+      </ol></div>
+    <button class="btn btn-primary" onclick="nav('editorDetails')">Fill editor application</button>
+  </div>`;
+}
+async function reapplyVerification(){
+  const { error } = await profileUpdate({ verification_status: 'pending' });
+  if(dbErr(error)) return;
+  await fetchAndSetCurrentUser();
+  alert('Applied again ✅ The Sphere team will call you.');
+  nav('verificationStatus');
+}
+
+// ---- Public editor page: bio + availability (from the public view)
+async function editorPublicExtra(e){
+  let bio = '', availability = '';
+  try {
+    const { data, error } = await sb.from('sp_editor_public_extra').select('bio, availability').eq('id', e.id).maybeSingle();
+    if(!error && data){ bio = data.bio || ''; availability = data.availability || ''; }
+  } catch(x) {}
+  if(!bio && !availability) return '';
+  return `<div class="card">${availability ? availabilityChip(availability) : ''}${bio ? `<p class="ed-bio">${esc(bio)}</p>` : ''}</div>`;
+}
+
+// ---- Admin: verification state, fee check, reject with reason
+function adminVerifyBlock(e){
+  const st = e.verification_status || 'pending';
+  const fee = e.verification_fee_status || 'unpaid';
+  const feeLine = fee === 'confirmed' ? '<span style="color:#15803d;">✅ Fee received</span>'
+    : fee === 'submitted' ? `<span style="color:#b45309;">⏳ Editor says paid · UTR <b>${esc(e.verification_fee_ref || '-')}</b>${e.verification_fee_at ? ' · ' + fmtDate(e.verification_fee_at) : ''}</span>`
+    : `<span style="color:#e67e22;">💳 Not paid yet — or check the screenshot on WhatsApp (${FEE_PHONE})</span>`;
+  return `<p style="font-size:12px; margin-bottom:6px;">${verifyStateChip(st)} &nbsp; ${feeLine}</p>
+    ${st === 'rejected' && e.verification_note ? `<p style="font-size:12px; color:#c62828; margin-bottom:6px;">Rejected: ${esc(e.verification_note)}</p>` : ''}`;
+}
+function adminVerifyActions(e){
+  const st = e.verification_status || 'pending';
+  const fee = e.verification_fee_status || 'unpaid';
+  return `<div class="btn-row" style="margin-top:8px; flex-wrap:wrap;">
+    ${fee === 'submitted' ? `<button class="btn-sm" onclick="edReview('${e.id}','confirm_fee')">✅ Fee received</button><button class="btn-sm" onclick="edReview('${e.id}','reject_fee')">❌ Fee not found</button>` : ''}
+    ${st === 'rejected' ? `<button class="btn-sm" onclick="edReview('${e.id}','reopen')">↩️ Re-open</button>` : `<button class="btn-sm" style="color:#c62828;" onclick="edReview('${e.id}','reject')">✖ Reject</button>`}
+  </div>`;
+}
+async function edReview(id, action){
+  if(needPin()) return;
+  let note = null;
+  if(action === 'reject'){
+    note = prompt('Reason for rejecting (the editor will see this):', '');
+    if(note === null) return;
+    if(!note.trim()){ alert('Please write a reason.'); return; }
+  } else if(action === 'reject_fee'){
+    note = prompt('Message for the editor (optional):', 'We could not find your verification payment. Please check the transaction ID and submit it again.');
+    if(note === null) return;
+  } else if(!confirm({ confirm_fee: 'Mark the ₹' + VERIFY_FEE + ' fee as received?', reopen: 'Re-open this application?' }[action])) return;
+  const { error } = await sb.rpc('sp_ed_review', { p_editor: id, p_action: action, p_note: note, p_pin: ADMIN_PIN });
+  if(error){ alert(error.message); if(/PIN/i.test(error.message)){ ADMIN_PIN = ''; nav('admin'); } return; }
+  alert({ confirm_fee: 'Fee marked as received ✅', reject_fee: 'Editor asked to pay again', reject: 'Application rejected — the editor has been told', reopen: 'Application re-opened' }[action]);
+  nav('admin');
 }
 
 (function(){
