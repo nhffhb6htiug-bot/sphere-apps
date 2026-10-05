@@ -792,6 +792,18 @@ function dbErr(error){
   if(error){ console.error(error); alert('Error: ' + (error.message || error)); return true; }
   return false;
 }
+/* ============ PART 1: CONTACT PROTECTION ============
+   The database hides phone numbers, emails, outside links and @IDs (shows 📵).
+   These helpers only show the warning to the person who typed it. */
+const CONTACT_HIDDEN_MSG = '📵 Contact details are not allowed on Sphere.\n\nPhone numbers, emails, social media IDs and outside links were hidden. Keep all talks and payments inside Sphere. Your payment is protected only inside the app.\n\nRepeated attempts can get your account suspended.';
+const CONTACT_SOFT_MSG = 'Reminder: keep all talks and payments inside Sphere. Asking to move to WhatsApp, Instagram, calls or outside payment is not allowed and is recorded.';
+const CONTACT_SOFT_RE = /\b(whats ?app|watsapp|whatsap|wtsp|insta|instagram|telegram|snapchat|g ?pay|google pay|paytm|phone ?pe|call me|call kar|call karo|call karna|number do|number de|number bhej|number bhejo|mera number|mera no|apna number|apna no|contact number|personal number|direct pay|direct payment|outside the app|bahar deal)\b|व्हाट्सएप|व्हाट्सऐप|मेरा नंबर|अपना नंबर/i;
+function contactCheck(typed, saved){
+  const t = String(typed || ''), v = String(saved == null ? t : saved);
+  if(v.split('📵').length > t.split('📵').length){ alert(CONTACT_HIDDEN_MSG); return 'hidden'; }
+  if(CONTACT_SOFT_RE.test(t)){ alert(CONTACT_SOFT_MSG); return 'soft'; }
+  return '';
+}
 function linkOrText(v){
   if(!v) return '-';
   return /^https?:\/\//i.test(v)
@@ -1175,6 +1187,7 @@ async function saveEditorDetails(){
   }).eq('id', currentUser.id);
   if(error){ alert(error.message); return; }
   await fetchAndSetCurrentUser();
+  contactCheck(price, (getCurrentUser() || {}).price);
   nav(currentUser && currentUser.baseRole === 'admin' ? 'home' : 'verificationStatus');
 }
 
@@ -1631,12 +1644,12 @@ async function submitJob(presetEditor){
   let raw = [];
   try { raw = await uploadRawFiles(picked, st); }
   catch(e){ btn.disabled = false; st.textContent = ''; alert('Upload failed: ' + (e.message || e)); return; }
-  const { error } = await sb.from('sp_jobs').insert({
+  const { data: jobRow, error } = await sb.from('sp_jobs').insert({
     client_id: user.id, category: cat, description: desc, budget: Number(budget),
     deadline: deadline || null, files_link: files || null, raw_files: raw,
     language: (document.getElementById('jobLang') || {}).value || null,
     status: presetEditor ? 'negotiating' : 'open', assigned_editor: presetEditor || null
-  });
+  }).select('description').single();
   btn.disabled = false;
   if(error){ if(raw.length) await sb.storage.from(RAW_BUCKET).remove(raw.map(x => x.path)); dbErr(error); return; }
   if(presetEditor){
@@ -1645,6 +1658,7 @@ async function submitJob(presetEditor){
     const { data: eds } = await publicEditors(t => t.select('*').contains('categories', [cat]));
     await notify((eds || []).map(e => e.id), 'New Job Posted', `${cat} job posted — Budget ₹${budget}`);
   }
+  contactCheck(desc, jobRow && jobRow.description);
   alert('Job posted successfully!');
   nav('jobs');
 }
@@ -1682,10 +1696,10 @@ async function submitBid(jobId){
   if(!amount || Number(amount) <= 0){ alert('Enter your bid amount'); return; }
   const job = await getJob(jobId);
   if(!job) return;
-  const { error } = await sb.from('sp_applications').insert({
+  const { data: bidRow, error } = await sb.from('sp_applications').insert({
     job_id: jobId, editor_id: user.id,
     message: msg || 'I would love to work on this project.', bid_amount: Number(amount)
-  });
+  }).select('message').single();
   if(error){
     if(error.code === '23505'){ alert('You have already placed a bid on this job.'); return; }
     if(/row-level security/i.test(error.message || '')){
@@ -1695,6 +1709,7 @@ async function submitBid(jobId){
     dbErr(error); return;
   }
   await notify(job.clientId, 'New Bid Received', `${user.name} bid ₹${amount} on your ${job.category} job.`);
+  contactCheck(msg, bidRow && bidRow.message);
   alert('Bid submitted!');
   nav('home');
 }
@@ -1747,8 +1762,9 @@ async function addPortfolioItem(){
     const { count } = await sb.from('sp_portfolio').select('id', { count: 'exact', head: true }).eq('editor_id', currentUser.id);
     if((count || 0) >= MAX_PORTFOLIO_ITEMS) throw new Error(`Max ${MAX_PORTFOLIO_ITEMS} items. Remove an old one first.`);
     const path = file ? await uploadImage(file, 'portfolio', 1280) : null;
-    const { error } = await sb.from('sp_portfolio').insert({ editor_id: currentUser.id, title, image_path: path, video_url: video || null });
+    const { data: pRow, error } = await sb.from('sp_portfolio').insert({ editor_id: currentUser.id, title, image_path: path, video_url: video || null }).select('title').single();
     if(error){ await removeMedia(path); throw error; }
+    contactCheck(title, pRow && pRow.title);
     nav('portfolio');
   } catch(e){
     alert('Upload failed: ' + (e.message || e));
@@ -1770,6 +1786,7 @@ async function editName(){
   const { error } = await sb.from('profiles').update({ full_name: name }).eq('id', u.id);
   if(dbErr(error)) return;
   await fetchAndSetCurrentUser();
+  contactCheck(name, (getCurrentUser() || {}).name);
   nav('profile');
 }
 async function changeAvatar(input){
@@ -1798,6 +1815,7 @@ async function savePortfolioInfo(){
   }).eq('id', currentUser.id);
   if(dbErr(error)) return;
   await fetchAndSetCurrentUser();
+  contactCheck(name, name ? (getCurrentUser() || {}).name : null);
   alert('Portfolio info saved!');
   nav('portfolio');
 }
@@ -2019,12 +2037,13 @@ SCREENS.support = () => `
     ${POLICY_LINKS}
   </div>`;
 
+const OUTSIDE_DEAL_REASON = 'Asked to deal outside Sphere';
 const REPORT_REASONS = {
-  client: ['Editor did not deliver', 'Video quality is not good', 'Editor is not responding', 'Bad behaviour', 'Something else'],
-  editor: ['Client is not releasing payment', 'Client is not responding', 'Client is asking for extra work', 'Bad behaviour', 'Something else']
+  client: ['Editor did not deliver', 'Video quality is not good', 'Editor is not responding', OUTSIDE_DEAL_REASON, 'Bad behaviour', 'Something else'],
+  editor: ['Client is not releasing payment', 'Client is not responding', 'Client is asking for extra work', OUTSIDE_DEAL_REASON, 'Bad behaviour', 'Something else']
 };
-let reportJobId = null, reportPreset = '';
-function openReport(jobId, preset){ reportJobId = jobId || null; reportPreset = preset || ''; nav('report'); }
+let reportJobId = null, reportPreset = '', reportUserId = null;
+function openReport(jobId, preset, userId){ reportJobId = jobId || null; reportPreset = preset || ''; reportUserId = userId || null; nav('report'); }
 SCREENS.report = async () => {
   const user = getCurrentUser();
   const reasons = REPORT_REASONS[user.role === 'editor' ? 'editor' : 'client'];
@@ -2045,7 +2064,9 @@ async function submitReport(){
   const details = document.getElementById('rpDetails').value.trim();
   if(details.length < 10){ alert('Please add a few more details (at least 10 characters)'); return; }
   const btn = document.getElementById('rpBtn'); btn.disabled = true;
-  const { error } = await sb.from('sp_reports').insert({ job_id: reportJobId, reporter_id: currentUser.id, reason, details });
+  const repRow = { job_id: reportJobId, reporter_id: currentUser.id, reason, details };
+  if(reportUserId) repRow.chat_user_id = reportUserId;
+  const { error } = await sb.from('sp_reports').insert(repRow);
   btn.disabled = false;
   if(dbErr(error)) return;
   alert('Report submitted ✅ The Sphere team will contact you soon.');
@@ -2256,7 +2277,7 @@ SCREENS.chatThread = async () => {
     <div onclick="nav('chatInfo')">🖼️ Media, photos & videos</div>
     <div onclick="clearChat('${currentChatWith}')">🧹 Clear chat</div>
     <div class="danger" onclick="setBlocked('${currentChatWith}', ${!st.iBlocked})">${st.iBlocked ? '✅ Unblock' : '🚫 Block'}</div>
-    <div class="danger" onclick="openReport(null)">🚩 Report</div>
+    <div class="danger" onclick="openReport(null, '', '${currentChatWith}')">🚩 Report</div>
     <div onclick="nav('support')">🆘 Help</div>
   </div>
   <div class="screen" id="chatBox" style="padding-top:calc(76px + env(safe-area-inset-top, 0px)); padding-bottom:84px;">${body || '<p class="muted center-text" style="margin-top:20px;">Say hi 👋</p>'}</div>
@@ -2303,7 +2324,7 @@ SCREENS.chatInfo = async () => {
     <div class="card" style="padding:0; overflow:hidden;">
       <div style="padding:14px 16px; cursor:pointer;" onclick="clearChat('${currentChatWith}')">🧹 Clear chat</div>
       <div style="padding:14px 16px; cursor:pointer; color:#c62828; border-top:1px solid var(--border);" onclick="setBlocked('${currentChatWith}', ${!st.iBlocked})">${st.iBlocked ? '✅ Unblock ' : '🚫 Block '}${other ? esc((other.name || '').split(' ')[0]) : ''}</div>
-      <div style="padding:14px 16px; cursor:pointer; color:#c62828; border-top:1px solid var(--border);" onclick="openReport(null)">🚩 Report ${other ? esc((other.name || '').split(' ')[0]) : ''}</div>
+      <div style="padding:14px 16px; cursor:pointer; color:#c62828; border-top:1px solid var(--border);" onclick="openReport(null, '', '${currentChatWith}')">🚩 Report ${other ? esc((other.name || '').split(' ')[0]) : ''}</div>
     </div>
   </div>`;
 };
@@ -2362,6 +2383,7 @@ async function insertMessage(row){
     scrollChat();
   }
   notify(currentChatWith, 'New Message', `${user.name}: ${msgPreview(data).slice(0, 80)}`);
+  if(row.text) contactCheck(row.text, data.text);
   return data;
 }
 
@@ -2648,10 +2670,10 @@ async function submitRating(jobId){
   const job = await getJob(jobId);
   if(!job) return;
   const review = document.getElementById('reviewText').value.trim();
-  const { error } = await sb.from('sp_ratings').insert({
+  const { data: rateRow, error } = await sb.from('sp_ratings').insert({
     job_id: jobId, editor_id: job.assignedEditor, client_id: getCurrentUser().id,
     stars: selectedStars, review: review || null
-  });
+  }).select('review').single();
   if(error){
     if(error.code === '23505'){ alert('You have already reviewed this project.'); }
     else { dbErr(error); }
@@ -2659,6 +2681,7 @@ async function submitRating(jobId){
   }
   await updateJob(jobId, { status: 'closed' });
   await notify(job.assignedEditor, 'New Review ⭐', `A client rated you ${selectedStars}★.`);
+  if(review) contactCheck(review, rateRow && rateRow.review);
   alert('Thank you for your review!');
   nav('jobs');
 }
@@ -2740,7 +2763,8 @@ SCREENS.admin = async () => {
   const repJobIds = [...new Set(reports.map(r => r.job_id).filter(Boolean))];
   const { data: repJobsData } = repJobIds.length ? await sb.from('sp_jobs').select('*').in('id', repJobIds) : { data: [] };
   const repJobs = {}; (repJobsData || []).map(mapJob).forEach(j => { repJobs[j.id] = j; });
-  const nameMap = await getProfilesByIds([...jobsList.map(j => j.assignedEditor), ...reports.map(r => r.reporter_id), ...reports.map(r => r.against_id)]);
+  const nameMap = await getProfilesByIds([...jobsList.map(j => j.assignedEditor), ...reports.map(r => r.reporter_id), ...reports.map(r => r.against_id || r.chat_user_id)]);
+  const sus = await loadSuspicious();
   const who = id => { const u = nameMap[id]; return u ? `${esc(u.name)} (${esc(u.role)}) ${u.phone ? `<a href="tel:${esc(u.phone)}">${esc(u.phone)}</a>` : ''}` : '-'; };
   return `
   <div class="header"><button class="back-btn" onclick="nav('profile')">‹</button><h1>Admin Panel</h1><p>Syahi Films Verification</p></div>
@@ -2832,14 +2856,27 @@ SCREENS.admin = async () => {
       <b>${esc(r.reason)}</b>
       <p class="muted" style="font-size:12px; margin:4px 0;">${esc(r.details)}</p>
       <p style="font-size:12px;"><b>Report kiya:</b> ${who(r.reporter_id)}</p>
-      ${r.against_id ? `<p style="font-size:12px;"><b>Kiske khilaf:</b> ${who(r.against_id)}</p>` : ''}
+      ${(r.against_id || r.chat_user_id) ? `<p style="font-size:12px;"><b>Kiske khilaf:</b> ${who(r.against_id || r.chat_user_id)}</p>` : ''}
       ${j ? `<p style="font-size:12px;"><b>Project:</b> ${esc(j.category)} • ${esc(j.status)} • ₹${j.lockedAmount||j.budget}</p>` : ''}
       <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
         ${j ? `<button class="btn-sm" onclick="openJob('${j.id}')">View project</button>` : ''}
         ${j && j.status==='delivered' ? `<button class="btn-sm" onclick="adminRelease('${j.id}')">Release to editor</button>` : ''}
         ${j && ['in-progress','delivered'].includes(j.status) && j.payment==='escrow-held' ? `<button class="btn-sm" style="color:#c62828;" onclick="adminRefund('${j.id}')">Refund client</button>` : ''}
-        <button class="btn-sm" style="background:var(--blue); color:#fff;" onclick="resolveReport('${r.id}', '${r.reporter_id}', '${r.against_id||''}')">✔ Resolve</button>
+        <button class="btn-sm" style="background:var(--blue); color:#fff;" onclick="resolveReport('${r.id}', '${r.reporter_id}', '${r.against_id||r.chat_user_id||''}')">✔ Resolve</button>
       </div></div>`; }).join('')}
+
+    <h3 style="margin:20px 0 10px;">🚨 Suspicious Users (${sus.list.length})</h3>
+    ${!sus.ready ? '<p class="muted">Turns on after the Part 1 SQL is run in Supabase.</p>' : (sus.list.length===0 ? `<p class="muted">Nobody has ${sus.lim}+ strikes or an outside-deal report. 👍</p>` : '')}
+    ${sus.list.map(x => `<div class="card" style="border-color:#e67e22;">
+      <b>${x.p ? esc(x.p.name || 'User') : 'User'}</b> <span class="muted" style="font-size:12px;">${x.p ? esc(x.p.role || '') : ''}</span>${x.suspended ? ' <b style="color:#c62828; font-size:12px;">SUSPENDED</b>' : ''}
+      <p style="font-size:12px; margin:4px 0;">Strikes: <b>${x.strikes}</b>${x.reports ? ` • Outside-deal reports: <b>${x.reports}</b>` : ''}${x.warnedAt ? ' • Warned before' : ''}</p>
+      ${x.p && x.p.phone ? `<p style="font-size:12px;"><a href="tel:${esc(x.p.phone)}">${esc(x.p.phone)}</a></p>` : ''}
+      ${(x.samples || []).map(m => `<p class="muted" style="font-size:12px; margin:6px 0; padding:6px 8px; border-left:3px solid #e67e22; white-space:pre-wrap; word-break:break-word;"><b>${esc(m.source)}:</b> ${esc((m.original_text || '').slice(0, 200))}</p>`).join('')}
+      <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
+        <button class="btn-sm" onclick="modAction('${x.id}','warn')">⚠️ Warn</button>
+        ${x.suspended ? `<button class="btn-sm" onclick="modAction('${x.id}','unsuspend')">✅ Unsuspend</button>` : `<button class="btn-sm" style="color:#c62828;" onclick="modAction('${x.id}','suspend')">⛔ Suspend</button>`}
+        <button class="btn-sm" onclick="modAction('${x.id}','clear')">🧹 Clear strikes</button>
+      </div></div>`).join('')}
 
     <h3 style="margin:20px 0 10px;">💸 Manual Payout Pending (${manualJobs.length})</h3>
     ${manualJobs.length===0?'<p class="muted">All payouts are cleared.</p>':''}
@@ -2903,6 +2940,45 @@ async function adminRelease(jobId){
   const { data, error } = await sb.functions.invoke('release-payout', { body: { jobId } });
   if(error){ alert('Release failed: ' + await functionError(error)); return; }
   alert(data && data.payout === 'released' ? 'Released ✅' : 'Approved ✅ — see the manual payout list.');
+  nav('admin');
+}
+async function loadSuspicious(){
+  let lim = 3;
+  try {
+    const { data } = await sb.from('sp_settings').select('value').eq('key', 'strike_limit').maybeSingle();
+    const v = parseInt(String(data && data.value).replace(/\D/g, ''), 10);
+    if(v > 0) lim = v;
+  } catch(e) {}
+  const { data: flags, error } = await sb.from('sp_mod_flags').select('*').or(`strike_count.gte.${lim},is_suspended.eq.true`);
+  if(error){ console.warn('Suspicious list not ready:', error.message); return { ready: false, list: [], lim }; }
+  const { data: outRep } = await sb.from('sp_reports').select('against_id, chat_user_id').eq('status', 'open').eq('reason', OUTSIDE_DEAL_REASON);
+  const map = {};
+  const fill = f => { map[f.user_id] = Object.assign(map[f.user_id] || { id: f.user_id, reports: 0 }, { strikes: f.strike_count, suspended: f.is_suspended, warnedAt: f.warned_at }); };
+  (flags || []).forEach(fill);
+  (outRep || []).forEach(r => { const id = r.chat_user_id || r.against_id; if(!id) return; map[id] = map[id] || { id, strikes: 0, suspended: false, reports: 0 }; map[id].reports++; });
+  const ids = Object.keys(map);
+  if(ids.length === 0) return { ready: true, list: [], lim };
+  const { data: more } = await sb.from('sp_mod_flags').select('*').in('user_id', ids);
+  (more || []).forEach(fill);
+  const { data: st } = await sb.from('sp_mod_strikes').select('user_id, source, original_text, created_at').in('user_id', ids).eq('cleared', false).order('created_at', { ascending: false }).limit(300);
+  (st || []).forEach(m => { const x = map[m.user_id]; x.samples = x.samples || []; if(x.samples.length < 3) x.samples.push(m); });
+  const people = await getProfilesByIds(ids);
+  const list = ids.map(id => Object.assign(map[id], { p: people[id] }))
+    .sort((a, b) => (b.strikes + b.reports * 2) - (a.strikes + a.reports * 2));
+  return { ready: true, list, lim };
+}
+async function modAction(userId, action){
+  if(needPin()) return;
+  const ask = {
+    warn: 'Send a warning to this user?',
+    suspend: 'Suspend this user? They will not be able to send messages, place bids or post jobs until you unsuspend them.',
+    unsuspend: 'Unsuspend this user?',
+    clear: 'Clear all strikes for this user?'
+  };
+  if(!confirm(ask[action])) return;
+  const { error } = await sb.rpc('sp_mod_admin_action', { p_user: userId, p_action: action, p_pin: ADMIN_PIN });
+  if(error){ alert(error.message); return; }
+  alert({ warn: 'Warning sent ✅', suspend: 'User suspended ⛔', unsuspend: 'User active again ✅', clear: 'Strikes cleared ✅' }[action]);
   nav('admin');
 }
 function needPin(){
