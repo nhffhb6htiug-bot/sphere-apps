@@ -319,18 +319,69 @@ details.card[open] summary::after{content:'－';}
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-// All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
-const SUPABASE_URL = 'https://sphere-api.niteshkumarmatho37.workers.dev';
-const SUPABASE_KEY = 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW';
+/* ==========================================================================
+   SPHERE by Syahi Films — web app (one file, no build step)
+   Map of this file — search for these headings:
+     CONFIG · ROLES · SETTINGS · DATA HELPERS · ANDROID APP · INSTALL AS APP ·
+     HOME · EDITOR: JOB BID SCREEN · EDITOR: PORTFOLIO BUILDER ·
+     EDITOR VERIFICATION STATUS · SUPPORT & REPORTS · CHAT · PAYMENT ·
+     PROJECT STATUS · ADMIN · CONTACT PROTECTION · SYSTEM STATUS
+   Adding a new part: put its code in a block "PART n: <name>" near the end of
+   this script, its database SQL in supabase/migrations/00n_<name>.sql, and
+   turn it on with SPHERE_CONFIG.features. See docs/ARCHITECTURE.md.
+   ========================================================================== */
+
+/* ============ CONFIG ============ */
+// Everything that changes between test and live lives here.
+// Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
+// service-role key) stay in Supabase → Edge Functions → Secrets.
+const SPHERE_CONFIG = Object.freeze({
+  appVersion: '2.1.0',
+  build: 'part1-foundation',
+  // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
+  supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
+  supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
+  supabaseProjectRef: 'pwcchgjsgkwrsvbzqspp',
+  razorpayKeyId: 'rzp_test_TiF5Py5F7SLGDs',                        // rzp_test_ = test money, rzp_live_ = real money
+  googleClientId: '258192736968-ocmgvgkm00t0sglunn6tqgodpf6d4ak2.apps.googleusercontent.com',
+  website: 'https://sphere-live.onrender.com',
+  // Switches for the upcoming parts. Each part flips its own switch to true when it is ready.
+  features: Object.freeze({
+    hiddenNames: false,   // Part 2
+    aiJobIntake: false,   // Part 3
+    smartBids: false,     // Part 4
+    previews: false,      // Part 5
+    revisions: false,     // Part 6
+    editorLevels: false,  // Part 7
+    proPlan: false,       // Part 8
+    sponsored: false      // Part 8
+  })
+});
+function featureOn(name){ return !!(SPHERE_CONFIG.features && SPHERE_CONFIG.features[name]); }
+
+const SUPABASE_URL = SPHERE_CONFIG.supabaseUrl;
+const SUPABASE_KEY = SPHERE_CONFIG.supabaseKey;
 // keep the same login storage key as before, so nobody gets logged out by the switch
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storageKey: 'sb-pwcchgjsgkwrsvbzqspp-auth-token' } });
-const RAZORPAY_KEY_ID = 'rzp_test_TiF5Py5F7SLGDs';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storageKey: 'sb-' + SPHERE_CONFIG.supabaseProjectRef + '-auth-token' } });
+const RAZORPAY_KEY_ID = SPHERE_CONFIG.razorpayKeyId;
+
+/* ============ ROLES ============ */
+// Database stores CLIENT / EDITOR / ADMIN. The app works with lowercase.
+//   user.baseRole = the real role in the database
+//   user.role     = the mode being used right now (an editor can switch to Client mode,
+//                   an admin can switch to Editor mode — see toAppUser)
+const ROLES = Object.freeze({ CLIENT: 'client', EDITOR: 'editor', ADMIN: 'admin' });
+function normRole(r){ r = String(r || '').trim().toLowerCase(); return Object.values(ROLES).includes(r) ? r : ''; }
+function dbRole(r){ return normRole(r).toUpperCase(); }
+function isAdminUser(u){ return !!u && u.baseRole === ROLES.ADMIN; }
+function isEditorAccount(u){ return !!u && u.baseRole === ROLES.EDITOR; }
+function usingMode(u, mode){ return !!u && u.role === mode; }
 let currentUser = null;
 let pendingAuthUser = null;
 
 // ---- Google sign-in with Google's own button: gets an ID token in the page and logs in through
 // the Cloudflare proxy, so it works even where ISPs block *.supabase.co (no redirect to supabase.co) ----
-const GOOGLE_CLIENT_ID = '258192736968-ocmgvgkm00t0sglunn6tqgodpf6d4ak2.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = SPHERE_CONFIG.googleClientId;
 let gsiNonce = '';
 function loadGsi(){
   return new Promise((resolve, reject) => {
@@ -429,6 +480,7 @@ function toAppUser(profile){
 }
 async function fetchAndSetCurrentUser(){
   loadPlatformFee();
+  loadSettings();
   setTimeout(() => { if(currentUser){ listenForMessages(); markDelivered(); } }, 0);
   const { data:{ user } } = await sb.auth.getUser();
   if(!user){ currentUser = null; return null; }
@@ -765,6 +817,34 @@ async function loadPlatformFee(){
   } catch(e) {}
 }
 function editorShare(amount){ return Math.round(Number(amount || 0) * (100 - PLATFORM_FEE_PERCENT)) / 100; }
+
+/* ============ SETTINGS ============ */
+// Admin-controlled values from the sp_settings table. Defaults are used until they load
+// (or if the table can't be read), so the app never breaks because of a missing value.
+const SETTINGS_DEFAULTS = Object.freeze({
+  platform_fee_percent: 5, verify_fee: 29, revision_fee: 50, free_revisions: 3, pro_fee: 199, strike_limit: 3
+});
+let SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
+let settingsLoaded = false;
+async function loadSettings(){
+  try {
+    const { data, error } = await sb.from('sp_settings').select('key, value');
+    if(error) throw error;
+    (data || []).forEach(r => {
+      if(r.key in SETTINGS_DEFAULTS){
+        const n = Number(String(r.value).replace(/[^0-9.]/g, ''));
+        if(String(r.value).trim() !== '' && Number.isFinite(n)) SETTINGS[r.key] = n;
+      } else {
+        SETTINGS[r.key] = r.value;
+      }
+    });
+    settingsLoaded = true;
+  } catch(e) {
+    console.warn('Sphere settings not loaded, using defaults:', (e && e.message) || e);
+  }
+  return SETTINGS;
+}
+function getSetting(key){ return (key in SETTINGS) ? SETTINGS[key] : SETTINGS_DEFAULTS[key]; }
 const PAYOUT_LABEL = {
   awaiting: '⏳ Waiting for payment', held: '🔒 Safe in escrow (released when the client approves)',
   released: '✅ Released to the editor', manual: '🧾 Syahi Films will pay manually',
@@ -796,7 +876,7 @@ function dbErr(error){
   if(error){ console.error(error); alert('Error: ' + (error.message || error)); return true; }
   return false;
 }
-/* ============ PART 1: CONTACT PROTECTION ============
+/* ============ CONTACT PROTECTION ============
    The database hides phone numbers, emails, outside links and @IDs (shows 📵).
    These helpers only show the warning to the person who typed it. */
 const CONTACT_HIDDEN_MSG = '📵 Contact details are not allowed on Sphere.\n\nPhone numbers (even in pieces, words or Roman numerals), emails, social media IDs and outside links were hidden. Keep all talks and payments inside Sphere. Your payment is protected only inside the app.\n\nSharing contact details in any form can get your account suspended or deleted.';
@@ -1508,6 +1588,7 @@ SCREENS.settingsScreen = () => `
     ${menuItem('help', 'Help, Support & Policies', "nav('support')")}
     ${modeSwitchCard(getCurrentUser())}
     ${menuItem('logout', 'Logout', 'logout()', { cls: 'danger' })}
+    <p class="muted center-text" style="font-size:11px; margin-top:16px;">Sphere v${esc(SPHERE_CONFIG.appVersion)}</p>
   </div>`;
 
 function youtubeThumb(url){
@@ -2758,6 +2839,7 @@ async function logout(){
   nav('authLanding');
 }
 
+/* ============ ADMIN ============ */
 SCREENS.admin = async () => {
   const _u = getCurrentUser();
   if(!_u || _u.baseRole!=='admin'){
@@ -2784,6 +2866,7 @@ SCREENS.admin = async () => {
   const repJobs = {}; (repJobsData || []).map(mapJob).forEach(j => { repJobs[j.id] = j; });
   const nameMap = await getProfilesByIds([...jobsList.map(j => j.assignedEditor), ...reports.map(r => r.reporter_id), ...reports.map(r => r.against_id || r.chat_user_id)]);
   const sus = await loadSuspicious();
+  const sys = await loadSystemStatus();
   const who = id => { const u = nameMap[id]; return u ? `${esc(u.name)} (${esc(u.role)}) ${u.phone ? `<a href="tel:${esc(u.phone)}">${esc(u.phone)}</a>` : ''}` : '-'; };
   return `
   <div class="header"><button class="back-btn" onclick="nav('profile')">‹</button><h1>Admin Panel</h1><p>Syahi Films Verification</p></div>
@@ -2819,6 +2902,7 @@ SCREENS.admin = async () => {
     </details>
 
     <div class="search-row">${UI_ICONS.search}<input id="admSearch" type="search" name="sp-admin-search" placeholder="Search editors — name, phone, email or code" oninput="adminSearch(this.value)" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')"></div>
+    ${systemStatusCard(sys)}
     <h3 style="margin-bottom:10px;">Pending Verification (${pending.length})</h3>
     ${pending.length===0?'<p class="muted">No pending editors.</p>':''}
     ${pending.map(e=>{
@@ -2961,6 +3045,38 @@ async function adminRelease(jobId){
   alert(data && data.payout === 'released' ? 'Released ✅' : 'Approved ✅ — see the manual payout list.');
   nav('admin');
 }
+/* ============ SYSTEM STATUS (Admin) ============ */
+async function loadSystemStatus(){
+  const { data, error } = await sb.rpc('sp_core_status');
+  if(error) return { ok: false, error: error.message || String(error) };
+  return Object.assign({ ok: true }, data || {});
+}
+function systemStatusCard(sys){
+  const live = String(RAZORPAY_KEY_ID).startsWith('rzp_live_');
+  const row = (k, v) => `<div class="kv"><span>${k}</span><b>${v}</b></div>`;
+  if(!sys || !sys.ok){
+    return `<details class="card" style="border:1.5px solid #e67e22;"><summary><b>🛠️ System status</b> <span class="muted" style="font-size:12px;">needs setup</span></summary>
+      <p class="muted" style="font-size:12px; margin-top:8px;">Run <b>002_foundation.sql</b> in Supabase → SQL Editor to turn this on.</p>
+      ${row('App version', esc(SPHERE_CONFIG.appVersion))}
+      <p class="muted" style="font-size:11px; margin-top:6px;">${esc((sys && sys.error) || '')}</p></details>`;
+  }
+  const parts = Array.isArray(sys.parts) ? sys.parts : [];
+  return `<details class="card" style="border:1.5px solid #2e7d32;"><summary><b>🛠️ System status</b> <span class="muted" style="font-size:12px;">all connected ✅</span></summary>
+    <div style="margin-top:8px;">
+      ${row('App version', esc(SPHERE_CONFIG.appVersion) + ' (' + esc(SPHERE_CONFIG.build) + ')')}
+      ${row('Database', 'Connected ✅')}
+      ${row('Payments', live ? 'LIVE — real money' : 'Test mode')}
+      ${row('Settings', settingsLoaded ? 'Loaded ✅' : 'Using defaults')}
+      ${row('Clients', Number(sys.clients) || 0)}
+      ${row('Editors', (Number(sys.editors) || 0) + ' (' + (Number(sys.verified_editors) || 0) + ' verified)')}
+      ${row('Admins', Number(sys.admins) || 0)}
+      ${Number(sys.no_role) ? row('No role yet', Number(sys.no_role) + ' ⚠️') : ''}
+      ${row('Jobs / Messages', (Number(sys.jobs) || 0) + ' / ' + (Number(sys.messages) || 0))}
+      <p style="font-size:12px; margin:10px 0 4px;"><b>Installed parts</b></p>
+      ${parts.length ? parts.map(p => `<p class="muted" style="font-size:12px; margin:2px 0;">${esc(p.version)} — ${esc(p.name)}</p>`).join('') : '<p class="muted" style="font-size:12px;">None recorded</p>'}
+    </div></details>`;
+}
+
 async function loadSuspicious(){
   let lim = 3;
   try {
