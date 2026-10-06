@@ -248,6 +248,17 @@ h1,h2,h3{color:var(--text);}
 .chat-head .ch-back, .chat-head .ch-more{background:transparent; border:none; color:#fff; font-size:24px; line-height:1; cursor:pointer; padding:4px 8px;}
 .chat-head .avatar{margin:0 !important; width:40px !important; height:40px !important; flex:0 0 40px; font-size:18px;}
 .chat-head .ch-name{flex:1; min-width:0; cursor:pointer;}
+/* PART 5: job posting */
+.pj-steps{display:flex; gap:6px; margin:12px 0 14px;}
+.pj-steps span{flex:1; height:4px; border-radius:4px; background:var(--border);}
+.pj-steps span.on{background:var(--blue);}
+.pj-ex{display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 14px;}
+.pj-ex span{font-size:12px; padding:6px 10px; border-radius:16px; background:#fff; border:1px solid var(--border); cursor:pointer;}
+.pj-sec{font-size:13px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin:18px 0 8px;}
+.pj-ai{background:#eef4ff; border:1px solid #c9dafc; color:#1e3a8a; border-radius:12px; padding:10px 12px; font-size:13px; margin-bottom:12px;}
+.pj-warn{background:#fff7e6; border-color:#f5d48a; color:#7a4b00;}
+.pj-req p{font-size:13px; margin:4px 0;}
+.pj-tag{display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; background:#eef4ff; color:#1e3a8a;}
 /* PART 4: editor profile + verification */
 .av-dot{display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; vertical-align:middle;}
 .av-chip{display:inline-flex; align-items:center; font-size:12px; font-weight:700; padding:4px 10px; border-radius:20px; background:#fff; border:1px solid var(--border); color:var(--text);}
@@ -276,7 +287,7 @@ textarea.ed-text{width:100%; min-height:84px; padding:12px 14px; border-radius:1
 .cl-action{border-left:4px solid #f59e0b;}
 .cl-action-txt{color:#b45309; font-weight:700;}
 .cl-tabs{display:flex; gap:8px; margin-bottom:14px;}
-.cl-tabs button{flex:1; padding:9px 6px; border-radius:20px; border:1px solid var(--border); background:#fff; font-size:13px; font-weight:600; cursor:pointer; color:var(--text);}
+.cl-tabs button{flex:1; padding:9px 4px; border-radius:20px; border:1px solid var(--border); background:#fff; font-size:12px; font-weight:600; cursor:pointer; color:var(--text); white-space:nowrap;}
 .cl-tabs button.on{background:var(--blue); border-color:var(--blue); color:#fff;}
 .cl-empty{text-align:center; padding:26px 16px;}
 .cl-empty-ic{font-size:40px; margin-bottom:6px;}
@@ -362,7 +373,7 @@ details.card[open] summary::after{content:'－';}
      EDITOR VERIFICATION STATUS · SUPPORT & REPORTS · CHAT · PAYMENT ·
      PROJECT STATUS · ADMIN · CONTACT PROTECTION · SYSTEM STATUS ·
      PART 2: AUTH + ROLE ACCESS · PART 3: CLIENT PROFILE + DASHBOARD ·
-     PART 4: EDITOR PROFILE + VERIFICATION
+     PART 4: EDITOR PROFILE + VERIFICATION · PART 5: JOB POSTING + AI
    Adding a new part: put its code in a block "PART n: <name>" near the end of
    this script, its database SQL in supabase/migrations/00n_<name>.sql, and
    turn it on with SPHERE_CONFIG.features. See docs/ARCHITECTURE.md.
@@ -373,8 +384,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.4.0',
-  build: 'part4-editor-profile',
+  appVersion: '2.5.0',
+  build: 'part5-job-posting',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
@@ -935,7 +946,7 @@ function refreshBubble(m){
   if(nb) el.replaceWith(nb);
 }
 const CONTACT_SOFT_MSG = 'Reminder: keep all talks and payments inside Sphere. Asking to move to WhatsApp, Instagram, calls or outside payment is not allowed and is recorded.';
-const CONTACT_SOFT_RE = /\b(whats ?app|watsapp|whatsap|wtsp|insta|instagram|telegram|snapchat|g ?pay|google pay|paytm|phone ?pe|call me|call kar|call karo|call karna|number do|number de|number bhej|number bhejo|mera number|mera no|apna number|apna no|contact number|personal number|direct pay|direct payment|outside the app|bahar deal)\b|व्हाट्सएप|व्हाट्सऐप|मेरा नंबर|अपना नंबर/i;
+const CONTACT_SOFT_RE = /\b(whats ?app|watsapp|whatsap|wtsp|insta id|insta pe|insta par|insta handle|instagram id|instagram pe|instagram par|instagram handle|dm me|dm karo|telegram|snapchat|g ?pay|google pay|paytm|phone ?pe|call me|call kar|call karo|call karna|number do|number de|number bhej|number bhejo|mera number|mera no|apna number|apna no|contact number|personal number|direct pay|direct payment|outside the app|bahar deal)\b|व्हाट्सएप|व्हाट्सऐप|मेरा नंबर|अपना नंबर/i;
 function contactCheck(typed, saved){
   const t = String(typed || ''), v = String(saved == null ? t : saved);
   if(v.split('📵').length > t.split('📵').length){ alert(CONTACT_HIDDEN_MSG); return 'hidden'; }
@@ -958,6 +969,13 @@ function mapJob(r){
     editorAmount: r.editor_amount, platformFee: r.platform_fee, payoutStatus: r.payout_status,
     rawFiles: Array.isArray(r.raw_files) ? r.raw_files : [],
     language: r.language || '',
+    title: r.title || '',
+    videoLength: r.video_length || '',
+    videoFormat: r.video_format || '',
+    styleNotes: r.style_notes || '',
+    references: r.reference_links || '',
+    revisionsExpected: (r.revisions_expected === null || r.revisions_expected === undefined) ? null : Number(r.revisions_expected),
+    aiAssisted: !!r.ai_assisted,
     createdAt: r.created_at
   };
 }
@@ -1758,57 +1776,8 @@ function hireDirect(editorId){
   nav('postJob', {presetEditor:editorId});
 }
 
-SCREENS.postJob = (data) => `
-  <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Post a Job</h1><p>Tell editors what you need</p></div>
-  <div class="screen" style="padding-top:0;">
-    ${data&&data.prefill ? `<p class="muted" style="font-size:12px; margin:10px 0;">✨ Drafted by Sphere AI — check and edit before posting.</p>` : ''}
-    <div class="field"><label>Category</label><select id="jobCat">${CATEGORIES.map(c=>`<option ${data&&data.prefill&&data.prefill.category===c?'selected':''}>${c}</option>`).join('')}</select></div>
-    <div class="field"><label>Project Details</label><textarea id="jobDesc" placeholder="Describe your project..." style="min-height:120px;">${esc(data&&data.prefill?data.prefill.description:'')}</textarea></div>
-    <div class="field"><label>Budget (₹)</label><input id="jobBudget" type="number" placeholder="1500" value="${data&&data.prefill&&data.prefill.budget?Number(data.prefill.budget):''}"></div>
-    <div class="field"><label>Video language (optional)</label><select id="jobLang"><option value="">Any</option>${LANGUAGES.map(l=>`<option>${l}</option>`).join('')}</select></div>
-    <div class="field"><label>Deadline</label><input id="jobDeadline" type="date" min="${todayIST()}" value="${data&&data.prefill?addDaysIST(data.prefill.deadline_days):''}"></div>
-    <div class="field"><label>Raw footage & photos (optional)</label>
-      <input id="jobRawFiles" type="file" accept="image/*,video/*" multiple>
-      <p class="muted" style="font-size:11px; margin-top:6px;">Up to ${MAX_RAW_FILES} files, ${MAX_RAW_MB} MB each. Bigger videos? Add a link below.</p></div>
-    <div class="field"><label>Raw files link (optional)</label><input id="jobFiles" placeholder="Google Drive / WeTransfer link"></div>
-    <p class="muted" id="jobUploadStatus" style="font-size:12px; margin-bottom:8px;"></p>
-    <button class="btn btn-primary" id="jobPostBtn" onclick="submitJob('${data&&data.presetEditor?data.presetEditor:''}')">Post Job</button>
-  </div>`;
-async function submitJob(presetEditor){
-  const user = getCurrentUser();
-  if(!user){ alert('Login first'); return; }
-  const cat = document.getElementById('jobCat').value;
-  const desc = document.getElementById('jobDesc').value.trim();
-  const budget = document.getElementById('jobBudget').value.trim();
-  const deadline = document.getElementById('jobDeadline').value;
-  const files = document.getElementById('jobFiles').value.trim();
-  if(!desc||!budget){ alert('Please fill in the project details and budget'); return; }
-  if(deadline && deadline < todayIST()){ alert('Deadline cannot be in the past'); return; }
-  const picked = document.getElementById('jobRawFiles').files;
-  if(picked.length > MAX_RAW_FILES){ alert(`You can attach up to ${MAX_RAW_FILES} files`); return; }
-  const btn = document.getElementById('jobPostBtn'); const st = document.getElementById('jobUploadStatus');
-  btn.disabled = true;
-  let raw = [];
-  try { raw = await uploadRawFiles(picked, st); }
-  catch(e){ btn.disabled = false; st.textContent = ''; alert('Upload failed: ' + (e.message || e)); return; }
-  const { data: jobRow, error } = await sb.from('sp_jobs').insert({
-    client_id: user.id, category: cat, description: desc, budget: Number(budget),
-    deadline: deadline || null, files_link: files || null, raw_files: raw,
-    language: (document.getElementById('jobLang') || {}).value || null,
-    status: presetEditor ? 'negotiating' : 'open', assigned_editor: presetEditor || null
-  }).select('description').single();
-  btn.disabled = false;
-  if(error){ if(raw.length) await sb.storage.from(RAW_BUCKET).remove(raw.map(x => x.path)); dbErr(error); return; }
-  if(presetEditor){
-    await notify(presetEditor, 'You were hired directly!', `${user.name} hired you for a ${cat} project. Propose your price.`);
-  } else {
-    const { data: eds } = await publicEditors(t => t.select('*').contains('categories', [cat]));
-    await notify((eds || []).map(e => e.id), 'New Job Posted', `${cat} job posted — Budget ₹${budget}`);
-  }
-  contactCheck(desc, jobRow && jobRow.description);
-  alert('Job posted successfully!');
-  nav('jobs');
-}
+/* Post a Job screen: see PART 5 below */
+/* submitJob(): see PART 5 below */
 
 /* ============ EDITOR: JOB BID SCREEN ============ */
 SCREENS.jobBidScreen = async () => {
@@ -1824,6 +1793,7 @@ SCREENS.jobBidScreen = async () => {
       <p><b>Budget (client's estimate):</b> ₹${job.budget}</p>
       <p><b>Deadline:</b> ${fmtDate(job.deadline)}</p>
       <p style="margin-top:6px;"><b>Details:</b> ${esc(job.desc)}</p>
+      ${jobRequirementsHtml(job)}
       ${job.files?`<p class="muted" style="margin-top:6px;">Raw files: ${linkOrText(job.files)}</p>`:''}
       ${job.rawFiles.length ? `<p class="muted" style="margin-top:6px;">📎 ${job.rawFiles.length} file(s) attached — you get access once the client selects you.</p>` : ''}
     </div>
@@ -2730,6 +2700,7 @@ SCREENS.projectStatus = async () => {
       ${job.payoutStatus && (isClient||isEditor) ? `<p><b>Payment:</b> ${PAYOUT_LABEL[job.payoutStatus] || esc(job.payoutStatus)}</p>` : ''}
       <p><b>Deadline:</b> ${job.deadline||'-'}</p>
       <p><b>Details:</b> ${esc(job.desc)}</p>
+      ${jobRequirementsHtml(job)}
       ${job.files && (isClient||isEditor) ? `<p><b>Raw files link:</b> ${linkOrText(job.files)}</p>` : ''}
       ${job.rawFiles.length && (isClient||isEditor) ? `<p style="margin-top:6px;"><b>Raw footage & photos (${job.rawFiles.length})</b></p>${renderRawFiles(job.rawFiles, { removable: isClient && job.status==='open', jobId: job.id })}` : ''}
       ${isClient && !['closed','refunded','approved'].includes(job.status) && job.rawFiles.length < MAX_RAW_FILES ? `
@@ -3450,7 +3421,8 @@ function clientProjectCard(x, compact){
   const j = x.job;
   const pct = x.meta.step ? Math.round(x.meta.step / 7 * 100) : 0;
   return `<div class="card cl-proj ${x.action ? 'cl-action' : ''}" onclick="openJob('${esc(j.id)}')">
-    <div class="cl-proj-top"><b>${esc(j.category || 'Project')}</b>${clientStatusChip(x.meta)}</div>
+    <div class="cl-proj-top"><b>${esc(j.title || j.category || 'Project')}</b>${clientStatusChip(x.meta)}</div>
+    ${j.title ? `<p class="muted" style="font-size:12px; margin-top:2px;">${esc(j.category)}</p>` : ''}
     ${compact ? '' : `<p class="muted">${esc(j.desc).slice(0, 70)}${j.desc.length > 70 ? '…' : ''}</p>`}
     ${x.active ? `<div class="cl-bar"><i style="width:${pct}%"></i></div>` : ''}
     ${x.action ? `<p class="cl-action-txt">👉 ${esc(x.action)}</p>` : ''}
@@ -3505,24 +3477,26 @@ async function renderClientDashboard(){
 
 // ---- My Projects (client view of the Jobs tab)
 async function clientProjectsScreen(user, data){
-  const tab = (data && ['active', 'history', 'all'].includes(data.tab)) ? data.tab : 'active';
-  const res = await loadClientProjects(user);
+  const tab = (data && ['active', 'history', 'all', 'drafts'].includes(data.tab)) ? data.tab : 'active';
+  const [res, drafts] = await Promise.all([loadClientProjects(user), loadJobDrafts()]);
   const items = res.items;
   const groups = {
     active: items.filter(x => x.active).sort((a, b) => (b.action ? 1 : 0) - (a.action ? 1 : 0)),
     history: items.filter(x => !x.active),
     all: items
   };
+  groups.drafts = drafts;
   const list = groups[tab];
   const tabBtn = (k, label) => `<button class="${tab === k ? 'on' : ''}" onclick="nav('jobs', { tab: '${k}' })">${label} (${groups[k].length})</button>`;
   return `
   <div class="header"><h1>My Projects</h1><p>${res.stats.total ? `${res.stats.total} total · ${rupees(res.stats.spent)} paid through Sphere` : 'Everything you hire for, in one place'}</p></div>
   <div class="screen" style="padding-top:0;">
     <button class="btn btn-primary" style="margin-bottom:16px;" onclick="nav('postJob')">+ Post New Job</button>
-    <div class="cl-tabs">${tabBtn('active', 'Active')}${tabBtn('history', 'History')}${tabBtn('all', 'All')}</div>
+    <div class="cl-tabs">${tabBtn('active', 'Active')}${tabBtn('history', 'History')}${tabBtn('all', 'All')}${tabBtn('drafts', 'Drafts')}</div>
     ${!res.ok ? '<p class="muted">Could not load your projects. Please try again.</p>' : ''}
-    ${res.ok && list.length === 0 ? clientEmptyState(items.length === 0 ? 'all' : tab) : ''}
-    ${list.map(x => clientProjectCard(x, false)).join('')}
+    ${tab === 'drafts'
+      ? (drafts.length ? drafts.map(jobDraftCard).join('') : `<div class="card cl-empty"><div class="cl-empty-ic">📝</div><b>No drafts</b><p>When you tap "Save as draft" while posting a job, it waits here until you post it.</p><button class="btn btn-primary" onclick="nav('postJob')">Post a job</button></div>`)
+      : `${res.ok && list.length === 0 ? clientEmptyState(items.length === 0 ? 'all' : tab) : ''}${list.map(x => clientProjectCard(x, false)).join('')}`}
   </div>`;
 }
 
@@ -3705,7 +3679,8 @@ function editorJobCard(j, user){
   const action = j.assignedEditor === user.id ? editorJobAction(j, user) : '';
   const amount = j.assignedEditor === user.id && j.lockedAmount ? Number(j.editorAmount || editorShare(j.lockedAmount)) : Number(j.budget || 0);
   return `<div class="card cl-proj ${action ? 'cl-action' : ''}" onclick="openJob('${esc(j.id)}')">
-    <div class="cl-proj-top"><b>${esc(j.category || 'Project')}</b><span class="cl-status" style="color:${m.color}; background:${m.bg};">${esc(label)}</span></div>
+    <div class="cl-proj-top"><b>${esc(j.title || j.category || 'Project')}</b><span class="cl-status" style="color:${m.color}; background:${m.bg};">${esc(label)}</span></div>
+    ${j.title ? `<p class="muted" style="font-size:12px; margin-top:2px;">${esc(j.category)}</p>` : ''}
     <p class="muted">${esc(j.desc).slice(0, 70)}${j.desc.length > 70 ? '…' : ''}</p>
     ${action ? `<p class="cl-action-txt">👉 ${esc(action)}</p>` : ''}
     <p class="muted">${j.assignedEditor === user.id && j.lockedAmount ? 'You get ' : 'Budget '}${rupees(amount)}${j.deadline ? ' · Due ' + fmtDate(j.deadline) : ''}</p>
@@ -3963,6 +3938,390 @@ async function edReview(id, action){
   if(error){ alert(error.message); if(/PIN/i.test(error.message)){ ADMIN_PIN = ''; nav('admin'); } return; }
   alert({ confirm_fee: 'Fee marked as received ✅', reject_fee: 'Editor asked to pay again', reject: 'Application rejected — the editor has been told', reopen: 'Application re-opened' }[action]);
   nav('admin');
+}
+
+/* ============ PART 5: JOB POSTING + AI REQUIREMENTS ============
+   Post a Job in 3 steps: 1) describe in your own words  2) check / edit the form
+   (Sphere AI fills it)  3) review → Post (status "open") or Save as draft.
+   Drafts live in sp_job_drafts (private to the client). Direct hire keeps working. */
+const VIDEO_FORMATS = ['9:16 (Reel / Short)', '16:9 (YouTube)', '1:1 (Square)', '4:5 (Feed)', 'Other'];
+const PART5_JOB_COLUMNS = ['title', 'video_length', 'video_format', 'style_notes', 'reference_links', 'revisions_expected', 'ai_assisted'];
+const JOB_EXAMPLES = [
+  '60 sec Instagram reel from my cafe videos, trendy music and captions, by Friday, budget ₹800',
+  'YouTube travel vlog 10 min in Hindi, smooth cuts + subtitles, need in 4 days, ₹2500',
+  'Wedding highlight 4 min, cinematic, warm colours, slow motion, 1 week, budget 5000'
+];
+let pj = { draftId: null, presetEditor: '', ai: false };
+
+function revisionHelp(){
+  const free = getSetting('free_revisions'), fee = getSetting('revision_fee');
+  return `${free} revisions are free. From revision ${Number(free) + 1}: ₹${fee} each.`;
+}
+
+SCREENS.postJob = async (data) => {
+  const d = data || {};
+  pj = { draftId: d.draftId || null, presetEditor: d.presetEditor || '', ai: false };
+  let pre = null;
+  if(d.draftId){
+    const { data: row } = await sb.from('sp_job_drafts').select('*').eq('id', d.draftId).maybeSingle();
+    if(row && row.data){ pre = row.data; pj.ai = !!row.data.ai_assisted; }
+  } else if(d.prefill){
+    pre = mergeJobFields(aiDraftToFields(d.prefill), localJobParse(d.prefill.description || ''), d.prefill.description || '');
+    pj.ai = true;
+  }
+  const startStep = pre ? 2 : 1;
+  setTimeout(() => { if(pre) pjApply(pre); pjShowStep(startStep); }, 0);
+  const free = getSetting('free_revisions');
+  return `
+  <div class="header"><button class="back-btn" onclick="pjBack()">‹</button><h1>${pj.presetEditor ? 'Hire Directly' : 'Post a Job'}</h1><p id="pjSub">Tell editors what you need</p></div>
+  <div class="screen" style="padding-top:0;">
+    <div class="pj-steps"><span id="pjS1"></span><span id="pjS2"></span><span id="pjS3"></span></div>
+
+    <div id="pjStep1">
+      <div class="card">
+        <b>What do you need? ✍️</b>
+        <p class="muted" style="font-size:13px; margin:4px 0 10px;">Write it in your own words — Hindi, English or Hinglish. Sphere AI turns it into a proper job form.</p>
+        <textarea id="pjBrief" class="ed-text" maxlength="1500" style="min-height:130px;" placeholder="Example: Mujhe apne cafe ki 60 second ki reel chahiye, trending music ke saath, Friday tak, budget 800"></textarea>
+        <div class="pj-ex">${JOB_EXAMPLES.map((x, i) => `<span onclick="document.getElementById('pjBrief').value = JOB_EXAMPLES[${i}]">${esc(x.slice(0, 34))}…</span>`).join('')}</div>
+        <button class="btn btn-primary" id="pjAIBtn" onclick="aiFillJob()">✨ Fill the form with AI</button>
+        <p class="center-text" style="margin-top:12px;"><span class="link" onclick="pjShowStep(2)">Skip — I'll fill the form myself</span></p>
+      </div>
+      <p class="ai-note">You can change everything before posting. Don't share phone numbers or emails — they are hidden automatically.</p>
+    </div>
+
+    <div id="pjStep2" style="display:none;">
+      <div id="pjAINote"></div>
+      <div class="pj-sec">Basics</div>
+      <div class="field"><label>Job title</label><input id="pjTitle" maxlength="80" placeholder="e.g. 60 sec cafe reel with trending music"></div>
+      <div class="field"><label>Editing category</label><select id="jobCat">${CATEGORIES.map(c => `<option>${c}</option>`).join('')}</select></div>
+      <div class="field"><label>Project details</label><textarea id="jobDesc" placeholder="What is the video about? What should the editor do?" style="min-height:110px;"></textarea></div>
+
+      <div class="pj-sec">Budget & time</div>
+      <div class="field"><label>Budget (₹)</label><input id="jobBudget" type="number" inputmode="numeric" min="1" placeholder="1500"></div>
+      <div class="field"><label>Deadline</label><input id="jobDeadline" type="date" min="${todayIST()}"></div>
+
+      <div class="pj-sec">Style & requirements</div>
+      <div class="field"><label>Video length</label><input id="pjLength" maxlength="40" placeholder="e.g. 60 sec, 5 min"></div>
+      <div class="field"><label>Format</label>
+        <div class="pick-chips" id="pjFormat">${VIDEO_FORMATS.map(v => `<span class="pick-chip" data-v="${esc(v)}" onclick="pjPickFormat(this)">${esc(v)}</span>`).join('')}</div></div>
+      <div class="field"><label>Video language (optional)</label><select id="jobLang"><option value="">Any</option>${LANGUAGES.map(l => `<option>${l}</option>`).join('')}</select></div>
+      <div class="field"><label>Style / special requirements</label><textarea id="pjStyle" maxlength="1500" placeholder="Music, captions/subtitles, colours, transitions, mood, logo…"></textarea></div>
+      <div class="field"><label>Reference videos (optional)</label><textarea id="pjRefs" maxlength="1000" style="min-height:60px;" placeholder="YouTube or Google Drive links of videos you like"></textarea>
+        <p class="muted" style="font-size:11px; margin-top:4px;">YouTube / Drive / WeTransfer links are kept. Other links are hidden for safety.</p></div>
+
+      <div class="pj-sec">Revisions</div>
+      <div class="field"><label>How many rounds of changes do you expect?</label>
+        <select id="pjRevs">${[1, 2, 3, 4, 5].map(n => `<option value="${n}" ${n === Math.min(3, Number(free) || 3) ? 'selected' : ''}>${n}${n <= Number(free) ? ' (free)' : ' (₹' + getSetting('revision_fee') + ' each after ' + free + ')'}</option>`).join('')}</select>
+        <p class="muted" style="font-size:11px; margin-top:4px;">${revisionHelp()}</p></div>
+
+      <div class="pj-sec">Raw files</div>
+      <div class="field"><label>Raw footage & photos (optional)</label>
+        <input id="jobRawFiles" type="file" accept="image/*,video/*" multiple>
+        <p class="muted" style="font-size:11px; margin-top:6px;">Up to ${MAX_RAW_FILES} files, ${MAX_RAW_MB} MB each. Bigger videos? Add a link below.</p></div>
+      <div class="field"><label>Raw files link (optional)</label><input id="jobFiles" placeholder="Google Drive / WeTransfer link"></div>
+
+      <button class="btn btn-primary" onclick="pjReview()">Review job →</button>
+      <button class="btn btn-outline" style="margin-top:10px;" onclick="pjSaveDraft()">Save as draft</button>
+    </div>
+
+    <div id="pjStep3" style="display:none;">
+      <div id="pjReviewBox"></div>
+      <p class="muted" id="jobUploadStatus" style="font-size:12px; margin:8px 0;"></p>
+      <button class="btn btn-primary" id="jobPostBtn" onclick="submitJob()">${pj.presetEditor ? 'Send to editor' : 'Post job'}</button>
+      <button class="btn btn-outline" style="margin-top:10px;" onclick="pjShowStep(2)">✏️ Edit</button>
+      <button class="btn btn-outline" style="margin-top:10px;" onclick="pjSaveDraft()">Save as draft</button>
+    </div>
+  </div>`;
+};
+
+function pjShowStep(n){
+  [1, 2, 3].forEach(i => {
+    const box = document.getElementById('pjStep' + i), bar = document.getElementById('pjS' + i);
+    if(box) box.style.display = i === n ? '' : 'none';
+    if(bar) bar.classList.toggle('on', i <= n);
+  });
+  const sub = document.getElementById('pjSub');
+  if(sub) sub.textContent = ['Tell editors what you need', 'Check and edit the details', 'Review before posting'][n - 1];
+  pj.step = n;
+  window.scrollTo(0, 0);
+}
+function pjBack(){
+  if(pj.step === 3) return pjShowStep(2);
+  if(pj.step === 2 && !pj.draftId) return pjShowStep(1);
+  nav(pj.draftId ? 'jobs' : 'home', pj.draftId ? { tab: 'drafts' } : undefined);
+}
+function pjPickFormat(el){
+  const on = !el.classList.contains('on');
+  document.querySelectorAll('#pjFormat .pick-chip').forEach(c => c.classList.remove('on'));
+  if(on) el.classList.add('on');
+}
+
+// ---- Fill the form from an object / read it back
+function pjApply(v){
+  if(!v) return;
+  if(!document.getElementById('pjTitle')) return setTimeout(() => pjApply(v), 100);
+  const set = (id, val) => { const el = document.getElementById(id); if(el && val !== undefined && val !== null && val !== '') el.value = val; };
+  set('pjTitle', v.title);
+  if(v.category && CATEGORIES.includes(v.category)) set('jobCat', v.category);
+  set('jobDesc', v.description);
+  set('jobBudget', v.budget ? Number(v.budget) : '');
+  if(v.deadline && v.deadline >= todayIST()) set('jobDeadline', v.deadline);
+  set('pjLength', v.video_length);
+  if(v.language && LANGUAGES.includes(v.language)) set('jobLang', v.language);
+  set('pjStyle', v.style_notes);
+  set('pjRefs', v.reference_links);
+  if(v.revisions_expected) set('pjRevs', String(Math.min(5, Math.max(1, Number(v.revisions_expected)))));
+  set('jobFiles', v.files_link);
+  document.querySelectorAll('#pjFormat .pick-chip').forEach(c => c.classList.toggle('on', c.dataset.v === v.video_format));
+  const note = document.getElementById('pjAINote');
+  if(note) note.innerHTML = pj.ai ? `<div class="pj-ai">✨ <b>Filled by Sphere AI.</b> Please check every field — you can change anything.</div>` : (v._localOnly ? `<div class="pj-ai pj-warn">Sphere AI is busy right now, so we filled what we could from your text. Please check and complete the form.</div>` : '');
+}
+function pjCollect(){
+  const val = id => ((document.getElementById(id) || {}).value || '').trim();
+  const fmt = document.querySelector('#pjFormat .pick-chip.on');
+  return {
+    title: val('pjTitle'), category: val('jobCat'), description: val('jobDesc'),
+    budget: val('jobBudget') ? Number(val('jobBudget')) : null, deadline: val('jobDeadline') || null,
+    video_length: val('pjLength'), video_format: fmt ? fmt.dataset.v : '', language: val('jobLang'),
+    style_notes: val('pjStyle'), reference_links: val('pjRefs'),
+    revisions_expected: val('pjRevs') ? Number(val('pjRevs')) : null, files_link: val('jobFiles'),
+    ai_assisted: !!pj.ai
+  };
+}
+function pjValidate(v){
+  if(v.description.length < 10) return 'Please write the project details (at least 10 letters).';
+  if(!v.budget || v.budget < 1) return 'Please enter your budget.';
+  if(v.budget > 10000000) return 'Please check the budget.';
+  if(v.deadline && v.deadline < todayIST()) return 'Deadline cannot be in the past.';
+  return '';
+}
+
+// ---- Step 3: review
+function pjReview(){
+  const v = pjCollect();
+  const problem = pjValidate(v);
+  if(problem){ alert(problem); return; }
+  const files = (document.getElementById('jobRawFiles') || {}).files || [];
+  if(files.length > MAX_RAW_FILES){ alert(`You can attach up to ${MAX_RAW_FILES} files`); return; }
+  const row = (k, val) => val ? `<div class="kv"><span>${k}</span><b style="text-align:right; max-width:62%; white-space:pre-wrap; word-break:break-word;">${esc(val)}</b></div>` : '';
+  document.getElementById('pjReviewBox').innerHTML = `
+    <div class="card">
+      ${v.ai_assisted ? '<span class="pj-tag">✨ Written with Sphere AI</span>' : ''}
+      <h3 style="margin:6px 0 2px;">${esc(v.title || v.category)}</h3>
+      <p class="muted" style="font-size:12px;">${esc(v.category)}</p>
+      <p style="font-size:14px; margin:10px 0; white-space:pre-wrap;">${esc(v.description)}</p>
+      ${row('Budget', rupees(v.budget))}
+      ${row('Deadline', v.deadline ? fmtDate(v.deadline) : 'No deadline')}
+      ${row('Length', v.video_length)}
+      ${row('Format', v.video_format)}
+      ${row('Language', v.language)}
+      ${row('Style', v.style_notes)}
+      ${row('References', v.reference_links)}
+      ${row('Revisions', v.revisions_expected ? v.revisions_expected + ' expected' : '')}
+      ${row('Raw files', [files.length ? files.length + ' file(s) to upload' : '', v.files_link].filter(Boolean).join(' · '))}
+    </div>
+    <p class="muted" style="font-size:12px;">${revisionHelp()} ${pj.presetEditor ? 'The editor will reply with a price.' : 'Verified editors in this category will be told about your job.'}</p>`;
+  pjShowStep(3);
+}
+
+// ---- Save as draft (private, no files)
+async function loadJobDrafts(){
+  const { data, error } = await sb.from('sp_job_drafts').select('*').order('updated_at', { ascending: false });
+  return error ? [] : (data || []);
+}
+function jobDraftCard(d){
+  const v = d.data || {};
+  return `<div class="card cl-proj">
+    <div class="cl-proj-top"><b>${esc(v.title || v.category || 'Untitled draft')}</b><span class="cl-status" style="color:#475569; background:#eef2f7;">Draft</span></div>
+    ${v.description ? `<p class="muted">${esc(String(v.description)).slice(0, 70)}${String(v.description).length > 70 ? '…' : ''}</p>` : ''}
+    <p class="muted">${v.budget ? rupees(v.budget) + ' · ' : ''}Saved ${fmtDate(d.updated_at)}</p>
+    <div class="cl-row" style="margin-top:10px;"><button class="btn btn-primary" onclick="nav('postJob', { draftId: '${esc(d.id)}' })">Continue</button><button class="btn btn-outline" onclick="pjDeleteDraft('${esc(d.id)}')">Delete</button></div>
+  </div>`;
+}
+async function pjSaveDraft(){
+  const v = pjCollect();
+  if(!v.title && !v.description && !v.budget){ alert('Write something first.'); return; }
+  const files = (document.getElementById('jobRawFiles') || {}).files || [];
+  const q = pj.draftId
+    ? sb.from('sp_job_drafts').update({ data: v }).eq('id', pj.draftId).select('id').single()
+    : sb.from('sp_job_drafts').insert({ data: v }).select('id').single();
+  const { data, error } = await q;
+  if(error){ alert(/sp_job_drafts|schema cache|does not exist/i.test(error.message || '') ? 'Drafts need the latest database update (005_job_posting.sql).' : error.message); return; }
+  pj.draftId = data.id;
+  alert('Draft saved 📝' + (files.length ? '\n\nNote: the files you picked are not saved in a draft — add them again when you post.' : ''));
+  nav('jobs', { tab: 'drafts' });
+}
+async function pjDeleteDraft(id){
+  if(!confirm('Delete this draft?')) return;
+  const { error } = await sb.from('sp_job_drafts').delete().eq('id', id);
+  if(dbErr(error)) return;
+  nav('jobs', { tab: 'drafts' });
+}
+
+// ---- Post the job (status "open", or "negotiating" for a direct hire)
+async function submitJob(){
+  const user = getCurrentUser();
+  if(!user){ alert('Login first'); return; }
+  const v = pjCollect();
+  const problem = pjValidate(v);
+  if(problem){ alert(problem); pjShowStep(2); return; }
+  const presetEditor = pj.presetEditor || '';
+  const picked = document.getElementById('jobRawFiles').files;
+  if(picked.length > MAX_RAW_FILES){ alert(`You can attach up to ${MAX_RAW_FILES} files`); return; }
+  const btn = document.getElementById('jobPostBtn'); const st = document.getElementById('jobUploadStatus');
+  btn.disabled = true;
+  let raw = [];
+  try { raw = await uploadRawFiles(picked, st); }
+  catch(e){ btn.disabled = false; st.textContent = ''; alert('Upload failed: ' + (e.message || e)); return; }
+  const row = {
+    client_id: user.id, category: v.category, description: v.description, budget: Number(v.budget),
+    deadline: v.deadline || null, files_link: v.files_link || null, raw_files: raw,
+    language: v.language || null,
+    status: presetEditor ? 'negotiating' : 'open', assigned_editor: presetEditor || null,
+    title: v.title || null, video_length: v.video_length || null, video_format: v.video_format || null,
+    style_notes: v.style_notes || null, reference_links: v.reference_links || null,
+    revisions_expected: v.revisions_expected, ai_assisted: !!v.ai_assisted
+  };
+  let { data: jobRow, error } = await sb.from('sp_jobs').insert(row).select('description, title, style_notes').single();
+  if(error && /column|schema cache|does not exist|Could not find/i.test(error.message || '')){
+    // database not updated yet (005) — post with the original fields
+    const old = Object.fromEntries(Object.entries(row).filter(([k]) => !PART5_JOB_COLUMNS.includes(k)));
+    const extra = [v.video_length && 'Length: ' + v.video_length, v.video_format && 'Format: ' + v.video_format, v.style_notes && 'Style: ' + v.style_notes, v.reference_links && 'References: ' + v.reference_links].filter(Boolean).join('\n');
+    if(extra) old.description = v.description + '\n\n' + extra;
+    ({ data: jobRow, error } = await sb.from('sp_jobs').insert(old).select('description').single());
+  }
+  btn.disabled = false;
+  if(error){ if(raw.length) await sb.storage.from(RAW_BUCKET).remove(raw.map(x => x.path)); dbErr(error); return; }
+  if(pj.draftId){ await sb.from('sp_job_drafts').delete().eq('id', pj.draftId); pj.draftId = null; }
+  const label = v.title || v.category;
+  if(presetEditor){
+    await notify(presetEditor, 'You were hired directly!', `${user.name} hired you for a ${v.category} project. Propose your price.`);
+  } else {
+    const { data: eds } = await publicEditors(t => t.select('*').contains('categories', [v.category]));
+    await notify((eds || []).map(e => e.id), 'New Job Posted', `${label} — Budget ₹${v.budget}`);
+  }
+  contactCheck([v.description, v.title, v.style_notes].join(' '), jobRow ? [jobRow.description, jobRow.title || v.title, jobRow.style_notes || v.style_notes].join(' ') : null);
+  alert(presetEditor ? 'Sent to the editor ✅ They will reply with a price.' : 'Job posted successfully! ✅ Editors can now see it.');
+  nav('jobs');
+}
+
+// ---- Sphere AI: natural language → structured form
+function aiJobPrompt(brief){
+  return 'You are filling a job form for Sphere, a video editing marketplace in India. Read the client request and reply with ONLY one JSON object (no other text, no markdown) with exactly these keys: '
+    + '{"title": short title, max 60 characters; "category": one of ' + JSON.stringify(CATEGORIES)
+    + '; "description": clear project description for editors in simple English, 2-5 sentences; "budget": number in rupees or null; '
+    + '"deadline_days": number of days from today or null; "language": one of ' + JSON.stringify(LANGUAGES) + ' or null; '
+    + '"video_length": like "60 sec" or "5 min" or null; "video_format": one of ' + JSON.stringify(VIDEO_FORMATS.slice(0, 4)) + ' or null; '
+    + '"style_notes": music, captions, colours, effects, mood in one short line or null; "reference_links": links from the request or null; '
+    + '"revisions_expected": number or null}. Never include phone numbers, emails or social media IDs. Client request:  + brief + ';
+}
+function parseAIJob(reply){
+  const t = String(reply || '');
+  const a = t.indexOf('{'), b = t.lastIndexOf('}');
+  if(a < 0 || b <= a) return null;
+  try { return aiDraftToFields(JSON.parse(t.slice(a, b + 1))); } catch(e) { return null; }
+}
+function aiDraftToFields(o){
+  if(!o || typeof o !== 'object') return null;
+  const str = (x, max) => (typeof x === 'string' && x.trim() && !/^null$/i.test(x.trim())) ? x.trim().slice(0, max) : '';
+  const num = (x, lo, hi) => { const n = Number(String(x === null || x === undefined ? '' : x).replace(/[^0-9.]/g, '')); return (Number.isFinite(n) && n >= lo && n <= hi) ? Math.round(n) : null; };
+  const days = num(o.deadline_days, 0, 365);
+  const fmt = VIDEO_FORMATS.find(f => str(o.video_format, 30) && f.toLowerCase().startsWith(str(o.video_format, 30).toLowerCase().slice(0, 4)));
+  return {
+    title: str(o.title, 80),
+    category: CATEGORIES.includes(o.category) ? o.category : '',
+    description: str(o.description, 2000),
+    budget: num(o.budget, 1, 10000000),
+    deadline: days !== null ? addDaysIST(days) : null,
+    language: LANGUAGES.includes(o.language) ? o.language : '',
+    video_length: str(o.video_length, 40),
+    video_format: fmt || '',
+    style_notes: str(o.style_notes, 1500),
+    reference_links: str(o.reference_links, 1000),
+    revisions_expected: num(o.revisions_expected, 1, 10)
+  };
+}
+// Works without AI: reads the obvious things from the text
+function localJobParse(text){
+  const t = String(text || ''), low = t.toLowerCase();
+  const cat = [
+    ['Podcast Editing', /podcast/], ['Gaming Edits', /gaming|\bgame|bgmi|free ?fire|valorant|montage/],
+    ['Motion Graphics', /motion graphic|animation|animated|logo anim|explainer/], ['Color Grading & VFX', /colou?r grad|\bvfx\b|\blut/],
+    ['Ads & Commercial', /\bads?\b|commercial|product|promo|brand/], ['Cinematic', /wedding|shaadi|cinematic|short film|pre[- ]?wedding/],
+    ['Vlog Editing', /vlog|travel video|youtube video/], ['Reels & Shorts', /reel|shorts?\b|insta|tiktok|vertical/]
+  ].find(([, re]) => re.test(low));
+  const bm = t.match(/(?:₹|rs\.?|inr|rupees?)\s*([\d,]{2,9})|([\d,]{2,9})\s*(?:₹|rs\b|rupees?|\/-)|budget\D{0,12}([\d,]{2,9})/i);
+  const budget = bm ? Number(String(bm[1] || bm[2] || bm[3]).replace(/,/g, '')) : null;
+  let days = null, m;
+  if((m = low.match(/(\d{1,3})\s*(?:din|days?)\b/))) days = +m[1];
+  else if((m = low.match(/(\d{1,2})\s*(?:hafte|weeks?)\b/))) days = +m[1] * 7;
+  else if(/\b(1 week|ek hafte|a week)\b/.test(low)) days = 7;
+  else if(/\b(tomorrow|kal)\b/.test(low)) days = 1;
+  else if(/\b(today|aaj)\b/.test(low)) days = 0;
+  let len = '';
+  if((m = low.match(/(\d{1,3})\s*(?:sec|second|seconds|s)\b/))) len = m[1] + ' sec';
+  else if((m = low.match(/(\d{1,3})\s*(?:min|mins|minute|minutes)\b/))) len = m[1] + ' min';
+  const fmt = /9\s*[:x]\s*16|reel|shorts?\b|vertical|insta/.test(low) ? VIDEO_FORMATS[0]
+    : /16\s*[:x]\s*9|youtube|horizontal|landscape/.test(low) ? VIDEO_FORMATS[1]
+    : /1\s*[:x]\s*1|square/.test(low) ? VIDEO_FORMATS[2] : /4\s*[:x]\s*5/.test(low) ? VIDEO_FORMATS[3] : '';
+  const lang = ['Hinglish', 'Haryanvi', 'Bhojpuri', 'Punjabi', 'Rajasthani', 'Marathi', 'Gujarati', 'Bengali', 'Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Urdu', 'Hindi', 'English']
+    .find(l => new RegExp('\\b' + l.toLowerCase() + '\\b').test(low)) || '';
+  const style = [[/music|song|gaana|trending audio/, 'Background music'], [/caption|subtitle/, 'Captions / subtitles'], [/transition/, 'Smooth transitions'],
+    [/slow[- ]?mo/, 'Slow motion'], [/colou?r/, 'Colour grading'], [/logo/, 'Add logo'], [/text|title card/, 'Text / titles']]
+    .filter(([re]) => re.test(low)).map(([, s]) => s).join(', ');
+  const refs = (t.match(/https?:\/\/\S+/g) || []).join(' ');
+  const rv = low.match(/(\d)\s*(?:revisions?|changes?|corrections?)/);
+  const first = t.split(/[.\n!?]/)[0].trim();
+  const short = first.split(',')[0].trim();
+  const title = (short.length >= 12 ? short : first).slice(0, 60);
+  return {
+    title: title.length > 6 ? title : '', category: cat ? cat[0] : '', description: '',
+    budget: budget && budget > 0 && budget < 10000000 ? budget : null, deadline: days !== null ? addDaysIST(days) : null,
+    language: lang, video_length: len, video_format: fmt, style_notes: style, reference_links: refs,
+    revisions_expected: rv ? Math.min(10, +rv[1]) : null
+  };
+}
+function mergeJobFields(ai, local, brief){
+  const out = {};
+  const keys = ['title', 'category', 'description', 'budget', 'deadline', 'language', 'video_length', 'video_format', 'style_notes', 'reference_links', 'revisions_expected'];
+  keys.forEach(k => { const a = ai ? ai[k] : null, l = local ? local[k] : null; out[k] = (a !== null && a !== undefined && a !== '') ? a : l; });
+  if(!out.description) out.description = String(brief || '').trim();
+  return out;
+}
+async function aiFillJob(){
+  const brief = ((document.getElementById('pjBrief') || {}).value || '').trim();
+  if(brief.length < 10){ alert('Please write a little more about what you need.'); return; }
+  const btn = document.getElementById('pjAIBtn');
+  if(btn){ btn.disabled = true; btn.textContent = '✨ Sphere AI is reading…'; }
+  let ai = null;
+  try {
+    const r = await sb.functions.invoke('sphere-ai', { body: { messages: [{ role: 'user', text: aiJobPrompt(brief) }] } });
+    if(!r.error && r.data && r.data.reply) ai = parseAIJob(r.data.reply);
+    if(!ai){
+      const r2 = await sb.functions.invoke('sphere-ai', { body: { action: 'draft_job', messages: [{ role: 'user', text: brief }] } });
+      if(!r2.error && r2.data && r2.data.draft) ai = aiDraftToFields(r2.data.draft);
+    }
+  } catch(e) { ai = null; }
+  if(btn){ btn.disabled = false; btn.textContent = '✨ Fill the form with AI'; }
+  pj.ai = !!ai;
+  const v = mergeJobFields(ai, localJobParse(brief), brief);
+  if(!ai) v._localOnly = true;
+  pjShowStep(2);
+  pjApply(v);
+}
+
+// ---- Show the structured requirements on job pages (client + editors)
+function jobRequirementsHtml(job){
+  if(!job) return '';
+  const rows = [
+    job.title ? ['Title', job.title] : null, job.videoLength ? ['Length', job.videoLength] : null,
+    job.videoFormat ? ['Format', job.videoFormat] : null, job.language ? ['Language', job.language] : null,
+    job.styleNotes ? ['Style', job.styleNotes] : null, job.references ? ['References', job.references] : null,
+    job.revisionsExpected ? ['Revisions expected', String(job.revisionsExpected)] : null
+  ].filter(Boolean);
+  if(!rows.length && !job.aiAssisted) return '';
+  return `<div class="pj-req" style="margin-top:8px;">${job.aiAssisted ? '<span class="pj-tag">✨ Written with Sphere AI</span>' : ''}
+    ${rows.map(([k, val]) => `<p><b>${k}:</b> ${k === 'References' ? linkOrText(val) : esc(val)}</p>`).join('')}</div>`;
 }
 
 (function(){

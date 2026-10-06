@@ -59,6 +59,8 @@ The script starts with a **map of headings**. Search for them:
 | `CHAT` | WhatsApp-style chat, realtime, media, voice notes |
 | `PAYMENT` / `PROJECT STATUS` | Razorpay checkout, escrow, delivery, approve & release |
 | `ADMIN` | Admin Panel (PIN unlock), verification, reports, payouts, suspicious users, system status |
+| `PART 5: JOB POSTING + AI` | `SCREENS.postJob`, `aiFillJob()`, `localJobParse()`, drafts, `submitJob()`, `jobRequirementsHtml()` |
+| `PART 4: EDITOR PROFILE + VERIFICATION` | `AVAILABILITY`, `VERIFY_STATES`, `EDITOR_STATUS`, `loadEditorWork()`, editor dashboard, My Jobs tabs, `editorProfileEdit`, fee + reject flows, `profileUpdate()` |
 | `PART 3: CLIENT PROFILE + DASHBOARD` | `CLIENT_STATUS`, `loadClientProjects()`, home dashboard, My Projects, Edit Profile |
 | `PART 2: AUTH + ROLE ACCESS` | `ROUTE_ACCESS`, `routeGate()`, `clearSessionState()`, account status (suspended banner) |
 | `CONTACT PROTECTION` | Warning popups for hidden contact details |
@@ -84,7 +86,7 @@ The script starts with a **map of headings**. Search for them:
 | user | any finished account | home, editProfile, profile, settings, notifications, chats, support, reports, Sphere AI, categories, editors, editor profile, jobs, project, portfolio, escrow, vault |
 | client | Client mode (client · editor switched to Client · admin in Admin mode) | postJob, applications, payment, savedList, ratings |
 | editor | Editor mode (editor · admin switched to Editor) | jobBidScreen |
-| editorAccount | Editor account (any mode) or admin in Editor mode | editorDetails, verificationStatus |
+| editorAccount | Editor account (any mode) or admin in Editor mode | editorDetails, verificationStatus, editorProfileEdit |
 | admin | Admin accounts | admin |
 
 * **Job screens** also check the job: `applications`, `payment`, `ratings` → only the job's client (or an admin); `projectStatus` → client, assigned editor, admin, or anyone while the job is open.
@@ -98,6 +100,27 @@ The script starts with a **map of headings**. Search for them:
 * **Project page:** clients see one line on top with the status and their next step.
 * **Profile:** account type, member since, Projects / Completed / Paid via Sphere.
 * **Edit Profile** (`editProfile`, every role): photo, full name, mobile number; email is read-only.
+
+### Editor side (Part 4)
+* **Editor Home:** verification card (Pending / Fee submitted / Not approved / Verified), greeting, **status for clients** (Available · Busy · Away), rating, active and completed counts, money earned, "Your active work" with the next step, then the existing Available Work list.
+* **My Jobs** (`jobs` screen in Editor mode): tabs **Available / My work / History** with editor-friendly status names (`EDITOR_STATUS`).
+* **Profile (Editor mode):** availability + verification chips, bio, rating / completed / active, latest reviews; menu **Edit editor profile** and **Verification status**.
+* **Edit editor profile** (`editorProfileEdit`): bio (300 letters), status, categories, languages, skills, experience, price, portfolio + sample links. Changing **categories** on a verified account removes the ✔ tick until Sphere checks again; other fields keep the tick. The first application (`editorDetails`) still works as before.
+* **Verification states** (`profiles.verification_status`): `not_applied → pending → approved` or `rejected` (with reason). The existing ✔ Verify (`sp_verify_editor`) and remove-tick (`sp_unverify_editor`) keep working and move the state automatically.
+* **₹29 fee:** pay by UPI (QR / button, as before) → editor types the **UPI transaction ID** → `fee: submitted` → admin taps **Fee received** or **Fee not found**. WhatsApp screenshot still works too. The 3-free-works rule is unchanged.
+* **Admin → Pending Verification:** state chip, fee line with UTR, buttons *Fee received · Fee not found · Reject (reason) · Re-open*, plus the existing *Verify after call*. Admins get a notification when an editor applies or submits a fee.
+* **Public editor page:** status chip + bio (from the `sp_editor_public_extra` view).
+
+### Job posting (Part 5)
+* **Post a Job** (`postJob`) has 3 steps on one screen:
+  1. **Describe** in your own words (Hindi / English / Hinglish) → **✨ Fill the form with AI**, or skip and fill it yourself.
+  2. **Form**: title, category, details, budget, deadline, video length, format (9:16 / 16:9 / 1:1 / 4:5), language, style / special requirements, reference links, revisions expected, raw files (upload or link).
+  3. **Review** → **Post job** (status `open`) or **Save as draft**.
+* **AI fill:** sends the request to the existing `sphere-ai` function asking for a JSON form; if that fails it tries the existing `draft_job` action; if the AI is down a built-in reader (`localJobParse`) still picks up budget, deadline, length, format, language, category and style words. The client can change every field.
+* **Drafts:** `sp_job_drafts` (only the client can see them; editors never do). My Projects → **Drafts** tab → Continue / Delete. Posting a draft creates a normal `open` job and removes the draft. Files are added when posting.
+* **Direct hire** (Hire Now on an editor) uses the same form and still creates a `negotiating` job for that editor. The Sphere AI chat button "Turn this chat into a job post" opens the form already filled.
+* **Job pages** (client project page + editor bid screen) show the structured requirements and a "Written with Sphere AI" tag.
+* Contact protection also checks title, style and reference links. "Instagram reel" is no longer a warning word (only "insta id", "insta pe", "DM me" …).
 
 ### Job lifecycle (today)
 `open → negotiating → payment-pending → in-progress → delivered → approved → closed` (+ `refunded`)
