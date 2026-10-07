@@ -11,6 +11,11 @@
 | `sp_public_profiles` (view) | Public editor directory without phone/email | same as profiles minus private fields |
 | `sp_editor_public_extra` (view) | Public bio + availability of editors (Part 4) | `id`, `bio`, `availability` |
 | `sp_jobs` | Jobs / projects | `client_id`, `category`, `description`, `budget`, `deadline`, `language`, `files_link`, `raw_files`, `status`, `assigned_editor`, `proposed_amount`, `proposed_by`, `locked_amount`, `payment_status`, `delivery_link`, `editor_amount`, `platform_fee`, `payout_status`, `razorpay_transfer_id`, **Part 5:** `title`, `video_length`, `video_format`, `style_notes`, `reference_links`, `revisions_expected`, `ai_assisted` |
+| `sp_project_work` | Work clock per paid project — Part 8 | `job_id`, `phase` (active/preview/completed/cancelled), `started_at`, `hours`, `due_at`, `grace_hours`, `extended_hours`, `pending_extension_hours`, `preview_link`, `preview_note`, `preview_at`, `preview_on_time`, `is_late`, `late_since`, notice times |
+| `sp_project_extensions` | More-time requests (one pending per project) — Part 8 | `job_id`, `requested_by`, `hours`, `reason`, `status` (pending/approved/declined) |
+| `sp_project_events` | Project timeline — Part 8 | `job_id`, `at`, `actor_id`, `kind`, `title`, `details` |
+| `sp_payments` | One payment record per project — Part 7 | `job_id` (unique), `client_id`, `editor_id`, `amount`, `status` (pending/paid/failed/refunded), `order_id`, `payment_id`, `attempts`, `failure_reason`, `duplicate_refs`, `paid_at`, `refunded_at` |
+| `sp_payment_splits` | Sphere's internal split — admins only (Part 7) | `job_id`, `editor_base`, `platform_fee_percent`, `platform_fee`, `bonus_pool`, `editor_payout` |
 | `sp_job_drafts` | Unfinished job posts (private to the client, max 20) — Part 5 | `id`, `client_id`, `data` (the form), `updated_at` |
 | `sp_applications` | Bids | `job_id`, `editor_id`, `message`, `bid_amount`, `status` (pending / selected / rejected), **Part 6:** `delivery_days`, `updated_at` — one per job+editor (`sp_app_job_editor_uq`) |
 | `sp_messages` | Chat | `sender_id`, `receiver_id`, `text`, `media_path`, `media_type`, `duration_sec`, `delivered_at`, `read_at`, `created_at` |
@@ -21,7 +26,7 @@
 | `sp_reports` | Reports / complaints | `job_id`, `reporter_id`, `against_id`, `chat_user_id`, `reason`, `details`, `status`, `admin_note`, `resolved_at` |
 | `sp_notifications` | In-app notifications | `user_id`, `title`, `body` |
 | `sp_saved` | Saved editors | `user_id`, `editor_id` |
-| `sp_settings` | Admin values | `key`, `value` — `platform_fee_percent`, `verify_fee`, `revision_fee`, `free_revisions`, `pro_fee`, `strike_limit`, `mod_skip_admins`, `free_works`, `bids_verified_only` |
+| `sp_settings` | Admin values | `key`, `value` — `platform_fee_percent`, `verify_fee`, `revision_fee`, `free_revisions`, `pro_fee`, `strike_limit`, `mod_skip_admins`, `free_works`, `bids_verified_only`, `work_default_hours`, `work_grace_hours`, `work_fixed_hours`, `work_reminder_hours` |
 | `sp_mod_flags` | Strikes / suspension per user (admin-only write) | `user_id`, `strike_count`, `is_suspended`, `warned_at` |
 | `sp_mod_strikes` | Every hidden/flagged message (admins only) | `user_id`, `source`, `kind`, `original_text`, `cleared` |
 | `sp_schema_versions` | Which Sphere parts are installed | `version`, `name`, `applied_at` |
@@ -36,6 +41,12 @@
 | `sp_set_platform_fee` | Admin + PIN | Commission % |
 | `sp_mod_admin_action` | Admin + PIN | Warn / suspend / unsuspend / clear strikes |
 | `sp_core_status` | Admin | System status card |
+| `sp_work_submit_preview` | Project's editor | Preview link + note → client told (Part 8) |
+| `sp_work_request_extension` / `sp_work_answer_extension` | Editor / client | Ask for / answer more time (Part 8) |
+| `sp_work_give_time` | Project's client | Give more time without being asked (Part 8) |
+| `sp_work_tick` | Anyone logged in, pg_cron | Reminders, deadline passed, late — once each (Part 8) |
+| `sp_pay_lock_price` | Client or chosen editor | Accept the other side's price → payment-pending (Part 7) |
+| `sp_pay_start`, `sp_pay_record` | Project's client | Before / after Razorpay: ready + not paid; save IDs or failure (Part 7) |
 | `sp_bid_eligibility` | Anyone logged in | Can this editor bid (on this job)? + the reason (Part 6) |
 | `sp_bid_select` | Job's client | Choose one bid; other bids closed; notifications (Part 6) |
 | `sp_bid_editor_stats`, `sp_bid_counts` | Anyone logged in | Jobs done / rating per editor; number of bids per open job (Part 6) |
@@ -52,6 +63,9 @@
 | `sp_core_profile_guard` | `profiles` | Keeps roles in capitals; blocks self-made admins and self-given ✔ ticks |
 | `sp_ed_profile_sync` | `profiles` (before update) | Keeps verification state in step with the ✔ tick; editors can only apply / re-apply and submit a fee (Part 4) |
 | `sp_ed_profile_after` | `profiles` (after update) | Notifies admins when an editor applies or submits the fee (Part 4) |
+| `sp_work_job_trigger` | `sp_jobs` (insert, status change) | Timeline lines; starts / completes / cancels the work clock (Part 8) |
+| `sp_work_pay_trigger` | `sp_payments` (status change) | Timeline lines for paid / failed payments (Part 8) |
+| `sp_pay_sync_job` | `sp_jobs` (after insert/update) | Keeps `sp_payments` + split in step with the project (Part 7) |
 | `sp_bid_guard` | `sp_applications` | Bidding rules on insert; editors change only their own pending bid; clients only the status (Part 6) |
 | `sp_core_role_guard` | `sp_applications` (insert), `sp_portfolio`, `sp_ratings` (insert) | Only editors bid / have a portfolio; only the job's client reviews its editor (Part 2) |
 | `zz_sp_mod_guard` | `sp_messages`, `sp_jobs`, `sp_applications`, `profiles` (name, price, bio), `sp_portfolio`, `sp_ratings`, `sp_notifications` | Hides phone numbers, emails, links, @IDs; records strikes; blocks suspended users |
@@ -75,3 +89,5 @@
 | `004_editor_profile.sql` | Part 4 |
 | `005_job_posting.sql` | Part 5 |
 | `006_bidding.sql` | Part 6 |
+| `007_payments.sql` | Part 7 |
+| `008_project_workflow.sql` | Part 8 |

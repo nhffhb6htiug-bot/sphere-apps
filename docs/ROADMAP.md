@@ -12,6 +12,8 @@ Budget: ₹0 (free tiers). One part at a time: build → test → fix → next. 
 | 1 | Foundation: structure, config, roles helpers, settings, system status, docs | 2.1.0 | `002_foundation.sql` |
 | 2 | Auth + user roles: route protection, session end handling, logout cleanup, DB role checks, suspended banner | 2.2.0 | `003_auth_roles.sql` |
 | 3 | Client profile + dashboard: home dashboard, My Projects (Active/History/All), friendly status, Edit Profile, client nav, empty states | 2.3.0 | none (app only) |
+| 8 | Project workflow + deadlines: work clock after payment, 24 h per delivery day, 4 h grace, late detection, live countdown, preview link, ask / give more time, timeline, notifications | 2.8.0 | `008_project_workflow.sql` |
+| 7 | Editor selection + payment: project card for both sides, price lock, payment screen, payment records (pending/paid/failed/refunded), duplicate protection, private split | 2.7.0 | `007_payments.sql` |
 | 6 | Job discovery + bidding: search/filter jobs, bid with price + delivery days + message, one bid per job, eligibility rules, compare + choose, other bids closed | 2.6.0 | `006_bidding.sql` |
 | 5 | Job posting + AI: 3-step Post a Job, AI fills the form from plain words, style/format/length/revisions, review, drafts, requirements on job pages | 2.5.0 | `005_job_posting.sql` |
 | 4 | Editor profile + verification: editor dashboard, availability, bio, edit editor profile, My Jobs tabs, rating display, pending/approved/rejected, ₹29 fee with UTR, admin fee check + reject | 2.4.0 | `004_editor_profile.sql` |
@@ -72,3 +74,24 @@ revisions (3 free, 4th ₹50) + approval + payout + bonus · disputes (AI summar
 7. Client → project → **View bids & choose an editor** → sort, open **Compare** → **Choose this editor**.
 8. Project shows "Agreeing on price" with the chosen bid; Editor A gets "You got selected 🎉"; Editor B's bid shows **Not selected** and B gets a notification.
 9. Client tries to choose again → refused.
+
+## Part 7 — test checklist (Razorpay test mode)
+1. Supabase: run `007_payments.sql` → then `checks/payments_check.sql` → all ✅.
+2. Upload `index.html.html` → Settings shows **Sphere v2.7.0**.
+3. Client chooses a bid (Part 6) → project page shows **Project SPH-…**, the editor, price, delivery days.
+4. Client taps **Accept & Lock This Amount** → goes to **Payment** → total to pay (no Sphere fee shown).
+5. Pay with Razorpay test card **4111 1111 1111 1111** (any future date, any CVV) or test UPI **success@razorpay** → "Payment successful" → project "Editor is working", chip **Paid ✅**.
+6. Try test UPI **failure@razorpay** on another project → "Payment failed" → payment screen shows the failure → retry works.
+7. Open Payment again on the paid project → "Payment received", no pay button.
+8. Editor sees the same project: "You receive …", payment chip, "start working".
+
+## Part 8 — test checklist
+1. Supabase: run `008_project_workflow.sql` → then `checks/project_workflow_check.sql` → all ✅ (line 4 says if the 10-minute check is on).
+2. Upload `index.html.html` → Settings shows **Sphere v2.8.0**.
+3. Pay a project (Part 7) → editor and client both get "project started"; project page shows the **countdown**.
+4. Editor → **Need more time?** → +12 h + reason → client gets a notification and sees **Give the time / No**.
+5. Client → **Give the time** → new deadline shows; timeline has both lines.
+6. Client → **Give the editor more time** → +6 h → deadline moves again.
+7. Editor → **Send preview to client** with a Drive link → client sees **Preview ready** + link; an Instagram link is refused.
+8. Quick late test (SQL Editor): `update public.sp_project_work set due_at = now() - interval '5 hours' where phase = 'active';` then open the app → project shows **Late**, both get "Project is late"; client can give more time.
+9. My Projects / editor Home show the ⏳ / ⚠️ / 🔴 / 👀 chips.

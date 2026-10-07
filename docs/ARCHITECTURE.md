@@ -59,6 +59,8 @@ The script starts with a **map of headings**. Search for them:
 | `CHAT` | WhatsApp-style chat, realtime, media, voice notes |
 | `PAYMENT` / `PROJECT STATUS` | Razorpay checkout, escrow, delivery, approve & release |
 | `ADMIN` | Admin Panel (PIN unlock), verification, reports, payouts, suspicious users, system status |
+| `PART 8: PROJECT WORKFLOW + DEADLINES` | `WORK_CACHE`, `workState()`, `workChip()`, `projectWorkSection()`, countdown timer, preview / more-time actions |
+| `PART 7: SELECTION + PAYMENT` | `PAY_STATES`, `projectSummaryCard()`, `acceptAmount()`, `SCREENS.payment`, `payWithRazorpay()` |
 | `PART 6: JOB DISCOVERY + BIDDING` | `jobFilter`, `renderAvailList()`, `SCREENS.jobBidScreen`, `submitBid()`, `SCREENS.applications`, `selectBid()` |
 | `PART 5: JOB POSTING + AI` | `SCREENS.postJob`, `aiFillJob()`, `localJobParse()`, drafts, `submitJob()`, `jobRequirementsHtml()` |
 | `PART 4: EDITOR PROFILE + VERIFICATION` | `AVAILABILITY`, `VERIFY_STATES`, `EDITOR_STATUS`, `loadEditorWork()`, editor dashboard, My Jobs tabs, `editorProfileEdit`, fee + reject flows, `profileUpdate()` |
@@ -129,6 +131,29 @@ The script starts with a **map of headings**. Search for them:
 * **Who may bid** (`sp_bid_eligibility`, same rule in app and database): verified ✔ editors; editors who applied and are waiting for verification may do their first `free_works` (3) paid works (today's rule, unchanged). Not allowed: not-applied, rejected, suspended, status "Away", own job, closed or expired job. Setting `bids_verified_only = 1` makes it verified-only.
 * **Client → Bids** (`applications`): sort Recommended / Lowest price / Fastest / Top rated, **Compare** table, badges (Lowest price, Fastest, Top rated), editor rating, jobs done, availability, verified tick.
 * **Choose this editor** (`sp_bid_select`, one database step): job → that editor, status `negotiating` with the bid as the editor's price (same as before, the client then locks it); the chosen bid → `selected`; **all other bids → `rejected`**; everyone is notified. A second choice is refused.
+
+### Selection + payment (Part 7)
+* **Project = the job + its chosen editor.** Shown everywhere as **Project SPH-XXXXXX** (from the job id).
+* **Project card** on the project page (client, editor, admin): project code, the other person, price, delivery days (from the chosen bid), deadline, **payment status chip**. Clients see only what they pay; editors see "You receive"; Sphere's fee is never shown to clients.
+* **Accept the price** → `sp_pay_lock_price` (database checks it is the *other* side's price) → status `payment-pending` → the client goes straight to **Payment**. Counter-offers work as before.
+* **Payment screen:** project, editor, delivery, total to pay ("includes everything"), what happens next, secure pay button (test-mode note when using `rzp_test_`). Paid / refunded / not-ready projects show a clear message instead of a pay button.
+* **Checkout:** `sp_pay_start` (ready? already paid?) → existing `create-razorpay-order` (amount from the project, never from the app) → Razorpay → `sp_pay_record` (order/payment IDs, or the failure reason) → existing `verify-razorpay-payment` marks the project paid.
+* **Payment record** `sp_payments` (one per project): `pending → paid` (or `failed`, then retry) → `refunded`. Paid / refunded only come from the server (job row updated by the Edge Functions → trigger). Client and editor can read their own; nobody can change it from the app.
+* **Duplicate protection:** one record per project, `sp_pay_start` refuses a paid project, the pay button locks while paying; if Razorpay still reports a second payment it is kept in `duplicate_refs` and admins are told to refund it.
+* **Sphere's split** (editor share, Sphere fee, bonus pool) is stored in `sp_payment_splits`, admins only.
+* Note: the older `sp_jobs.editor_amount / platform_fee` columns are still filled by the Edge Functions; the app never shows them to clients. Hiding them at the database level needs the Edge Function code.
+
+### Project workflow + deadlines (Part 8)
+* **Work clock** (`sp_project_work`) starts automatically when a project is paid (status → `in-progress`). Projects already in progress when 008 was installed start their clock at that moment (no surprise "late").
+* **Deadline** = 24 hours × the delivery days the editor promised in the bid (no days → 24 h). Then a **4-hour grace period**, then **late**. Settings: `work_default_hours` (24), `work_grace_hours` (4), `work_reminder_hours` (4), `work_fixed_hours` (0 = use the bid; e.g. 24 = every project 24 h).
+* **States:** Not started → On track → Due soon (last 4 h) → Grace period → Late; Preview sent (on time / late); Completed (final video delivered); Cancelled (refunded).
+* **Project page:** live countdown (hh:mm:ss), progress bar, start + deadline times (IST), grace explanation.
+  * Editor: **Send preview** (watermarked link: Drive / YouTube unlisted / WeTransfer / Dropbox) → client is told; can update the preview link. **Ask for more time** (+2…72 h with a reason).
+  * Client: **answer the request** (give / no) or **give more time** (+2…48 h) any time while the editor is working. An approved extension moves the deadline (from the old deadline, or from now if it already passed) and clears "late".
+  * The existing final video submission stays below ("send after the client has seen your preview").
+* **Timeline** (`sp_project_events`) on the project page: posted, editor chosen, price locked, paid, payment failed, work started, reminder, deadline passed, late, time asked / given / refused, preview sent / updated, delivered, approved, completed, refunded.
+* **Notifications** (once each per deadline): project started (both), 4 hours left (editor), deadline passed + grace (both), late (both), preview ready (client), time asked (client), time given / refused (editor). `sp_work_tick()` checks every 10 minutes when pg_cron is available, and every time someone opens the app.
+* **Lists:** My Projects and the editor's work show chips (⏳ due in…, ⚠️ grace, 🔴 late, 👀 preview) and "what to do next".
 
 ### Job lifecycle (today)
 `open → negotiating → payment-pending → in-progress → delivered → approved → closed` (+ `refunded`)

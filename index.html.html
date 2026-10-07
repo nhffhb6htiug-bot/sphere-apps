@@ -248,6 +248,22 @@ h1,h2,h3{color:var(--text);}
 .chat-head .ch-back, .chat-head .ch-more{background:transparent; border:none; color:#fff; font-size:24px; line-height:1; cursor:pointer; padding:4px 8px;}
 .chat-head .avatar{margin:0 !important; width:40px !important; height:40px !important; flex:0 0 40px; font-size:18px;}
 .chat-head .ch-name{flex:1; min-width:0; cursor:pointer;}
+/* PART 8: project workflow */
+.wk-card{text-align:center;}
+.wk-count{font-size:30px; font-weight:800; letter-spacing:.5px; font-variant-numeric:tabular-nums; margin:4px 0;}
+.wk-state{display:inline-block; font-size:12px; font-weight:800; padding:4px 10px; border-radius:20px;}
+.wk-meta{font-size:12px; color:var(--muted); margin-top:4px;}
+.wk-bar{height:6px; border-radius:6px; background:var(--border); overflow:hidden; margin:10px 0 4px;}
+.wk-bar i{display:block; height:100%; border-radius:6px;}
+.wk-chip{display:inline-block; font-size:11px; font-weight:800; padding:3px 8px; border-radius:10px; margin:6px 0 0;}
+.tl{position:relative; margin:8px 0 0; padding-left:22px;}
+.tl:before{content:''; position:absolute; left:8px; top:4px; bottom:4px; width:2px; background:var(--border);}
+.tl-item{position:relative; margin-bottom:12px;}
+.tl-item i{position:absolute; left:-22px; top:0; width:18px; height:18px; border-radius:50%; background:#fff; border:2px solid var(--border); font-style:normal; font-size:10px; display:flex; align-items:center; justify-content:center;}
+.tl-item b{font-size:13px;} .tl-item p{font-size:12px; color:var(--muted); margin-top:1px;}
+.hrs-pick{display:flex; gap:6px; flex-wrap:wrap; margin:6px 0 10px;}
+.hrs-pick button{padding:7px 12px; border-radius:16px; border:1px solid var(--border); background:#fff; font-size:12px; font-weight:700; cursor:pointer; color:var(--text);}
+.hrs-pick button.on{background:var(--blue); border-color:var(--blue); color:#fff;}
 /* PART 7: payment */
 .pay-chip{display:inline-block; font-size:11px; font-weight:800; padding:3px 9px; border-radius:20px;}
 .proj-card .kv b{text-align:right;}
@@ -396,7 +412,8 @@ details.card[open] summary::after{content:'－';}
      PROJECT STATUS · ADMIN · CONTACT PROTECTION · SYSTEM STATUS ·
      PART 2: AUTH + ROLE ACCESS · PART 3: CLIENT PROFILE + DASHBOARD ·
      PART 4: EDITOR PROFILE + VERIFICATION · PART 5: JOB POSTING + AI ·
-     PART 6: JOB DISCOVERY + BIDDING · PART 7: SELECTION + PAYMENT
+     PART 6: JOB DISCOVERY + BIDDING · PART 7: SELECTION + PAYMENT ·
+     PART 8: PROJECT WORKFLOW + DEADLINES
    Adding a new part: put its code in a block "PART n: <name>" near the end of
    this script, its database SQL in supabase/migrations/00n_<name>.sql, and
    turn it on with SPHERE_CONFIG.features. See docs/ARCHITECTURE.md.
@@ -407,8 +424,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.7.0',
-  build: 'part7-payment',
+  appVersion: '2.8.0',
+  build: 'part8-project-workflow',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
@@ -559,6 +576,7 @@ function toAppUser(profile){
 async function fetchAndSetCurrentUser(){
   loadPlatformFee();
   loadSettings();
+  setTimeout(workTickSoon, 1500);
   setTimeout(() => { if(currentUser){ listenForMessages(); markDelivered(); } }, 0);
   const { data:{ user } } = await sb.auth.getUser();
   if(!user){ currentUser = null; return null; }
@@ -902,7 +920,7 @@ function editorShare(amount){ return Math.round(Number(amount || 0) * (100 - PLA
 // (or if the table can't be read), so the app never breaks because of a missing value.
 const SETTINGS_DEFAULTS = Object.freeze({
   platform_fee_percent: 5, verify_fee: 29, revision_fee: 50, free_revisions: 3, pro_fee: 199, strike_limit: 3,
-  free_works: 3, bids_verified_only: 0
+  free_works: 3, bids_verified_only: 0, work_default_hours: 24, work_grace_hours: 4, work_reminder_hours: 4
 });
 let SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
 let settingsLoaded = false;
@@ -1983,7 +2001,7 @@ SCREENS.jobs = async (data) => {
       .map(mapJob)
       .sort((x, y) => new Date(y.createdAt) - new Date(x.createdAt));
   }
-  if(user.role === 'editor') return editorJobsView(user, list, data, await loadBidContext(user, list));
+  if(user.role === 'editor'){ await loadWorkFor(list.filter(j => j.assignedEditor === user.id && j.status === 'in-progress').map(j => j.id)); return editorJobsView(user, list, data, await loadBidContext(user, list)); }
   return `
   <div class="header"><h1>Jobs</h1><p>${isClientRole(user)?'Your posted jobs':'Available & assigned jobs'}</p></div>
   <div class="screen" style="padding-top:0;">
@@ -2558,6 +2576,7 @@ SCREENS.projectStatus = async () => {
   <div class="screen" style="padding-top:0;">
     ${isClient ? clientStatusLine(job) : ''}
     ${await projectSummaryCard(job, user, isClient, isEditor)}
+    ${await projectWorkSection(job, user, isClient, isEditor)}
     <div class="status-track">
       ${['Posted','Negotiate','Payment','In Progress','Delivered','Approved'].map((s,i)=>`
         <div class="status-step ${i<=stepIndex?'done':''}"><div class="dot"></div>${s}</div>`).join('')}
@@ -2594,7 +2613,7 @@ SCREENS.projectStatus = async () => {
     ${isClient && job.status==='payment-pending' ? `<button class="btn btn-primary" onclick="currentJobId='${job.id}'; nav('payment')">💳 Pay ${rupees(amount)} securely</button>` : ''}
     ${isEditor && job.status==='payment-pending' ? `<p class="muted center-text">Price locked 🔒 Waiting for the client's payment. You will be told when it is paid — then you can start.</p>` : ''}
     ${isEditor && job.status==='in-progress' ? `
-      <div class="field"><label>Delivery Link</label><input id="deliveryLink" placeholder="https://drive.google.com/..."></div>
+      <div class="field"><label>Final video link (send after the client has seen your preview)</label><input id="deliveryLink" placeholder="https://drive.google.com/..."></div>
       <button class="btn btn-primary" onclick="uploadDelivery('${job.id}')">Submit Final Video</button>` : ''}
     ${isClient && job.status==='delivered' ? `<button class="btn btn-primary" onclick="approveJob('${job.id}')">✅ Approve & Release Payment</button>` : ''}
     ${isClient && job.status==='approved' && !rated ? `<button class="btn btn-outline" onclick="currentJobId='${job.id}'; selectedStars=5; nav('ratings')">⭐ Rate Editor</button>` : ''}
@@ -3252,6 +3271,12 @@ function clientProjectView(j, bidCount, editor, user){
   if(key === 'negotiating' && j.proposedBy && j.proposedBy !== user.id) action = 'The editor sent a price — reply';
   if(key === 'payment-pending') action = 'Pay to start the work';
   if(key === 'delivered') action = 'Check the video and approve';
+  const w = WORK_CACHE[j.id];
+  if(w && key === 'in-progress'){
+    if(w.pending_extension_hours) action = 'The editor asked for more time — reply';
+    else if(w.phase === 'preview') action = 'Preview is ready — have a look';
+    else if(workState(w).key === 'late') action = 'The editor is late — you can give more time';
+  }
   return {
     job: j, key, meta: CLIENT_STATUS[key], action, bids: bidCount,
     active: CLIENT_ACTIVE.includes(key),
@@ -3271,6 +3296,7 @@ async function loadClientProjects(user){
   }
   const edIds = [...new Set(list.map(j => j.assignedEditor).filter(Boolean))];
   const eds = edIds.length ? await getProfilesByIds(edIds) : {};
+  await loadWorkFor(list.filter(j => j.assignedEditor).map(j => j.id));
   const items = list.map(j => clientProjectView(j, bids[j.id] || 0, eds[j.assignedEditor], user));
   return { ok: true, items, stats: clientStats(items) };
 }
@@ -3296,6 +3322,7 @@ function clientProjectCard(x, compact){
     ${compact ? '' : `<p class="muted">${esc(j.desc).slice(0, 70)}${j.desc.length > 70 ? '…' : ''}</p>`}
     ${x.active ? `<div class="cl-bar"><i style="width:${pct}%"></i></div>` : ''}
     ${x.action ? `<p class="cl-action-txt">👉 ${esc(x.action)}</p>` : ''}
+    ${workChip(WORK_CACHE[j.id], j)}
     <p class="muted">${x.editorName ? '🎬 ' + esc(x.editorName) + ' · ' : ''}${rupees(x.amount)} · Posted ${fmtDate(j.createdAt)}${j.deadline && x.active ? ' · Due ' + fmtDate(j.deadline) : ''}</p>
   </div>`;
 }
@@ -3525,6 +3552,7 @@ async function loadEditorWork(user){
     sb.from('sp_ratings').select('stars, review, created_at').eq('editor_id', user.id).order('created_at', { ascending: false })
   ]);
   const jobs = (mine.data || []).map(mapJob);
+  await loadWorkFor(jobs.filter(j => EDITOR_ACTIVE.includes(j.status)).map(j => j.id));
   const r = rates.data || [];
   const done = jobs.filter(j => EDITOR_DONE.includes(j.status));
   return {
@@ -3540,6 +3568,15 @@ async function loadEditorWork(user){
 }
 function editorJobAction(j, user){
   if(j.status === 'negotiating' && j.proposedBy && j.proposedBy !== user.id) return 'The client sent a price — reply';
+  const w = WORK_CACHE[j.id];
+  if(j.status === 'in-progress' && w){
+    if(w.phase === 'preview') return 'Preview sent — waiting for the client';
+    if(w.pending_extension_hours) return 'Waiting for the client to answer your time request';
+    const st = workState(w);
+    if(st.key === 'late') return 'LATE — send the preview now';
+    if(st.key === 'grace') return 'Deadline passed — send the preview in the grace time';
+    return 'Send the preview — ' + st.short;
+  }
   if(j.status === 'in-progress') return 'Work on it and deliver the video';
   return '';
 }
@@ -3553,6 +3590,7 @@ function editorJobCard(j, user){
     ${j.title ? `<p class="muted" style="font-size:12px; margin-top:2px;">${esc(j.category)}</p>` : ''}
     <p class="muted">${esc(j.desc).slice(0, 70)}${j.desc.length > 70 ? '…' : ''}</p>
     ${action ? `<p class="cl-action-txt">👉 ${esc(action)}</p>` : ''}
+    ${j.assignedEditor === user.id ? workChip(WORK_CACHE[j.id], j) : ''}
     <p class="muted">${j.assignedEditor === user.id && j.lockedAmount ? 'You get ' : 'Budget '}${rupees(amount)}${j.deadline ? ' · Due ' + fmtDate(j.deadline) : ''}</p>
   </div>`;
 }
@@ -4715,6 +4753,201 @@ async function payWithRazorpay(jobId){
     busy(false);
     alert('Something went wrong: ' + e.message);
   }
+}
+
+/* ============ PART 8: PROJECT WORKFLOW + DEADLINES ============
+   After payment the work clock starts (database: sp_project_work).
+   Deadline = 24 h per delivery day from the bid (default 24 h), then a 4 h grace
+   period, then "late". Editor: send preview link, ask for more time. Client:
+   answer the request or give more time. Everything is written to the project
+   timeline (sp_project_events). Reminders / late notices: sp_work_tick(). */
+let WORK_CACHE = {};
+let workTimer = null;
+let lastWorkTick = 0;
+const HOURS_GIVE = [2, 6, 12, 24, 48];
+const HOURS_ASK = [2, 6, 12, 24, 48, 72];
+
+function workTickSoon(){
+  if(!currentUser || Date.now() - lastWorkTick < 5 * 60000) return;
+  lastWorkTick = Date.now();
+  sb.rpc('sp_work_tick').then(() => {}, () => {});
+}
+async function loadWorkFor(ids){
+  if(!ids || !ids.length) return;
+  try {
+    const { data, error } = await sb.from('sp_project_work').select('*').in('job_id', ids.slice(0, 200));
+    if(!error) (data || []).forEach(w => { WORK_CACHE[w.job_id] = w; });
+  } catch(e) {}
+}
+function fmtDT(ts){
+  if(!ts) return '-';
+  return new Date(ts).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+}
+function hms(ms){
+  const t = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60;
+  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+}
+function hm(ms){
+  const t = Math.max(0, Math.round(ms / 60000));
+  const d = Math.floor(t / 1440), h = Math.floor((t % 1440) / 60), m = t % 60;
+  return d ? d + 'd ' + h + 'h' : h ? h + 'h ' + m + 'm' : m + 'm';
+}
+// where a project stands right now
+function workState(w){
+  if(!w) return { key: 'none' };
+  const now = Date.now(), due = new Date(w.due_at).getTime(), grace = due + (Number(w.grace_hours) || 4) * 3600000;
+  const remindMs = (Number(getSetting('work_reminder_hours')) || 4) * 3600000;
+  if(w.phase === 'completed') return { key: 'completed', label: 'Completed', color: '#15803d', bg: '#e7f7ec', short: 'completed' };
+  if(w.phase === 'cancelled') return { key: 'cancelled', label: 'Cancelled', color: '#475569', bg: '#eef2f7', short: 'cancelled' };
+  if(w.phase === 'preview') return { key: 'preview', label: w.preview_on_time === false ? 'Preview sent (late)' : 'Preview sent on time ✓', color: w.preview_on_time === false ? '#b45309' : '#15803d', bg: w.preview_on_time === false ? '#fff4e0' : '#e7f7ec', short: 'preview ready' };
+  if(now < due) return { key: due - now <= remindMs ? 'soon' : 'ok', label: due - now <= remindMs ? 'Due soon' : 'On track', color: due - now <= remindMs ? '#b45309' : '#1657ff', bg: due - now <= remindMs ? '#fff4e0' : '#e8efff', short: 'due in ' + hm(due - now), due, grace };
+  if(now < grace) return { key: 'grace', label: 'Grace period', color: '#b45309', bg: '#fff4e0', short: 'grace ' + hm(grace - now) + ' left', due, grace };
+  return { key: 'late', label: 'Late', color: '#c62828', bg: '#fdecec', short: 'late by ' + hm(now - grace), due, grace };
+}
+function workChip(w, job){
+  if(!w || (job && job.status !== 'in-progress')) return '';
+  const st = workState(w);
+  if(st.key === 'none' || st.key === 'completed' || st.key === 'cancelled') return '';
+  const icon = { ok: '⏳', soon: '⏰', grace: '⚠️', late: '🔴', preview: '👀' }[st.key] || '';
+  return `<span class="wk-chip" style="color:${st.color}; background:${st.bg};">${icon} ${esc(st.key === 'preview' ? st.label : st.short)}</span>`;
+}
+
+// live countdowns (one timer for the whole screen)
+function startWorkTimer(){
+  if(workTimer) clearInterval(workTimer);
+  workTimer = setInterval(() => {
+    const els = document.querySelectorAll('.wk-count[data-due]');
+    if(!els.length){ clearInterval(workTimer); workTimer = null; return; }
+    const now = Date.now();
+    els.forEach(el => {
+      const due = Number(el.dataset.due), grace = Number(el.dataset.grace);
+      if(now < due) el.textContent = hms(due - now);
+      else if(now < grace) el.textContent = hms(grace - now);
+      else el.textContent = '+' + hms(now - grace);
+      const cap = el.parentElement && el.parentElement.querySelector('.wk-cap');
+      if(cap) cap.textContent = now < due ? 'left until the deadline' : now < grace ? 'grace time left' : 'late by';
+    });
+  }, 1000);
+}
+
+// ---- Project page: clock, actions, preview, timeline
+async function projectWorkSection(job, user, isClient, isEditor){
+  const party = isClient || isEditor || isAdminUser(user);
+  if(!party || !job.assignedEditor) return '';
+  const [wr, xr, er] = await Promise.all([
+    sb.from('sp_project_work').select('*').eq('job_id', job.id).maybeSingle().then(r => r, () => ({ data: null })),
+    sb.from('sp_project_extensions').select('*').eq('job_id', job.id).eq('status', 'pending').maybeSingle().then(r => r, () => ({ data: null })),
+    sb.from('sp_project_events').select('*').eq('job_id', job.id).order('at', { ascending: false }).limit(60).then(r => r, () => ({ data: null }))
+  ]);
+  const w = wr && wr.data, ext = xr && xr.data, events = (er && er.data) || [];
+  if(w) WORK_CACHE[job.id] = w;
+  let html = '';
+  if(w && job.status === 'in-progress'){
+    const st = workState(w);
+    const pct = st.due ? Math.min(100, Math.max(0, Math.round((Date.now() - new Date(w.started_at).getTime()) / (st.due - new Date(w.started_at).getTime()) * 100))) : 100;
+    const barColor = st.key === 'late' ? '#c62828' : (st.key === 'grace' || st.key === 'soon') ? '#f59e0b' : 'var(--blue)';
+    html += `<div class="card wk-card">
+      <span class="wk-state" style="color:${st.color}; background:${st.bg};">${esc(st.label)}</span>
+      ${['ok', 'soon', 'grace', 'late'].includes(st.key) ? `
+        <div class="wk-count" data-due="${st.due}" data-grace="${st.grace}">${st.key === 'late' ? '+' + hms(Date.now() - st.grace) : hms((st.key === 'grace' ? st.grace : st.due) - Date.now())}</div>
+        <p class="wk-cap muted" style="font-size:12px;">${st.key === 'late' ? 'late by' : st.key === 'grace' ? 'grace time left' : 'left until the deadline'}</p>
+        <div class="wk-bar"><i style="width:${pct}%; background:${barColor};"></i></div>` : ''}
+      <p class="wk-meta">Started ${fmtDT(w.started_at)} · Deadline <b>${fmtDT(w.due_at)}</b>${w.extended_hours ? ' (+' + w.extended_hours + ' h given)' : ''}</p>
+      <p class="wk-meta">${w.grace_hours}-hour grace period after the deadline, then the project is marked late.</p>
+    </div>`;
+    // editor: preview + more time
+    if(isEditor && w.phase === 'active'){
+      html += `<div class="card"><b>👀 Ready for preview?</b>
+        <p class="muted" style="font-size:12px; margin:4px 0 8px;">Share a <b>watermarked</b> preview (Google Drive, YouTube unlisted, WeTransfer or Dropbox). The client can watch it; the final file comes later.</p>
+        <div class="field"><input id="pvLink" placeholder="https://drive.google.com/…"></div>
+        <div class="field"><textarea id="pvNote" maxlength="500" placeholder="Note for the client (optional): what to check, music used…" style="min-height:60px;"></textarea></div>
+        <button class="btn btn-primary" id="pvBtn" onclick="submitPreview('${job.id}')">Send preview to client</button></div>
+        ${ext ? `<div class="card" style="border:1.5px solid #f59e0b;"><b>⏳ You asked for ${ext.hours} more hours</b><p class="muted" style="font-size:12px; margin-top:4px;">Waiting for the client to answer.${ext.reason ? ' Reason: ' + esc(ext.reason) : ''}</p></div>`
+        : `<details class="card"><summary><b>⏳ Need more time?</b></summary>
+          <p class="muted" style="font-size:12px; margin:8px 0 4px;">Ask the client. The deadline changes only if they say yes.</p>
+          <div class="hrs-pick" id="askHrs">${HOURS_ASK.map((h, i) => `<button type="button" data-h="${h}" class="${i === 2 ? 'on' : ''}" onclick="pickHours('askHrs', this)">+${h} h</button>`).join('')}</div>
+          <div class="field"><input id="askReason" maxlength="300" placeholder="Reason (e.g. waiting for more footage)"></div>
+          <button class="btn btn-outline" onclick="askMoreTime('${job.id}')">Ask the client</button></details>`}`;
+    }
+    // client: answer request / give time
+    if(isClient && w.phase === 'active'){
+      if(ext) html += `<div class="card" style="border:1.5px solid #f59e0b;"><b>⏳ The editor asked for ${ext.hours} more hours</b>
+          ${ext.reason ? `<p style="font-size:13px; margin:6px 0;">“${esc(ext.reason)}”</p>` : ''}
+          <p class="muted" style="font-size:12px; margin-bottom:10px;">New deadline would be about ${fmtDT(new Date(Math.max(new Date(w.due_at).getTime(), Date.now()) + ext.hours * 3600000))}.</p>
+          <div class="cl-row"><button class="btn btn-primary" onclick="answerTime('${job.id}', true)">Give the time</button><button class="btn btn-outline" onclick="answerTime('${job.id}', false)">No</button></div></div>`;
+      else html += `<details class="card"><summary><b>⏳ Give the editor more time</b></summary>
+          <div class="hrs-pick" id="giveHrs">${HOURS_GIVE.map((h, i) => `<button type="button" data-h="${h}" class="${i === 2 ? 'on' : ''}" onclick="pickHours('giveHrs', this)">+${h} h</button>`).join('')}</div>
+          <div class="field"><input id="giveNote" maxlength="300" placeholder="Note for the editor (optional)"></div>
+          <button class="btn btn-outline" onclick="giveMoreTime('${job.id}')">Give more time</button></details>`;
+    }
+  }
+  // preview link (both sides)
+  if(w && w.preview_link && ['in-progress', 'delivered'].includes(job.status)){
+    html += `<div class="card" style="border:1.5px solid #15803d;"><b>👀 Preview${w.phase === 'preview' ? ' ready' : ''}</b>
+      <p class="muted" style="font-size:12px; margin:2px 0 6px;">Sent ${fmtDT(w.preview_at)}${w.preview_on_time === false ? ' · after the deadline' : ' · on time'}</p>
+      <p style="font-size:13px;">${linkOrText(w.preview_link)}</p>
+      ${w.preview_note ? `<p style="font-size:13px; margin-top:6px;">“${esc(w.preview_note)}”</p>` : ''}
+      ${isEditor && w.phase === 'preview' ? `<details style="margin-top:8px;"><summary class="muted" style="font-size:12px;">Send a new preview link</summary>
+        <div class="field" style="margin-top:8px;"><input id="pvLink" placeholder="https://drive.google.com/…"></div>
+        <div class="field"><textarea id="pvNote" maxlength="500" placeholder="What changed?" style="min-height:50px;"></textarea></div>
+        <button class="btn btn-outline" id="pvBtn" onclick="submitPreview('${job.id}')">Update preview</button></details>` : ''}
+    </div>`;
+  }
+  // timeline
+  if(events.length){
+    const ic = { posted: '📝', editor_chosen: '🤝', price_locked: '🔒', paid: '💳', payment_failed: '⚠️', started: '▶️', reminder: '⏰', deadline_passed: '⚠️', late: '🔴',
+      extension_requested: '⏳', extension_approved: '✅', extension_declined: '✖', extension_given: '⏳', preview: '👀', preview_updated: '👀', delivered: '📦', approved: '✅', closed: '🏁', refunded: '💸', reopened: '🔄' };
+    const item = e => `<div class="tl-item"><i>${ic[e.kind] || '•'}</i><b>${esc(e.title)}</b><p>${fmtDT(e.at)}${e.details ? ' · ' + esc(e.details) : ''}</p></div>`;
+    html += `<details class="card" ${job.status === 'in-progress' ? '' : 'open'}><summary><b>📜 Project timeline (${events.length})</b></summary>
+      <div class="tl">${events.map(item).join('')}</div></details>`;
+  }
+  if(html) setTimeout(startWorkTimer, 0);
+  return html;
+}
+function pickHours(boxId, btn){ document.querySelectorAll('#' + boxId + ' button').forEach(b => b.classList.toggle('on', b === btn)); }
+function pickedHours(boxId){ const b = document.querySelector('#' + boxId + ' button.on'); return b ? Number(b.dataset.h) : 0; }
+function workRpcError(error){
+  if(/sp_work_|schema cache|does not exist|Could not find/i.test((error && error.message) || '')) return 'This needs the latest database update (008_project_workflow.sql).';
+  return (error && error.message) || 'Something went wrong';
+}
+async function submitPreview(jobId){
+  const link = ((document.getElementById('pvLink') || {}).value || '').trim();
+  const note = ((document.getElementById('pvNote') || {}).value || '').trim();
+  if(!/^https?:\/\/\S+$/i.test(link)){ alert('Paste the full preview link (it starts with https://)'); return; }
+  const btn = document.getElementById('pvBtn'); if(btn) btn.disabled = true;
+  const { data, error } = await sb.rpc('sp_work_submit_preview', { p_job: jobId, p_link: link, p_note: note || null });
+  if(btn) btn.disabled = false;
+  if(error){ alert(workRpcError(error)); return; }
+  alert(data && data.on_time === false ? 'Preview sent 👀 (after the deadline). The client has been told.' : 'Preview sent 👀 The client has been told.');
+  currentJobId = jobId; nav('projectStatus');
+}
+async function askMoreTime(jobId){
+  const hours = pickedHours('askHrs');
+  const reason = ((document.getElementById('askReason') || {}).value || '').trim();
+  if(!hours){ alert('Choose how many hours'); return; }
+  if(reason.length < 5){ alert('Write a short reason for the client.'); return; }
+  const { error } = await sb.rpc('sp_work_request_extension', { p_job: jobId, p_hours: hours, p_reason: reason });
+  if(error){ alert(workRpcError(error)); return; }
+  alert('Request sent ⏳ The client will answer.');
+  currentJobId = jobId; nav('projectStatus');
+}
+async function answerTime(jobId, approve){
+  if(!confirm(approve ? 'Give the editor the extra time?' : 'Say no to more time?')) return;
+  const { data, error } = await sb.rpc('sp_work_answer_extension', { p_job: jobId, p_approve: approve });
+  if(error){ alert(workRpcError(error)); return; }
+  alert(approve ? 'Done ✅ New deadline: ' + fmtDT(data && data.due_at) : 'The editor has been told.');
+  currentJobId = jobId; nav('projectStatus');
+}
+async function giveMoreTime(jobId){
+  const hours = pickedHours('giveHrs');
+  const note = ((document.getElementById('giveNote') || {}).value || '').trim();
+  if(!hours){ alert('Choose how many hours'); return; }
+  if(!confirm('Give the editor ' + hours + ' more hours?')) return;
+  const { data, error } = await sb.rpc('sp_work_give_time', { p_job: jobId, p_hours: hours, p_note: note || null });
+  if(error){ alert(workRpcError(error)); return; }
+  alert('Done ✅ New deadline: ' + fmtDT(data && data.due_at));
+  currentJobId = jobId; nav('projectStatus');
 }
 
 (function(){
