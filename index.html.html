@@ -248,6 +248,13 @@ h1,h2,h3{color:var(--text);}
 .chat-head .ch-back, .chat-head .ch-more{background:transparent; border:none; color:#fff; font-size:24px; line-height:1; cursor:pointer; padding:4px 8px;}
 .chat-head .avatar{margin:0 !important; width:40px !important; height:40px !important; flex:0 0 40px; font-size:18px;}
 .chat-head .ch-name{flex:1; min-width:0; cursor:pointer;}
+/* PART 7: payment */
+.pay-chip{display:inline-block; font-size:11px; font-weight:800; padding:3px 9px; border-radius:20px;}
+.proj-card .kv b{text-align:right;}
+.pay-hero{text-align:center; padding:22px 16px;}
+.pay-hero .big-price{margin:6px 0 2px;}
+.pay-steps{font-size:13px; line-height:1.7; margin:6px 0 0 18px;}
+.pay-safe{display:flex; gap:10px; align-items:flex-start; font-size:12px; color:var(--muted);}
 /* PART 6: bidding */
 .jf{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px; margin-bottom:12px;}
 .jf input, .jf select{width:100%; padding:9px 10px; border-radius:10px; border:1px solid var(--border); font:inherit; font-size:13px; background:#fff;}
@@ -389,7 +396,7 @@ details.card[open] summary::after{content:'－';}
      PROJECT STATUS · ADMIN · CONTACT PROTECTION · SYSTEM STATUS ·
      PART 2: AUTH + ROLE ACCESS · PART 3: CLIENT PROFILE + DASHBOARD ·
      PART 4: EDITOR PROFILE + VERIFICATION · PART 5: JOB POSTING + AI ·
-     PART 6: JOB DISCOVERY + BIDDING
+     PART 6: JOB DISCOVERY + BIDDING · PART 7: SELECTION + PAYMENT
    Adding a new part: put its code in a block "PART n: <name>" near the end of
    this script, its database SQL in supabase/migrations/00n_<name>.sql, and
    turn it on with SPHERE_CONFIG.features. See docs/ARCHITECTURE.md.
@@ -400,8 +407,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.6.0',
-  build: 'part6-bidding',
+  appVersion: '2.7.0',
+  build: 'part7-payment',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
@@ -1936,16 +1943,7 @@ async function proposeAmount(jobId){
   currentJobId = jobId;
   nav('projectStatus');
 }
-async function acceptAmount(jobId){
-  const job = await getJob(jobId);
-  if(!job || !job.proposedAmount) return;
-  if(!await updateJob(jobId, { locked_amount: job.proposedAmount, budget: job.proposedAmount, status: 'payment-pending' })) return;
-  await notify(job.clientId, 'Amount Locked 🔒', `Final amount ₹${job.proposedAmount} is locked. Please make the payment.`);
-  await notify(job.assignedEditor, 'Amount Locked 🔒', `Final amount ₹${job.proposedAmount} is locked. Waiting for the client's payment.`);
-  alert('Amount locked! Client will be asked to pay.');
-  currentJobId = jobId;
-  nav('projectStatus');
-}
+/* acceptAmount(): see PART 7 below */
 
 SCREENS.escrowScreen = async () => {
   const user = getCurrentUser();
@@ -2532,77 +2530,12 @@ function stopVoice(send){
 }
 
 /* ============ PAYMENT ============ */
-SCREENS.payment = async () => {
-  const job = await getJob(currentJobId);
-  if(!job) return `<div class="header"><button class="back-btn" onclick="nav('jobs')">‹</button><h1>Job not found</h1></div>`;
-  const amount = job.lockedAmount || job.budget;
-  const razorpayReady = RAZORPAY_KEY_ID.startsWith('rzp_');
-  return `
-  <div class="header"><button class="back-btn" onclick="nav('projectStatus')">‹</button><h1>Payment</h1><p>Pay securely to start the project</p></div>
-  <div class="screen" style="padding-top:0;">
-    <div class="card center-text">
-      <p class="muted">Amount to Pay (held in escrow)</p>
-      <p class="big-price">₹${amount}</p>
-    </div>
-    ${razorpayReady ? `
-      <p class="muted" style="margin-bottom:16px;">Pay by card, UPI or netbanking — securely via Razorpay.</p>
-      <button class="btn btn-primary" onclick="payWithRazorpay('${job.id}')">Pay ₹${amount} Now</button>
-    ` : `
-      <p class="muted center-text">Online payment is not available right now. Please try again later.</p>
-    `}
-  </div>`;
-};
+/* Payment screen: see PART 7 below */
 
 async function functionError(error){
   try { const body = await error.context.json(); return body.error || error.message; } catch(e) { return error.message; }
 }
-async function payWithRazorpay(jobId){
-  const job = await getJob(jobId);
-  if(!job) return;
-  if(typeof Razorpay === 'undefined'){ alert('The payment page did not load. Check your internet and try again.'); return; }
-  const user = getCurrentUser();
-  try {
-    // Amount server khud job se nikalta hai — app se bheja hua amount use nahi hota
-    const { data: order, error } = await sb.functions.invoke('create-razorpay-order', { body: { jobId } });
-    if(error || !order || !order.id){
-      alert('Could not start the payment: ' + (error ? await functionError(error) : 'unknown'));
-      return;
-    }
-    const rzp = new Razorpay({
-      key: RAZORPAY_KEY_ID,
-      amount: order.amount,
-      currency: order.currency,
-      name: 'Sphere — Syahi Films',
-      description: job.category,
-      order_id: order.id,
-      prefill: { name: user.name, email: user.email, contact: user.phone||'' },
-      theme: { color: '#1657ff' },
-      handler: async function(response){
-        const { data: verify, error: vErr } = await sb.functions.invoke('verify-razorpay-payment', {
-          body: {
-            order_id: response.razorpay_order_id,
-            payment_id: response.razorpay_payment_id,
-            signature: response.razorpay_signature
-          }
-        });
-        if(!vErr && verify && verify.valid){
-          alert('Payment successful ✅ Your money is safe in escrow. The editor will start now.');
-          currentJobId = jobId;
-          nav('projectStatus');
-        } else {
-          alert('We could not verify the payment. Payment ID: ' + response.razorpay_payment_id + '\nPlease note this ID and contact Support.');
-        }
-      },
-      modal: { ondismiss: function(){ /* user ne popup band kiya */ } }
-    });
-    rzp.on('payment.failed', function(resp){
-      alert('Payment failed: ' + ((resp.error && resp.error.description) || 'Please try again'));
-    });
-    rzp.open();
-  } catch(e){
-    alert('Something went wrong: ' + e.message);
-  }
-}
+/* payWithRazorpay(): see PART 7 below */
 
 /* ============ PROJECT STATUS ============ */
 const STATUS_STEPS = ['open','negotiating','payment-pending','in-progress','delivered','approved','closed'];
@@ -2624,6 +2557,7 @@ SCREENS.projectStatus = async () => {
   <div class="header"><button class="back-btn" onclick="nav('jobs')">‹</button><h1>Project Status</h1><p>${esc(job.category)}</p></div>
   <div class="screen" style="padding-top:0;">
     ${isClient ? clientStatusLine(job) : ''}
+    ${await projectSummaryCard(job, user, isClient, isEditor)}
     <div class="status-track">
       ${['Posted','Negotiate','Payment','In Progress','Delivered','Approved'].map((s,i)=>`
         <div class="status-step ${i<=stepIndex?'done':''}"><div class="dot"></div>${s}</div>`).join('')}
@@ -2657,8 +2591,8 @@ SCREENS.projectStatus = async () => {
     ${isClient && job.status==='open' ? `<button class="btn btn-outline" onclick="currentJobId='${job.id}'; nav('applications')">View bids &amp; choose an editor</button>` : ''}
     ${isClient && job.status!=='open' && job.assignedEditor ? `<button class="btn btn-outline" style="margin-top:8px;" onclick="currentJobId='${job.id}'; nav('applications')">See all bids</button>` : ''}
     ${job.status==='negotiating' && (isClient||isEditor) ? renderNegotiateBlock(job, user) : ''}
-    ${isClient && job.status==='payment-pending' ? `<button class="btn btn-primary" onclick="currentJobId='${job.id}'; nav('payment')">💳 Pay ₹${amount} Now</button>` : ''}
-    ${isEditor && job.status==='payment-pending' ? `<p class="muted center-text">Waiting for the client's payment...</p>` : ''}
+    ${isClient && job.status==='payment-pending' ? `<button class="btn btn-primary" onclick="currentJobId='${job.id}'; nav('payment')">💳 Pay ${rupees(amount)} securely</button>` : ''}
+    ${isEditor && job.status==='payment-pending' ? `<p class="muted center-text">Price locked 🔒 Waiting for the client's payment. You will be told when it is paid — then you can start.</p>` : ''}
     ${isEditor && job.status==='in-progress' ? `
       <div class="field"><label>Delivery Link</label><input id="deliveryLink" placeholder="https://drive.google.com/..."></div>
       <button class="btn btn-primary" onclick="uploadDelivery('${job.id}')">Submit Final Video</button>` : ''}
@@ -4585,6 +4519,202 @@ async function selectEditor(jobId, editorId, bidAmount){
   await notify(editorId, 'You got selected!', 'The client selected you for the project. Please confirm the final price.');
   currentJobId = jobId;
   nav('projectStatus');
+}
+
+/* ============ PART 7: SELECTION + PAYMENT ============
+   After the client chooses a bid (Part 6) the project is the job with its editor.
+   Accepting the price locks it (sp_pay_lock_price) → "payment-pending".
+   Payment: sp_pay_start (ready? already paid?) → existing Razorpay Edge Functions
+   → sp_pay_record (IDs / failure). "Paid" and "Refunded" only come from the server.
+   sp_payments holds pending / paid / failed / refunded per project. Sphere's split
+   lives in sp_payment_splits (admins only) and is never shown to clients. */
+const PAY_STATES = Object.freeze({
+  pending:  { label: 'Payment pending',  color: '#b45309', bg: '#fff4e0' },
+  paid:     { label: 'Paid ✅ held safely', color: '#15803d', bg: '#e7f7ec' },
+  failed:   { label: 'Payment failed',   color: '#c62828', bg: '#fdecec' },
+  refunded: { label: 'Refunded',         color: '#475569', bg: '#eef2f7' }
+});
+let payBusy = false;
+
+function projectCode(job){ return 'SPH-' + String(job.id || '').replace(/-/g, '').slice(0, 6).toUpperCase(); }
+function paymentState(job, pay){
+  if(pay && pay.status) return pay.status;
+  if(job.status === 'refunded') return 'refunded';
+  if(job.payment === 'escrow-held' || ['in-progress', 'delivered', 'approved', 'closed'].includes(job.status)) return 'paid';
+  if(job.status === 'payment-pending') return 'pending';
+  return '';
+}
+function payChip(state){
+  const m = PAY_STATES[state];
+  return m ? `<span class="pay-chip" style="color:${m.color}; background:${m.bg};">${m.label}</span>` : '';
+}
+async function loadPayment(jobId){
+  try {
+    const { data, error } = await sb.from('sp_payments').select('status, amount, attempts, failure_reason, paid_at, refunded_at, updated_at').eq('job_id', jobId).maybeSingle();
+    return error ? null : data;
+  } catch(e) { return null; }
+}
+
+// ---- Project card on the project page (client + chosen editor + admin)
+async function projectSummaryCard(job, user, isClient, isEditor){
+  if(!job.assignedEditor || !(isClient || isEditor || isAdminUser(user))) return '';
+  const [pay, bid, people] = await Promise.all([
+    loadPayment(job.id),
+    sb.from('sp_applications').select('delivery_days, bid_amount').eq('job_id', job.id).eq('editor_id', job.assignedEditor).maybeSingle().then(r => r.data, () => null),
+    getProfilesByIds([job.clientId, job.assignedEditor])
+  ]);
+  const ps = paymentState(job, pay);
+  const ed = people[job.assignedEditor], cl = people[job.clientId];
+  const price = job.lockedAmount || job.proposedAmount || (bid && bid.bid_amount) || job.budget;
+  const row = (k, v) => v ? `<div class="kv"><span>${k}</span><b>${v}</b></div>` : '';
+  const priceRow = isEditor
+    ? row(job.lockedAmount ? 'You receive' : 'Your price', rupees(job.lockedAmount ? (job.editorAmount || editorShare(job.lockedAmount)) : price))
+    : row(job.lockedAmount ? (ps === 'paid' ? 'You paid' : 'You pay') : 'Editor\'s price', rupees(price));
+  return `<div class="card proj-card">
+    <div class="cl-proj-top"><b>📁 Project ${projectCode(job)}</b>${payChip(ps)}</div>
+    <p class="muted" style="font-size:12px; margin:2px 0 8px;">${esc(job.title || job.category)}</p>
+    ${!isClient ? row('Client', esc(cl ? cl.name : 'Client')) : ''}
+    ${!isEditor ? row('Editor', esc(ed ? ed.name : 'Editor') + (ed && ed.verified ? ' ✔' : '')) : ''}
+    ${priceRow}
+    ${row('Delivery', bid && bid.delivery_days ? bid.delivery_days + ' day' + (bid.delivery_days === 1 ? '' : 's') + ' after payment' : '')}
+    ${row('Deadline', job.deadline ? fmtDate(job.deadline) : '')}
+    ${ps === 'failed' && isClient ? `<p style="font-size:12px; color:#c62828; margin-top:6px;">Last payment did not go through${pay && pay.failure_reason ? ': ' + esc(pay.failure_reason) : ''}. You can try again.</p>` : ''}
+    ${job.status === 'negotiating' && isClient && job.proposedBy === job.assignedEditor ? `<p style="font-size:12px; margin-top:8px;">✅ You chose this editor. <b>Accept the price</b> below to continue to payment, or suggest another price.</p>` : ''}
+    ${job.status === 'negotiating' && isEditor ? `<p style="font-size:12px; margin-top:8px;">🎉 The client chose you. Once the price is accepted, the client pays and you can start.</p>` : ''}
+  </div>`;
+}
+
+// ---- Accept the other side's price (client or editor) → lock → payment
+async function acceptAmount(jobId){
+  const job = await getJob(jobId);
+  if(!job || !job.proposedAmount) return;
+  const user = getCurrentUser();
+  const isClient = isClientRole(user) && job.clientId === user.id;
+  const { error } = await sb.rpc('sp_pay_lock_price', { p_job: jobId });
+  if(error && !/sp_pay_lock_price|schema cache|does not exist|Could not find/i.test(error.message || '')){ alert(error.message); return; }
+  if(error){
+    // database not updated yet (007): the old way
+    if(!await updateJob(jobId, { locked_amount: job.proposedAmount, budget: job.proposedAmount, status: 'payment-pending' })) return;
+    await notify(job.clientId, 'Amount Locked 🔒', `Final amount ₹${job.proposedAmount} is locked. Please make the payment.`);
+    await notify(job.assignedEditor, 'Amount Locked 🔒', `Final amount ₹${job.proposedAmount} is locked. Waiting for the client's payment.`);
+  }
+  currentJobId = jobId;
+  if(isClient){ alert(`Price locked 🔒 ${rupees(job.proposedAmount)}\n\nNext: pay securely to start the project.`); nav('payment'); }
+  else { alert('Price accepted 🔒 The client will now pay. You will be told when the payment is done.'); nav('projectStatus'); }
+}
+
+// ---- Payment screen (client only — shows only what the client pays)
+SCREENS.payment = async () => {
+  const job = await getJob(currentJobId);
+  if(!job) return `<div class="header"><button class="back-btn" onclick="nav('jobs')">‹</button><h1>Project not found</h1></div>`;
+  const [pay, bid, people] = await Promise.all([
+    loadPayment(job.id),
+    job.assignedEditor ? sb.from('sp_applications').select('delivery_days').eq('job_id', job.id).eq('editor_id', job.assignedEditor).maybeSingle().then(r => r.data, () => null) : Promise.resolve(null),
+    job.assignedEditor ? getProfilesByIds([job.assignedEditor]) : Promise.resolve({})
+  ]);
+  const ps = paymentState(job, pay);
+  const amount = Number(job.lockedAmount || job.budget || 0);
+  const ed = people[job.assignedEditor];
+  const razorpayReady = RAZORPAY_KEY_ID.startsWith('rzp_');
+  const testMode = RAZORPAY_KEY_ID.startsWith('rzp_test_');
+  const head = `<div class="header"><button class="back-btn" onclick="openJob('${job.id}')">‹</button><h1>Payment</h1><p>Project ${projectCode(job)}</p></div>`;
+  if(ps === 'paid') return head + `<div class="screen" style="padding-top:0;"><div class="card pay-hero" style="border:1.5px solid #15803d;">
+      <p style="font-size:34px;">✅</p><b>Payment received</b><p class="big-price">${rupees(pay && pay.amount ? pay.amount : amount)}</p>
+      <p class="muted" style="font-size:13px;">Held safely by Sphere. It goes to the editor only after you approve the final video.</p></div>
+      <button class="btn btn-primary" onclick="openJob('${job.id}')">Open project</button></div>`;
+  if(ps === 'refunded') return head + `<div class="screen" style="padding-top:0;"><div class="card pay-hero"><b>💸 This project was refunded</b><p class="muted" style="font-size:13px; margin-top:6px;">Questions? Contact Support.</p></div></div>`;
+  if(job.status !== 'payment-pending') return head + `<div class="screen" style="padding-top:0;"><div class="card pay-hero"><b>Not ready for payment yet</b>
+      <p class="muted" style="font-size:13px; margin-top:6px;">First choose an editor and accept the price on the project page.</p></div>
+      <button class="btn btn-primary" onclick="openJob('${job.id}')">Open project</button></div>`;
+  return head + `
+  <div class="screen" style="padding-top:0;">
+    <div class="card">
+      <b>${esc(job.title || job.category)}</b>
+      <p class="muted" style="font-size:12px;">${esc(job.category)}</p>
+      <div class="kv" style="margin-top:8px;"><span>Editor</span><b>${esc(ed ? ed.name : 'Editor')}${ed && ed.verified ? ' ✔' : ''}</b></div>
+      ${bid && bid.delivery_days ? `<div class="kv"><span>Delivery</span><b>${bid.delivery_days} day${bid.delivery_days === 1 ? '' : 's'} after payment</b></div>` : ''}
+      ${job.revisionsExpected ? `<div class="kv"><span>Revisions</span><b>${getSetting('free_revisions')} free</b></div>` : ''}
+    </div>
+    <div class="card pay-hero">
+      <p class="muted">Total to pay</p>
+      <p class="big-price">${rupees(amount)}</p>
+      <p class="muted" style="font-size:12px;">Includes everything. No extra charges.</p>
+    </div>
+    ${ps === 'failed' ? `<div class="card" style="border:1.5px solid #c62828;"><b style="color:#c62828;">Last payment did not go through</b>
+      <p class="muted" style="font-size:12px; margin-top:4px;">${esc((pay && pay.failure_reason) || 'Please try again.')} No money was taken for a failed payment.</p></div>` : ''}
+    <div class="card"><b>What happens next</b>
+      <ol class="pay-steps muted"><li>You pay — Sphere holds the money safely</li><li>The editor starts and sends a watermarked preview</li><li>You approve the final video — then the editor is paid</li></ol></div>
+    ${razorpayReady ? `
+      <button class="btn btn-primary" id="payBtn" onclick="payWithRazorpay('${job.id}')">🔒 Pay ${rupees(amount)} securely</button>
+      <div class="pay-safe" style="margin-top:12px;"><span>🛡️</span><span>Card, UPI or netbanking via Razorpay. Sphere never sees your card or UPI PIN.${testMode ? ' <b>(Test mode — no real money)</b>' : ''}</span></div>`
+    : `<p class="muted center-text">Online payment is not available right now. Please try again later.</p>`}
+  </div>`;
+};
+
+async function payWithRazorpay(jobId){
+  if(payBusy) return;
+  const job = await getJob(jobId);
+  if(!job) return;
+  if(typeof Razorpay === 'undefined'){ alert('The payment page did not load. Check your internet and try again.'); return; }
+  const user = getCurrentUser();
+  const btn = document.getElementById('payBtn');
+  const busy = on => { payBusy = on; if(btn){ btn.disabled = on; btn.textContent = on ? 'Opening secure payment…' : `🔒 Pay ${rupees(job.lockedAmount || job.budget)} securely`; } };
+  busy(true);
+  // 1) ready to pay, and not paid already? (skipped if 007 is not installed yet)
+  try {
+    const { data: ready, error: rErr } = await sb.rpc('sp_pay_start', { p_job: jobId });
+    if(!rErr && ready && !ready.ok){ busy(false); alert(ready.message || 'This project cannot be paid right now.'); currentJobId = jobId; nav(ready.code === 'paid' ? 'payment' : 'projectStatus'); return; }
+  } catch(e) {}
+  const record = (result, order, payment, reason) => sb.rpc('sp_pay_record', { p_job: jobId, p_result: result, p_order: order || null, p_payment: payment || null, p_reason: reason || null }).then(() => {}, () => {});
+  try {
+    // 2) the server makes the order — the amount comes from the project, never from the app
+    const { data: order, error } = await sb.functions.invoke('create-razorpay-order', { body: { jobId } });
+    if(error || !order || !order.id){
+      busy(false);
+      const msg = error ? await functionError(error) : 'unknown';
+      await record('failed', null, null, 'Could not start: ' + msg);
+      alert('Could not start the payment: ' + msg);
+      return;
+    }
+    const rzp = new Razorpay({
+      key: RAZORPAY_KEY_ID,
+      amount: order.amount,
+      currency: order.currency,
+      name: 'Sphere — Syahi Films',
+      description: (job.title || job.category) + ' · ' + projectCode(job),
+      order_id: order.id,
+      notes: { project: projectCode(job) },
+      prefill: { name: user.name, email: user.email, contact: user.phone || '' },
+      theme: { color: '#1657ff' },
+      handler: async function(response){
+        await record('success', response.razorpay_order_id, response.razorpay_payment_id, null);
+        // 3) the server checks Razorpay's signature and marks the project paid
+        const { data: verify, error: vErr } = await sb.functions.invoke('verify-razorpay-payment', {
+          body: { order_id: response.razorpay_order_id, payment_id: response.razorpay_payment_id, signature: response.razorpay_signature }
+        });
+        busy(false);
+        currentJobId = jobId;
+        if(!vErr && verify && verify.valid){
+          alert('Payment successful ✅ Your money is held safely by Sphere. The editor will start now.');
+          nav('projectStatus');
+        } else {
+          alert('We could not confirm the payment yet. Payment ID: ' + response.razorpay_payment_id + '\nPlease keep this ID and contact Support — you will not be charged twice.');
+          nav('payment');
+        }
+      },
+      modal: { ondismiss: function(){ busy(false); } }
+    });
+    rzp.on('payment.failed', function(resp){
+      const reason = (resp.error && resp.error.description) || 'Payment failed';
+      busy(false);
+      record('failed', resp.error && resp.error.metadata ? resp.error.metadata.order_id : order.id, null, reason);
+      alert('Payment failed: ' + reason + '\nNo money was taken. You can try again.');
+    });
+    rzp.open();
+  } catch(e){
+    busy(false);
+    alert('Something went wrong: ' + e.message);
+  }
 }
 
 (function(){

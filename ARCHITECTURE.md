@@ -59,6 +59,9 @@ The script starts with a **map of headings**. Search for them:
 | `CHAT` | WhatsApp-style chat, realtime, media, voice notes |
 | `PAYMENT` / `PROJECT STATUS` | Razorpay checkout, escrow, delivery, approve & release |
 | `ADMIN` | Admin Panel (PIN unlock), verification, reports, payouts, suspicious users, system status |
+| `PART 7: SELECTION + PAYMENT` | `PAY_STATES`, `projectSummaryCard()`, `acceptAmount()`, `SCREENS.payment`, `payWithRazorpay()` |
+| `PART 6: JOB DISCOVERY + BIDDING` | `jobFilter`, `renderAvailList()`, `SCREENS.jobBidScreen`, `submitBid()`, `SCREENS.applications`, `selectBid()` |
+| `PART 5: JOB POSTING + AI` | `SCREENS.postJob`, `aiFillJob()`, `localJobParse()`, drafts, `submitJob()`, `jobRequirementsHtml()` |
 | `PART 4: EDITOR PROFILE + VERIFICATION` | `AVAILABILITY`, `VERIFY_STATES`, `EDITOR_STATUS`, `loadEditorWork()`, editor dashboard, My Jobs tabs, `editorProfileEdit`, fee + reject flows, `profileUpdate()` |
 | `PART 3: CLIENT PROFILE + DASHBOARD` | `CLIENT_STATUS`, `loadClientProjects()`, home dashboard, My Projects, Edit Profile |
 | `PART 2: AUTH + ROLE ACCESS` | `ROUTE_ACCESS`, `routeGate()`, `clearSessionState()`, account status (suspended banner) |
@@ -109,6 +112,35 @@ The script starts with a **map of headings**. Search for them:
 * **₹29 fee:** pay by UPI (QR / button, as before) → editor types the **UPI transaction ID** → `fee: submitted` → admin taps **Fee received** or **Fee not found**. WhatsApp screenshot still works too. The 3-free-works rule is unchanged.
 * **Admin → Pending Verification:** state chip, fee line with UTR, buttons *Fee received · Fee not found · Reject (reason) · Re-open*, plus the existing *Verify after call*. Admins get a notification when an editor applies or submits a fee.
 * **Public editor page:** status chip + bio (from the `sp_editor_public_extra` view).
+
+### Job posting (Part 5)
+* **Post a Job** (`postJob`) has 3 steps on one screen:
+  1. **Describe** in your own words (Hindi / English / Hinglish) → **✨ Fill the form with AI**, or skip and fill it yourself.
+  2. **Form**: title, category, details, budget, deadline, video length, format (9:16 / 16:9 / 1:1 / 4:5), language, style / special requirements, reference links, revisions expected, raw files (upload or link).
+  3. **Review** → **Post job** (status `open`) or **Save as draft**.
+* **AI fill:** sends the request to the existing `sphere-ai` function asking for a JSON form; if that fails it tries the existing `draft_job` action; if the AI is down a built-in reader (`localJobParse`) still picks up budget, deadline, length, format, language, category and style words. The client can change every field.
+* **Drafts:** `sp_job_drafts` (only the client can see them; editors never do). My Projects → **Drafts** tab → Continue / Delete. Posting a draft creates a normal `open` job and removes the draft. Files are added when posting.
+* **Direct hire** (Hire Now on an editor) uses the same form and still creates a `negotiating` job for that editor. The Sphere AI chat button "Turn this chat into a job post" opens the form already filled.
+* **Job pages** (client project page + editor bid screen) show the structured requirements and a "Written with Sphere AI" tag.
+* Contact protection also checks title, style and reference links. "Instagram reel" is no longer a warning word (only "insta id", "insta pe", "DM me" …).
+
+### Job discovery + bidding (Part 6)
+* **Editors → Jobs → Available:** search box, category (or "My categories"), deadline (within 3 / 7 / 14 / 30 days), min / max budget, sort (newest, budget, deadline, fewest bids). Each job shows budget, due date, length, format, number of bids, "Matches you" and **your own bid** (✓ You bid ₹… / selected / not selected). Expired jobs are hidden.
+* **Bid screen** (`jobBidScreen`): job details + **price**, **delivery days**, **message** (20–600 letters, contact details hidden). Shows "you receive ₹… after the Sphere fee". One bid per job; a pending bid can be **changed** until the client chooses.
+* **Who may bid** (`sp_bid_eligibility`, same rule in app and database): verified ✔ editors; editors who applied and are waiting for verification may do their first `free_works` (3) paid works (today's rule, unchanged). Not allowed: not-applied, rejected, suspended, status "Away", own job, closed or expired job. Setting `bids_verified_only = 1` makes it verified-only.
+* **Client → Bids** (`applications`): sort Recommended / Lowest price / Fastest / Top rated, **Compare** table, badges (Lowest price, Fastest, Top rated), editor rating, jobs done, availability, verified tick.
+* **Choose this editor** (`sp_bid_select`, one database step): job → that editor, status `negotiating` with the bid as the editor's price (same as before, the client then locks it); the chosen bid → `selected`; **all other bids → `rejected`**; everyone is notified. A second choice is refused.
+
+### Selection + payment (Part 7)
+* **Project = the job + its chosen editor.** Shown everywhere as **Project SPH-XXXXXX** (from the job id).
+* **Project card** on the project page (client, editor, admin): project code, the other person, price, delivery days (from the chosen bid), deadline, **payment status chip**. Clients see only what they pay; editors see "You receive"; Sphere's fee is never shown to clients.
+* **Accept the price** → `sp_pay_lock_price` (database checks it is the *other* side's price) → status `payment-pending` → the client goes straight to **Payment**. Counter-offers work as before.
+* **Payment screen:** project, editor, delivery, total to pay ("includes everything"), what happens next, secure pay button (test-mode note when using `rzp_test_`). Paid / refunded / not-ready projects show a clear message instead of a pay button.
+* **Checkout:** `sp_pay_start` (ready? already paid?) → existing `create-razorpay-order` (amount from the project, never from the app) → Razorpay → `sp_pay_record` (order/payment IDs, or the failure reason) → existing `verify-razorpay-payment` marks the project paid.
+* **Payment record** `sp_payments` (one per project): `pending → paid` (or `failed`, then retry) → `refunded`. Paid / refunded only come from the server (job row updated by the Edge Functions → trigger). Client and editor can read their own; nobody can change it from the app.
+* **Duplicate protection:** one record per project, `sp_pay_start` refuses a paid project, the pay button locks while paying; if Razorpay still reports a second payment it is kept in `duplicate_refs` and admins are told to refund it.
+* **Sphere's split** (editor share, Sphere fee, bonus pool) is stored in `sp_payment_splits`, admins only.
+* Note: the older `sp_jobs.editor_amount / platform_fee` columns are still filled by the Edge Functions; the app never shows them to clients. Hiding them at the database level needs the Edge Function code.
 
 ### Job lifecycle (today)
 `open → negotiating → payment-pending → in-progress → delivered → approved → closed` (+ `refunded`)

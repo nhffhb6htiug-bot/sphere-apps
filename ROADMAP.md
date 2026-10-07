@@ -12,6 +12,9 @@ Budget: ₹0 (free tiers). One part at a time: build → test → fix → next. 
 | 1 | Foundation: structure, config, roles helpers, settings, system status, docs | 2.1.0 | `002_foundation.sql` |
 | 2 | Auth + user roles: route protection, session end handling, logout cleanup, DB role checks, suspended banner | 2.2.0 | `003_auth_roles.sql` |
 | 3 | Client profile + dashboard: home dashboard, My Projects (Active/History/All), friendly status, Edit Profile, client nav, empty states | 2.3.0 | none (app only) |
+| 7 | Editor selection + payment: project card for both sides, price lock, payment screen, payment records (pending/paid/failed/refunded), duplicate protection, private split | 2.7.0 | `007_payments.sql` |
+| 6 | Job discovery + bidding: search/filter jobs, bid with price + delivery days + message, one bid per job, eligibility rules, compare + choose, other bids closed | 2.6.0 | `006_bidding.sql` |
+| 5 | Job posting + AI: 3-step Post a Job, AI fills the form from plain words, style/format/length/revisions, review, drafts, requirements on job pages | 2.5.0 | `005_job_posting.sql` |
 | 4 | Editor profile + verification: editor dashboard, availability, bio, edit editor profile, My Jobs tabs, rating display, pending/approved/rejected, ₹29 fee with UTR, admin fee check + reject | 2.4.0 | `004_editor_profile.sql` |
 
 ## Still to build (order decided by Nitesh)
@@ -49,3 +52,34 @@ revisions (3 free, 4th ₹50) + approval + payout + bonus · disputes (AI summar
 8. Admin → **Verify after call** → editor sees Verified ✔ on Home, Profile and the public page.
 9. Client opens the editor's page → sees status chip + bio.
 10. Editor → Jobs tab → Available / My work / History.
+
+## Part 5 — test checklist
+1. Supabase: run `005_job_posting.sql` → then `checks/job_posting_check.sql` → all ✅.
+2. Upload `index.html.html` → Settings shows **Sphere v2.5.0**.
+3. Client → Post a Job → write "60 sec Instagram reel, trending music, 3 din me, budget 800" → **✨ Fill the form with AI** → form is filled; change anything.
+4. **Review job →** check the summary → **Post job** → My Projects shows it with its title.
+5. Post another one → **Save as draft** → My Projects → **Drafts** → Continue → Post.
+6. Skip the AI and fill the form yourself → still posts.
+7. Editor account → open the job → sees length, format, style, references, revisions.
+8. Editor page → **Hire Now** → same form → "Send to editor" → the editor gets the direct hire.
+
+## Part 6 — test checklist (needs 1 client + 2 editor accounts)
+1. Supabase: run `006_bidding.sql` → then `checks/bidding_check.sql` → all ✅.
+2. Upload `index.html.html` → Settings shows **Sphere v2.6.0**.
+3. Client posts a job (Part 5).
+4. Editor A → Jobs → **Available** → search / filter finds it → open → price + days + message → **Send bid**. Try sending again → it becomes **Update bid**, never a second bid.
+5. Editor B bids too (different price / days).
+6. An editor set to **Away**, or rejected / not applied, sees "You can't bid" with the reason.
+7. Client → project → **View bids & choose an editor** → sort, open **Compare** → **Choose this editor**.
+8. Project shows "Agreeing on price" with the chosen bid; Editor A gets "You got selected 🎉"; Editor B's bid shows **Not selected** and B gets a notification.
+9. Client tries to choose again → refused.
+
+## Part 7 — test checklist (Razorpay test mode)
+1. Supabase: run `007_payments.sql` → then `checks/payments_check.sql` → all ✅.
+2. Upload `index.html.html` → Settings shows **Sphere v2.7.0**.
+3. Client chooses a bid (Part 6) → project page shows **Project SPH-…**, the editor, price, delivery days.
+4. Client taps **Accept & Lock This Amount** → goes to **Payment** → total to pay (no Sphere fee shown).
+5. Pay with Razorpay test card **4111 1111 1111 1111** (any future date, any CVV) or test UPI **success@razorpay** → "Payment successful" → project "Editor is working", chip **Paid ✅**.
+6. Try test UPI **failure@razorpay** on another project → "Payment failed" → payment screen shows the failure → retry works.
+7. Open Payment again on the paid project → "Payment received", no pay button.
+8. Editor sees the same project: "You receive …", payment chip, "start working".
