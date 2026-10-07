@@ -12,6 +12,7 @@ Budget: ₹0 (free tiers). One part at a time: build → test → fix → next. 
 | 1 | Foundation: structure, config, roles helpers, settings, system status, docs | 2.1.0 | `002_foundation.sql` |
 | 2 | Auth + user roles: route protection, session end handling, logout cleanup, DB role checks, suspended banner | 2.2.0 | `003_auth_roles.sql` |
 | 3 | Client profile + dashboard: home dashboard, My Projects (Active/History/All), friendly status, Edit Profile, client nav, empty states | 2.3.0 | none (app only) |
+| 6 | Job discovery + bidding: search/filter jobs, bid with price + delivery days + message, one bid per job, eligibility rules, compare + choose, other bids closed | 2.6.0 | `006_bidding.sql` |
 | 5 | Job posting + AI: 3-step Post a Job, AI fills the form from plain words, style/format/length/revisions, review, drafts, requirements on job pages | 2.5.0 | `005_job_posting.sql` |
 | 4 | Editor profile + verification: editor dashboard, availability, bio, edit editor profile, My Jobs tabs, rating display, pending/approved/rejected, ₹29 fee with UTR, admin fee check + reject | 2.4.0 | `004_editor_profile.sql` |
 
@@ -60,3 +61,14 @@ revisions (3 free, 4th ₹50) + approval + payout + bonus · disputes (AI summar
 6. Skip the AI and fill the form yourself → still posts.
 7. Editor account → open the job → sees length, format, style, references, revisions.
 8. Editor page → **Hire Now** → same form → "Send to editor" → the editor gets the direct hire.
+
+## Part 6 — test checklist (needs 1 client + 2 editor accounts)
+1. Supabase: run `006_bidding.sql` → then `checks/bidding_check.sql` → all ✅.
+2. Upload `index.html.html` → Settings shows **Sphere v2.6.0**.
+3. Client posts a job (Part 5).
+4. Editor A → Jobs → **Available** → search / filter finds it → open → price + days + message → **Send bid**. Try sending again → it becomes **Update bid**, never a second bid.
+5. Editor B bids too (different price / days).
+6. An editor set to **Away**, or rejected / not applied, sees "You can't bid" with the reason.
+7. Client → project → **View bids & choose an editor** → sort, open **Compare** → **Choose this editor**.
+8. Project shows "Agreeing on price" with the chosen bid; Editor A gets "You got selected 🎉"; Editor B's bid shows **Not selected** and B gets a notification.
+9. Client tries to choose again → refused.

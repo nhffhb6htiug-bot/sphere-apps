@@ -59,6 +59,7 @@ The script starts with a **map of headings**. Search for them:
 | `CHAT` | WhatsApp-style chat, realtime, media, voice notes |
 | `PAYMENT` / `PROJECT STATUS` | Razorpay checkout, escrow, delivery, approve & release |
 | `ADMIN` | Admin Panel (PIN unlock), verification, reports, payouts, suspicious users, system status |
+| `PART 6: JOB DISCOVERY + BIDDING` | `jobFilter`, `renderAvailList()`, `SCREENS.jobBidScreen`, `submitBid()`, `SCREENS.applications`, `selectBid()` |
 | `PART 5: JOB POSTING + AI` | `SCREENS.postJob`, `aiFillJob()`, `localJobParse()`, drafts, `submitJob()`, `jobRequirementsHtml()` |
 | `PART 4: EDITOR PROFILE + VERIFICATION` | `AVAILABILITY`, `VERIFY_STATES`, `EDITOR_STATUS`, `loadEditorWork()`, editor dashboard, My Jobs tabs, `editorProfileEdit`, fee + reject flows, `profileUpdate()` |
 | `PART 3: CLIENT PROFILE + DASHBOARD` | `CLIENT_STATUS`, `loadClientProjects()`, home dashboard, My Projects, Edit Profile |
@@ -121,6 +122,13 @@ The script starts with a **map of headings**. Search for them:
 * **Direct hire** (Hire Now on an editor) uses the same form and still creates a `negotiating` job for that editor. The Sphere AI chat button "Turn this chat into a job post" opens the form already filled.
 * **Job pages** (client project page + editor bid screen) show the structured requirements and a "Written with Sphere AI" tag.
 * Contact protection also checks title, style and reference links. "Instagram reel" is no longer a warning word (only "insta id", "insta pe", "DM me" …).
+
+### Job discovery + bidding (Part 6)
+* **Editors → Jobs → Available:** search box, category (or "My categories"), deadline (within 3 / 7 / 14 / 30 days), min / max budget, sort (newest, budget, deadline, fewest bids). Each job shows budget, due date, length, format, number of bids, "Matches you" and **your own bid** (✓ You bid ₹… / selected / not selected). Expired jobs are hidden.
+* **Bid screen** (`jobBidScreen`): job details + **price**, **delivery days**, **message** (20–600 letters, contact details hidden). Shows "you receive ₹… after the Sphere fee". One bid per job; a pending bid can be **changed** until the client chooses.
+* **Who may bid** (`sp_bid_eligibility`, same rule in app and database): verified ✔ editors; editors who applied and are waiting for verification may do their first `free_works` (3) paid works (today's rule, unchanged). Not allowed: not-applied, rejected, suspended, status "Away", own job, closed or expired job. Setting `bids_verified_only = 1` makes it verified-only.
+* **Client → Bids** (`applications`): sort Recommended / Lowest price / Fastest / Top rated, **Compare** table, badges (Lowest price, Fastest, Top rated), editor rating, jobs done, availability, verified tick.
+* **Choose this editor** (`sp_bid_select`, one database step): job → that editor, status `negotiating` with the bid as the editor's price (same as before, the client then locks it); the chosen bid → `selected`; **all other bids → `rejected`**; everyone is notified. A second choice is refused.
 
 ### Job lifecycle (today)
 `open → negotiating → payment-pending → in-progress → delivered → approved → closed` (+ `refunded`)

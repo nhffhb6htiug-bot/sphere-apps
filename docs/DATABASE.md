@@ -12,7 +12,7 @@
 | `sp_editor_public_extra` (view) | Public bio + availability of editors (Part 4) | `id`, `bio`, `availability` |
 | `sp_jobs` | Jobs / projects | `client_id`, `category`, `description`, `budget`, `deadline`, `language`, `files_link`, `raw_files`, `status`, `assigned_editor`, `proposed_amount`, `proposed_by`, `locked_amount`, `payment_status`, `delivery_link`, `editor_amount`, `platform_fee`, `payout_status`, `razorpay_transfer_id`, **Part 5:** `title`, `video_length`, `video_format`, `style_notes`, `reference_links`, `revisions_expected`, `ai_assisted` |
 | `sp_job_drafts` | Unfinished job posts (private to the client, max 20) — Part 5 | `id`, `client_id`, `data` (the form), `updated_at` |
-| `sp_applications` | Bids | `job_id`, `editor_id`, `message`, `bid_amount`, `status` (unique per job+editor) |
+| `sp_applications` | Bids | `job_id`, `editor_id`, `message`, `bid_amount`, `status` (pending / selected / rejected), **Part 6:** `delivery_days`, `updated_at` — one per job+editor (`sp_app_job_editor_uq`) |
 | `sp_messages` | Chat | `sender_id`, `receiver_id`, `text`, `media_path`, `media_type`, `duration_sec`, `delivered_at`, `read_at`, `created_at` |
 | `sp_chat_clears` | "Clear chat" per person | `user_id`, `other_id`, `cleared_at` |
 | `sp_blocks` | Blocked users | |
@@ -21,7 +21,7 @@
 | `sp_reports` | Reports / complaints | `job_id`, `reporter_id`, `against_id`, `chat_user_id`, `reason`, `details`, `status`, `admin_note`, `resolved_at` |
 | `sp_notifications` | In-app notifications | `user_id`, `title`, `body` |
 | `sp_saved` | Saved editors | `user_id`, `editor_id` |
-| `sp_settings` | Admin values | `key`, `value` — `platform_fee_percent`, `verify_fee`, `revision_fee`, `free_revisions`, `pro_fee`, `strike_limit`, `mod_skip_admins` |
+| `sp_settings` | Admin values | `key`, `value` — `platform_fee_percent`, `verify_fee`, `revision_fee`, `free_revisions`, `pro_fee`, `strike_limit`, `mod_skip_admins`, `free_works`, `bids_verified_only` |
 | `sp_mod_flags` | Strikes / suspension per user (admin-only write) | `user_id`, `strike_count`, `is_suspended`, `warned_at` |
 | `sp_mod_strikes` | Every hidden/flagged message (admins only) | `user_id`, `source`, `kind`, `original_text`, `cleared` |
 | `sp_schema_versions` | Which Sphere parts are installed | `version`, `name`, `applied_at` |
@@ -36,6 +36,9 @@
 | `sp_set_platform_fee` | Admin + PIN | Commission % |
 | `sp_mod_admin_action` | Admin + PIN | Warn / suspend / unsuspend / clear strikes |
 | `sp_core_status` | Admin | System status card |
+| `sp_bid_eligibility` | Anyone logged in | Can this editor bid (on this job)? + the reason (Part 6) |
+| `sp_bid_select` | Job's client | Choose one bid; other bids closed; notifications (Part 6) |
+| `sp_bid_editor_stats`, `sp_bid_counts` | Anyone logged in | Jobs done / rating per editor; number of bids per open job (Part 6) |
 | `sp_ed_review` | Admin + PIN | Fee received / fee not found / reject with reason / re-open (Part 4) |
 | `sp_core_role`, `sp_core_has_role` | Anyone logged in | Role helpers |
 | `sp_core_whoami` | Anyone logged in | Own role, ✔ tick, suspended (Part 2) |
@@ -49,6 +52,7 @@
 | `sp_core_profile_guard` | `profiles` | Keeps roles in capitals; blocks self-made admins and self-given ✔ ticks |
 | `sp_ed_profile_sync` | `profiles` (before update) | Keeps verification state in step with the ✔ tick; editors can only apply / re-apply and submit a fee (Part 4) |
 | `sp_ed_profile_after` | `profiles` (after update) | Notifies admins when an editor applies or submits the fee (Part 4) |
+| `sp_bid_guard` | `sp_applications` | Bidding rules on insert; editors change only their own pending bid; clients only the status (Part 6) |
 | `sp_core_role_guard` | `sp_applications` (insert), `sp_portfolio`, `sp_ratings` (insert) | Only editors bid / have a portfolio; only the job's client reviews its editor (Part 2) |
 | `zz_sp_mod_guard` | `sp_messages`, `sp_jobs`, `sp_applications`, `profiles` (name, price, bio), `sp_portfolio`, `sp_ratings`, `sp_notifications` | Hides phone numbers, emails, links, @IDs; records strikes; blocks suspended users |
 
@@ -70,3 +74,4 @@
 | `003_auth_roles.sql` | Part 2 |
 | `004_editor_profile.sql` | Part 4 |
 | `005_job_posting.sql` | Part 5 |
+| `006_bidding.sql` | Part 6 |

@@ -248,6 +248,21 @@ h1,h2,h3{color:var(--text);}
 .chat-head .ch-back, .chat-head .ch-more{background:transparent; border:none; color:#fff; font-size:24px; line-height:1; cursor:pointer; padding:4px 8px;}
 .chat-head .avatar{margin:0 !important; width:40px !important; height:40px !important; flex:0 0 40px; font-size:18px;}
 .chat-head .ch-name{flex:1; min-width:0; cursor:pointer;}
+/* PART 6: bidding */
+.jf{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px; margin-bottom:12px;}
+.jf input, .jf select{width:100%; padding:9px 10px; border-radius:10px; border:1px solid var(--border); font:inherit; font-size:13px; background:#fff;}
+.jf-row{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;}
+.jf-count{font-size:12px; color:var(--muted); margin:2px 0 10px;}
+.bid-chip{display:inline-block; font-size:11px; font-weight:700; padding:3px 8px; border-radius:10px; margin:6px 6px 0 0; background:#eef2f7; color:#334155;}
+.bid-chip.ok{background:#e7f7ec; color:#15803d;} .bid-chip.warn{background:#fff4e0; color:#b45309;} .bid-chip.bad{background:#fdecec; color:#c62828;} .bid-chip.blue{background:#e8efff; color:#1657ff;}
+.bid-price{font-size:22px; font-weight:800;}
+.bid-sel{border:2px solid #15803d;}
+.bid-cmp{width:100%; border-collapse:collapse; font-size:12px; min-width:420px;}
+.bid-cmp th, .bid-cmp td{padding:7px 6px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap;}
+.bid-cmp th{color:var(--muted); font-weight:700;}
+.bid-sort{display:flex; gap:6px; overflow-x:auto; margin-bottom:12px;}
+.bid-sort button{flex:none; padding:7px 12px; border-radius:18px; border:1px solid var(--border); background:#fff; font-size:12px; font-weight:700; cursor:pointer; color:var(--text);}
+.bid-sort button.on{background:var(--blue); border-color:var(--blue); color:#fff;}
 /* PART 5: job posting */
 .pj-steps{display:flex; gap:6px; margin:12px 0 14px;}
 .pj-steps span{flex:1; height:4px; border-radius:4px; background:var(--border);}
@@ -373,7 +388,8 @@ details.card[open] summary::after{content:'－';}
      EDITOR VERIFICATION STATUS · SUPPORT & REPORTS · CHAT · PAYMENT ·
      PROJECT STATUS · ADMIN · CONTACT PROTECTION · SYSTEM STATUS ·
      PART 2: AUTH + ROLE ACCESS · PART 3: CLIENT PROFILE + DASHBOARD ·
-     PART 4: EDITOR PROFILE + VERIFICATION · PART 5: JOB POSTING + AI
+     PART 4: EDITOR PROFILE + VERIFICATION · PART 5: JOB POSTING + AI ·
+     PART 6: JOB DISCOVERY + BIDDING
    Adding a new part: put its code in a block "PART n: <name>" near the end of
    this script, its database SQL in supabase/migrations/00n_<name>.sql, and
    turn it on with SPHERE_CONFIG.features. See docs/ARCHITECTURE.md.
@@ -384,8 +400,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.5.0',
-  build: 'part5-job-posting',
+  appVersion: '2.6.0',
+  build: 'part6-bidding',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
@@ -878,7 +894,8 @@ function editorShare(amount){ return Math.round(Number(amount || 0) * (100 - PLA
 // Admin-controlled values from the sp_settings table. Defaults are used until they load
 // (or if the table can't be read), so the app never breaks because of a missing value.
 const SETTINGS_DEFAULTS = Object.freeze({
-  platform_fee_percent: 5, verify_fee: 29, revision_fee: 50, free_revisions: 3, pro_fee: 199, strike_limit: 3
+  platform_fee_percent: 5, verify_fee: 29, revision_fee: 50, free_revisions: 3, pro_fee: 199, strike_limit: 3,
+  free_works: 3, bids_verified_only: 0
 });
 let SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
 let settingsLoaded = false;
@@ -1388,7 +1405,7 @@ async function editorHomeScreen(user){
     ${editorVerifyCard(user)}`}
     <div id="edDash">${editorDashSkeleton(user)}</div>
 
-    <div class="section-title" style="padding:0; margin-top:18px;"><h3>Available Work</h3></div>
+    <div class="section-title" style="padding:0; margin-top:18px;"><h3>Available Work</h3><a onclick="nav('jobs', { tab: 'available' })">🔎 Search & filter</a></div>
     <div class="pick-chips" id="workFilter" style="margin-bottom:10px;">
       ${['All', 'My categories', ...CATEGORIES].map(c => `<span class="pick-chip ${c === workFilter ? 'on' : ''}" data-v="${esc(c)}" onclick="setWorkFilter(this.dataset.v)">${esc(c)}</span>`).join('')}
     </div>
@@ -1780,56 +1797,7 @@ function hireDirect(editorId){
 /* submitJob(): see PART 5 below */
 
 /* ============ EDITOR: JOB BID SCREEN ============ */
-SCREENS.jobBidScreen = async () => {
-  const job = await getJob(currentJobId);
-  const bu = getCurrentUser();
-  const works = needsFreeBids(bu) ? await paidWorks(bu.id) : 0;
-  const blocked = needsFreeBids(bu) && works >= FREE_WORKS;
-  if(!job) return `<div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Job not found</h1></div>`;
-  return `
-  <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>${esc(job.category)}</h1><p>Place your bid</p></div>
-  <div class="screen" style="padding-top:0;">
-    <div class="card">
-      <p><b>Budget (client's estimate):</b> ₹${job.budget}</p>
-      <p><b>Deadline:</b> ${fmtDate(job.deadline)}</p>
-      <p style="margin-top:6px;"><b>Details:</b> ${esc(job.desc)}</p>
-      ${jobRequirementsHtml(job)}
-      ${job.files?`<p class="muted" style="margin-top:6px;">Raw files: ${linkOrText(job.files)}</p>`:''}
-      ${job.rawFiles.length ? `<p class="muted" style="margin-top:6px;">📎 ${job.rawFiles.length} file(s) attached — you get access once the client selects you.</p>` : ''}
-    </div>
-    ${blocked ? `<div class="card" style="border:1.5px solid #c62828;"><b>🔒 Verification needed</b><p class="muted" style="font-size:12px; margin-top:4px;">${VERIFY_MSG}</p></div>${verifyFeeCard(bu)}`
-      : needsFreeBids(bu) ? `<div class="card"><b>Paid works before verification: ${works} of ${FREE_WORKS}</b><p class="muted" style="font-size:12px; margin-top:4px;">After ${FREE_WORKS} paid works, the ✔ tick (₹${VERIFY_FEE}) is needed to keep getting new work.</p></div>` : ''}
-    ${blocked ? '' : isExpired(job) ? `<p class="muted center-text" style="margin:20px 0;">This job expired on ${fmtDate(job.deadline)}. Bidding is closed.</p>` : `
-    <div class="field"><label>Your Bid Amount (₹)</label><input id="bidAmount" type="number" placeholder="${job.budget}"></div>
-    <div class="field"><label>Message to Client</label><textarea id="bidMsg" placeholder="Tell them why you're a good fit..."></textarea></div>
-    <button class="btn btn-primary" onclick="submitBid('${job.id}')">Submit Bid</button>`}
-  </div>`;
-};
-async function submitBid(jobId){
-  const user = getCurrentUser();
-  if(needsFreeBids(user) && await paidWorks(user.id) >= FREE_WORKS){ alert(VERIFY_MSG); return; }
-  const amount = document.getElementById('bidAmount').value.trim();
-  const msg = document.getElementById('bidMsg').value.trim();
-  if(!amount || Number(amount) <= 0){ alert('Enter your bid amount'); return; }
-  const job = await getJob(jobId);
-  if(!job) return;
-  const { data: bidRow, error } = await sb.from('sp_applications').insert({
-    job_id: jobId, editor_id: user.id,
-    message: msg || 'I would love to work on this project.', bid_amount: Number(amount)
-  }).select('message').single();
-  if(error){
-    if(error.code === '23505'){ alert('You have already placed a bid on this job.'); return; }
-    if(/row-level security/i.test(error.message || '')){
-      alert(needsFreeBids(user) ? VERIFY_MSG : 'Could not place the bid. This job is no longer open (or it is your own job).');
-      return;
-    }
-    dbErr(error); return;
-  }
-  await notify(job.clientId, 'New Bid Received', `${user.name} bid ₹${amount} on your ${job.category} job.`);
-  contactCheck(msg, bidRow && bidRow.message);
-  alert('Bid submitted!');
-  nav('home');
-}
+/* Editor bid screen + submitBid(): see PART 6 below */
 
 /* ============ EDITOR: PORTFOLIO BUILDER ============ */
 SCREENS.portfolio = async () => {
@@ -2017,7 +1985,7 @@ SCREENS.jobs = async (data) => {
       .map(mapJob)
       .sort((x, y) => new Date(y.createdAt) - new Date(x.createdAt));
   }
-  if(user.role === 'editor') return editorJobsView(user, list, data);
+  if(user.role === 'editor') return editorJobsView(user, list, data, await loadBidContext(user, list));
   return `
   <div class="header"><h1>Jobs</h1><p>${isClientRole(user)?'Your posted jobs':'Available & assigned jobs'}</p></div>
   <div class="screen" style="padding-top:0;">
@@ -2035,40 +2003,7 @@ SCREENS.jobs = async (data) => {
 let currentJobId = null;
 function openJob(id){ currentJobId = id; nav('projectStatus'); }
 
-SCREENS.applications = async () => {
-  const { data, error } = await sb.from('sp_applications').select('*').eq('job_id', currentJobId).order('created_at', { ascending: true });
-  if(error) console.error(error);
-  const apps = data || [];
-  const eds = await getProfilesByIds(apps.map(a => a.editor_id));
-  return `
-  <div class="header"><button class="back-btn" onclick="nav('projectStatus')">‹</button><h1>Applications</h1><p>Editors who applied</p></div>
-  <div class="screen" style="padding-top:0;">
-    ${apps.length===0?'<p class="muted">No applications yet.</p>':''}
-    ${apps.map(a=>{
-      const ed = eds[a.editor_id] || { id: a.editor_id, name: 'Editor', category: '', rating: 0, verified: false };
-      return `<div class="card">
-        <b>${esc(ed.name)}</b> ${ed.verified?'<span class="badge">✔ Verified</span>':''}
-        <p class="muted" style="font-size:12px;">${esc(ed.category)} • ⭐ ${ed.rating||0}</p>
-        ${a.bid_amount?`<p class="big-price" style="font-size:20px; margin:6px 0;">₹${a.bid_amount}</p>`:''}
-        <p class="muted" style="margin:6px 0;">${esc(a.message)}</p>
-        <div style="display:flex; gap:8px;">
-          <button class="btn-sm" onclick="openEditorProfile('${ed.id}')">Profile</button>
-          <button class="btn-sm" onclick="startChat('${ed.id}')">Chat</button>
-          <button class="btn-sm" style="background:var(--blue); color:#fff;" onclick="selectEditor('${a.job_id}','${ed.id}', ${Number(a.bid_amount)||0})">Select Editor</button>
-        </div>
-      </div>`;
-    }).join('')}
-  </div>`;
-};
-async function selectEditor(jobId, editorId, bidAmount){
-  const fields = { assigned_editor: editorId, status: 'negotiating' };
-  if(bidAmount){ fields.proposed_amount = bidAmount; fields.proposed_by = editorId; }
-  if(!await updateJob(jobId, fields)) return;
-  await sb.from('sp_applications').update({ status: 'selected' }).eq('job_id', jobId).eq('editor_id', editorId);
-  await notify(editorId, 'You got selected!', 'The client selected you for the project. Please confirm the final price.');
-  currentJobId = jobId;
-  nav('projectStatus');
-}
+/* Client bids screen + selectEditor(): see PART 6 below */
 
 /* ============ EDITOR VERIFICATION STATUS ============ */
 SCREENS.verificationStatus = () => {
@@ -2719,7 +2654,8 @@ SCREENS.projectStatus = async () => {
     ${isEditor && job.status==='delivered' ? `<p class="muted" style="font-size:12px; margin-bottom:10px;">Client not approving? Ask in the chat first. No reply in 7 days? File a Report — Syahi Films can review and release your payment.</p>` : ''}
     ${otherId && job.status!=='open' ? `<button class="btn btn-outline" style="margin-bottom:10px; color:#c62828; border-color:#c62828;" onclick="openReport('${job.id}', '${isEditor && job.status==='delivered' ? 'Client is not releasing payment' : ''}')">🚩 Report problem</button>` : ''}
     ${user.role==='editor' && job.status==='open' ? `<button class="btn btn-primary" onclick="currentJobId='${job.id}'; nav('jobBidScreen')">Place Bid</button>` : ''}
-    ${isClient && job.status==='open' ? `<button class="btn btn-outline" onclick="currentJobId='${job.id}'; nav('applications')">View Applications</button>` : ''}
+    ${isClient && job.status==='open' ? `<button class="btn btn-outline" onclick="currentJobId='${job.id}'; nav('applications')">View bids &amp; choose an editor</button>` : ''}
+    ${isClient && job.status!=='open' && job.assignedEditor ? `<button class="btn btn-outline" style="margin-top:8px;" onclick="currentJobId='${job.id}'; nav('applications')">See all bids</button>` : ''}
     ${job.status==='negotiating' && (isClient||isEditor) ? renderNegotiateBlock(job, user) : ''}
     ${isClient && job.status==='payment-pending' ? `<button class="btn btn-primary" onclick="currentJobId='${job.id}'; nav('payment')">💳 Pay ₹${amount} Now</button>` : ''}
     ${isEditor && job.status==='payment-pending' ? `<p class="muted center-text">Waiting for the client's payment...</p>` : ''}
@@ -3726,14 +3662,15 @@ async function setAvailability(v){
 }
 
 // ---- My Jobs for editors: Available · My work · History
-function editorJobsView(user, list, data){
+function editorJobsView(user, list, data, ctx){
   const tab = (data && ['available', 'mine', 'history'].includes(data.tab)) ? data.tab : 'available';
   const groups = {
-    available: list.filter(j => j.status === 'open' && j.assignedEditor !== user.id),
+    available: list.filter(j => j.status === 'open' && j.assignedEditor !== user.id && !isExpired(j)),
     mine: list.filter(j => j.assignedEditor === user.id && EDITOR_ACTIVE.includes(j.status)),
     history: list.filter(j => j.assignedEditor === user.id && !EDITOR_ACTIVE.includes(j.status) && j.status !== 'open')
   };
   const items = groups[tab];
+  if(tab === 'available'){ availState = { jobs: groups.available, ctx: ctx || { mine: {}, counts: {} } }; setTimeout(renderAvailList, 0); }
   const tabBtn = (k, label) => `<button class="${tab === k ? 'on' : ''}" onclick="nav('jobs', { tab: '${k}' })">${label} (${groups[k].length})</button>`;
   const empty = {
     available: ['🔎', 'No open jobs right now', 'New jobs from clients show up here. Keep your status on Available.'],
@@ -3744,8 +3681,9 @@ function editorJobsView(user, list, data){
   <div class="header"><h1>My Jobs</h1><p>Find work and track your projects</p></div>
   <div class="screen" style="padding-top:0;">
     <div class="cl-tabs">${tabBtn('available', 'Available')}${tabBtn('mine', 'My work')}${tabBtn('history', 'History')}</div>
+    ${tab === 'available' ? jobFilterBar(user) + `<div id="availList"></div>` : `
     ${items.length === 0 ? `<div class="card cl-empty"><div class="cl-empty-ic">${empty[0]}</div><b>${empty[1]}</b><p>${empty[2]}</p></div>` : ''}
-    ${items.map(j => editorJobCard(j, user)).join('')}
+    ${items.map(j => editorJobCard(j, user)).join('')}`}
   </div>`;
 }
 
@@ -4322,6 +4260,331 @@ function jobRequirementsHtml(job){
   if(!rows.length && !job.aiAssisted) return '';
   return `<div class="pj-req" style="margin-top:8px;">${job.aiAssisted ? '<span class="pj-tag">✨ Written with Sphere AI</span>' : ''}
     ${rows.map(([k, val]) => `<p><b>${k}:</b> ${k === 'References' ? linkOrText(val) : esc(val)}</p>`).join('')}</div>`;
+}
+
+/* ============ PART 6: JOB DISCOVERY + BIDDING ============
+   Editors: search / filter open jobs, one bid per job (amount + delivery days +
+   message), edit while pending. Clients: compare bids, pick one → job goes to
+   that editor ("negotiating", bid = editor's price), other bids are closed.
+   Who may bid comes from the database (sp_bid_eligibility). */
+const DELIVERY_DAYS = [1, 2, 3, 4, 5, 7, 10, 14, 21, 30];
+let jobFilter = { q: '', cat: '', min: '', max: '', due: '', sort: 'new' };
+let availState = { jobs: [], ctx: { mine: {}, counts: {} } };
+
+function daysLeft(dateStr){
+  if(!dateStr) return null;
+  const d = Math.round((new Date(String(dateStr).slice(0, 10) + 'T00:00:00') - new Date(todayIST() + 'T00:00:00')) / 86400000);
+  return d;
+}
+function dueText(dateStr){
+  const d = daysLeft(dateStr);
+  if(d === null) return 'No deadline';
+  if(d < 0) return 'Expired';
+  return d === 0 ? 'Due today' : d === 1 ? 'Due tomorrow' : 'Due in ' + d + ' days';
+}
+function bidStatusChip(a){
+  if(!a) return '';
+  const st = a.status || 'pending';
+  if(st === 'selected') return '<span class="bid-chip ok">✓ You were selected</span>';
+  if(st === 'rejected') return '<span class="bid-chip bad">Not selected</span>';
+  return `<span class="bid-chip blue">✓ You bid ${rupees(a.bid_amount)}${a.delivery_days ? ' · ' + a.delivery_days + 'd' : ''}</span>`;
+}
+
+// ---- Editor: my bids + bid counts for the jobs on screen
+async function loadBidContext(user, list){
+  const ctx = { mine: {}, counts: {} };
+  const openIds = (list || []).filter(j => j.status === 'open').map(j => j.id).slice(0, 300);
+  try {
+    const [m, c] = await Promise.all([
+      sb.from('sp_applications').select('job_id, status, bid_amount, delivery_days').eq('editor_id', user.id),
+      openIds.length ? sb.rpc('sp_bid_counts', { p_jobs: openIds }) : Promise.resolve({ data: [] })
+    ]);
+    (m.data || []).forEach(a => { ctx.mine[a.job_id] = a; });
+    (c.data || []).forEach(r => { ctx.counts[r.job_id] = r.bids; });
+  } catch(e) {}
+  return ctx;
+}
+
+// ---- Editor: search / filter bar for open jobs
+function jobFilterBar(user){
+  const f = jobFilter;
+  const opt = (v, label, cur) => `<option value="${esc(v)}" ${String(cur) === String(v) ? 'selected' : ''}>${esc(label)}</option>`;
+  return `<div class="jf">
+    <input id="jfQ" placeholder="🔎 Search jobs (wedding, reel, podcast…)" value="${esc(f.q)}" oninput="jobFilter.q = this.value; renderAvailList()">
+    <div class="jf-row">
+      <select onchange="jobFilter.cat = this.value; renderAvailList()">${opt('', 'All categories', f.cat)}${opt('mine', 'My categories', f.cat)}${CATEGORIES.map(c => opt(c, c, f.cat)).join('')}</select>
+      <select onchange="jobFilter.due = this.value; renderAvailList()">${opt('', 'Any deadline', f.due)}${opt('3', 'Within 3 days', f.due)}${opt('7', 'Within 7 days', f.due)}${opt('14', 'Within 14 days', f.due)}${opt('30', 'Within 30 days', f.due)}</select>
+    </div>
+    <div class="jf-row">
+      <input type="number" inputmode="numeric" placeholder="Min budget ₹" value="${esc(f.min)}" oninput="jobFilter.min = this.value; renderAvailList()">
+      <input type="number" inputmode="numeric" placeholder="Max budget ₹" value="${esc(f.max)}" oninput="jobFilter.max = this.value; renderAvailList()">
+    </div>
+    <div class="jf-row" style="grid-template-columns:1fr;">
+      <select onchange="jobFilter.sort = this.value; renderAvailList()">${opt('new', 'Sort: Newest first', f.sort)}${opt('budget_hi', 'Sort: Highest budget', f.sort)}${opt('budget_lo', 'Sort: Lowest budget', f.sort)}${opt('due', 'Sort: Deadline soonest', f.sort)}${opt('few', 'Sort: Fewest bids', f.sort)}</select>
+    </div>
+    ${(f.q || f.cat || f.min || f.max || f.due) ? `<p style="margin-top:8px; text-align:right;"><span class="link" style="font-size:12px;" onclick="jobFilter = { q: '', cat: '', min: '', max: '', due: '', sort: jobFilter.sort }; nav('jobs', { tab: 'available' })">Clear filters</span></p>` : ''}
+  </div>`;
+}
+function filterJobs(jobs, user, ctx){
+  const f = jobFilter, q = f.q.trim().toLowerCase();
+  const mineCats = (user.categories && user.categories.length) ? user.categories : (user.category ? [user.category] : []);
+  const min = Number(f.min) || 0, max = Number(f.max) || 0, due = Number(f.due) || 0;
+  let out = jobs.filter(j => {
+    if(q && ![j.title, j.category, j.desc, j.styleNotes, j.language, j.videoFormat].join(' ').toLowerCase().includes(q)) return false;
+    if(f.cat === 'mine' && mineCats.length && !mineCats.includes(j.category)) return false;
+    if(f.cat && f.cat !== 'mine' && j.category !== f.cat) return false;
+    if(min && Number(j.budget) < min) return false;
+    if(max && Number(j.budget) > max) return false;
+    if(due){ const d = daysLeft(j.deadline); if(d === null || d > due) return false; }
+    return true;
+  });
+  const cnt = j => (ctx.counts[j.id] || 0);
+  const sorters = {
+    new: (a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')),
+    budget_hi: (a, b) => Number(b.budget) - Number(a.budget),
+    budget_lo: (a, b) => Number(a.budget) - Number(b.budget),
+    due: (a, b) => (daysLeft(a.deadline) ?? 9999) - (daysLeft(b.deadline) ?? 9999),
+    few: (a, b) => cnt(a) - cnt(b)
+  };
+  return out.sort(sorters[f.sort] || sorters.new);
+}
+function availableJobCard(j, user, ctx){
+  const mineCats = (user.categories && user.categories.length) ? user.categories : [];
+  const myBid = ctx.mine[j.id];
+  const n = ctx.counts[j.id];
+  return `<div class="card cl-proj" onclick="openBid('${esc(j.id)}')">
+    <div class="cl-proj-top"><b>${esc(j.title || j.category || 'Project')}</b><span class="bid-price" style="font-size:16px;">${rupees(j.budget)}</span></div>
+    <p class="muted" style="font-size:12px; margin-top:2px;">${esc(j.category)}${j.language ? ' · ' + esc(j.language) : ''}</p>
+    <p class="muted">${esc(j.desc).slice(0, 90)}${j.desc.length > 90 ? '…' : ''}</p>
+    <div>
+      <span class="bid-chip ${daysLeft(j.deadline) !== null && daysLeft(j.deadline) <= 2 ? 'warn' : ''}">⏰ ${dueText(j.deadline)}</span>
+      ${j.videoLength ? `<span class="bid-chip">🎞 ${esc(j.videoLength)}</span>` : ''}
+      ${j.videoFormat ? `<span class="bid-chip">${esc(j.videoFormat.split(' ')[0])}</span>` : ''}
+      ${typeof n === 'number' ? `<span class="bid-chip">${n} bid${n === 1 ? '' : 's'}</span>` : ''}
+      ${mineCats.includes(j.category) ? '<span class="bid-chip ok">Matches you</span>' : ''}
+      ${bidStatusChip(myBid)}
+    </div>
+  </div>`;
+}
+function renderAvailList(){
+  const box = document.getElementById('availList');
+  const user = getCurrentUser();
+  if(!box || !user) return;
+  const list = filterJobs(availState.jobs, user, availState.ctx);
+  box.innerHTML = `<p class="jf-count">${list.length} of ${availState.jobs.length} open job${availState.jobs.length === 1 ? '' : 's'}</p>` +
+    (list.length ? list.map(j => availableJobCard(j, user, availState.ctx)).join('')
+      : `<div class="card cl-empty"><div class="cl-empty-ic">🔎</div><b>${availState.jobs.length ? 'No jobs match these filters' : 'No open jobs right now'}</b><p>${availState.jobs.length ? 'Try clearing a filter.' : 'New jobs from clients show up here. Keep your status on Available.'}</p></div>`);
+}
+function openBid(id){ currentJobId = id; nav('jobBidScreen'); }
+
+// ---- Who may bid: from the database, or today's rule if 006 isn't installed yet
+async function bidEligibility(user, jobId){
+  try {
+    const { data, error } = await sb.rpc('sp_bid_eligibility', { p_editor: user.id, p_job: jobId });
+    if(!error && data) return data;
+  } catch(e) {}
+  if(needsFreeBids(user) && await paidWorks(user.id) >= FREE_WORKS) return { ok: false, code: 'need_verification', message: VERIFY_MSG };
+  return { ok: true, code: user.verified ? 'verified' : 'free_works' };
+}
+
+// ---- Editor: job details + bid form (new bid, or edit a pending one)
+SCREENS.jobBidScreen = async () => {
+  const job = await getJob(currentJobId);
+  const bu = getCurrentUser();
+  if(!job) return `<div class="header"><button class="back-btn" onclick="nav('jobs', { tab: 'available' })">‹</button><h1>Job not found</h1></div>`;
+  const [elig, mineRes, cnt] = await Promise.all([
+    bidEligibility(bu, job.id),
+    sb.from('sp_applications').select('*').eq('job_id', job.id).eq('editor_id', bu.id).maybeSingle(),
+    sb.rpc('sp_bid_counts', { p_jobs: [job.id] }).then(r => r, () => ({ data: null }))
+  ]);
+  const mine = mineRes && mineRes.data;
+  const nBids = cnt && cnt.data && cnt.data[0] ? cnt.data[0].bids : null;
+  const st = mine ? (mine.status || 'pending') : '';
+  const canEdit = mine && st === 'pending' && job.status === 'open' && !isExpired(job);
+  let action;
+  if(mine && st === 'selected'){
+    action = `<div class="card bid-sel"><b style="color:#15803d;">🎉 The client chose your bid</b><p class="muted" style="font-size:13px; margin:4px 0 10px;">Open the project to confirm the final price.</p>
+      <button class="btn btn-primary" onclick="openJob('${job.id}')">Open project</button></div>`;
+  } else if(mine && st === 'rejected'){
+    action = `<div class="card"><b>The client chose another editor</b><p class="muted" style="font-size:13px; margin-top:4px;">Your bid: ${rupees(mine.bid_amount)}${mine.delivery_days ? ' · ' + mine.delivery_days + ' days' : ''}. Keep bidding — new jobs come every day.</p></div>`;
+  } else if(canEdit){
+    action = `<div class="card" style="border:1.5px solid var(--blue);"><b>Your bid</b> <span class="bid-chip blue">Waiting for the client</span>
+      <p style="margin-top:6px;">${rupees(mine.bid_amount)}${mine.delivery_days ? ' · ' + mine.delivery_days + ' days' : ''}</p>
+      <p class="muted" style="font-size:13px; margin-top:4px;">${esc(mine.message || '')}</p></div>
+      <div class="pj-sec">Change your bid</div>${bidForm(job, mine)}`;
+  } else if(mine){
+    action = `<div class="card"><b>Your bid: ${rupees(mine.bid_amount)}</b><p class="muted" style="font-size:13px; margin-top:4px;">This job is no longer taking bids.</p></div>`;
+  } else if(!elig.ok){
+    const fix = elig.code === 'away' ? `<button class="btn btn-primary" onclick="setAvailability('available').then(() => nav('jobBidScreen'))">Switch to Available</button>`
+      : ['rejected', 'not_applied', 'need_verification', 'verified_only'].includes(elig.code) ? `<button class="btn btn-primary" onclick="nav('verificationStatus')">Go to verification</button>` : '';
+    action = `<div class="card" style="border:1.5px solid #c62828;"><b>🔒 You can't bid on this job</b><p class="muted" style="font-size:13px; margin:4px 0 10px;">${esc(elig.message || 'Not allowed')}</p>${fix}</div>
+      ${elig.code === 'need_verification' ? verifyFeeCard(bu) : ''}`;
+  } else {
+    action = `${elig.code === 'free_works' ? `<div class="card"><b>Paid works before verification: ${Number(elig.works_used) || 0} of ${Number(elig.free_works) || FREE_WORKS}</b><p class="muted" style="font-size:12px; margin-top:4px;">After that, get the ✔ tick (₹${VERIFY_FEE}) to keep getting work.</p></div>` : ''}
+      <div class="pj-sec">Your bid</div>${bidForm(job, null)}`;
+  }
+  return `
+  <div class="header"><button class="back-btn" onclick="nav('jobs', { tab: 'available' })">‹</button><h1>${esc(job.title || job.category)}</h1><p>${esc(job.category)}</p></div>
+  <div class="screen" style="padding-top:0;">
+    <div class="card">
+      <div class="cl-proj-top"><span class="muted" style="font-size:12px;">Client's budget</span><span class="bid-price">${rupees(job.budget)}</span></div>
+      <div><span class="bid-chip ${daysLeft(job.deadline) !== null && daysLeft(job.deadline) <= 2 ? 'warn' : ''}">⏰ ${job.deadline ? fmtDate(job.deadline) + ' · ' + dueText(job.deadline) : 'No deadline'}</span>
+        ${nBids !== null ? `<span class="bid-chip">${nBids} bid${nBids === 1 ? '' : 's'} so far</span>` : ''}
+        <span class="bid-chip">Posted ${fmtDate(job.createdAt)}</span></div>
+      <p style="margin-top:10px; font-size:14px; white-space:pre-wrap;">${esc(job.desc)}</p>
+      ${jobRequirementsHtml(job)}
+      ${job.files ? `<p class="muted" style="margin-top:6px;">Raw files: ${linkOrText(job.files)}</p>` : ''}
+      ${job.rawFiles.length ? `<p class="muted" style="margin-top:6px;">📎 ${job.rawFiles.length} file(s) attached — you get access once the client selects you.</p>` : ''}
+    </div>
+    ${action}
+  </div>`;
+};
+function bidForm(job, mine){
+  const amt = mine ? mine.bid_amount : '';
+  const days = mine && mine.delivery_days ? Number(mine.delivery_days) : 0;
+  return `
+    <div class="field"><label>Your price (₹)</label><input id="bidAmount" type="number" inputmode="numeric" min="1" value="${esc(amt)}" placeholder="${esc(job.budget)}" oninput="bidShareHint(this.value)">
+      <p class="muted" id="bidShare" style="font-size:12px; margin-top:4px;">${amt ? bidShareText(amt) : 'Client budget: ' + rupees(job.budget)}</p></div>
+    <div class="field"><label>You will finish in</label><select id="bidDays">
+      <option value="">Choose…</option>${DELIVERY_DAYS.map(d => `<option value="${d}" ${d === days ? 'selected' : ''}>${d} day${d === 1 ? '' : 's'}</option>`).join('')}</select>
+      ${job.deadline ? `<p class="muted" style="font-size:12px; margin-top:4px;">Client deadline: ${fmtDate(job.deadline)} (${dueText(job.deadline).toLowerCase()})</p>` : ''}</div>
+    <div class="field"><label>Message to the client</label><textarea id="bidMsg" maxlength="600" placeholder="Why you're a good fit: similar work, software, how you will edit it…">${esc(mine ? mine.message || '' : '')}</textarea>
+      <p class="muted" style="font-size:11px; margin-top:4px;">At least 20 letters. Phone numbers and links are hidden automatically.</p></div>
+    <button class="btn btn-primary" id="bidBtn" onclick="submitBid('${job.id}')">${mine ? 'Update bid' : 'Send bid'}</button>`;
+}
+function bidShareText(v){ const n = Number(v) || 0; return n > 0 ? `You receive ${rupees(editorShare(n))} after the ${PLATFORM_FEE_PERCENT}% Sphere fee.` : ''; }
+function bidShareHint(v){ const el = document.getElementById('bidShare'); if(el) el.textContent = bidShareText(v); }
+async function submitBid(jobId){
+  const user = getCurrentUser();
+  const amount = Number((document.getElementById('bidAmount') || {}).value || 0);
+  const days = Number((document.getElementById('bidDays') || {}).value || 0);
+  const msg = ((document.getElementById('bidMsg') || {}).value || '').trim();
+  if(!amount || amount <= 0 || amount > 10000000){ alert('Enter your price'); return; }
+  if(!days){ alert('Choose how many days you need'); return; }
+  if(msg.length < 20){ alert('Write a short message to the client (at least 20 letters).'); return; }
+  const job = await getJob(jobId);
+  if(!job) return;
+  const btn = document.getElementById('bidBtn'); if(btn) btn.disabled = true;
+  const { data: existing } = await sb.from('sp_applications').select('id, status').eq('job_id', jobId).eq('editor_id', user.id).maybeSingle();
+  let res;
+  const fields = { bid_amount: amount, delivery_days: days, message: msg };
+  if(existing) res = await sb.from('sp_applications').update(fields).eq('id', existing.id).select('message').single();
+  else res = await sb.from('sp_applications').insert(Object.assign({ job_id: jobId, editor_id: user.id }, fields)).select('message').single();
+  if(res.error && /delivery_days|schema cache|column/i.test(res.error.message || '')){
+    // database not updated yet (006): send without the delivery time
+    const old = { bid_amount: amount, message: msg + ' (Delivery: ' + days + ' days)' };
+    res = existing ? await sb.from('sp_applications').update(old).eq('id', existing.id).select('message').single()
+                   : await sb.from('sp_applications').insert(Object.assign({ job_id: jobId, editor_id: user.id }, old)).select('message').single();
+  }
+  if(btn) btn.disabled = false;
+  if(res.error){
+    if(res.error.code === '23505'){ alert('You have already placed a bid on this job.'); nav('jobBidScreen'); return; }
+    if(/row-level security/i.test(res.error.message || '')){ alert(needsFreeBids(user) ? VERIFY_MSG : 'Could not place the bid. This job is no longer open (or it is your own job).'); return; }
+    alert(res.error.message || 'Could not send the bid'); return;
+  }
+  const label = job.title || job.category;
+  await notify(job.clientId, existing ? 'Bid updated' : 'New Bid Received', `${user.name}: ${rupees(amount)} in ${days} day${days === 1 ? '' : 's'} for "${label}".`);
+  contactCheck(msg, res.data && res.data.message);
+  alert(existing ? 'Bid updated ✅' : 'Bid sent ✅ The client will compare bids and choose.');
+  nav('jobs', { tab: 'available' });
+}
+
+// ---- Client: received bids, compare, choose one
+let bidSort = 'best';
+SCREENS.applications = async (data) => {
+  if(data && data.sort) bidSort = data.sort;
+  const job = await getJob(currentJobId);
+  if(!job) return `<div class="header"><button class="back-btn" onclick="nav('jobs')">‹</button><h1>Job not found</h1></div>`;
+  const { data: rows, error } = await sb.from('sp_applications').select('*').eq('job_id', job.id).order('created_at', { ascending: true });
+  if(error) console.error(error);
+  const bids = rows || [];
+  const ids = bids.map(a => a.editor_id);
+  const [eds, stats, extra] = await Promise.all([
+    getProfilesByIds(ids),
+    ids.length ? sb.rpc('sp_bid_editor_stats', { p_editors: ids }).then(r => r.data || [], () => []) : Promise.resolve([]),
+    ids.length ? sb.from('sp_editor_public_extra').select('id, availability').in('id', ids).then(r => r.data || [], () => []) : Promise.resolve([])
+  ]);
+  const st = {}; stats.forEach(x => { st[x.editor_id] = x; });
+  const av = {}; extra.forEach(x => { av[x.id] = x.availability; });
+  const list = bids.map(a => {
+    const ed = eds[a.editor_id] || { id: a.editor_id, name: 'Editor', verified: false };
+    const s2 = st[a.editor_id] || {};
+    return { a, ed, status: a.status || 'pending', price: Number(a.bid_amount) || 0, days: Number(a.delivery_days) || 0,
+             rating: Number(s2.rating) || 0, reviews: Number(s2.reviews) || 0, done: Number(s2.completed) || 0, avail: av[a.editor_id] || '' };
+  });
+  const open = job.status === 'open' && !job.assignedEditor;
+  const pending = list.filter(x => x.status === 'pending');
+  const best = { price: Math.min(...pending.map(x => x.price).filter(Boolean)), days: Math.min(...pending.map(x => x.days).filter(Boolean)), rating: Math.max(0, ...pending.map(x => x.rating)) };
+  const score = x => (x.ed.verified ? 2 : 0) + x.rating + Math.min(x.done, 10) * 0.2 - (job.budget ? x.price / Number(job.budget) : 0) * 1.5 - x.days * 0.05 + (x.avail === 'available' ? 0.5 : 0);
+  const sorters = { best: (p, q) => score(q) - score(p), price: (p, q) => p.price - q.price, fast: (p, q) => (p.days || 99) - (q.days || 99), rating: (p, q) => q.rating - p.rating || q.reviews - p.reviews };
+  const shown = list.slice().sort((p, q) => (q.status === 'selected') - (p.status === 'selected') || (sorters[bidSort] || sorters.best)(p, q));
+  const sortBtn = (k, label) => `<button class="${bidSort === k ? 'on' : ''}" onclick="nav('applications', { sort: '${k}' })">${label}</button>`;
+  return `
+  <div class="header"><button class="back-btn" onclick="openJob('${job.id}')">‹</button><h1>Bids</h1><p>${esc(job.title || job.category)} · budget ${rupees(job.budget)}</p></div>
+  <div class="screen" style="padding-top:0;">
+    ${!open ? `<div class="card" style="border:1.5px solid #15803d;"><b>✅ Editor chosen</b><p class="muted" style="font-size:13px; margin-top:4px;">Other bids are closed. Open the project to lock the price.</p>
+      <button class="btn btn-primary" style="margin-top:8px;" onclick="openJob('${job.id}')">Open project</button></div>` : ''}
+    ${list.length === 0 ? `<div class="card cl-empty"><div class="cl-empty-ic">⏳</div><b>No bids yet</b><p>Verified editors in ${esc(job.category)} were told about your job. Bids usually come within a few hours.</p></div>` : `
+    <div class="bid-sort">${sortBtn('best', '⭐ Recommended')}${sortBtn('price', '₹ Lowest price')}${sortBtn('fast', '⚡ Fastest')}${sortBtn('rating', '👍 Top rated')}</div>
+    ${pending.length > 1 ? `<details class="card"><summary><b>📊 Compare ${pending.length} bids</b></summary>
+      <div style="overflow-x:auto; margin-top:10px;"><table class="bid-cmp"><tr><th>Editor</th><th>Price</th><th>Days</th><th>Rating</th><th>Done</th><th>✔</th></tr>
+      ${shown.filter(x => x.status === 'pending').map(x => `<tr><td>${esc(String(x.ed.name || 'Editor').split(' ')[0])}</td>
+        <td style="${x.price === best.price ? 'color:#15803d; font-weight:800;' : ''}">${rupees(x.price)}</td>
+        <td style="${x.days && x.days === best.days ? 'color:#15803d; font-weight:800;' : ''}">${x.days || '-'}</td>
+        <td>${x.reviews ? '⭐ ' + x.rating + ' (' + x.reviews + ')' : '–'}</td><td>${x.done}</td><td>${x.ed.verified ? '✔' : '–'}</td></tr>`).join('')}
+      </table></div></details>` : ''}
+    ${shown.map(x => bidCard(x, best, open, pending.length)).join('')}`}
+  </div>`;
+};
+function bidCard(x, best, open, nPending){
+  const a = x.a, ed = x.ed;
+  const tags = [];
+  if(x.status === 'pending' && nPending > 1){
+    if(x.price && x.price === best.price) tags.push('<span class="bid-chip ok">Lowest price</span>');
+    if(x.days && x.days === best.days) tags.push('<span class="bid-chip ok">Fastest</span>');
+    if(x.rating && x.rating === best.rating && x.reviews) tags.push('<span class="bid-chip ok">Top rated</span>');
+  }
+  const stChip = x.status === 'selected' ? '<span class="bid-chip ok">✓ Selected</span>' : x.status === 'rejected' ? '<span class="bid-chip bad">Closed</span>' : '';
+  return `<div class="card ${x.status === 'selected' ? 'bid-sel' : ''}" style="${x.status === 'rejected' ? 'opacity:.65;' : ''}">
+    <div style="display:flex; gap:10px; align-items:center;">
+      ${avatarHtml(ed, 'margin:0; width:44px; height:44px; font-size:18px;')}
+      <div style="flex:1; min-width:0;"><b>${esc(ed.name || 'Editor')}</b> ${ed.verified ? '<span class="badge">✔ Verified</span>' : ''}
+        <p class="muted" style="font-size:12px;">${x.reviews ? '⭐ ' + x.rating + ' (' + x.reviews + ')' : 'New on Sphere'} · ${x.done} done${x.avail ? ' · ' + (AVAILABILITY[x.avail] || {}).label : ''}</p></div>
+      <div style="text-align:right;"><div class="bid-price">${rupees(x.price)}</div><p class="muted" style="font-size:12px;">${x.days ? x.days + ' day' + (x.days === 1 ? '' : 's') : ''}</p></div>
+    </div>
+    <div>${stChip}${tags.join('')}</div>
+    <p style="font-size:13px; margin:8px 0; white-space:pre-wrap;">${esc(a.message || '')}</p>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn-sm" onclick="openEditorProfile('${ed.id}')">Profile</button>
+      <button class="btn-sm" onclick="startChat('${ed.id}')">Chat</button>
+      ${open && x.status === 'pending' ? `<button class="btn-sm" style="background:var(--blue); color:#fff;" onclick="selectBid('${a.id}', '${esc(String(ed.name || 'this editor').replace(/'/g, ''))}', ${x.price}, ${x.days || 0})">Choose this editor</button>` : ''}
+    </div>
+  </div>`;
+}
+async function selectBid(appId, name, price, days){
+  if(!confirm(`Choose ${name} for ${rupees(price)}${days ? ' in ' + days + ' days' : ''}?\n\nAll other bids will be closed. Next you lock the price and pay.`)) return;
+  const { data, error } = await sb.rpc('sp_bid_select', { p_application: appId });
+  if(error){
+    if(/sp_bid_select|schema cache|does not exist|Could not find/i.test(error.message || '')){
+      // database not updated yet (006): the old way (no closing of other bids)
+      const { data: a } = await sb.from('sp_applications').select('*').eq('id', appId).maybeSingle();
+      if(a) return selectEditor(a.job_id, a.editor_id, Number(a.bid_amount) || 0);
+    }
+    alert(error.message || 'Could not choose this editor'); return;
+  }
+  alert('Editor chosen ✅ Other bids were closed. Now confirm the price on the project page.');
+  currentJobId = (data && data.job_id) || currentJobId;
+  nav('projectStatus');
+}
+// Older way of choosing (kept for databases without 006)
+async function selectEditor(jobId, editorId, bidAmount){
+  const fields = { assigned_editor: editorId, status: 'negotiating' };
+  if(bidAmount){ fields.proposed_amount = bidAmount; fields.proposed_by = editorId; }
+  if(!await updateJob(jobId, fields)) return;
+  await sb.from('sp_applications').update({ status: 'selected' }).eq('job_id', jobId).eq('editor_id', editorId);
+  await notify(editorId, 'You got selected!', 'The client selected you for the project. Please confirm the final price.');
+  currentJobId = jobId;
+  nav('projectStatus');
 }
 
 (function(){
