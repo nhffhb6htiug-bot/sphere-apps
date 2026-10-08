@@ -10,7 +10,7 @@
 | `profiles` | Every user | `id`, `role` (CLIENT/EDITOR/ADMIN), `full_name`, `email`, `phone`, `avatar_url`, `categories[]`, `languages[]`, `skills[]`, `experience_years`, `price_range`, `sample_video_url`, `portfolio_url`, `is_verified`, `verification_code`, `verification_note`, `razorpay_account_id`, **Part 4:** `bio`, `availability` (available/busy/away), `verification_status` (not_applied/pending/approved/rejected), `verification_fee_status` (unpaid/submitted/confirmed), `verification_fee_ref`, `verification_fee_at`, `verification_reviewed_at` |
 | `sp_public_profiles` (view) | Public editor directory without phone/email | same as profiles minus private fields |
 | `sp_editor_public_extra` (view) | Public bio + availability of editors (Part 4) | `id`, `bio`, `availability` |
-| `sp_jobs` | Jobs / projects | `client_id`, `category`, `description`, `budget`, `deadline`, `language`, `files_link`, `raw_files`, `status`, `assigned_editor`, `proposed_amount`, `proposed_by`, `locked_amount`, `payment_status`, `delivery_link`, `editor_amount`, `platform_fee`, `payout_status`, `razorpay_transfer_id`, **Part 11:** `extra_requirements`, `extra_amount`, **Part 5:** `title`, `video_length`, `video_format`, `style_notes`, `reference_links`, `revisions_expected`, `ai_assisted` |
+| `sp_jobs` | Jobs / projects | `client_id`, `category`, `description`, `budget`, `deadline`, `language`, `files_link`, `raw_files`, `status`, `assigned_editor`, `proposed_amount`, `proposed_by`, `locked_amount`, `payment_status`, `delivery_link`, `editor_amount`, `platform_fee`, `payout_status`, `razorpay_transfer_id`, **Part 11:** `extra_requirements`, `extra_amount`, **Part 12:** `review_state`, `final_submitted_at`, `decision_due_at`, **Part 13:** `released_at`, **Part 5:** `title`, `video_length`, `video_format`, `style_notes`, `reference_links`, `revisions_expected`, `ai_assisted` |
 | `sp_project_work` | Work clock per paid project — Part 8 | `job_id`, `phase` (active/preview/completed/cancelled), `started_at`, `hours`, `due_at`, `grace_hours`, `extended_hours`, `pending_extension_hours`, `preview_link`, `preview_note`, `preview_at`, `preview_on_time`, `is_late`, `late_since`, notice times |
 | `sp_project_extensions` | More-time requests (one pending per project) — Part 8 | `job_id`, `requested_by`, `hours`, `reason`, `status` (pending/approved/declined) |
 | `sp_project_events` | Project timeline — Part 8 | `job_id`, `at`, `actor_id`, `kind`, `title`, `details` |
@@ -19,6 +19,14 @@
 | `sp_job_drafts` | Unfinished job posts (private to the client, max 20) — Part 5 | `id`, `client_id`, `data` (the form), `updated_at` |
 | `sp_applications` | Bids | `job_id`, `editor_id`, `message`, `bid_amount`, `status` (pending / selected / rejected), **Part 6:** `delivery_days`, `updated_at` — one per job+editor (`sp_app_job_editor_uq`) |
 | `sp_messages` | Chat | `sender_id`, `receiver_id`, `text`, `media_path`, `media_type`, `duration_sec`, `delivered_at`, `read_at`, `created_at`, **Part 9:** `job_id` (project chat), `mod_status` (ok / held / released / removed), `mod_reason` |
+| `sp_project_ratings` | Client rating −3…+3 + feedback, one per project — Part 13 | `job_id` (unique), `editor_id`, `client_id`, `score`, `feedback` |
+| `sp_editor_ratings_public` (view) | Rating history for editor pages, no client names — Part 13 | `editor_id`, `score`, `feedback`, `created_at`, `category` |
+| `sp_delivery_checks` | Each preview vs the deadline valid then — Part 13 | `job_id`, `kind` (main / followup), `due_at`, `grace_hours`, `delivered_at`, `early_hours`, `late_minutes`, `late_hours` |
+| `sp_settlements` | Bonus / deduction calculation per project — admins only (Part 13) | `client_paid`, `editor_base`, `pool`, `sphere_guaranteed`, `bonus_pool`, `part_value`, `c_early`, `c_rating`, `c_revisions`, `c_quality`, `conditions_met`, `late_hours`, `late_deduction`, `bonus_awarded`, `sphere_total`, `net_adjustment`, `status` (provisional / final), `details` |
+| `sp_final_files` | Final preview + clean final link; client sees it only after release — Part 12 | `job_id`, `preview_file_id`, `preview_version`, `final_link`, `note`, `submitted_at` |
+| `sp_disputes` | Cases for the Sphere team — Part 12 | `kind` (dispute / no_response), `category`, `details`, `status` (open / resolved_release / resolved_refund / resolved_redo / withdrawn), `ai_category`, `ai_summary`, `decision_note`, `decided_by`, `snapshot` |
+| `sp_refunds` | Full refunds — Part 12 | `job_id`, `dispute_id`, `amount`, `status` (approved / processing / refunded / failed / rejected), `reason`, `error` |
+| `sp_payout_items` | Editor money to send / recover by hand (Parts 12–13) | `job_id`, `editor_id`, `kind` (extras / bonus / deduction), `amount`, `status` (pending / paid) |
 | `sp_revisions` | Revisions per project — Part 11 | `number`, `notes`, `is_paid`, `fee`, `status` (awaiting_payment / open / delivered / cancelled), `old_due_at`, `new_due_at`, `preview_version`, `delivered_version` |
 | `sp_change_requests` | Change requests — Part 11 | `details`, `extra_price`, `extra_hours`, `link`, `file_ids`, `status` (pending / rejected / accepted_awaiting_payment / applied / cancelled), `editor_note`, `old_due_at`, `new_due_at`, `old_extra_amount`, `new_extra_amount`, `old_requirements` |
 | `sp_extra_payments` | Extra money in a project (paid revision, change price) — Part 11 | `kind`, `ref_id`, `amount`, `status` (pending / paid / failed / cancelled), `method` (razorpay / upi), `order_id`, `payment_id`, `utr` |
@@ -32,7 +40,7 @@
 | `sp_reports` | Reports / complaints | `job_id`, `reporter_id`, `against_id`, `chat_user_id`, `reason`, `details`, `status`, `admin_note`, `resolved_at` |
 | `sp_notifications` | In-app notifications | `user_id`, `title`, `body` |
 | `sp_saved` | Saved editors | `user_id`, `editor_id` |
-| `sp_settings` | Admin values | `key`, `value` — `platform_fee_percent`, `verify_fee`, `revision_fee`, `free_revisions`, `pro_fee`, `strike_limit`, `mod_skip_admins`, `free_works`, `bids_verified_only`, `work_default_hours`, `work_grace_hours`, `work_fixed_hours`, `work_reminder_hours`, `file_max_mb`, `preview_max_minutes`, `revision_hours` |
+| `sp_settings` | Admin values | `key`, `value` — `platform_fee_percent`, `verify_fee`, `revision_fee`, `free_revisions`, `pro_fee`, `strike_limit`, `mod_skip_admins`, `free_works`, `bids_verified_only`, `work_default_hours`, `work_grace_hours`, `work_fixed_hours`, `work_reminder_hours`, `file_max_mb`, `preview_max_minutes`, `revision_hours`, `final_review_hours`, `late_fee_per_hour`, `bonus_early_hours`, `rating_window_days` |
 | `sp_mod_flags` | Strikes / suspension per user (admin-only write) | `user_id`, `strike_count`, `is_suspended`, `warned_at` |
 | `sp_mod_strikes` | Every hidden/flagged message (admins only) | `user_id`, `source`, `kind`, `original_text`, `cleared` |
 | `sp_schema_versions` | Which Sphere parts are installed | `version`, `name`, `applied_at` |
@@ -47,6 +55,13 @@
 | `sp_set_platform_fee` | Admin + PIN | Commission % |
 | `sp_mod_admin_action` | Admin + PIN | Warn / suspend / unsuspend / clear strikes |
 | `sp_core_status` | Admin | System status card |
+| `sp_rating_submit` | Project's client | Rate −3…+3 once → project closed → settlement final (Part 13) |
+| `sp_bonus_tick` | Anyone logged in, pg_cron | Settle projects not rated within the window (Part 13) |
+| `sp_settlement_mine`, `sp_editor_earnings_summary` | Editor (own) / admin | Earnings with bonus conditions; totals (Part 13) |
+| `sp_final_submit` | Project's editor | Final preview + clean link → client decides within 10 h (Part 12) |
+| `sp_dispute_open` | Project's client | Not satisfied / editor never delivered → case with snapshot (Part 12) |
+| `sp_final_tick` | Anyone logged in, pg_cron | 10 h passed → Sphere team review (Part 12) |
+| `sp_case_decide`, `sp_case_ai_note`, `sp_refund_mark`, `sp_refund_eligibility`, `sp_payout_item_paid` | Admin (+ PIN) | Team decisions, AI note, refund status, eligibility, extra payouts (Part 12) |
 | `sp_rev_request`, `sp_rev_cancel` | Project's client | Ask for / cancel an unpaid revision (Part 11) |
 | `sp_cr_create`, `sp_cr_cancel` / `sp_cr_answer` | Client / editor | Change request: send, cancel / accept or reject (Part 11) |
 | `sp_extra_mark_paid` | sphere-extra-payment (server) or admin | Mark an extra paid → revision opens / change applied (Part 11) |
@@ -78,6 +93,10 @@
 | `sp_core_profile_guard` | `profiles` | Keeps roles in capitals; blocks self-made admins and self-given ✔ ticks |
 | `sp_ed_profile_sync` | `profiles` (before update) | Keeps verification state in step with the ✔ tick; editors can only apply / re-apply and submit a fee (Part 4) |
 | `sp_ed_profile_after` | `profiles` (after update) | Notifies admins when an editor applies or submits the fee (Part 4) |
+| `sp_delivery_check_trigger` | `sp_project_work` (preview_at) | Record each delivery vs its valid deadline (Part 13) |
+| `sp_bonus_on_release` | `sp_jobs` (status → approved) | Provisional settlement at release (Part 13) |
+| `sp_final_job_before` / `sp_final_job_after` | `sp_jobs` (status → approved / refunded) | Unlock the final link, close cases, refunds → refunded, extras payout, notices (Part 12) |
+| `sp_final_report_guard` | `sp_reports` (insert) | No complaints after release (Part 12) |
 | `sp_rev_on_preview` | `sp_project_work` (phase / preview change) | Next preview delivers the open revision (Part 11) |
 | `sp_chat_project_guard` | `sp_messages` (insert) | Project chat only between that project's client and editor (Part 9) |
 | `zzz_sp_chat_hold`, `sp_chat_hold_after` | `sp_messages` (insert) | Hold messages with warning words; tell admins (Part 9) |
@@ -112,3 +131,5 @@
 | `009_chat_moderation.sql` | Part 9 |
 | `010_project_files.sql` | Part 10 |
 | `011_revisions_changes.sql` | Part 11 |
+| `012_final_disputes.sql` | Part 12 |
+| `013_ratings_bonus.sql` | Part 13 |

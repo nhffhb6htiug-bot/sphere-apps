@@ -59,6 +59,8 @@ The script starts with a **map of headings**. Search for them:
 | `CHAT` | WhatsApp-style chat, realtime, media, voice notes |
 | `PAYMENT` / `PROJECT STATUS` | Razorpay checkout, escrow, delivery, approve & release |
 | `ADMIN` | Admin Panel (PIN unlock), verification, reports, payouts, suspicious users, system status |
+| `PART 13: RATINGS + PERFORMANCE BONUS` | `SCREENS.ratings` (−3…+3), `submitRating()`, `clientRatingCard()`, `earningsCard()`, `ratingHistoryHtml()` |
+| `PART 12: FINAL APPROVAL + DISPUTES + REFUNDS` | `finalSection()`, `finalSubmitPanel()`, `openDispute()`, `notDeliveredCard()`, `casesQueueSection()`, `SCREENS.caseFile`, `caseDecide()`, `caseAskAI()` |
 | `PART 11: REVISIONS + CHANGE REQUESTS` | `revisionsSection()`, `requestRevision()`, `sendChangeRequest()`, `answerChange()`, `payExtra()`, `submitExtraUtr()`, `extrasQueueSection()` |
 | `PART 10: PROJECT FILES + WATERMARKED PREVIEW` | `watermarkVideo()`, `uploadWithProgress()`, `previewUploadPanel()`, `previewVersionsCard()`, `SCREENS.previewPlayer`, `projectFilesSection()` |
 | `PART 9: CHAT + AI MODERATION` | `currentChatJob`, `openProjectChat()`, held-message handling, `loadModQueue()`, `modQueueSection()`, `reviewHeld()`, `askAIHeld()` |
@@ -93,7 +95,7 @@ The script starts with a **map of headings**. Search for them:
 | client | Client mode (client · editor switched to Client · admin in Admin mode) | postJob, applications, payment, savedList, ratings |
 | editor | Editor mode (editor · admin switched to Editor) | jobBidScreen |
 | editorAccount | Editor account (any mode) or admin in Editor mode | editorDetails, verificationStatus, editorProfileEdit |
-| admin | Admin accounts | admin |
+| admin | Admin accounts | admin, caseFile |
 
 * **Job screens** also check the job: `applications`, `payment`, `ratings` → only the job's client (or an admin); `projectStatus` → client, assigned editor, admin, or anyone while the job is open.
 * **The database enforces the same rules** (`sp_core_role_guard`): only editors bid (for themselves), only editors edit their own portfolio, only the job's client reviews that job's editor. Screen checks are for the user experience; database checks are the real security.
@@ -182,8 +184,28 @@ The script starts with a **map of headings**. Search for them:
 * **Extra payments** (`sp_extra_payments`): Razorpay through the Edge Function `sphere-extra-payment` (order amount from the database, signature checked on the server), or **UPI + transaction ID** → Admin Panel → 💳 Extra payments to check → Received / Not found. Only the server or an admin can mark them paid.
 * Notifications: revision asked / needs payment / started (editor), change asked (editor), accepted / rejected / pay now (client), change applied (both), UPI payment to check (admins). Every step is in the project timeline.
 
+### Final approval + disputes + refunds (Part 12)
+* **Editor → 🏁 Submit for final approval** (after revisions; blocked while a revision or change is open): choose the final watermarked preview + add the **clean final video link**. The link sits in `sp_final_files`, readable by the editor / admins, and by the client **only after release**. Job → `delivered`, `review_state = awaiting_client`, `decision_due_at = now + 10 h`.
+* **Client decision card:** ▶ Watch final preview (in-app, watermarked), countdown "left to decide", **✅ Release payment** (existing `release-payout`) or **😞 I am not satisfied** (reason + explanation, required) → `sp_dispute_open` → `review_state = disputed`, a dispute with a **case snapshot** (requirements, accepted changes, money, work clock, final submission, files, previews, revisions, change requests, extras, timeline, last 300 chat messages). The client can still release later (the dispute is then withdrawn).
+* **No answer in 10 hours:** `sp_final_tick()` (pg_cron every 10 min + app open) → `review_state = team_review`, a "no response" case, everyone told. The client can still release or explain.
+* **Editor never delivered:** when the project is late with no preview, the client can ask the Sphere team for a refund (dispute "not delivered").
+* **Sphere team → Admin Panel → ⚖️ Reviews & disputes → case file:** everything above in one screen, refund eligibility, optional **🤖 AI note** (category + neutral summary, advice only — `sp_case_ai_note`). Decisions (`sp_case_decide`, Admin PIN, note required): **Release to the editor** (calls `release-payout`), **Full refund** (`sp_refunds` approved → processing → `refund-payment` → refunded / failed), **Send back to fix** (job back in progress, 24 h).
+* **Release closes the project:** `review_state = released`, clean final link copied to `delivery_link` for the client, open cases closed, no new disputes, and `sp_reports` refuses complaints for that project. Paid extras for the editor become an **extra payout** item (Admin Panel → 💸 Extra payouts → Mark paid).
+* **Money shown:** clients see what they paid; editors see what they receive; the split stays in admin-only tables.
+
+### Ratings + performance bonus + late deduction (Part 13)
+* **Rating:** after release the client rates the editor **−3 … +3** (Very bad … Excellent) + optional feedback, once per project (`sp_project_ratings`, unique per job), within `rating_window_days` (7). The old 1–5 stars are written too (−3→1, 0→3, +3→5) so existing screens and averages keep working. Editor pages show the rating history (`sp_editor_ratings_public`, no client names).
+* **Delivery checks** (`sp_delivery_checks`): every preview is compared with the deadline valid at that moment — extensions and change requests included, revisions have their own deadline. Stored: hours early, minutes late, late hours (each started hour after deadline + 4 h grace, 5-minute tolerance).
+* **Settlement** (`sp_settlements`, admins only; one per project):
+  * pool = client payment − editor base (editor base = what the editor is paid for the project; today base = payment − 5 % Sphere fee)
+  * Sphere keeps 50 % of the pool; the other 50 % is the bonus pool, split into **4 parts**
+  * Conditions (each = 1 part): ① first delivery ≥ 5 h before the valid deadline ② rating +3 ③ released by the client without a dispute, ≤ 1 revision ④ clean outcome — every delivery inside its deadline, no team fix, no refund, no blocked contact-sharing messages
+  * Late after grace → **no bonus**, and **₹10 × late hours** deducted (never more than the base)
+  * Provisional at release → **final** after the rating (or after 7 days, `sp_bonus_tick`). Final rows are never recalculated; payout items `bonus` (to pay) / `deduction` (to recover) are created once.
+* **Who sees what:** editors → project card **💰 Your earnings** (base, extras, bonus x of 4 with each condition, late deduction, total) + totals on their profile (`sp_settlement_mine`, `sp_editor_earnings_summary`); clients → only their rating; admins → full settlement rows + payout list.
+
 ### Job lifecycle (today)
-`open → negotiating → payment-pending → in-progress → delivered → approved → closed` (+ `refunded`)
+`open → negotiating → payment-pending → in-progress → delivered (review_state: awaiting_client / disputed / team_review) → approved (released) → closed` (+ `refunded`; a team decision can send `delivered` back to `in-progress`)
 Payout status: `awaiting · held · released · manual · failed · paid-manually`
 
 ## 4. Configuration and secrets

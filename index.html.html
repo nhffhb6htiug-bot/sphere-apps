@@ -248,6 +248,21 @@ h1,h2,h3{color:var(--text);}
 .chat-head .ch-back, .chat-head .ch-more{background:transparent; border:none; color:#fff; font-size:24px; line-height:1; cursor:pointer; padding:4px 8px;}
 .chat-head .avatar{margin:0 !important; width:40px !important; height:40px !important; flex:0 0 40px; font-size:18px;}
 .chat-head .ch-name{flex:1; min-width:0; cursor:pointer;}
+/* PART 13: ratings + bonus */
+.rt-pick{display:grid; grid-template-columns:repeat(7, 1fr); gap:6px; margin:14px 0 6px;}
+.rt-pick button{padding:12px 0; border-radius:12px; border:1.5px solid var(--border); background:#fff; font-weight:800; font-size:15px; cursor:pointer; color:var(--text);}
+.rt-pick button.on{color:#fff;}
+.rt-label{text-align:center; font-weight:700; min-height:22px;}
+.rt-chip{display:inline-block; min-width:30px; text-align:center; font-weight:800; font-size:12px; padding:2px 7px; border-radius:10px;}
+.earn-row{display:flex; justify-content:space-between; font-size:13px; padding:6px 0; border-bottom:1px solid var(--border);}
+.earn-row:last-child{border-bottom:none;}
+.cond{font-size:12px; margin:3px 0;}
+/* PART 12: final approval + disputes */
+.fd-card{border:2px solid var(--blue);}
+.fd-card.dispute{border-color:#c62828;} .fd-card.review{border-color:#f59e0b;} .fd-card.done{border-color:#15803d;}
+.case-sec{font-size:12px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin:16px 0 6px;}
+.case-chat{max-height:320px; overflow:auto; background:#f6f8fc; border-radius:12px; padding:8px;}
+.case-chat p{font-size:12px; margin:4px 0;} .case-chat .c{color:#1657ff;} .case-chat .e{color:#6d28d9;}
 /* PART 11: revisions + changes */
 .rv-sum{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:10px 0;}
 .rv-sum div{background:#f6f8fc; border-radius:12px; padding:10px; text-align:center;}
@@ -445,7 +460,8 @@ details.card[open] summary::after{content:'－';}
      PART 4: EDITOR PROFILE + VERIFICATION · PART 5: JOB POSTING + AI ·
      PART 6: JOB DISCOVERY + BIDDING · PART 7: SELECTION + PAYMENT ·
      PART 8: PROJECT WORKFLOW + DEADLINES · PART 9: CHAT + AI MODERATION ·
-     PART 10: PROJECT FILES + WATERMARKED PREVIEW · PART 11: REVISIONS + CHANGE REQUESTS
+     PART 10: PROJECT FILES + WATERMARKED PREVIEW · PART 11: REVISIONS + CHANGE REQUESTS ·
+     PART 12: FINAL APPROVAL + DISPUTES + REFUNDS · PART 13: RATINGS + PERFORMANCE BONUS
    Adding a new part: put its code in a block "PART n: <name>" near the end of
    this script, its database SQL in supabase/migrations/00n_<name>.sql, and
    turn it on with SPHERE_CONFIG.features. See docs/ARCHITECTURE.md.
@@ -456,8 +472,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.11.0',
-  build: 'part11-revisions-changes',
+  appVersion: '2.13.0',
+  build: 'part13-ratings-bonus',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
@@ -953,7 +969,8 @@ function editorShare(amount){ return Math.round(Number(amount || 0) * (100 - PLA
 const SETTINGS_DEFAULTS = Object.freeze({
   platform_fee_percent: 5, verify_fee: 29, revision_fee: 50, free_revisions: 3, pro_fee: 199, strike_limit: 3,
   free_works: 3, bids_verified_only: 0, work_default_hours: 24, work_grace_hours: 4, work_reminder_hours: 4,
-  file_max_mb: 50, preview_max_minutes: 10, revision_hours: 24
+  file_max_mb: 50, preview_max_minutes: 10, revision_hours: 24, final_review_hours: 10,
+  late_fee_per_hour: 10, bonus_early_hours: 5, rating_window_days: 7
 });
 let SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
 let settingsLoaded = false;
@@ -1046,6 +1063,9 @@ function mapJob(r){
     language: r.language || '',
     title: r.title || '',
     extraRequirements: r.extra_requirements || '',
+    reviewState: r.review_state || 'none',
+    finalSubmittedAt: r.final_submitted_at || '',
+    decisionDueAt: r.decision_due_at || '',
     extraAmount: Number(r.extra_amount) || 0,
     videoLength: r.video_length || '',
     videoFormat: r.video_format || '',
@@ -2646,7 +2666,7 @@ SCREENS.projectStatus = async () => {
         <div style="margin-top:10px;"><label class="pill-btn" style="cursor:pointer;">${UI_ICONS.upload} Add photos / videos
           <input type="file" accept="image/*,video/*" multiple style="display:none;" onchange="addRawFiles('${job.id}', this)"></label>
           <span class="muted" id="rawAddStatus" style="font-size:12px; margin-left:6px;"></span></div>` : ''}
-      ${job.deliveryLink ? `<p><b>Delivered File:</b> ${linkOrText(job.deliveryLink)}</p>` : ''}
+      ${job.deliveryLink && (!isClient || ['approved', 'closed'].includes(job.status)) ? `<p><b>Final video:</b> ${linkOrText(job.deliveryLink)}</p>` : ''}
     </div>
     ${isClient && isExpired(job) ? `<div class="card" style="border:1.5px solid #e67e22;">
       <b>This job expired on ${fmtDate(job.deadline)}</b>
@@ -2656,18 +2676,15 @@ SCREENS.projectStatus = async () => {
     ${job.status==='refunded' ? `<div class="card" style="border-color:#e67e22;"><b>💸 This project has been refunded.</b><p class="muted" style="font-size:12px;">Questions? Contact Support.</p></div>` : ''}
     ${otherId ? `<button class="btn btn-outline" style="margin-bottom:10px;" onclick="openProjectChat('${job.id}', '${otherId}')">💬 Project chat with ${isClient?'Editor':'Client'}</button>` : ''}
     ${isEditor && job.status==='delivered' ? `<p class="muted" style="font-size:12px; margin-bottom:10px;">Client not approving? Ask in the chat first. No reply in 7 days? File a Report — Syahi Films can review and release your payment.</p>` : ''}
-    ${otherId && job.status!=='open' ? `<button class="btn btn-outline" style="margin-bottom:10px; color:#c62828; border-color:#c62828;" onclick="openReport('${job.id}', '${isEditor && job.status==='delivered' ? 'Client is not releasing payment' : ''}')">🚩 Report problem</button>` : ''}
+    ${otherId && !['open', 'approved', 'closed', 'refunded'].includes(job.status) ? `<button class="btn btn-outline" style="margin-bottom:10px; color:#c62828; border-color:#c62828;" onclick="openReport('${job.id}', '${isEditor && job.status==='delivered' ? 'Client is not releasing payment' : ''}')">🚩 Report problem</button>` : ''}
     ${user.role==='editor' && job.status==='open' ? `<button class="btn btn-primary" onclick="currentJobId='${job.id}'; nav('jobBidScreen')">Place Bid</button>` : ''}
     ${isClient && job.status==='open' ? `<button class="btn btn-outline" onclick="currentJobId='${job.id}'; nav('applications')">View bids &amp; choose an editor</button>` : ''}
     ${isClient && job.status!=='open' && job.assignedEditor ? `<button class="btn btn-outline" style="margin-top:8px;" onclick="currentJobId='${job.id}'; nav('applications')">See all bids</button>` : ''}
     ${job.status==='negotiating' && (isClient||isEditor) ? renderNegotiateBlock(job, user) : ''}
     ${isClient && job.status==='payment-pending' ? `<button class="btn btn-primary" onclick="currentJobId='${job.id}'; nav('payment')">💳 Pay ${rupees(amount)} securely</button>` : ''}
     ${isEditor && job.status==='payment-pending' ? `<p class="muted center-text">Price locked 🔒 Waiting for the client's payment. You will be told when it is paid — then you can start.</p>` : ''}
-    ${isEditor && job.status==='in-progress' ? `
-      <div class="field"><label>Final video link (send after the client has seen your preview)</label><input id="deliveryLink" placeholder="https://drive.google.com/..."></div>
-      <button class="btn btn-primary" onclick="uploadDelivery('${job.id}')">Submit Final Video</button>` : ''}
-    ${isClient && job.status==='delivered' ? `<button class="btn btn-primary" onclick="approveJob('${job.id}')">✅ Approve & Release Payment</button>` : ''}
-    ${isClient && job.status==='approved' && !rated ? `<button class="btn btn-outline" onclick="currentJobId='${job.id}'; selectedStars=5; nav('ratings')">⭐ Rate Editor</button>` : ''}
+    ${isClient && job.status==='delivered' && !FINAL_UI_SHOWN ? `<button class="btn btn-primary" onclick="approveJob('${job.id}')">✅ Release Payment</button>` : ''}
+    ${isClient && job.status==='approved' && !rated && !RATING_UI_SHOWN ? `<button class="btn btn-outline" onclick="currentJobId='${job.id}'; nav('ratings')">⭐ Rate your editor</button>` : ''}
   </div>`;
 };
 async function extendDeadline(jobId){
@@ -2715,7 +2732,7 @@ async function uploadDelivery(jobId){
 async function approveJob(jobId){
   const job = await getJob(jobId);
   if(!job) return;
-  if(!confirm('Approve the video and release payment to the editor?')) return;
+  if(!confirm('Release the payment to the editor?\n\nThis closes the project: you get the clean final video, and complaints / refunds are no longer possible for it.')) return;
   const { data, error } = await sb.functions.invoke('release-payout', { body: { jobId } });
   if(error){ alert('Could not approve: ' + await functionError(error)); return; }
   alert(data && data.payout === 'released'
@@ -2726,34 +2743,7 @@ async function approveJob(jobId){
 }
 
 let selectedStars = 5;
-SCREENS.ratings = () => `
-  <div class="header"><button class="back-btn" onclick="nav('projectStatus')">‹</button><h1>Rate Editor</h1></div>
-  <div class="screen center-text" style="padding-top:0;">
-    <div class="stars" id="starDisplay">${'★'.repeat(5)}</div>
-    <div style="margin:14px 0;">${[1,2,3,4,5].map(n=>`<span class="pill" onclick="setStars(${n})">${n}★</span>`).join('')}</div>
-    <div class="field" style="text-align:left;"><textarea id="reviewText" placeholder="Write your review..."></textarea></div>
-    <button class="btn btn-primary" onclick="submitRating('${currentJobId}')">Submit Review</button>
-  </div>`;
-function setStars(n){ selectedStars=n; document.getElementById('starDisplay').textContent = '★'.repeat(n)+'☆'.repeat(5-n); }
-async function submitRating(jobId){
-  const job = await getJob(jobId);
-  if(!job) return;
-  const review = document.getElementById('reviewText').value.trim();
-  const { data: rateRow, error } = await sb.from('sp_ratings').insert({
-    job_id: jobId, editor_id: job.assignedEditor, client_id: getCurrentUser().id,
-    stars: selectedStars, review: review || null
-  }).select('review').single();
-  if(error){
-    if(error.code === '23505'){ alert('You have already reviewed this project.'); }
-    else { dbErr(error); }
-    return;
-  }
-  await updateJob(jobId, { status: 'closed' });
-  await notify(job.assignedEditor, 'New Review ⭐', `A client rated you ${selectedStars}★.`);
-  if(review) contactCheck(review, rateRow && rateRow.review);
-  alert('Thank you for your review!');
-  nav('jobs');
-}
+/* Rating screen + submitRating(): see PART 13 below */
 
 SCREENS.notifications = async () => {
   const user = getCurrentUser();
@@ -2843,6 +2833,7 @@ SCREENS.admin = async () => {
   const sys = await loadSystemStatus();
   const modq = await loadModQueue();
   const extrasq = await loadExtrasQueue();
+  const casesq = await loadCasesQueue();
   const who = id => { const u = nameMap[id]; return u ? `${esc(u.name)} (${esc(u.role)}) ${u.phone ? `<a href="tel:${esc(u.phone)}">${esc(u.phone)}</a>` : ''}` : '-'; };
   return `
   <div class="header"><button class="back-btn" onclick="nav('profile')">‹</button><h1>Admin Panel</h1><p>Syahi Films Verification</p></div>
@@ -2880,6 +2871,7 @@ SCREENS.admin = async () => {
     <div class="search-row">${UI_ICONS.search}<input id="admSearch" type="search" name="sp-admin-search" placeholder="Search editors — name, phone, email or code" oninput="adminSearch(this.value)" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')"></div>
     ${systemStatusCard(sys)}
     ${modQueueSection(modq)}
+    ${casesQueueSection(casesq)}
     ${extrasQueueSection(extrasq)}
     <h3 style="margin-bottom:10px;">Pending Verification (${pending.length})</h3>
     ${pending.length===0?'<p class="muted">No pending editors.</p>':''}
@@ -3214,7 +3206,7 @@ const ROUTE_ACCESS = Object.freeze({
   postJob: 'client', applications: 'client', payment: 'client', savedList: 'client', ratings: 'client',
   jobBidScreen: 'editor',
   editorDetails: 'editorAccount', verificationStatus: 'editorAccount', editorProfileEdit: 'editorAccount',
-  admin: 'admin'
+  admin: 'admin', caseFile: 'admin'
 });
 // Screens that belong to one job: only the people in that job (or an admin) may open them.
 const JOB_SCREENS = Object.freeze({ projectStatus: 'party', applications: 'owner', payment: 'owner', ratings: 'owner', previewPlayer: 'member' });
@@ -3313,19 +3305,21 @@ const CLIENT_STATUS = Object.freeze({
   'approved':        { label: 'Approved',          color: '#15803d', bg: '#e7f7ec', step: 6 },
   'closed':          { label: 'Completed',         color: '#15803d', bg: '#e7f7ec', step: 7 },
   'refunded':        { label: 'Refunded',          color: '#6b7280', bg: '#f1f2f4', step: 0 },
-  'expired':         { label: 'Expired',           color: '#6b7280', bg: '#f1f2f4', step: 0 }
+  'expired':         { label: 'Expired',           color: '#6b7280', bg: '#f1f2f4', step: 0 },
+  'disputed':        { label: 'Under dispute',     color: '#c62828', bg: '#fdecec', step: 5 },
+  'team_review':     { label: 'Sphere team reviewing', color: '#b45309', bg: '#fff4e0', step: 5 }
 });
-const CLIENT_ACTIVE = ['open', 'negotiating', 'payment-pending', 'in-progress', 'delivered'];
+const CLIENT_ACTIVE = ['open', 'negotiating', 'payment-pending', 'in-progress', 'delivered', 'disputed', 'team_review'];
 const CLIENT_PAID = ['in-progress', 'delivered', 'approved', 'closed'];
 
 // One project as the client sees it: friendly status, what (if anything) they need to do
 function clientProjectView(j, bidCount, editor, user){
-  const key = isExpired(j) ? 'expired' : (CLIENT_STATUS[j.status] ? j.status : 'open');
+  const key = isExpired(j) ? 'expired' : (j.status === 'delivered' && ['disputed', 'team_review'].includes(j.reviewState)) ? j.reviewState : (CLIENT_STATUS[j.status] ? j.status : 'open');
   let action = '';
   if(key === 'open' && bidCount > 0) action = bidCount + (bidCount === 1 ? ' bid' : ' bids') + ' received — choose an editor';
   if(key === 'negotiating' && j.proposedBy && j.proposedBy !== user.id) action = 'The editor sent a price — reply';
   if(key === 'payment-pending') action = 'Pay to start the work';
-  if(key === 'delivered') action = 'Check the video and approve';
+  if(key === 'delivered') action = 'Watch the final video — release payment or tell us what is wrong';
   const w = WORK_CACHE[j.id];
   if(w && key === 'in-progress'){
     if(w.pending_extension_hours) action = 'The editor asked for more time — reply';
@@ -3724,13 +3718,17 @@ function editorProfileExtra(user){
 async function fillEditorPerformance(){
   const user = getCurrentUser();
   if(!document.getElementById('edPerf') || !user) return;
-  const w = await loadEditorWork(user);
+  const [w, hist, earn] = await Promise.all([loadEditorWork(user), ratingHistoryHtml(user.id, 5), sb.rpc('sp_editor_earnings_summary').then(r => r.data, () => null)]);
   const el = document.getElementById('edPerf');
   if(!el) return;
   el.innerHTML = `<div class="cl-stat"><b>${w.reviews ? '⭐ ' + w.rating : '–'}</b><span>${w.reviews} review${w.reviews === 1 ? '' : 's'}</span></div>
     <div class="cl-stat" onclick="nav('jobs', { tab: 'history' })"><b>${w.done.length}</b><span>Completed</span></div>
     <div class="cl-stat" onclick="nav('jobs', { tab: 'mine' })"><b>${w.active.length}</b><span>Active</span></div>`;
-  if(w.lastReviews.length){
+  const extra = (earn && Number(earn.projects) ? `<div class="cl-stats" style="margin:10px 0 0;"><div class="cl-stat"><b style="font-size:15px;">${rupees(earn.base)}</b><span>Base earnings</span></div>
+      <div class="cl-stat"><b style="font-size:15px; color:#15803d;">+${rupees(earn.bonus)}</b><span>Bonus earned</span></div>
+      <div class="cl-stat"><b style="font-size:15px; color:${Number(earn.deductions) ? '#c62828' : 'inherit'};">−${rupees(earn.deductions)}</b><span>Late deductions</span></div></div>` : '') + hist;
+  if(extra) el.insertAdjacentHTML('afterend', `<div style="text-align:left; margin-top:8px;">${extra}</div>`);
+  else if(w.lastReviews.length){
     el.insertAdjacentHTML('afterend', `<div style="text-align:left; margin-top:8px;">${w.lastReviews.map(x => `<p class="muted" style="font-size:12px; margin:4px 0;">${'★'.repeat(Number(x.stars) || 0)} “${esc(x.review)}”</p>`).join('')}</div>`);
   }
 }
@@ -3866,8 +3864,9 @@ async function editorPublicExtra(e){
     const { data, error } = await sb.from('sp_editor_public_extra').select('bio, availability').eq('id', e.id).maybeSingle();
     if(!error && data){ bio = data.bio || ''; availability = data.availability || ''; }
   } catch(x) {}
-  if(!bio && !availability) return '';
-  return `<div class="card">${availability ? availabilityChip(availability) : ''}${bio ? `<p class="ed-bio">${esc(bio)}</p>` : ''}</div>`;
+  const hist = await ratingHistoryHtml(e.id, 5);
+  if(!bio && !availability) return hist;
+  return `<div class="card">${availability ? availabilityChip(availability) : ''}${bio ? `<p class="ed-bio">${esc(bio)}</p>` : ''}</div>` + hist;
 }
 
 // ---- Admin: verification state, fee check, reject with reason
@@ -4827,6 +4826,8 @@ function workTickSoon(){
   if(!currentUser || Date.now() - lastWorkTick < 5 * 60000) return;
   lastWorkTick = Date.now();
   sb.rpc('sp_work_tick').then(() => {}, () => {});
+  sb.rpc('sp_final_tick').then(() => {}, () => {});
+  sb.rpc('sp_bonus_tick').then(() => {}, () => {});
 }
 async function loadWorkFor(ids){
   if(!ids || !ids.length) return;
@@ -4882,13 +4883,14 @@ function startWorkTimer(){
       else if(now < grace) el.textContent = hms(grace - now);
       else el.textContent = '+' + hms(now - grace);
       const cap = el.parentElement && el.parentElement.querySelector('.wk-cap');
-      if(cap) cap.textContent = now < due ? 'left until the deadline' : now < grace ? 'grace time left' : 'late by';
+      if(cap) cap.textContent = el.dataset.cap ? (now < due ? el.dataset.cap : 'time is up — the Sphere team will review') : (now < due ? 'left until the deadline' : now < grace ? 'grace time left' : 'late by');
     });
   }, 1000);
 }
 
 // ---- Project page: clock, actions, preview, timeline
 async function projectWorkSection(job, user, isClient, isEditor){
+  FINAL_UI_SHOWN = false; RATING_UI_SHOWN = false;
   const party = isClient || isEditor || isAdminUser(user);
   if(!party || !job.assignedEditor) return '';
   const [wr, xr, er] = await Promise.all([
@@ -4937,9 +4939,12 @@ async function projectWorkSection(job, user, isClient, isEditor){
     }
   }
   // previews (both sides) + project files
+  html = (await finalSection(job, w, files, isClient, isEditor)) + html;
   if(['in-progress', 'delivered', 'approved', 'closed'].includes(job.status)){
     html += previewVersionsCard(job, w, files, isClient, isEditor);
     html += await revisionsSection(job, w, files, isClient, isEditor);
+    if(isEditor && job.status === 'in-progress' && w && w.phase === 'preview') html += finalSubmitPanel(job, files);
+    if(isClient && job.status === 'in-progress' && w && w.phase === 'active' && w.is_late && !w.preview_at) html += notDeliveredCard(job);
     if(isEditor && w && w.phase === 'preview' && job.status === 'in-progress') html += previewUploadPanel(job, files, true);
   }
   html += projectFilesSection(job, files, isClient, isEditor);
@@ -4948,7 +4953,8 @@ async function projectWorkSection(job, user, isClient, isEditor){
     const ic = { posted: '📝', editor_chosen: '🤝', price_locked: '🔒', paid: '💳', payment_failed: '⚠️', started: '▶️', reminder: '⏰', deadline_passed: '⚠️', late: '🔴',
       extension_requested: '⏳', extension_approved: '✅', extension_declined: '✖', extension_given: '⏳', preview: '👀', preview_updated: '👀', file_added: '📎', file_removed: '🗑️',
       revision_requested: '🔁', revision_open: '▶️', revision_delivered: '👀', revision_cancelled: '✖', extra_paid: '💳',
-      change_requested: '📝', change_accepted: '✅', change_rejected: '✖', change_applied: '✅', change_cancelled: '✖', delivered: '📦', approved: '✅', closed: '🏁', refunded: '💸', reopened: '🔄' };
+      change_requested: '📝', change_accepted: '✅', change_rejected: '✖', change_applied: '✅', change_cancelled: '✖',
+      rated: '⭐', settled: '💰', final_submitted: '🏁', dispute_opened: '⚖️', team_review: '⏳', decision: '🧑‍⚖️', refund_approved: '💸', refund_done: '💸', released: '🎉', delivered: '📦', approved: '✅', closed: '🏁', refunded: '💸', reopened: '🔄' };
     const item = e => `<div class="tl-item"><i>${ic[e.kind] || '•'}</i><b>${esc(e.title)}</b><p>${fmtDT(e.at)}${e.details ? ' · ' + esc(e.details) : ''}</p></div>`;
     html += `<details class="card" ${job.status === 'in-progress' ? '' : 'open'}><summary><b>📜 Project timeline (${events.length})</b></summary>
       <div class="tl">${events.map(item).join('')}</div></details>`;
@@ -5359,7 +5365,7 @@ function projectFilesSection(job, files, isClient, isEditor){
   if(!(isClient || isEditor || isAdminUser(getCurrentUser()))) return '';
   const list = files.filter(f => f.kind === 'client_file');
   const me = (getCurrentUser() || {}).id;
-  const canAdd = isClient && !['closed', 'refunded'].includes(job.status);
+  const canAdd = isClient && !['approved', 'closed', 'refunded'].includes(job.status);
   const chip = f => f.status === 'uploading' ? '<span class="bid-chip warn">Uploading…</span>' : f.status === 'failed' ? '<span class="bid-chip bad">Failed</span>' : '';
   return `<div class="card"><b>📎 Project files (${list.length})</b>
     <p class="muted" style="font-size:12px; margin:2px 0 8px;">Private — only you${isClient ? ' and your editor' : ' and the client'} can open them.</p>
@@ -5672,6 +5678,373 @@ async function extraAdmin(extraId, action){
   const { error } = await sb.rpc('sp_extra_admin', { p_extra: extraId, p_action: action, p_pin: ADMIN_PIN });
   if(error){ alert(error.message); if(/PIN/i.test(error.message)) ADMIN_PIN = ''; }
   nav('admin');
+}
+
+/* ============ PART 12: FINAL APPROVAL + DISPUTES + REFUNDS ============
+   Editor: Submit for final approval = final watermarked preview + clean final link
+   (hidden from the client until release) → "delivered", 10-hour decision window.
+   Client: Release payment (existing release-payout) or I am not satisfied (reason
+   → dispute with a full case file). No answer in 10 h → Sphere team review.
+   Sphere team (Admin Panel → Reviews & disputes → case file): release to editor /
+   full refund (existing refund-payment) / send back to editor. AI only helps sort. */
+let FINAL_UI_SHOWN = false;   // the new decision card is on screen → hide the old single button
+const DISPUTE_REASONS = [
+  ['quality', 'Quality is not good'], ['not_as_asked', 'Not what I asked for'], ['missing', 'Something is missing'],
+  ['late', 'Delivered too late'], ['other', 'Something else']
+];
+async function loadFinalData(jobId){
+  const [d, r] = await Promise.all([
+    sb.from('sp_disputes').select('id, kind, category, details, status, decision_note, created_at, decided_at').eq('job_id', jobId).order('created_at', { ascending: false }).then(v => v, () => ({ data: null, error: true })),
+    sb.from('sp_refunds').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).then(v => v, () => ({ data: null }))
+  ]);
+  return { ready: !d.error, disputes: d.data || [], refunds: r.data || [] };
+}
+function refundCard(rf, isClient){
+  if(!rf) return '';
+  const m = { approved: ['Refund approved', 'The Sphere team approved a full refund. It is being sent.'], processing: ['Refund processing', 'Razorpay is sending the money back.'],
+              refunded: ['Refunded ✅', 'The money is on its way — banks take 5–7 working days.'], failed: ['Refund is being retried', 'Something went wrong; the Sphere team is on it.'], rejected: ['Refund not approved', ''] }[rf.status] || [rf.status, ''];
+  return `<div class="card fd-card review"><b>💸 ${m[0]}</b> <span class="bid-chip">${rupees(rf.amount)}</span><p class="muted" style="font-size:12px; margin-top:4px;">${isClient ? m[1] : 'Refund for this project: ' + m[0].toLowerCase()}</p></div>`;
+}
+async function finalSection(job, w, files, isClient, isEditor){
+  if(!['delivered', 'approved', 'closed', 'refunded', 'in-progress'].includes(job.status)) return '';
+  const fd = await loadFinalData(job.id);
+  if(!fd.ready) return '';
+  const openD = fd.disputes.find(d => d.status === 'open' && d.kind === 'dispute');
+  const lastRefund = fd.refunds[0];
+  let html = refundCard(lastRefund, isClient);
+  if(job.status === 'refunded') return html;
+  if(['approved', 'closed'].includes(job.status)){
+    if(isClient) html += `<div class="card fd-card done"><b>🎉 Payment released — project complete</b>
+      ${job.deliveryLink ? `<p style="font-size:13px; margin:6px 0;">Your clean final video: ${linkOrText(job.deliveryLink)}</p>` : ''}
+      <p class="muted" style="font-size:12px;">Complaints and refunds are closed for this project. For help, contact Sphere support.</p></div>`;
+    if(isEditor) html += `<div class="card fd-card done"><b>🎉 Payment released</b><p class="muted" style="font-size:12px; margin-top:4px;">Your payout has started.</p></div>` + await earningsCard(job);
+    if(isClient) html += await clientRatingCard(job);
+    return html;
+  }
+  if(job.status !== 'delivered') return html;
+  const pv = files.filter(f => f.kind === 'preview' && f.status === 'ready').sort((a, b) => (b.version || 0) - (a.version || 0))[0];
+  const due = job.decisionDueAt ? new Date(job.decisionDueAt).getTime() : 0;
+  const st = job.reviewState;
+  const cls = st === 'disputed' ? 'dispute' : st === 'team_review' ? 'review' : '';
+  if(isClient){
+    FINAL_UI_SHOWN = true;
+    html += `<div class="card fd-card ${cls}" id="finalDecision">
+      <b>${st === 'disputed' ? '⚖️ Dispute opened — the Sphere team is reviewing' : st === 'team_review' ? '⏳ The Sphere team is reviewing this project' : '🏁 Final video ready — your decision'}</b>
+      ${st === 'disputed' && openD ? `<p style="font-size:13px; margin:6px 0;">Your reason: “${esc(openD.details || '')}”</p><p class="muted" style="font-size:12px;">We will contact you. If you change your mind you can still release the payment.</p>`
+        : st === 'team_review' ? `<p class="muted" style="font-size:12px; margin:6px 0;">The decision time ended. You can still release the payment, or tell us what is wrong.</p>`
+        : `<p class="muted" style="font-size:12px; margin:6px 0;">Watch the final preview. The clean video unlocks after you release the payment.</p>`}
+      ${pv ? `<button class="btn btn-outline" style="margin:6px 0;" onclick="openPreview('${job.id}', '${pv.id}')">▶ Watch final preview v${pv.version}</button>` : ''}
+      ${st === 'awaiting_client' && due ? `<div style="text-align:center; margin:8px 0;"><div class="wk-count" style="font-size:24px;" data-due="${due}" data-grace="${due}" data-cap="left to decide">${hms(due - Date.now())}</div><p class="wk-cap muted" style="font-size:12px;">left to decide</p></div>
+        <p class="muted" style="font-size:11px; text-align:center;">No answer in ${getSetting('final_review_hours')} hours → the Sphere team reviews the project.</p>` : ''}
+      <button class="btn btn-primary" style="margin-top:8px;" onclick="approveJob('${job.id}')">✅ Release payment</button>
+      ${st !== 'disputed' ? `<details style="margin-top:10px;"><summary class="btn btn-outline" style="display:block; text-align:center; color:#c62828; border-color:#c62828; list-style:none;">😞 I am not satisfied</summary>
+        <div class="field" style="margin-top:10px;"><label>What is the problem?</label><select id="dsCat">${DISPUTE_REASONS.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></div>
+        <div class="field"><label>Explain (required)</label><textarea id="dsText" maxlength="2000" placeholder="Example: the intro I asked for is missing and the music is too loud" style="min-height:90px;"></textarea></div>
+        <button class="btn btn-primary" style="background:#c62828; border-color:#c62828;" onclick="openDispute('${job.id}')">Send to the Sphere team</button>
+        <p class="muted" style="font-size:11px; margin-top:6px;">The Sphere team checks the whole project — requirements, chat, files, previews and revisions — and decides. Your money stays safe until then.</p></details>` : ''}
+    </div>`;
+  } else if(isEditor){
+    html += `<div class="card fd-card ${cls}"><b>${st === 'disputed' ? '⚖️ The client opened a dispute' : st === 'team_review' ? '⏳ Sent to the Sphere team' : '🏁 Submitted — waiting for the client'}</b>
+      ${st === 'disputed' && openD ? `<p style="font-size:13px; margin:6px 0;">${esc((DISPUTE_REASONS.find(r => r[0] === openD.category) || ['', 'Problem'])[1])}: “${esc(openD.details || '')}”</p><p class="muted" style="font-size:12px;">The Sphere team will review the case and contact you.</p>`
+        : st === 'team_review' ? `<p class="muted" style="font-size:12px; margin-top:4px;">The client did not answer in time. The Sphere team is reviewing.</p>`
+        : `<p class="muted" style="font-size:12px; margin-top:4px;">The client decides by ${fmtDT(job.decisionDueAt)}. If they don't answer, the Sphere team reviews it.</p>`}</div>`;
+  }
+  return html;
+}
+function finalSubmitPanel(job, files){
+  const pv = files.filter(f => f.kind === 'preview' && f.status === 'ready').sort((a, b) => (b.version || 0) - (a.version || 0));
+  if(!pv.length) return '';
+  return `<details class="card fd-card"><summary><b>🏁 Submit for final approval</b></summary>
+    <p class="muted" style="font-size:12px; margin:8px 0;">When all revisions are done: choose the final watermarked preview the client will watch, and add the <b>clean final video</b> as a Drive / Dropbox / WeTransfer link. The client gets that link only after releasing the payment.</p>
+    <div class="field"><label>Final preview</label><select id="fsPreview">${pv.map(f => `<option value="${f.id}">Preview v${f.version} · ${fmtDT(f.created_at)}</option>`).join('')}</select></div>
+    <div class="field"><label>Clean final video link (hidden until payment is released)</label><input id="fsLink" placeholder="https://drive.google.com/…"></div>
+    <div class="field"><textarea id="fsNote" maxlength="500" placeholder="Note for the client (optional)" style="min-height:50px;"></textarea></div>
+    <button class="btn btn-primary" id="fsBtn" onclick="submitFinal('${job.id}')">Submit for final approval</button></details>`;
+}
+function notDeliveredCard(job){
+  return `<details class="card fd-card dispute"><summary><b>💸 The editor sent nothing — ask for a refund</b></summary>
+    <p class="muted" style="font-size:12px; margin:8px 0;">The project is late and no preview was sent. The Sphere team will check and can refund you fully. You can also give more time instead.</p>
+    <div class="field"><textarea id="dsText" maxlength="2000" placeholder="Tell us what happened" style="min-height:70px;"></textarea></div>
+    <input type="hidden" id="dsCat" value="not_delivered">
+    <button class="btn btn-primary" style="background:#c62828; border-color:#c62828;" onclick="openDispute('${job.id}')">Ask the Sphere team for a refund</button></details>`;
+}
+function finalError(error){
+  if(/sp_final|sp_dispute|sp_case|sp_refund|schema cache|does not exist|Could not find/i.test((error && error.message) || '')) return 'This needs the latest database update (012_final_disputes.sql).';
+  return (error && error.message) || 'Something went wrong';
+}
+async function submitFinal(jobId){
+  const pid = (document.getElementById('fsPreview') || {}).value;
+  const link = ((document.getElementById('fsLink') || {}).value || '').trim();
+  const note = ((document.getElementById('fsNote') || {}).value || '').trim();
+  if(!/^https:\/\/\S+$/i.test(link)){ alert('Add the clean final video link (it starts with https://)'); return; }
+  if(!confirm('Submit for final approval? The client gets ' + getSetting('final_review_hours') + ' hours to release the payment or raise a problem.')) return;
+  const btn = document.getElementById('fsBtn'); if(btn) btn.disabled = true;
+  const { error } = await sb.rpc('sp_final_submit', { p_job: jobId, p_preview: pid, p_final_link: link, p_note: note || null });
+  if(btn) btn.disabled = false;
+  if(error){ alert(finalError(error)); return; }
+  alert('Submitted 🏁 The client has been told.');
+  currentJobId = jobId; nav('projectStatus');
+}
+async function openDispute(jobId){
+  const cat = (document.getElementById('dsCat') || {}).value || 'other';
+  const text = ((document.getElementById('dsText') || {}).value || '').trim();
+  if(text.length < 20){ alert('Please explain the problem (at least 20 letters).'); return; }
+  if(!confirm('Send this to the Sphere team? They review the whole project and decide. Your money stays safe until then.')) return;
+  const { error } = await sb.rpc('sp_dispute_open', { p_job: jobId, p_category: cat, p_details: text });
+  if(error){ alert(finalError(error)); return; }
+  alert('Sent ⚖️ The Sphere team will review the project and contact you.');
+  currentJobId = jobId; nav('projectStatus');
+}
+
+// ---- Admin: reviews & disputes
+async function loadCasesQueue(){
+  try {
+    const { data, error } = await sb.from('sp_disputes').select('id, job_id, kind, category, details, status, created_at, ai_category').eq('status', 'open').order('created_at', { ascending: true }).limit(50);
+    if(error) return { ready: false, list: [], payouts: [] };
+    const { data: payouts } = await sb.from('sp_payout_items').select('*').eq('status', 'pending').order('created_at', { ascending: true }).limit(50);
+    const jobIds = [...new Set([...(data || []).map(x => x.job_id), ...(payouts || []).map(x => x.job_id)])];
+    const jobs = {};
+    if(jobIds.length){ const { data: js } = await sb.from('sp_jobs').select('id, title, category, status, locked_amount').in('id', jobIds); (js || []).forEach(j => { jobs[j.id] = j; }); }
+    const eds = (payouts || []).length ? await getProfilesByIds([...new Set(payouts.map(p => p.editor_id))]) : {};
+    return { ready: true, list: data || [], payouts: payouts || [], jobs, eds };
+  } catch(e) { return { ready: false, list: [], payouts: [] }; }
+}
+function casesQueueSection(q){
+  if(!q || !q.ready) return '';
+  const label = j => j ? esc(j.title || j.category) : 'Project';
+  return `<h3 style="margin:20px 0 10px;">⚖️ Reviews & disputes (${q.list.length})</h3>
+    ${q.list.length === 0 ? '<p class="muted">Nothing to review. 👍</p>' : ''}
+    ${q.list.map(d => `<div class="card mq-item" style="border-left-color:${d.kind === 'dispute' ? '#c62828' : '#f59e0b'};">
+      <p style="font-size:13px;"><b>${d.kind === 'dispute' ? '⚖️ Dispute' : '⏳ No answer in time'}</b> · ${label(q.jobs[d.job_id])} · ${fmtDT(d.created_at)}</p>
+      ${d.details ? `<p class="muted" style="font-size:12px; margin:4px 0;">${esc(String(d.details).slice(0, 140))}</p>` : ''}
+      ${d.ai_category ? `<span class="bid-chip">🤖 ${esc(d.ai_category)}</span>` : ''}
+      <button class="btn-sm" style="margin-top:8px;" onclick="nav('caseFile', { disputeId: '${d.id}' })">Open case file</button></div>`).join('')}
+    ${q.payouts.length ? `<h3 style="margin:20px 0 10px;">💸 Extra payouts to editors (${q.payouts.length})</h3>
+      ${q.payouts.map(p => `<div class="card" style="${p.kind === 'deduction' ? 'border-left:4px solid #c62828;' : ''}"><p style="font-size:13px;"><b>${p.kind === 'deduction' ? '−' : ''}${rupees(p.amount)}</b> ${p.kind === 'deduction' ? 'to recover from' : 'to'} ${esc(((q.eds || {})[p.editor_id] || {}).name || 'Editor')} · ${label(q.jobs[p.job_id])}</p>
+        <p class="muted" style="font-size:12px;">${p.kind === 'bonus' ? '🏆 Performance bonus' : p.kind === 'deduction' ? '⏰ Late deduction' : '➕ Paid revisions / changes'} — ${esc(p.note || '')}${p.kind === 'deduction' ? ' (take it from the next payout)' : ' (pay by UPI / bank)'}</p>
+        <button class="btn-sm" style="margin-top:6px;" onclick="markPayoutPaid('${p.id}')">✅ ${p.kind === 'deduction' ? 'Mark recovered' : 'Mark paid'}</button></div>`).join('')}` : ''}`;
+}
+async function markPayoutPaid(itemId){
+  if(needPin()) return;
+  const note = prompt('UPI / bank reference (optional):', '');
+  if(note === null) return;
+  const { error } = await sb.rpc('sp_payout_item_paid', { p_item: itemId, p_note: note, p_pin: ADMIN_PIN });
+  if(error){ alert(error.message); if(/PIN/i.test(error.message)) ADMIN_PIN = ''; }
+  nav('admin');
+}
+SCREENS.caseFile = async (data) => {
+  const id = data && data.disputeId;
+  const { data: d } = await sb.from('sp_disputes').select('*').eq('id', id).maybeSingle();
+  if(!d) return `<div class="header"><button class="back-btn" onclick="nav('admin')">‹</button><h1>Case not found</h1></div>`;
+  const job = await getJob(d.job_id);
+  currentJobId = d.job_id;
+  const [elig, fin, files, people] = await Promise.all([
+    sb.rpc('sp_refund_eligibility', { p_job: d.job_id }).then(r => r.data || {}, () => ({})),
+    sb.from('sp_final_files').select('*').eq('job_id', d.job_id).maybeSingle().then(r => r.data, () => null),
+    loadProjectFiles(d.job_id),
+    job ? getProfilesByIds([job.clientId, job.assignedEditor]) : Promise.resolve({})
+  ]);
+  const s = d.snapshot || {}, sj = s.job || {}, sw = s.work || {};
+  const cl = job && people[job.clientId], ed = job && people[job.assignedEditor];
+  const row = (k, v) => v ? `<div class="kv"><span>${k}</span><b style="text-align:right; max-width:62%; white-space:pre-wrap;">${v}</b></div>` : '';
+  const open = d.status === 'open';
+  const previews = files.filter(f => f.kind === 'preview' && f.status === 'ready').sort((a, b) => (a.version || 0) - (b.version || 0));
+  return `
+  <div class="header"><button class="back-btn" onclick="nav('admin')">‹</button><h1>Case file</h1><p>${job ? projectCode(job) + ' · ' + esc(job.title || job.category) : ''}</p></div>
+  <div class="screen" style="padding-top:0;">
+    <div class="card fd-card ${d.kind === 'dispute' ? 'dispute' : 'review'}">
+      <b>${d.kind === 'dispute' ? '⚖️ Client is not satisfied' : '⏳ Client did not answer in time'}</b> <span class="bid-chip">${esc(d.status)}</span>
+      ${d.category ? `<p style="font-size:12px; margin-top:6px;">Reason: <b>${esc((DISPUTE_REASONS.find(r => r[0] === d.category) || [d.category, d.category])[1])}</b></p>` : ''}
+      ${d.details ? `<p style="font-size:14px; margin:6px 0; white-space:pre-wrap;">“${esc(d.details)}”</p>` : ''}
+      <p class="muted" style="font-size:12px;">Opened ${fmtDT(d.created_at)} · Client: ${esc(cl ? cl.name : '-')} · Editor: ${esc(ed ? ed.name : '-')}</p>
+      ${d.ai_summary ? `<div class="pj-ai" style="margin-top:10px;">🤖 <b>AI note (advice only):</b> ${esc(d.ai_category || '')}<br>${esc(d.ai_summary)}</div>` : ''}
+      ${open ? `<button class="btn-sm" style="margin-top:8px;" onclick="caseAskAI('${d.id}')">🤖 Ask AI to sort this case</button>` : ''}
+      ${d.decision_note ? `<p style="font-size:12px; margin-top:8px;">Decision: ${esc(d.decision_note)}</p>` : ''}
+    </div>
+
+    <div class="case-sec">Requirements</div>
+    <div class="card">${row('Title', esc(sj.title || ''))}${row('Category', esc(sj.category || ''))}
+      <p style="font-size:13px; white-space:pre-wrap; margin:6px 0;">${esc(sj.description || '')}</p>
+      ${row('Length', esc(sj.length || ''))}${row('Format', esc(sj.format || ''))}${row('Style', esc(sj.style || ''))}${row('References', esc(sj.references || ''))}
+      ${sj.accepted_changes ? `<p style="font-size:12px; margin-top:6px;"><b>Accepted changes</b></p><p style="font-size:12px; white-space:pre-wrap;">${esc(sj.accepted_changes)}</p>` : ''}</div>
+
+    <div class="case-sec">Money</div>
+    <div class="card">${row('Client paid', rupees((Number(sj.price_paid) || 0) + (Number(sj.extra_paid) || 0)))}${row('Extras paid', sj.extra_paid ? rupees(sj.extra_paid) : '')}
+      ${row('Refund possible', elig.eligible ? 'Yes — full ' + rupees(elig.amount) : 'No' + (elig.reasons && elig.reasons.length ? ' (' + esc(elig.reasons.join(', ')) + ')' : ''))}</div>
+
+    <div class="case-sec">Work & deadlines</div>
+    <div class="card">${row('Started', fmtDT(sw.started_at))}${row('Original deadline', fmtDT(sw.original_due_at || sw.due_at))}${row('Last deadline', fmtDT(sw.due_at))}
+      ${row('First preview', sw.preview_at ? fmtDT(sw.preview_at) + (sw.preview_on_time === false ? ' (late)' : ' (on time)') : 'none')}
+      ${fin ? row('Final submitted', 'Preview v' + fin.preview_version + ' · ' + fmtDT(fin.submitted_at)) + `<p style="font-size:12px;">Clean final (admin only): ${linkOrText(fin.final_link)}</p>` : ''}</div>
+
+    <div class="case-sec">Previews (${previews.length})</div>
+    <div class="card">${previews.map(f => `<div class="pf-row"><div class="pf-ic">🎞</div><div class="pf-main"><b>Preview v${f.version}</b><small>${fmtDT(f.created_at)}</small></div><button class="btn-sm" onclick="openPreview('${d.job_id}', '${f.id}')">Watch</button></div>`).join('') || '<p class="muted">None</p>'}</div>
+
+    <div class="case-sec">Files</div>
+    <div class="card">${(s.files || []).filter(f => f.kind === 'client_file').map(f => `<p style="font-size:12px; margin:4px 0;">${f.source === 'link' ? '🔗 ' + linkOrText(f.link) : '📎 ' + esc(f.name || 'file')} <span class="muted">${fmtDT(f.at)}</span></p>`).join('') || '<p class="muted">None</p>'}</div>
+
+    <div class="case-sec">Revisions & changes</div>
+    <div class="card">${(s.revisions || []).map(r => `<p style="font-size:12px; margin:6px 0;"><b>Revision #${r.number}</b> (${esc(r.status)}${r.is_paid ? ', paid' : ''}): ${esc(r.notes)}</p>`).join('')}
+      ${(s.changes || []).map(c => `<p style="font-size:12px; margin:6px 0;"><b>Change</b> (${esc(c.status)}${Number(c.extra_price) ? ', +' + rupees(c.extra_price) : ''}): ${esc(c.details)}</p>`).join('') || ((s.revisions || []).length ? '' : '<p class="muted">None</p>')}</div>
+
+    <div class="case-sec">Chat (${(s.chat || []).length} messages, at the time of the case)</div>
+    <div class="card case-chat">${(s.chat || []).map(m => `<p><b class="${m.from === 'client' ? 'c' : 'e'}">${m.from}</b> <span class="muted">${fmtDT(m.at)}</span> ${m.media ? '[' + esc(m.media) + '] ' : ''}${esc(m.text || '')}${m.moderation && m.moderation !== 'ok' ? ' <i class="muted">(' + esc(m.moderation) + ')</i>' : ''}</p>`).join('') || '<p class="muted">No messages</p>'}</div>
+
+    <div class="case-sec">Timeline</div>
+    <div class="card"><div class="tl">${(s.timeline || []).map(e => `<div class="tl-item"><i>•</i><b>${esc(e.title)}</b><p>${fmtDT(e.at)}${e.details ? ' · ' + esc(e.details) : ''}</p></div>`).join('')}</div></div>
+
+    ${open ? `<div class="case-sec">Sphere team decision</div>
+    <div class="card"><div class="field"><textarea id="caseNote" maxlength="1000" placeholder="Decision note — both people will see the result" style="min-height:70px;"></textarea></div>
+      ${job && job.status === 'delivered' ? `<button class="btn btn-primary" style="margin-bottom:8px;" onclick="caseDecide('${d.id}', 'release')">✅ Release to the editor</button>` : ''}
+      ${elig.eligible ? `<button class="btn btn-outline" style="margin-bottom:8px; color:#c62828; border-color:#c62828;" onclick="caseDecide('${d.id}', 'refund')">💸 Full refund to the client</button>` : ''}
+      ${job && job.status === 'delivered' ? `<button class="btn btn-outline" onclick="caseDecide('${d.id}', 'redo')">🔧 Send back to the editor to fix</button>` : ''}
+      <p class="muted" style="font-size:11px; margin-top:8px;">The Sphere team decides. AI notes are only advice.</p></div>` : ''}
+  </div>`;
+};
+async function caseDecide(disputeId, decision){
+  if(needPin()) return;
+  const note = ((document.getElementById('caseNote') || {}).value || '').trim();
+  if(note.length < 5){ alert('Write a short decision note first.'); return; }
+  const ask = { release: 'Release the payment to the editor?', refund: 'Send a FULL refund to the client? This cannot be undone.', redo: 'Send the project back to the editor to fix?' }[decision];
+  if(!confirm(ask)) return;
+  const { data, error } = await sb.rpc('sp_case_decide', { p_dispute: disputeId, p_decision: decision, p_note: note, p_pin: ADMIN_PIN });
+  if(error){ alert(finalError(error)); if(/PIN/i.test(error.message || '')) ADMIN_PIN = ''; return; }
+  if(data && data.next === 'release-payout'){
+    const { data: r, error: e2 } = await sb.functions.invoke('release-payout', { body: { jobId: data.job_id } });
+    alert(e2 ? 'Release failed: ' + await functionError(e2) : (r && r.payout === 'released' ? 'Released ✅' : 'Approved ✅ — see the manual payout list.'));
+  } else if(data && data.next === 'refund-payment'){
+    await sb.rpc('sp_refund_mark', { p_refund: data.refund_id, p_status: 'processing', p_error: null });
+    const { error: e3 } = await sb.functions.invoke('refund-payment', { body: { jobId: data.job_id } });
+    if(e3){ const msg = await functionError(e3); await sb.rpc('sp_refund_mark', { p_refund: data.refund_id, p_status: 'failed', p_error: msg }); alert('Refund failed: ' + msg + '\nYou can try again from Admin Panel.'); }
+    else alert('Refund started ✅ The client gets the money in 5–7 days.');
+  } else {
+    alert('Done ✅ The editor has been told to fix and resubmit.');
+  }
+  nav('admin');
+}
+async function caseAskAI(disputeId){
+  const { data: d } = await sb.from('sp_disputes').select('*').eq('id', disputeId).maybeSingle();
+  if(!d) return;
+  const s = d.snapshot || {};
+  const brief = JSON.stringify({ reason: d.category, client_says: d.details, requirements: (s.job || {}).description, style: (s.job || {}).style,
+    accepted_changes: (s.job || {}).accepted_changes, revisions: (s.revisions || []).map(r => r.notes), deadline: s.work && { original: s.work.original_due_at, last: s.work.due_at, preview_on_time: s.work.preview_on_time },
+    chat: (s.chat || []).slice(-40).map(m => m.from + ': ' + (m.text || '')) }).slice(0, 9000);
+  const prompt = 'You help the Sphere team (video editing marketplace) sort a dispute. Do NOT decide who wins. Reply ONLY JSON {"category":"quality|not_as_asked|missing|late|not_delivered|communication|other","summary":"4-6 short neutral sentences: what was asked, what was delivered, what each side says, what to check"}. Case: ' + brief;
+  try {
+    const { data } = await sb.functions.invoke('sphere-ai', { body: { messages: [{ role: 'user', text: prompt }] } });
+    const t = String((data && data.reply) || ''); const v = JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1));
+    const { error } = await sb.rpc('sp_case_ai_note', { p_dispute: disputeId, p_category: String(v.category || 'other'), p_summary: String(v.summary || '') });
+    if(error) throw error;
+  } catch(e) { alert('AI is not available right now.'); }
+  nav('caseFile', { disputeId });
+}
+
+/* ============ PART 13: RATINGS + PERFORMANCE BONUS ============
+   After release the client rates the editor −3 … +3 (+ feedback), once.
+   The database settles each project (sp_settlements, admins only):
+   pool = client payment − editor base; 50 % Sphere; 50 % bonus pool in 4 parts,
+   one per condition (early ≥ 5 h vs the valid deadline · rating +3 · ≤ 1 revision
+   and no dispute · clean outcome). Late after grace → no bonus + ₹10/hour deduction.
+   Editors see their own base, bonus and deductions (sp_settlement_mine); clients
+   never see the split. */
+const RATING_LABELS = { '-3': 'Very bad', '-2': 'Bad', '-1': 'Below expectations', '0': 'Okay', '1': 'Good', '2': 'Very good', '3': 'Excellent' };
+function ratingColor(n){ n = Number(n); return n >= 2 ? '#15803d' : n === 1 ? '#4d7c0f' : n === 0 ? '#64748b' : n === -1 ? '#b45309' : '#c62828'; }
+function ratingChip(n){ n = Number(n); return `<span class="rt-chip" style="color:#fff; background:${ratingColor(n)};">${n > 0 ? '+' : ''}${n}</span>`; }
+let ratingPick = null;
+let RATING_UI_SHOWN = false;   // the new rating card is on screen → hide the old button
+
+SCREENS.ratings = async () => {
+  const job = await getJob(currentJobId);
+  const back = `<button class="back-btn" onclick="openJob('${job ? job.id : ''}')">‹</button>`;
+  if(!job) return `<div class="header">${back}<h1>Rate your editor</h1></div>`;
+  const { data: existing } = await sb.from('sp_project_ratings').select('*').eq('job_id', job.id).maybeSingle().then(r => r, () => ({ data: null }));
+  const people = job.assignedEditor ? await getProfilesByIds([job.assignedEditor]) : {};
+  const ed = people[job.assignedEditor];
+  ratingPick = null;
+  if(existing) return `<div class="header">${back}<h1>Your rating</h1></div><div class="screen" style="padding-top:0;">
+    <div class="card center-text"><p style="font-size:40px;">${ratingChip(existing.score)}</p><b>${esc(RATING_LABELS[String(existing.score)])}</b>
+    ${existing.feedback ? `<p style="font-size:13px; margin-top:8px;">“${esc(existing.feedback)}”</p>` : ''}<p class="muted" style="font-size:12px; margin-top:6px;">Rated ${fmtDT(existing.created_at)}</p></div></div>`;
+  return `
+  <div class="header">${back}<h1>Rate your editor</h1><p>${esc(ed ? ed.name : 'Editor')} · ${esc(job.title || job.category)}</p></div>
+  <div class="screen" style="padding-top:0;">
+    <div class="card">
+      <b>How was the work?</b>
+      <p class="muted" style="font-size:12px; margin-top:4px;">−3 = very bad · 0 = okay · +3 = excellent. You can rate once.</p>
+      <div class="rt-pick" id="rtPick">${[-3, -2, -1, 0, 1, 2, 3].map(n => `<button type="button" data-n="${n}" onclick="pickRating(${n})">${n > 0 ? '+' : ''}${n}</button>`).join('')}</div>
+      <p class="rt-label" id="rtLabel">Tap a number</p>
+      <div class="field" style="margin-top:10px;"><label>Feedback (optional)</label><textarea id="rtText" maxlength="1000" placeholder="What was good? What could be better?" style="min-height:80px;"></textarea></div>
+      <button class="btn btn-primary" id="rtBtn" onclick="submitRating('${job.id}')">Submit rating</button>
+    </div>
+  </div>`;
+};
+function pickRating(n){
+  ratingPick = n;
+  document.querySelectorAll('#rtPick button').forEach(b => {
+    const on = Number(b.dataset.n) === n;
+    b.classList.toggle('on', on);
+    b.style.background = on ? ratingColor(n) : '#fff';
+    b.style.borderColor = on ? ratingColor(n) : '';
+  });
+  const l = document.getElementById('rtLabel'); if(l) l.textContent = (n > 0 ? '+' : '') + n + ' · ' + RATING_LABELS[String(n)];
+}
+async function submitRating(jobId){
+  if(ratingPick === null){ alert('Choose a rating from −3 to +3.'); return; }
+  const fb = ((document.getElementById('rtText') || {}).value || '').trim();
+  const btn = document.getElementById('rtBtn'); if(btn) btn.disabled = true;
+  const { error } = await sb.rpc('sp_rating_submit', { p_job: jobId, p_score: ratingPick, p_feedback: fb || null });
+  if(btn) btn.disabled = false;
+  if(error){
+    if(/sp_rating_submit|schema cache|does not exist|Could not find/i.test(error.message || '')){
+      // database not updated yet (013): the old 1–5 stars
+      const job = await getJob(jobId);
+      const stars = Math.max(1, Math.min(5, Math.round((ratingPick + 3) * 4 / 6 + 1)));
+      const { error: e2 } = await sb.from('sp_ratings').insert({ job_id: jobId, editor_id: job.assignedEditor, client_id: getCurrentUser().id, stars, review: fb || null });
+      if(e2){ alert(e2.code === '23505' ? 'You have already reviewed this project.' : e2.message); return; }
+      await updateJob(jobId, { status: 'closed' });
+    } else { alert(error.message); return; }
+  }
+  alert('Thank you for your rating! ⭐');
+  currentJobId = jobId; nav('projectStatus');
+}
+async function clientRatingCard(job){
+  try {
+    const { data } = await sb.from('sp_project_ratings').select('score, feedback, created_at').eq('job_id', job.id).maybeSingle();
+    if(data){ RATING_UI_SHOWN = true; return `<div class="card"><b>⭐ Your rating</b> ${ratingChip(data.score)} <span class="muted" style="font-size:12px;">${esc(RATING_LABELS[String(data.score)])}</span>${data.feedback ? `<p style="font-size:13px; margin-top:6px;">“${esc(data.feedback)}”</p>` : ''}</div>`; }
+    if(job.status === 'approved'){ RATING_UI_SHOWN = true; return `<div class="card"><b>⭐ How was your editor?</b><p class="muted" style="font-size:12px; margin:4px 0 8px;">Rate from −3 to +3 within ${getSetting('rating_window_days')} days — it helps other clients and rewards good editors.</p>
+      <button class="btn btn-primary" onclick="currentJobId='${job.id}'; nav('ratings')">Rate your editor</button></div>`; }
+  } catch(e) {}
+  return '';
+}
+async function earningsCard(job){
+  let s = null;
+  try { const r = await sb.rpc('sp_settlement_mine', { p_job: job.id }); s = r.data; } catch(e) {}
+  if(!s) return '';
+  const c = (ok, text) => `<p class="cond">${ok ? '✅' : '⬜'} ${text}</p>`;
+  const d = s.details || {};
+  return `<div class="card"><b>💰 Your earnings</b> <span class="bid-chip ${s.status === 'final' ? 'ok' : 'warn'}">${s.status === 'final' ? 'Final' : 'Waiting for the client rating'}</span>
+    <div style="margin-top:8px;">
+      <div class="earn-row"><span>Project base</span><b>${rupees(s.base)}</b></div>
+      ${Number(s.extras) ? `<div class="earn-row"><span>Paid revisions / changes</span><b>${rupees(s.extras)}</b></div>` : ''}
+      <div class="earn-row"><span>Performance bonus (${s.met} of 4)</span><b style="color:#15803d;">+${rupees(s.bonus)}</b></div>
+      ${Number(s.late_deduction) ? `<div class="earn-row"><span>Late deduction (${s.late_hours} h × ₹${d.late_fee_per_hour || getSetting('late_fee_per_hour')})</span><b style="color:#c62828;">−${rupees(s.late_deduction)}</b></div>` : ''}
+      <div class="earn-row"><span><b>Total</b></span><b>${rupees(s.total)}</b></div>
+    </div>
+    <p style="font-size:12px; margin:10px 0 4px;"><b>Bonus conditions</b> (each = ${rupees(s.part)}, up to ${rupees(s.bonus_max)})</p>
+    ${c(s.early, `First delivery at least ${d.needed_hours_before || 5} h before the deadline${d.first_delivery_hours_before_deadline !== undefined && d.first_delivery_hours_before_deadline !== null ? ' — you were ' + Number(d.first_delivery_hours_before_deadline).toFixed(1) + ' h early' : ''}`)}
+    ${c(s.rating, 'Client rating +3' + (d.rating !== undefined && d.rating !== null ? ' — you got ' + (d.rating > 0 ? '+' : '') + d.rating : ''))}
+    ${c(s.revisions, 'Released by the client without a dispute, with at most 1 revision' + (d.revisions !== undefined ? ' — ' + d.revisions + ' revision' + (d.revisions === 1 ? '' : 's') : ''))}
+    ${c(s.quality, 'Clean project: every delivery on time, no team fix, no contact sharing')}
+    ${Number(s.late_hours) ? `<p class="cond" style="color:#c62828;">⏰ Late after the grace period, so no bonus for this project.</p>` : ''}
+  </div>`;
+}
+async function ratingHistoryHtml(editorId, limit){
+  try {
+    const { data, error } = await sb.from('sp_editor_ratings_public').select('score, feedback, created_at, category').eq('editor_id', editorId).order('created_at', { ascending: false }).limit(50);
+    if(error || !data || !data.length) return '';
+    const avg = Math.round(data.reduce((t, r) => t + Number(r.score), 0) / data.length * 10) / 10;
+    return `<div class="card"><b>⭐ Client ratings</b> <span class="muted" style="font-size:12px;">${data.length} project${data.length === 1 ? '' : 's'} · average ${avg > 0 ? '+' : ''}${avg} (−3 … +3)</span>
+      ${data.slice(0, limit || 5).map(r => `<div style="margin-top:8px;">${ratingChip(r.score)} <span class="muted" style="font-size:11px;">${esc(r.category || '')} · ${fmtDate(r.created_at)}</span>${r.feedback ? `<p style="font-size:13px; margin-top:2px;">“${esc(r.feedback)}”</p>` : ''}</div>`).join('')}</div>`;
+  } catch(e) { return ''; }
 }
 
 (function(){

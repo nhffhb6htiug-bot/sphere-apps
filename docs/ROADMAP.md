@@ -12,6 +12,8 @@ Budget: ₹0 (free tiers). One part at a time: build → test → fix → next. 
 | 1 | Foundation: structure, config, roles helpers, settings, system status, docs | 2.1.0 | `002_foundation.sql` |
 | 2 | Auth + user roles: route protection, session end handling, logout cleanup, DB role checks, suspended banner | 2.2.0 | `003_auth_roles.sql` |
 | 3 | Client profile + dashboard: home dashboard, My Projects (Active/History/All), friendly status, Edit Profile, client nav, empty states | 2.3.0 | none (app only) |
+| 13 | Ratings + performance bonus: −3…+3 ratings, rating history, delivery checks vs the valid deadline, 4-condition bonus from the Sphere pool, ₹10/hour late deduction, editor earnings card | 2.13.0 | `013_ratings_bonus.sql` |
+| 12 | Final approval + disputes + refunds: final submission with hidden clean link, release or not satisfied, 10-hour window → team review, case files, AI note (advice), team decisions, full refunds, complaints closed after release | 2.12.0 | `012_final_disputes.sql` |
 | 11 | Revisions + change requests: 3 free revisions, ₹50 from the 4th (all to the editor), change requests with price / time / files, accept / reject, deadline + price history, Razorpay or UPI for extras | 2.11.0 | `011_revisions_changes.sql` + Edge Function `sphere-extra-payment` |
 | 10 | Project files + watermarked preview: private project bucket, uploads with progress, links for 1 GB+ files, SPHERE watermark burned in on the editor's device, in-app player with moving watermark, preview versions | 2.10.0 | `010_project_files.sql` |
 | 9 | Chat + AI moderation: project chat, UPI / bank / card / IFSC hidden, suspicious messages held, AI check (sphere-moderate), admin review queue | 2.9.0 | `009_chat_moderation.sql` + Edge Function `sphere-moderate` |
@@ -127,3 +129,23 @@ revisions (3 free, 4th ₹50) + approval + payout + bonus · disputes (AI summar
 5. Repeat until 3 free are used → the button says **Ask for revision #4 — ₹50** → after asking, **Pay ₹50** (Razorpay test, or "Pay by UPI instead" + transaction ID → Admin Panel → 💳 Extra payments → Received) → revision #4 starts.
 6. Client → **📝 Ask for a change** → details + ₹400 + 24 h + a link + a file → editor **Accept** → client pays → *Accepted changes* shows on the job; project card shows original vs revised deadline; History keeps old deadline / old extra total.
 7. Another change → editor **Reject** with a note → client is told.
+
+## Part 12 — test checklist
+1. Supabase: run `012_final_disputes.sql` → then `checks/final_disputes_check.sql` → all ✅.
+2. Upload `index.html.html` → Settings shows **Sphere v2.12.0**.
+3. **Release:** editor → 🏁 Submit for final approval (preview + Drive link) → client sees the decision card, countdown, no final link → **Release payment** → project complete, clean link shown, "Report problem" gone, editor told.
+4. **Not satisfied:** another project → client → I am not satisfied → reason + explanation → "Dispute opened"; editor sees it; Admin Panel → ⚖️ Reviews & disputes → **Open case file** (requirements, chat, files, previews, revisions, money) → 🤖 Ask AI (optional) → note → **Send back to fix** → editor fixes → submits again.
+5. **Full refund:** in a case → note → **Full refund to the client** → refund status Approved → Processing → Refunded (Razorpay test refund) → client sees "Refunded".
+6. **10-hour window (quick test in SQL Editor):** `update public.sp_jobs set decision_due_at = now() - interval '1 minute' where review_state = 'awaiting_client';` → open the app → "Sphere team is reviewing", a case appears for admins.
+7. **Editor never delivered:** a late project with no preview → client sees "ask for a refund" → case opens.
+8. After release, try a dispute or a report on that project → refused.
+
+## Part 13 — test checklist
+1. Supabase: run `013_ratings_bonus.sql` → then `checks/ratings_bonus_check.sql` → all ✅.
+2. Upload `index.html.html` → Settings shows **Sphere v2.13.0**.
+3. **Perfect project:** editor sends the first preview ≥ 5 h before the deadline, 0–1 revision, final submit → client releases → client **Rate your editor** → +3 → editor's project shows **💰 Your earnings: bonus 4 of 4**.
+4. **Duplicate:** open the rating screen again → shows "Your rating", cannot rate twice.
+5. **Late:** (SQL Editor) `update public.sp_project_work set due_at = now() - interval '6 hours' where phase = 'active';` on a test project → editor sends a preview → release + rate +3 → earnings: bonus ₹0, late deduction 2 h × ₹10 = ₹20; Admin → 💸 payouts shows "−₹20 to recover".
+6. **Changed deadline:** a change request with +24 h → preview before the new deadline counts as on time (even if the original deadline passed).
+7. **No rating in 7 days:** settles automatically with the rating condition not met.
+8. Client screens never show pool / Sphere share / bonus.
