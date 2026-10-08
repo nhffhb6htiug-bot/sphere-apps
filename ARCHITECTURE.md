@@ -59,6 +59,8 @@ The script starts with a **map of headings**. Search for them:
 | `CHAT` | WhatsApp-style chat, realtime, media, voice notes |
 | `PAYMENT` / `PROJECT STATUS` | Razorpay checkout, escrow, delivery, approve & release |
 | `ADMIN` | Admin Panel (PIN unlock), verification, reports, payouts, suspicious users, system status |
+| `PART 9: CHAT + AI MODERATION` | `currentChatJob`, `openProjectChat()`, held-message handling, `loadModQueue()`, `modQueueSection()`, `reviewHeld()`, `askAIHeld()` |
+| `PART 8: PROJECT WORKFLOW + DEADLINES` | `WORK_CACHE`, `workState()`, `workChip()`, `projectWorkSection()`, countdown timer, preview / more-time actions |
 | `PART 7: SELECTION + PAYMENT` | `PAY_STATES`, `projectSummaryCard()`, `acceptAmount()`, `SCREENS.payment`, `payWithRazorpay()` |
 | `PART 6: JOB DISCOVERY + BIDDING` | `jobFilter`, `renderAvailList()`, `SCREENS.jobBidScreen`, `submitBid()`, `SCREENS.applications`, `selectBid()` |
 | `PART 5: JOB POSTING + AI` | `SCREENS.postJob`, `aiFillJob()`, `localJobParse()`, drafts, `submitJob()`, `jobRequirementsHtml()` |
@@ -141,6 +143,27 @@ The script starts with a **map of headings**. Search for them:
 * **Duplicate protection:** one record per project, `sp_pay_start` refuses a paid project, the pay button locks while paying; if Razorpay still reports a second payment it is kept in `duplicate_refs` and admins are told to refund it.
 * **Sphere's split** (editor share, Sphere fee, bonus pool) is stored in `sp_payment_splits`, admins only.
 * Note: the older `sp_jobs.editor_amount / platform_fee` columns are still filled by the Edge Functions; the app never shows them to clients. Hiding them at the database level needs the Edge Function code.
+
+### Project workflow + deadlines (Part 8)
+* **Work clock** (`sp_project_work`) starts automatically when a project is paid (status → `in-progress`). Projects already in progress when 008 was installed start their clock at that moment (no surprise "late").
+* **Deadline** = 24 hours × the delivery days the editor promised in the bid (no days → 24 h). Then a **4-hour grace period**, then **late**. Settings: `work_default_hours` (24), `work_grace_hours` (4), `work_reminder_hours` (4), `work_fixed_hours` (0 = use the bid; e.g. 24 = every project 24 h).
+* **States:** Not started → On track → Due soon (last 4 h) → Grace period → Late; Preview sent (on time / late); Completed (final video delivered); Cancelled (refunded).
+* **Project page:** live countdown (hh:mm:ss), progress bar, start + deadline times (IST), grace explanation.
+  * Editor: **Send preview** (watermarked link: Drive / YouTube unlisted / WeTransfer / Dropbox) → client is told; can update the preview link. **Ask for more time** (+2…72 h with a reason).
+  * Client: **answer the request** (give / no) or **give more time** (+2…48 h) any time while the editor is working. An approved extension moves the deadline (from the old deadline, or from now if it already passed) and clears "late".
+  * The existing final video submission stays below ("send after the client has seen your preview").
+* **Timeline** (`sp_project_events`) on the project page: posted, editor chosen, price locked, paid, payment failed, work started, reminder, deadline passed, late, time asked / given / refused, preview sent / updated, delivered, approved, completed, refunded.
+* **Notifications** (once each per deadline): project started (both), 4 hours left (editor), deadline passed + grace (both), late (both), preview ready (client), time asked (client), time given / refused (editor). `sp_work_tick()` checks every 10 minutes when pg_cron is available, and every time someone opens the app.
+* **Lists:** My Projects and the editor's work show chips (⏳ due in…, ⚠️ grace, 🔴 late, 👀 preview) and "what to do next".
+
+### Chat + AI moderation (Part 9)
+* **Project chat:** messages with `job_id`, only between that project's client and chosen editor (database checks it). Project page → **💬 Project chat with …**; header shows the project; menu → *Open project* / *All messages with …*. The normal person chat still shows everything, with a small 📁 SPH-… tag on project messages.
+* **Hidden at once (📵):** phone numbers (also in pieces, words, Hindi, Roman numerals), emails, outside links, @IDs, **UPI IDs** (name@okaxis, 98…@ybl), **bank account / card numbers**, **IFSC codes**. A strike is recorded.
+* **Held for review:** messages with warning words — WhatsApp, Telegram, "insta id", "call me", "number do", UPI / bank / "pay outside" / cash, Zoom / Meet, "bahar deal" … The receiver sees "⏳ This message is being checked by Sphere"; the original is kept in `sp_msg_holds` (admins only).
+* **AI moderation:** right after a hold, the app calls the **`sphere-moderate`** Edge Function (server, Gemini, with recent chat for context). "Safe" with ≥ 80 % confidence → delivered automatically and the warning-word strike is taken back. Anything else waits for an admin. Without the function, held messages wait for an admin.
+* **Admin Panel → 🛡️ Messages to review:** sender → receiver, project, original text, AI verdict + reason, **Deliver / Remove / Ask AI**; plus recently reviewed and recently hidden (📵) lists. Remove → the sender gets a warning; strikes still lead to 🚨 Suspicious Users.
+* Timestamps and ✓ / ✓✓ delivery ticks are the existing chat ones; moderated messages update live on both phones.
+* Photos, videos and voice notes are not read by the checker (only text and captions).
 
 ### Job lifecycle (today)
 `open → negotiating → payment-pending → in-progress → delivered → approved → closed` (+ `refunded`)

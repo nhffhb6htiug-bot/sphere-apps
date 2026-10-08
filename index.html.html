@@ -248,6 +248,12 @@ h1,h2,h3{color:var(--text);}
 .chat-head .ch-back, .chat-head .ch-more{background:transparent; border:none; color:#fff; font-size:24px; line-height:1; cursor:pointer; padding:4px 8px;}
 .chat-head .avatar{margin:0 !important; width:40px !important; height:40px !important; flex:0 0 40px; font-size:18px;}
 .chat-head .ch-name{flex:1; min-width:0; cursor:pointer;}
+/* PART 9: chat moderation */
+.chat-bubble.held div{font-style:italic; opacity:.75;}
+.chat-bubble.removed div{font-style:italic; color:#c62828;}
+.msg-proj{display:block; font-size:10px; font-weight:800; opacity:.7; margin-bottom:3px; cursor:pointer;}
+.mq-item{border-left:4px solid #f59e0b;}
+.mq-text{font-size:14px; background:#fff8ea; border-radius:10px; padding:8px 10px; margin:8px 0; white-space:pre-wrap; word-break:break-word;}
 /* PART 8: project workflow */
 .wk-card{text-align:center;}
 .wk-count{font-size:30px; font-weight:800; letter-spacing:.5px; font-variant-numeric:tabular-nums; margin:4px 0;}
@@ -413,7 +419,7 @@ details.card[open] summary::after{content:'－';}
      PART 2: AUTH + ROLE ACCESS · PART 3: CLIENT PROFILE + DASHBOARD ·
      PART 4: EDITOR PROFILE + VERIFICATION · PART 5: JOB POSTING + AI ·
      PART 6: JOB DISCOVERY + BIDDING · PART 7: SELECTION + PAYMENT ·
-     PART 8: PROJECT WORKFLOW + DEADLINES
+     PART 8: PROJECT WORKFLOW + DEADLINES · PART 9: CHAT + AI MODERATION
    Adding a new part: put its code in a block "PART n: <name>" near the end of
    this script, its database SQL in supabase/migrations/00n_<name>.sql, and
    turn it on with SPHERE_CONFIG.features. See docs/ARCHITECTURE.md.
@@ -424,8 +430,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.8.0',
-  build: 'part8-project-workflow',
+  appVersion: '2.9.0',
+  build: 'part9-chat-moderation',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
@@ -978,7 +984,7 @@ function dbErr(error){
    The database hides phone numbers, emails, outside links and @IDs (shows 📵).
    These helpers only show the warning to the person who typed it. */
 const CONTACT_HIDDEN_MSG = '📵 Contact details are not allowed on Sphere.\n\nPhone numbers (even in pieces, words or Roman numerals), emails, social media IDs and outside links were hidden. Keep all talks and payments inside Sphere. Your payment is protected only inside the app.\n\nSharing contact details in any form can get your account suspended or deleted.';
-const CHAT_WARN_TEXT = '⚠️ Sharing phone numbers, emails, social media IDs or any contact details in any form can get your Sphere account deleted. Keep all talks and payments inside the app.';
+const CHAT_WARN_TEXT = '⚠️ Sharing phone numbers, emails, UPI / bank details, social media IDs or asking to pay or talk outside Sphere can get your account deleted. Keep all talks and payments inside the app.';
 function refreshBubble(m){
   const el = document.querySelector(`.chat-bubble[data-id="${m.id}"]`);
   if(!el || !currentUser) return;
@@ -988,7 +994,7 @@ function refreshBubble(m){
   if(nb) el.replaceWith(nb);
 }
 const CONTACT_SOFT_MSG = 'Reminder: keep all talks and payments inside Sphere. Asking to move to WhatsApp, Instagram, calls or outside payment is not allowed and is recorded.';
-const CONTACT_SOFT_RE = /\b(whats ?app|watsapp|whatsap|wtsp|insta id|insta pe|insta par|insta handle|instagram id|instagram pe|instagram par|instagram handle|dm me|dm karo|telegram|snapchat|g ?pay|google pay|paytm|phone ?pe|call me|call kar|call karo|call karna|number do|number de|number bhej|number bhejo|mera number|mera no|apna number|apna no|contact number|personal number|direct pay|direct payment|outside the app|bahar deal)\b|व्हाट्सएप|व्हाट्सऐप|मेरा नंबर|अपना नंबर/i;
+const CONTACT_SOFT_RE = /\b(whats ?app|watsapp|whatsap|wtsp|insta id|insta pe|insta par|insta handle|instagram id|instagram pe|instagram par|instagram handle|dm me|dm karo|telegram|snapchat|signal app|discord|skype|zoom call|zoom pe|google meet|gmeet|imo|g ?pay|google pay|paytm|phone ?pe|upi id|upi pe|upi number|upi kar|account number|acc no|a\/c no|ifsc|bank details|bank account|pay outside|outside payment|direct payment|direct pay|direct paisa|paisa direct|pay cash|cash payment|cash dena|cash de|call me|call kar|call karo|call karna|number do|number de|number bhej|number bhejo|mera number|mera no|apna number|apna no|contact number|personal number|mobile number|mail me|email me|my mail|contact me outside|outside the app|outside sphere|bahar deal|bahar baat)\b|व्हाट्सएप|व्हाट्सऐप|मेरा नंबर|अपना नंबर/i;
 function contactCheck(typed, saved){
   const t = String(typed || ''), v = String(saved == null ? t : saved);
   if(v.split('📵').length > t.split('📵').length){ alert(CONTACT_HIDDEN_MSG); return 'hidden'; }
@@ -2169,6 +2175,7 @@ function startChat(otherUserId){
   if(!user){ alert('Login first'); return; }
   if(!otherUserId || otherUserId===user.id){ alert('This is your own account.'); return; }
   currentChatWith = otherUserId;
+  currentChatJob = null;
   nav('chatThread');
 }
 const CHAT_BUCKET = 'sphere-chat';
@@ -2203,7 +2210,9 @@ function bubbleHtml(m, meId){
     else if(m.media_type === 'video') media = `<video class="chat-video" src="${u}" controls preload="metadata" playsinline></video>`;
     else if(m.media_type === 'audio') media = `<audio class="chat-audio" src="${u}" controls preload="none"></audio>`;
   }
-  return `<div class="chat-bubble ${mine ? 'me' : 'them'}" data-id="${esc(m.id)}">${media}${m.text ? `<div>${esc(m.text)}</div>` : ''}<span class="msg-meta">${m.media_type === 'audio' ? '🎤 ' + fmtDur(m.duration_sec) + ' · ' : ''}${fmtTime(m.created_at)}${mine ? tickHtml(m) : ''}</span></div>`;
+  const modCls = m.mod_status === 'held' ? ' held' : m.mod_status === 'removed' ? ' removed' : '';
+  const tag = m.job_id && typeof currentChatJob !== 'undefined' && !currentChatJob ? `<small class="msg-proj" onclick="openProjectChat('${esc(m.job_id)}', '${esc(mine ? m.receiver_id : m.sender_id)}')">📁 ${'SPH-' + String(m.job_id).replace(/-/g, '').slice(0, 6).toUpperCase()}</small>` : '';
+  return `<div class="chat-bubble ${mine ? 'me' : 'them'}${modCls}" data-id="${esc(m.id)}">${tag}${media}${m.text ? `<div>${esc(m.text)}</div>` : ''}<span class="msg-meta">${m.media_type === 'audio' ? '🎤 ' + fmtDur(m.duration_sec) + ' · ' : ''}${fmtTime(m.created_at)}${mine ? tickHtml(m) : ''}</span></div>`;
 }
 let lastChatDay = '';
 function withDay(m, meId){
@@ -2263,7 +2272,7 @@ function listenForMessages(){
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sp_messages', filter: `receiver_id=eq.${me}` }, (payload) => {
       const m = payload.new;
       const box = document.getElementById('chatBox');
-      const inThread = !!box && currentScreenName === 'chatThread' && m.sender_id === currentChatWith;
+      const inThread = !!box && currentScreenName === 'chatThread' && m.sender_id === currentChatWith && (!currentChatJob || m.job_id === currentChatJob);
       if(inThread){
         box.insertAdjacentHTML('beforeend', withDay(m, me));
         scrollChat();
@@ -2277,13 +2286,13 @@ function listenForMessages(){
     })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sp_messages', filter: `sender_id=eq.${me}` }, (payload) => {
       const m = payload.new;
-      if(m.text && m.text.includes('📵')){ refreshBubble(m); return; }
+      if((m.text && m.text.includes('📵')) || (m.mod_status && m.mod_status !== 'ok')){ refreshBubble(m); return; }
       const t = document.querySelector(`.chat-bubble[data-id="${m.id}"] .tick`);
       if(t) t.outerHTML = tickHtml(m);
     })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sp_messages', filter: `receiver_id=eq.${me}` }, (payload) => {
       const m = payload.new;
-      if(m.text && m.text.includes('📵')) refreshBubble(m);
+      if((m.text && m.text.includes('📵')) || (m.mod_status && m.mod_status !== 'ok')) refreshBubble(m);
     })
     .subscribe();
 }
@@ -2335,7 +2344,10 @@ SCREENS.chatThread = async () => {
   let q = sb.from('sp_messages').select('*')
     .or(`and(sender_id.eq.${user.id},receiver_id.eq.${currentChatWith}),and(sender_id.eq.${currentChatWith},receiver_id.eq.${user.id})`);
   if(st.clearedAt) q = q.gt('created_at', st.clearedAt);
-  const { data, error } = await q.order('created_at', { ascending: true }).limit(500);
+  if(currentChatJob) q = q.eq('job_id', currentChatJob);
+  let { data, error } = await q.order('created_at', { ascending: true }).limit(500);
+  if(error && currentChatJob && /job_id|column|schema cache/i.test(error.message || '')){ currentChatJob = null; return SCREENS.chatThread(); }
+  const chatJob = currentChatJob ? await getJob(currentChatJob) : null;
   if(error) console.error(error);
   listenForMessages();
   markRead(currentChatWith);
@@ -2346,11 +2358,12 @@ SCREENS.chatThread = async () => {
   <div class="chat-head" style="flex-wrap:wrap;">
     <button class="ch-back" onclick="nav('chatList')">‹</button>
     ${avatarHtml(other)}
-    <div class="ch-name" onclick="nav('chatInfo')"><b>${other?esc(other.name):'Chat'}</b><small>${roleLine(other)}</small></div>
+    <div class="ch-name" onclick="nav('chatInfo')"><b>${other?esc(other.name):'Chat'}</b><small>${chatJob ? '📁 ' + projectCode(chatJob) + ' · ' + esc(chatJob.title || chatJob.category) : roleLine(other)}</small></div>
     <button class="ch-more" title="More" onclick="toggleChatMenu(event)">⋮</button>
     <div class="chat-warn" role="note"><span>${CHAT_WARN_TEXT}</span></div>
   </div>
   <div class="chat-menu" id="chatMenu" onclick="event.stopPropagation()">
+    ${chatJob ? `<div onclick="openJob('${chatJob.id}')">📁 Open project</div><div onclick="currentChatJob = null; nav('chatThread')">💬 All messages with ${other ? esc(String(other.name || '').split(' ')[0]) : 'this person'}</div>` : ''}
     <div onclick="nav('chatInfo')">👤 View info</div>
     <div onclick="nav('chatInfo')">🖼️ Media, photos & videos</div>
     <div onclick="clearChat('${currentChatWith}')">🧹 Clear chat</div>
@@ -2448,7 +2461,13 @@ function roleLine(p){
 
 async function insertMessage(row){
   const user = getCurrentUser();
-  const { data, error } = await sb.from('sp_messages').insert(Object.assign({ sender_id: user.id, receiver_id: currentChatWith, text: '' }, row)).select().single();
+  const base = { sender_id: user.id, receiver_id: currentChatWith, text: '' };
+  if(currentChatJob) base.job_id = currentChatJob;
+  let { data, error } = await sb.from('sp_messages').insert(Object.assign(base, row)).select().single();
+  if(error && base.job_id && /job_id|column|schema cache/i.test(error.message || '')){
+    delete base.job_id;   // database not updated yet (009)
+    ({ data, error } = await sb.from('sp_messages').insert(Object.assign(base, row)).select().single());
+  }
   if(error){
     if(/row-level security/i.test(error.message || '')) alert('Message not sent. You cannot message this person right now.');
     else if(!dbErr(error)) alert('This message could not be sent. Please try again.');
@@ -2461,7 +2480,10 @@ async function insertMessage(row){
     scrollChat();
   }
   notify(currentChatWith, 'New Message', `${user.name}: ${msgPreview(data).slice(0, 80)}`);
-  if(row.text) contactCheck(row.text, data.text);
+  if(data.mod_status === 'held'){
+    alert('⏳ Your message is being checked by Sphere.\n\nIt looks like it may ask to talk or pay outside Sphere. It will be delivered if it is fine. Keep all talks and payments inside Sphere.');
+    sb.functions.invoke('sphere-moderate', { body: { messageId: String(data.id) } }).then(() => {}, () => {});
+  } else if(row.text) contactCheck(row.text, data.text);
   return data;
 }
 
@@ -2603,7 +2625,7 @@ SCREENS.projectStatus = async () => {
       <div class="field"><label>New deadline</label><input id="newDeadline" type="date" min="${todayIST()}"></div>
       <button class="btn btn-primary" onclick="extendDeadline('${job.id}')">Reopen job</button></div>` : ''}
     ${job.status==='refunded' ? `<div class="card" style="border-color:#e67e22;"><b>💸 This project has been refunded.</b><p class="muted" style="font-size:12px;">Questions? Contact Support.</p></div>` : ''}
-    ${otherId ? `<button class="btn btn-outline" style="margin-bottom:10px;" onclick="startChat('${otherId}')">💬 Chat with ${isClient?'Editor':'Client'}</button>` : ''}
+    ${otherId ? `<button class="btn btn-outline" style="margin-bottom:10px;" onclick="openProjectChat('${job.id}', '${otherId}')">💬 Project chat with ${isClient?'Editor':'Client'}</button>` : ''}
     ${isEditor && job.status==='delivered' ? `<p class="muted" style="font-size:12px; margin-bottom:10px;">Client not approving? Ask in the chat first. No reply in 7 days? File a Report — Syahi Films can review and release your payment.</p>` : ''}
     ${otherId && job.status!=='open' ? `<button class="btn btn-outline" style="margin-bottom:10px; color:#c62828; border-color:#c62828;" onclick="openReport('${job.id}', '${isEditor && job.status==='delivered' ? 'Client is not releasing payment' : ''}')">🚩 Report problem</button>` : ''}
     ${user.role==='editor' && job.status==='open' ? `<button class="btn btn-primary" onclick="currentJobId='${job.id}'; nav('jobBidScreen')">Place Bid</button>` : ''}
@@ -2790,6 +2812,7 @@ SCREENS.admin = async () => {
   const nameMap = await getProfilesByIds([...jobsList.map(j => j.assignedEditor), ...reports.map(r => r.reporter_id), ...reports.map(r => r.against_id || r.chat_user_id)]);
   const sus = await loadSuspicious();
   const sys = await loadSystemStatus();
+  const modq = await loadModQueue();
   const who = id => { const u = nameMap[id]; return u ? `${esc(u.name)} (${esc(u.role)}) ${u.phone ? `<a href="tel:${esc(u.phone)}">${esc(u.phone)}</a>` : ''}` : '-'; };
   return `
   <div class="header"><button class="back-btn" onclick="nav('profile')">‹</button><h1>Admin Panel</h1><p>Syahi Films Verification</p></div>
@@ -2826,6 +2849,7 @@ SCREENS.admin = async () => {
 
     <div class="search-row">${UI_ICONS.search}<input id="admSearch" type="search" name="sp-admin-search" placeholder="Search editors — name, phone, email or code" oninput="adminSearch(this.value)" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')"></div>
     ${systemStatusCard(sys)}
+    ${modQueueSection(modq)}
     <h3 style="margin-bottom:10px;">Pending Verification (${pending.length})</h3>
     ${pending.length===0?'<p class="muted">No pending editors.</p>':''}
     ${pending.map(e=>{
@@ -4948,6 +4972,93 @@ async function giveMoreTime(jobId){
   if(error){ alert(workRpcError(error)); return; }
   alert('Done ✅ New deadline: ' + fmtDT(data && data.due_at));
   currentJobId = jobId; nav('projectStatus');
+}
+
+/* ============ PART 9: CHAT + AI MODERATION ============
+   Project chat = messages with job_id between the project's client and editor.
+   The database hides numbers / emails / UPI / bank details (📵) and HOLDS
+   messages with warning words ("WhatsApp pe aao", "UPI id bhejo", "call me"…):
+   the receiver sees "⏳ being checked" until AI (sphere-moderate) says safe or an
+   admin releases / removes it. Admin Panel → Messages to review. */
+let currentChatJob = null;
+function openProjectChat(jobId, otherId){
+  const user = getCurrentUser();
+  if(!user){ alert('Login first'); return; }
+  if(!otherId || otherId === user.id) return;
+  currentChatWith = otherId;
+  currentChatJob = jobId;
+  nav('chatThread');
+}
+
+// ---- Admin: held messages + recently hidden ones
+async function loadModQueue(){
+  try {
+    const { data: held, error } = await sb.from('sp_msg_holds').select('*').eq('status', 'pending').order('created_at', { ascending: true }).limit(50);
+    if(error) return { ready: false, held: [], done: [], hidden: [] };
+    const [{ data: done }, { data: hidden }] = await Promise.all([
+      sb.from('sp_msg_holds').select('*').neq('status', 'pending').order('reviewed_at', { ascending: false }).limit(10),
+      sb.from('sp_mod_strikes').select('user_id, original_text, created_at').eq('source', 'chat').eq('kind', 'hidden').order('created_at', { ascending: false }).limit(10)
+    ]);
+    const ids = [...new Set([...(held || []), ...(done || [])].flatMap(h => [h.sender_id, h.receiver_id]).concat((hidden || []).map(x => x.user_id)).filter(Boolean))];
+    const people = ids.length ? await getProfilesByIds(ids) : {};
+    return { ready: true, held: held || [], done: done || [], hidden: hidden || [], people };
+  } catch(e) { return { ready: false, held: [], done: [], hidden: [] }; }
+}
+function aiChip(h){
+  if(!h.ai_verdict) return '<span class="bid-chip">🤖 not checked</span>';
+  const m = { safe: ['ok', '🤖 AI: looks safe'], off_platform: ['bad', '🤖 AI: outside contact / payment'], unsure: ['warn', '🤖 AI: not sure'] }[h.ai_verdict] || ['', h.ai_verdict];
+  return `<span class="bid-chip ${m[0]}">${m[1]}${h.ai_confidence ? ' · ' + Math.round(h.ai_confidence * 100) + '%' : ''}</span>`;
+}
+function modQueueSection(q){
+  if(!q || !q.ready) return `<h3 style="margin:20px 0 10px;">🛡️ Messages to review</h3><p class="muted">Turns on after 009_chat_moderation.sql is run in Supabase.</p>`;
+  const who = id => esc(((q.people || {})[id] || {}).name || 'User');
+  const proj = h => h.job_id ? ' · 📁 SPH-' + String(h.job_id).replace(/-/g, '').slice(0, 6).toUpperCase() : '';
+  return `
+    <h3 style="margin:20px 0 10px;">🛡️ Messages to review (${q.held.length})</h3>
+    ${q.held.length === 0 ? '<p class="muted">No held messages. 👍</p>' : ''}
+    ${q.held.map(h => `<div class="card mq-item">
+      <p style="font-size:12px;"><b>${who(h.sender_id)}</b> → ${who(h.receiver_id)}${proj(h)} · ${fmtDT(h.created_at)}</p>
+      <div class="mq-text">${esc(h.original_text)}</div>
+      <div>${aiChip(h)}</div>
+      ${h.ai_reason ? `<p class="muted" style="font-size:12px; margin-top:4px;">${esc(h.ai_reason)}</p>` : ''}
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;">
+        <button class="btn-sm" style="background:#15803d; color:#fff;" onclick="reviewHeld('${h.id}', 'release')">✅ Deliver</button>
+        <button class="btn-sm" style="color:#c62828;" onclick="reviewHeld('${h.id}', 'remove')">🚫 Remove</button>
+        <button class="btn-sm" onclick="askAIHeld('${h.id}')">🤖 Ask AI</button>
+      </div></div>`).join('')}
+    ${q.done.length ? `<details class="card"><summary><b>Recently reviewed (${q.done.length})</b></summary>
+      ${q.done.map(h => `<p style="font-size:12px; margin:8px 0;"><b>${h.status === 'released' ? '✅ Delivered' : '🚫 Removed'}</b>${h.reviewed_by ? '' : ' by AI'} — ${who(h.sender_id)}: ${esc(String(h.original_text).slice(0, 80))}</p>`).join('')}</details>` : ''}
+    ${q.hidden.length ? `<details class="card"><summary><b>Recently hidden automatically (📵) (${q.hidden.length})</b></summary>
+      ${q.hidden.map(x => `<p style="font-size:12px; margin:8px 0;">${who(x.user_id)} · ${fmtDT(x.created_at)}<br><span class="muted">${esc(String(x.original_text || '').slice(0, 120))}</span></p>`).join('')}
+      <p class="muted" style="font-size:11px;">Repeat offenders show in 🚨 Suspicious Users below.</p></details>` : ''}`;
+}
+async function reviewHeld(holdId, action){
+  if(needPin()) return;
+  if(!confirm(action === 'release' ? 'Deliver this message to the other person?' : 'Remove this message? The sender gets a warning.')) return;
+  const { error } = await sb.rpc('sp_chat_review', { p_hold: holdId, p_action: action, p_pin: ADMIN_PIN });
+  if(error){ alert(error.message); if(/PIN/i.test(error.message)){ ADMIN_PIN = ''; } nav('admin'); return; }
+  nav('admin');
+}
+async function askAIHeld(holdId){
+  // 1) the sphere-moderate Edge Function (server). 2) if it is not deployed: Sphere AI on this phone (advice only).
+  try {
+    const { data, error } = await sb.functions.invoke('sphere-moderate', { body: { holdId } });
+    if(!error && data && data.ok){
+      alert('🤖 AI: ' + data.verdict + (data.confidence ? ' (' + Math.round(data.confidence * 100) + '%)' : '') + (data.reason ? '\n' + data.reason : '') + (data.released ? '\n\nThe message was delivered.' : ''));
+      return nav('admin');
+    }
+  } catch(e) {}
+  const { data: h } = await sb.from('sp_msg_holds').select('original_text').eq('id', holdId).maybeSingle();
+  if(!h){ alert('Not found'); return; }
+  const prompt = 'You moderate chat on Sphere (India). All talk and payments must stay inside Sphere. Is this message trying to move contact or payment outside (WhatsApp, calls, UPI, bank, cash, email, Instagram DM)? Reply ONLY JSON {"verdict":"safe"|"off_platform"|"unsure","confidence":0-1,"reason":"short"}. Message:  + h.original_text + ';
+  try {
+    const { data } = await sb.functions.invoke('sphere-ai', { body: { messages: [{ role: 'user', text: prompt }] } });
+    const t = String((data && data.reply) || ''); const a = t.indexOf('{'), b = t.lastIndexOf('}');
+    const v = JSON.parse(t.slice(a, b + 1));
+    await sb.rpc('sp_chat_ai_verdict', { p_hold: holdId, p_verdict: v.verdict, p_confidence: Number(v.confidence) || 0, p_reason: String(v.reason || '') });
+    alert('🤖 AI: ' + v.verdict + '\n' + (v.reason || '') + '\n\nYou decide: Deliver or Remove.');
+  } catch(e) { alert('AI is not available right now. Please decide yourself.'); }
+  nav('admin');
 }
 
 (function(){
