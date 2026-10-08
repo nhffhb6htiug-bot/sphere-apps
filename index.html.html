@@ -248,6 +248,31 @@ h1,h2,h3{color:var(--text);}
 .chat-head .ch-back, .chat-head .ch-more{background:transparent; border:none; color:#fff; font-size:24px; line-height:1; cursor:pointer; padding:4px 8px;}
 .chat-head .avatar{margin:0 !important; width:40px !important; height:40px !important; flex:0 0 40px; font-size:18px;}
 .chat-head .ch-name{flex:1; min-width:0; cursor:pointer;}
+/* PART 11: revisions + changes */
+.rv-sum{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:10px 0;}
+.rv-sum div{background:#f6f8fc; border-radius:12px; padding:10px; text-align:center;}
+.rv-sum b{display:block; font-size:18px;} .rv-sum span{font-size:11px; color:var(--muted);}
+.rv-item{border-left:3px solid var(--border); padding:4px 0 4px 10px; margin:10px 0;}
+.rv-item b{font-size:13px;} .rv-item p{font-size:12px; margin:3px 0; white-space:pre-wrap; word-break:break-word;}
+.rv-open{border:1.5px solid #f59e0b;}
+/* PART 10: files + preview */
+.pf-row{display:flex; gap:10px; align-items:center; padding:9px 0; border-bottom:1px solid var(--border);}
+.pf-row:last-child{border-bottom:none;}
+.pf-ic{font-size:22px; width:30px; text-align:center; flex:none;}
+.pf-main{flex:1; min-width:0;} .pf-main b{font-size:13px; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.pf-main small{font-size:11px; color:var(--muted);}
+.up-bar{height:6px; border-radius:6px; background:var(--border); overflow:hidden; margin:6px 0 2px;}
+.up-bar i{display:block; height:100%; width:0; background:var(--blue); border-radius:6px; transition:width .2s;}
+.up-line{font-size:12px; margin:8px 0;}
+.pv-wrap{position:relative; background:#000; border-radius:14px; overflow:hidden; aspect-ratio:16/9; user-select:none; -webkit-user-select:none;}
+.pv-wrap video, .pv-wrap iframe{position:absolute; inset:0; width:100%; height:100%; border:0; background:#000;}
+.pv-wm{position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:2;}
+.pv-wm span{position:absolute; font:900 clamp(42px, 15vw, 150px)/1 Arial, sans-serif; color:rgba(255,255,255,.32); -webkit-text-stroke:2px rgba(0,0,0,.35); letter-spacing:4px; animation:pvMove 16s linear infinite alternate;}
+.pv-wm em{position:absolute; inset:-50%; font:800 14px/2.6 Arial, sans-serif; color:rgba(255,255,255,.10); transform:rotate(-24deg); word-spacing:28px; white-space:normal; font-style:normal;}
+.pv-code{position:absolute; left:10px; bottom:8px; z-index:3; font:600 11px Arial, sans-serif; color:rgba(255,255,255,.75); text-shadow:0 1px 2px #000; pointer-events:none;}
+.pv-wrap:fullscreen{border-radius:0; aspect-ratio:auto;}
+@keyframes pvMove{0%{left:2%; top:4%;} 20%{left:44%; top:22%;} 40%{left:8%; top:58%;} 60%{left:40%; top:70%;} 80%{left:18%; top:30%;} 100%{left:46%; top:6%;}}
+@media (prefers-reduced-motion: reduce){ .pv-wm span{animation-duration:40s;} }
 /* PART 9: chat moderation */
 .chat-bubble.held div{font-style:italic; opacity:.75;}
 .chat-bubble.removed div{font-style:italic; color:#c62828;}
@@ -419,7 +444,8 @@ details.card[open] summary::after{content:'－';}
      PART 2: AUTH + ROLE ACCESS · PART 3: CLIENT PROFILE + DASHBOARD ·
      PART 4: EDITOR PROFILE + VERIFICATION · PART 5: JOB POSTING + AI ·
      PART 6: JOB DISCOVERY + BIDDING · PART 7: SELECTION + PAYMENT ·
-     PART 8: PROJECT WORKFLOW + DEADLINES · PART 9: CHAT + AI MODERATION
+     PART 8: PROJECT WORKFLOW + DEADLINES · PART 9: CHAT + AI MODERATION ·
+     PART 10: PROJECT FILES + WATERMARKED PREVIEW · PART 11: REVISIONS + CHANGE REQUESTS
    Adding a new part: put its code in a block "PART n: <name>" near the end of
    this script, its database SQL in supabase/migrations/00n_<name>.sql, and
    turn it on with SPHERE_CONFIG.features. See docs/ARCHITECTURE.md.
@@ -430,8 +456,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.9.0',
-  build: 'part9-chat-moderation',
+  appVersion: '2.11.0',
+  build: 'part11-revisions-changes',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
@@ -926,7 +952,8 @@ function editorShare(amount){ return Math.round(Number(amount || 0) * (100 - PLA
 // (or if the table can't be read), so the app never breaks because of a missing value.
 const SETTINGS_DEFAULTS = Object.freeze({
   platform_fee_percent: 5, verify_fee: 29, revision_fee: 50, free_revisions: 3, pro_fee: 199, strike_limit: 3,
-  free_works: 3, bids_verified_only: 0, work_default_hours: 24, work_grace_hours: 4, work_reminder_hours: 4
+  free_works: 3, bids_verified_only: 0, work_default_hours: 24, work_grace_hours: 4, work_reminder_hours: 4,
+  file_max_mb: 50, preview_max_minutes: 10, revision_hours: 24
 });
 let SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
 let settingsLoaded = false;
@@ -1018,6 +1045,8 @@ function mapJob(r){
     rawFiles: Array.isArray(r.raw_files) ? r.raw_files : [],
     language: r.language || '',
     title: r.title || '',
+    extraRequirements: r.extra_requirements || '',
+    extraAmount: Number(r.extra_amount) || 0,
     videoLength: r.video_length || '',
     videoFormat: r.video_format || '',
     styleNotes: r.style_notes || '',
@@ -2613,7 +2642,7 @@ SCREENS.projectStatus = async () => {
       ${jobRequirementsHtml(job)}
       ${job.files && (isClient||isEditor) ? `<p><b>Raw files link:</b> ${linkOrText(job.files)}</p>` : ''}
       ${job.rawFiles.length && (isClient||isEditor) ? `<p style="margin-top:6px;"><b>Raw footage & photos (${job.rawFiles.length})</b></p>${renderRawFiles(job.rawFiles, { removable: isClient && job.status==='open', jobId: job.id })}` : ''}
-      ${isClient && !['closed','refunded','approved'].includes(job.status) && job.rawFiles.length < MAX_RAW_FILES ? `
+      ${isClient && !job.assignedEditor && !['closed','refunded','approved'].includes(job.status) && job.rawFiles.length < MAX_RAW_FILES ? `
         <div style="margin-top:10px;"><label class="pill-btn" style="cursor:pointer;">${UI_ICONS.upload} Add photos / videos
           <input type="file" accept="image/*,video/*" multiple style="display:none;" onchange="addRawFiles('${job.id}', this)"></label>
           <span class="muted" id="rawAddStatus" style="font-size:12px; margin-left:6px;"></span></div>` : ''}
@@ -2813,6 +2842,7 @@ SCREENS.admin = async () => {
   const sus = await loadSuspicious();
   const sys = await loadSystemStatus();
   const modq = await loadModQueue();
+  const extrasq = await loadExtrasQueue();
   const who = id => { const u = nameMap[id]; return u ? `${esc(u.name)} (${esc(u.role)}) ${u.phone ? `<a href="tel:${esc(u.phone)}">${esc(u.phone)}</a>` : ''}` : '-'; };
   return `
   <div class="header"><button class="back-btn" onclick="nav('profile')">‹</button><h1>Admin Panel</h1><p>Syahi Films Verification</p></div>
@@ -2850,6 +2880,7 @@ SCREENS.admin = async () => {
     <div class="search-row">${UI_ICONS.search}<input id="admSearch" type="search" name="sp-admin-search" placeholder="Search editors — name, phone, email or code" oninput="adminSearch(this.value)" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')"></div>
     ${systemStatusCard(sys)}
     ${modQueueSection(modq)}
+    ${extrasQueueSection(extrasq)}
     <h3 style="margin-bottom:10px;">Pending Verification (${pending.length})</h3>
     ${pending.length===0?'<p class="muted">No pending editors.</p>':''}
     ${pending.map(e=>{
@@ -3179,14 +3210,14 @@ const ROUTE_ACCESS = Object.freeze({
   support: 'user', report: 'user', myReports: 'user', sphereAI: 'user',
   categories: 'user', categoryDetail: 'user', allEditors: 'user', verifiedEditorsScreen: 'user',
   editorProfile: 'user', jobs: 'user', projectStatus: 'user', portfolio: 'user',
-  escrowScreen: 'user', vaultScreen: 'user', editProfile: 'user',
+  escrowScreen: 'user', vaultScreen: 'user', editProfile: 'user', previewPlayer: 'user',
   postJob: 'client', applications: 'client', payment: 'client', savedList: 'client', ratings: 'client',
   jobBidScreen: 'editor',
   editorDetails: 'editorAccount', verificationStatus: 'editorAccount', editorProfileEdit: 'editorAccount',
   admin: 'admin'
 });
 // Screens that belong to one job: only the people in that job (or an admin) may open them.
-const JOB_SCREENS = Object.freeze({ projectStatus: 'party', applications: 'owner', payment: 'owner', ratings: 'owner' });
+const JOB_SCREENS = Object.freeze({ projectStatus: 'party', applications: 'owner', payment: 'owner', ratings: 'owner', previewPlayer: 'member' });
 
 function routeAccess(screen){ return ROUTE_ACCESS[screen] || 'user'; }
 function hasRouteAccess(level, u){
@@ -3224,7 +3255,7 @@ async function routeGate(screen){
     if(job){
       const owner = job.clientId === u.id;
       const party = owner || job.assignedEditor === u.id;
-      const allowed = isAdminUser(u) || (rule === 'owner' ? owner : (party || job.status === 'open'));
+      const allowed = isAdminUser(u) || (rule === 'owner' ? owner : rule === 'member' ? party : (party || job.status === 'open'));
       if(!allowed) return { ok: false, to: 'jobs', msg: 'You do not have access to this project.' };
     }
   }
@@ -4253,9 +4284,10 @@ function jobRequirementsHtml(job){
     job.styleNotes ? ['Style', job.styleNotes] : null, job.references ? ['References', job.references] : null,
     job.revisionsExpected ? ['Revisions expected', String(job.revisionsExpected)] : null
   ].filter(Boolean);
-  if(!rows.length && !job.aiAssisted) return '';
+  if(!rows.length && !job.aiAssisted && !job.extraRequirements) return '';
   return `<div class="pj-req" style="margin-top:8px;">${job.aiAssisted ? '<span class="pj-tag">✨ Written with Sphere AI</span>' : ''}
-    ${rows.map(([k, val]) => `<p><b>${k}:</b> ${k === 'References' ? linkOrText(val) : esc(val)}</p>`).join('')}</div>`;
+    ${rows.map(([k, val]) => `<p><b>${k}:</b> ${k === 'References' ? linkOrText(val) : esc(val)}</p>`).join('')}
+    ${job.extraRequirements ? `<p style="margin-top:6px;"><b>📝 Accepted changes:</b></p><p style="white-space:pre-wrap; font-size:13px;">${esc(job.extraRequirements)}</p>` : ''}</div>`;
 }
 
 /* ============ PART 6: JOB DISCOVERY + BIDDING ============
@@ -4865,6 +4897,7 @@ async function projectWorkSection(job, user, isClient, isEditor){
     sb.from('sp_project_events').select('*').eq('job_id', job.id).order('at', { ascending: false }).limit(60).then(r => r, () => ({ data: null }))
   ]);
   const w = wr && wr.data, ext = xr && xr.data, events = (er && er.data) || [];
+  const files = await loadProjectFiles(job.id);
   if(w) WORK_CACHE[job.id] = w;
   let html = '';
   if(w && job.status === 'in-progress'){
@@ -4878,15 +4911,12 @@ async function projectWorkSection(job, user, isClient, isEditor){
         <p class="wk-cap muted" style="font-size:12px;">${st.key === 'late' ? 'late by' : st.key === 'grace' ? 'grace time left' : 'left until the deadline'}</p>
         <div class="wk-bar"><i style="width:${pct}%; background:${barColor};"></i></div>` : ''}
       <p class="wk-meta">Started ${fmtDT(w.started_at)} · Deadline <b>${fmtDT(w.due_at)}</b>${w.extended_hours ? ' (+' + w.extended_hours + ' h given)' : ''}</p>
+      ${w.original_due_at && Math.abs(new Date(w.original_due_at) - new Date(w.due_at)) > 60000 ? `<p class="wk-meta">Original deadline: ${fmtDT(w.original_due_at)} · Revised: <b>${fmtDT(w.due_at)}</b></p>` : ''}
       <p class="wk-meta">${w.grace_hours}-hour grace period after the deadline, then the project is marked late.</p>
     </div>`;
     // editor: preview + more time
     if(isEditor && w.phase === 'active'){
-      html += `<div class="card"><b>👀 Ready for preview?</b>
-        <p class="muted" style="font-size:12px; margin:4px 0 8px;">Share a <b>watermarked</b> preview (Google Drive, YouTube unlisted, WeTransfer or Dropbox). The client can watch it; the final file comes later.</p>
-        <div class="field"><input id="pvLink" placeholder="https://drive.google.com/…"></div>
-        <div class="field"><textarea id="pvNote" maxlength="500" placeholder="Note for the client (optional): what to check, music used…" style="min-height:60px;"></textarea></div>
-        <button class="btn btn-primary" id="pvBtn" onclick="submitPreview('${job.id}')">Send preview to client</button></div>
+      html += previewUploadPanel(job, files, false) + `
         ${ext ? `<div class="card" style="border:1.5px solid #f59e0b;"><b>⏳ You asked for ${ext.hours} more hours</b><p class="muted" style="font-size:12px; margin-top:4px;">Waiting for the client to answer.${ext.reason ? ' Reason: ' + esc(ext.reason) : ''}</p></div>`
         : `<details class="card"><summary><b>⏳ Need more time?</b></summary>
           <p class="muted" style="font-size:12px; margin:8px 0 4px;">Ask the client. The deadline changes only if they say yes.</p>
@@ -4906,22 +4936,19 @@ async function projectWorkSection(job, user, isClient, isEditor){
           <button class="btn btn-outline" onclick="giveMoreTime('${job.id}')">Give more time</button></details>`;
     }
   }
-  // preview link (both sides)
-  if(w && w.preview_link && ['in-progress', 'delivered'].includes(job.status)){
-    html += `<div class="card" style="border:1.5px solid #15803d;"><b>👀 Preview${w.phase === 'preview' ? ' ready' : ''}</b>
-      <p class="muted" style="font-size:12px; margin:2px 0 6px;">Sent ${fmtDT(w.preview_at)}${w.preview_on_time === false ? ' · after the deadline' : ' · on time'}</p>
-      <p style="font-size:13px;">${linkOrText(w.preview_link)}</p>
-      ${w.preview_note ? `<p style="font-size:13px; margin-top:6px;">“${esc(w.preview_note)}”</p>` : ''}
-      ${isEditor && w.phase === 'preview' ? `<details style="margin-top:8px;"><summary class="muted" style="font-size:12px;">Send a new preview link</summary>
-        <div class="field" style="margin-top:8px;"><input id="pvLink" placeholder="https://drive.google.com/…"></div>
-        <div class="field"><textarea id="pvNote" maxlength="500" placeholder="What changed?" style="min-height:50px;"></textarea></div>
-        <button class="btn btn-outline" id="pvBtn" onclick="submitPreview('${job.id}')">Update preview</button></details>` : ''}
-    </div>`;
+  // previews (both sides) + project files
+  if(['in-progress', 'delivered', 'approved', 'closed'].includes(job.status)){
+    html += previewVersionsCard(job, w, files, isClient, isEditor);
+    html += await revisionsSection(job, w, files, isClient, isEditor);
+    if(isEditor && w && w.phase === 'preview' && job.status === 'in-progress') html += previewUploadPanel(job, files, true);
   }
+  html += projectFilesSection(job, files, isClient, isEditor);
   // timeline
   if(events.length){
     const ic = { posted: '📝', editor_chosen: '🤝', price_locked: '🔒', paid: '💳', payment_failed: '⚠️', started: '▶️', reminder: '⏰', deadline_passed: '⚠️', late: '🔴',
-      extension_requested: '⏳', extension_approved: '✅', extension_declined: '✖', extension_given: '⏳', preview: '👀', preview_updated: '👀', delivered: '📦', approved: '✅', closed: '🏁', refunded: '💸', reopened: '🔄' };
+      extension_requested: '⏳', extension_approved: '✅', extension_declined: '✖', extension_given: '⏳', preview: '👀', preview_updated: '👀', file_added: '📎', file_removed: '🗑️',
+      revision_requested: '🔁', revision_open: '▶️', revision_delivered: '👀', revision_cancelled: '✖', extra_paid: '💳',
+      change_requested: '📝', change_accepted: '✅', change_rejected: '✖', change_applied: '✅', change_cancelled: '✖', delivered: '📦', approved: '✅', closed: '🏁', refunded: '💸', reopened: '🔄' };
     const item = e => `<div class="tl-item"><i>${ic[e.kind] || '•'}</i><b>${esc(e.title)}</b><p>${fmtDT(e.at)}${e.details ? ' · ' + esc(e.details) : ''}</p></div>`;
     html += `<details class="card" ${job.status === 'in-progress' ? '' : 'open'}><summary><b>📜 Project timeline (${events.length})</b></summary>
       <div class="tl">${events.map(item).join('')}</div></details>`;
@@ -5058,6 +5085,592 @@ async function askAIHeld(holdId){
     await sb.rpc('sp_chat_ai_verdict', { p_hold: holdId, p_verdict: v.verdict, p_confidence: Number(v.confidence) || 0, p_reason: String(v.reason || '') });
     alert('🤖 AI: ' + v.verdict + '\n' + (v.reason || '') + '\n\nYou decide: Deliver or Remove.');
   } catch(e) { alert('AI is not available right now. Please decide yourself.'); }
+  nav('admin');
+}
+
+/* ============ PART 10: PROJECT FILES + WATERMARKED PREVIEW ============
+   Private bucket "sphere-project" (only the project's client + editor + admins).
+   Client: upload files up to 50 MB each, or share a Drive / Dropbox / WeTransfer
+   link for anything bigger (1 GB+). Editor: picks the edited video → this device
+   burns a big moving "SPHERE" watermark into it (canvas + MediaRecorder) → upload
+   → client watches inside Sphere with a second moving watermark on top, no
+   download button. Every file and preview version is listed in sp_project_files. */
+const PROJECT_BUCKET = 'sphere-project';
+function fileMaxMB(){ return Math.min(50, Number(getSetting('file_max_mb')) || 50); }
+function previewMaxMin(){ return Number(getSetting('preview_max_minutes')) || 10; }
+function fmtSize(b){ b = Number(b) || 0; return b >= 1073741824 ? (b / 1073741824).toFixed(1) + ' GB' : b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB'; }
+function filesRpcError(error){
+  if(/sp_files_|schema cache|does not exist|Could not find|sphere-project/i.test((error && error.message) || '')) return 'This needs the latest database update (010_project_files.sql).';
+  return (error && error.message) || 'Something went wrong';
+}
+async function loadProjectFiles(jobId){
+  try {
+    const { data, error } = await sb.from('sp_project_files').select('*').eq('job_id', jobId).neq('status', 'removed').order('created_at', { ascending: false });
+    return error ? [] : (data || []);
+  } catch(e) { return []; }
+}
+
+// ---- upload with a progress bar (falls back to the normal upload)
+async function uploadWithProgress(path, blob, onProgress){
+  const { data } = await sb.auth.getSession();
+  const token = data && data.session && data.session.access_token;
+  if(!token) throw new Error('Please log in again.');
+  const url = SUPABASE_URL + '/storage/v1/object/' + PROJECT_BUCKET + '/' + path.split('/').map(encodeURIComponent).join('/');
+  try {
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url);
+      xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+      xhr.setRequestHeader('apikey', SUPABASE_KEY);
+      xhr.setRequestHeader('x-upsert', 'false');
+      xhr.setRequestHeader('Content-Type', blob.type || 'application/octet-stream');
+      xhr.upload.onprogress = e => { if(e.lengthComputable && onProgress) onProgress(e.loaded / e.total); };
+      xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(Object.assign(new Error('Upload failed (' + xhr.status + ')'), { http: xhr.status, body: xhr.responseText }));
+      xhr.onerror = () => reject(Object.assign(new Error('network'), { network: true }));
+      xhr.send(blob);
+    });
+  } catch(e) {
+    if(!e.network) throw new Error(((() => { try { return JSON.parse(e.body).message; } catch(x) { return ''; } })()) || e.message);
+    const { error } = await sb.storage.from(PROJECT_BUCKET).upload(path, blob, { contentType: blob.type || 'application/octet-stream', upsert: false });
+    if(error) throw error;
+    if(onProgress) onProgress(1);
+  }
+}
+function setUpStatus(boxId, text, pct){
+  const box = document.getElementById(boxId);
+  if(!box) return;
+  box.innerHTML = `<p class="up-line">${esc(text)}</p>${pct === null || pct === undefined ? '' : `<div class="up-bar"><i style="width:${Math.round(pct * 100)}%"></i></div>`}`;
+}
+
+// ---- burn a big moving SPHERE watermark into a video (on this device)
+async function watermarkVideo(file, label, onProgress){
+  if(!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) throw new Error('This browser cannot add the watermark. Use Chrome on a computer or Android — or share a link below.');
+  const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'].find(t => MediaRecorder.isTypeSupported(t));
+  if(!mime) throw new Error('This browser cannot record video. Use Chrome on a computer or Android — or share a link below.');
+  const src = URL.createObjectURL(file);
+  const v = document.createElement('video');
+  v.src = src; v.playsInline = true; v.preload = 'auto';
+  try {
+    await new Promise((res, rej) => { v.onloadedmetadata = res; v.onerror = () => rej(new Error('This video cannot be read here. Try exporting it as MP4 (H.264) or WebM.')); setTimeout(() => rej(new Error('The video took too long to open.')), 30000); });
+    const dur = v.duration;
+    if(!isFinite(dur) || dur <= 0) throw new Error('Could not read the video length.');
+    if(dur > previewMaxMin() * 60) throw new Error(`The preview is longer than ${previewMaxMin()} minutes. Share it as a link instead (add the SPHERE watermark in your editing app).`);
+    const scale = Math.min(1, 1280 / Math.max(v.videoWidth || 1280, v.videoHeight || 720));
+    const W = Math.max(2, Math.round((v.videoWidth || 1280) * scale / 2) * 2), H = Math.max(2, Math.round((v.videoHeight || 720) * scale / 2) * 2);
+    const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    const stream = canvas.captureStream(25);
+    let actx = null;
+    try {
+      actx = new (window.AudioContext || window.webkitAudioContext)();
+      const node = actx.createMediaElementSource(v), dest = actx.createMediaStreamDestination();
+      node.connect(dest);                       // record the sound without playing it aloud
+      dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+    } catch(e) { actx = null; }
+    const targetMB = Math.min(45, fileMaxMB() - 3);
+    const vbr = Math.max(350000, Math.min(2500000, Math.floor(targetMB * 8 * 1048576 / dur) - 96000));
+    const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: vbr, audioBitsPerSecond: 96000 });
+    const chunks = [];
+    rec.ondataavailable = e => { if(e.data && e.data.size) chunks.push(e.data); };
+    const stopped = new Promise(res => { rec.onstop = res; });
+    const big = Math.round(W * 0.17), small = Math.max(12, Math.round(W * 0.022)), tile = Math.max(14, Math.round(W * 0.035));
+    let x = W * 0.08, y = H * 0.12, dx = Math.max(1.2, W / 420), dy = Math.max(1, H / 360);
+    const draw = () => {
+      ctx.drawImage(v, 0, 0, W, H);
+      ctx.save();
+      // faint tiled text so the video cannot be cropped clean
+      ctx.globalAlpha = 0.13; ctx.fillStyle = '#fff'; ctx.font = `800 ${tile}px Arial, sans-serif`;
+      ctx.translate(W / 2, H / 2); ctx.rotate(-0.42);
+      for(let ty = -H; ty < H; ty += tile * 3) for(let tx = -W; tx < W; tx += tile * 12) ctx.fillText('SPHERE PREVIEW', tx + (Math.round(ty / (tile * 3)) % 2) * tile * 6, ty);
+      ctx.restore(); ctx.save();
+      // the big moving SPHERE
+      ctx.font = `900 ${big}px Arial, sans-serif`; ctx.textBaseline = 'top';
+      const tw = ctx.measureText('SPHERE').width;
+      x += dx; y += dy;
+      if(x < 0 || x + tw > W){ dx = -dx; x = Math.max(0, Math.min(x, W - tw)); }
+      if(y < 0 || y + big > H){ dy = -dy; y = Math.max(0, Math.min(y, H - big)); }
+      ctx.globalAlpha = 0.42; ctx.lineWidth = Math.max(2, big / 16); ctx.strokeStyle = 'rgba(0,0,0,.55)';
+      ctx.strokeText('SPHERE', x, y); ctx.fillStyle = '#ffffff'; ctx.fillText('SPHERE', x, y);
+      // project label
+      ctx.globalAlpha = 0.8; ctx.font = `700 ${small}px Arial, sans-serif`; ctx.textBaseline = 'bottom';
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.strokeText(label, 10, H - 8); ctx.fillText(label, 10, H - 8);
+      ctx.restore();
+    };
+    let timer = null, done = false;
+    const loop = () => { if(done) return; draw(); if(onProgress) onProgress(Math.min(0.999, v.currentTime / dur)); };
+    v.onended = () => { done = true; draw(); setTimeout(() => { try { rec.stop(); } catch(e) {} }, 300); };
+    if(actx && actx.state === 'suspended') await actx.resume();
+    draw();
+    rec.start(1000);
+    await v.play();
+    if(v.requestVideoFrameCallback){ const f = () => { loop(); if(!done) v.requestVideoFrameCallback(f); }; v.requestVideoFrameCallback(f); }
+    timer = setInterval(loop, 40);   // also keeps drawing if the frame callback pauses
+    const guard = setTimeout(() => { if(!done){ done = true; try { rec.stop(); } catch(e) {} } }, (dur * 1.6 + 20) * 1000);
+    await stopped;
+    clearInterval(timer); clearTimeout(guard);
+    if(actx) actx.close().catch(() => {});
+    const type = mime.split(';')[0];
+    const blob = new Blob(chunks, { type });
+    if(blob.size < 1000) throw new Error('The watermark could not be added. Keep this screen open while it works, or share a link instead.');
+    if(blob.size > fileMaxMB() * 1048576) throw new Error(`The watermarked preview is bigger than ${fileMaxMB()} MB. Make a shorter or smaller preview, or share a link.`);
+    return { blob, ext: type.includes('mp4') ? 'mp4' : 'webm', duration: dur, width: W, height: H };
+  } finally {
+    URL.revokeObjectURL(src);
+  }
+}
+
+// ---- Editor: send a preview (upload with watermark, or a link)
+function previewUploadPanel(job, files, isNewVersion){
+  const nextV = files.filter(f => f.kind === 'preview').reduce((m, f) => Math.max(m, f.version || 0), 0) + 1;
+  return `<${isNewVersion ? 'details' : 'div'} class="card">${isNewVersion ? `<summary><b>👀 Send preview v${nextV}</b></summary>` : `<b>👀 Send a watermarked preview</b>`}
+    <p class="muted" style="font-size:12px; margin:6px 0 10px;">Choose your edited video (up to ${previewMaxMin()} min). Sphere burns a big moving <b>SPHERE</b> watermark into it on this device, then uploads it. The client watches it inside Sphere — they never get a clean copy before approving.</p>
+    <div class="field"><textarea id="pvNote" maxlength="500" placeholder="Note for the client (optional): what to check, music used…" style="min-height:56px;"></textarea></div>
+    <label class="btn btn-primary" style="display:block; text-align:center; cursor:pointer;">🎬 Choose video &amp; add watermark
+      <input type="file" accept="video/*" style="display:none;" onchange="startPreviewUpload('${job.id}', this)"></label>
+    <div id="pvStatus"></div>
+    <p class="muted" style="font-size:11px; margin-top:8px;">Keep this screen open while the watermark is added — it takes about as long as the video.</p>
+    <details style="margin-top:10px;"><summary class="muted" style="font-size:12px;">Longer than ${previewMaxMin()} min or too big? Share a link instead</summary>
+      <p class="muted" style="font-size:12px; margin:8px 0;">Put a clear SPHERE watermark on the video in your editing app, upload it to YouTube (unlisted) or Google Drive, and paste the link. The client watches it inside Sphere.</p>
+      <div class="field"><input id="pvLink" placeholder="https://youtu.be/… or https://drive.google.com/…"></div>
+      <button class="btn btn-outline" id="pvLinkBtn" onclick="sendPreviewLink('${job.id}')">Send preview link</button>
+    </details>
+  </${isNewVersion ? 'details' : 'div'}>`;
+}
+async function startPreviewUpload(jobId, input){
+  const file = input.files && input.files[0];
+  input.value = '';
+  if(!file) return;
+  if(!/^video\//.test(file.type || '')){ alert('Please choose a video file.'); return; }
+  const job = await getJob(jobId);
+  const note = ((document.getElementById('pvNote') || {}).value || '').trim();
+  let begun = null;
+  try {
+    setUpStatus('pvStatus', 'Opening your video…', 0);
+    const label = 'SPHERE PREVIEW · ' + projectCode(job) + ' · ' + new Date().toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short' });
+    const out = await watermarkVideo(file, label, p => setUpStatus('pvStatus', 'Adding the SPHERE watermark… ' + Math.round(p * 100) + '%', p));
+    setUpStatus('pvStatus', 'Uploading the preview… 0%', 0);
+    const { data: b, error: bErr } = await sb.rpc('sp_files_begin', { p_job: jobId, p_kind: 'preview', p_name: 'preview.' + out.ext, p_mime: out.blob.type, p_size: out.blob.size });
+    if(bErr) throw new Error(filesRpcError(bErr));
+    begun = b;
+    await uploadWithProgress(b.path, out.blob, p => setUpStatus('pvStatus', 'Uploading the preview… ' + Math.round(p * 100) + '%', p));
+    const { data: fin, error: fErr } = await sb.rpc('sp_files_finish', { p_id: b.id, p_ok: true, p_duration: out.duration, p_note: note || null });
+    if(fErr) throw new Error(filesRpcError(fErr));
+    setUpStatus('pvStatus', '✅ Preview v' + b.version + ' sent', 1);
+    alert('Preview v' + b.version + ' sent 👀' + (fin && fin.on_time === false ? ' (after the deadline)' : '') + '\nThe client can watch it inside Sphere.');
+    currentJobId = jobId; nav('projectStatus');
+  } catch(e) {
+    if(begun) sb.rpc('sp_files_finish', { p_id: begun.id, p_ok: false, p_duration: null, p_note: null }).then(() => {}, () => {});
+    setUpStatus('pvStatus', '⚠️ ' + (e.message || e), null);
+    alert(e.message || 'Could not send the preview');
+  }
+}
+async function sendPreviewLink(jobId){
+  const url = ((document.getElementById('pvLink') || {}).value || '').trim();
+  const note = ((document.getElementById('pvNote') || {}).value || '').trim();
+  if(!/^https:\/\/\S+$/i.test(url)){ alert('Paste the full link (it starts with https://)'); return; }
+  const btn = document.getElementById('pvLinkBtn'); if(btn) btn.disabled = true;
+  const { data, error } = await sb.rpc('sp_files_add_link', { p_job: jobId, p_kind: 'preview', p_url: url, p_name: 'Preview link', p_note: note || null });
+  if(btn) btn.disabled = false;
+  if(error){ alert(filesRpcError(error)); return; }
+  alert('Preview v' + (data && data.version) + ' sent 👀 The client can watch it inside Sphere.');
+  currentJobId = jobId; nav('projectStatus');
+}
+
+// ---- Both sides: preview versions
+function previewVersionsCard(job, w, files, isClient, isEditor){
+  const pv = files.filter(f => f.kind === 'preview' && f.status === 'ready').sort((a, b) => (b.version || 0) - (a.version || 0));
+  const legacy = w && w.preview_link && !String(w.preview_link).startsWith('sphere-file:') && !pv.some(f => f.external_url === w.preview_link) ? w.preview_link : '';
+  if(!pv.length && !legacy) return '';
+  const latest = pv[0];
+  return `<div class="card" style="border:1.5px solid #15803d;"><b>👀 Previews (${pv.length || 1})</b>
+    ${latest ? `<button class="btn btn-primary" style="margin:10px 0 6px;" onclick="openPreview('${job.id}', '${latest.id}')">▶ Watch preview v${latest.version}</button>` : ''}
+    ${pv.map(f => `<div class="pf-row"><div class="pf-ic">🎞</div><div class="pf-main"><b>Preview v${f.version}${f.source === 'link' ? ' (link)' : ''}</b>
+        <small>${fmtDT(f.created_at)}${f.duration_sec ? ' · ' + fmtDur(f.duration_sec) : ''}${f.size_bytes ? ' · ' + fmtSize(f.size_bytes) : ''}</small>
+        ${f.note ? `<small style="display:block;">“${esc(f.note)}”</small>` : ''}</div>
+        <button class="btn-sm" onclick="openPreview('${job.id}', '${f.id}')">Watch</button></div>`).join('')}
+    ${legacy ? `<div class="pf-row"><div class="pf-ic">🔗</div><div class="pf-main"><b>Earlier preview link</b><small>${fmtDT(w.preview_at)}</small></div>${linkOrText(legacy)}</div>` : ''}
+    <p class="muted" style="font-size:11px; margin-top:8px;">${isClient ? 'Previews carry the SPHERE watermark. The clean final video comes after you approve.' : 'The client only sees watermarked previews.'}</p>
+  </div>`;
+}
+function openPreview(jobId, fileId){ currentJobId = jobId; nav('previewPlayer', { fileId }); }
+
+// ---- In-app preview player (moving watermark on top, no download button)
+function embedUrl(u){
+  let m = String(u).match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([A-Za-z0-9_-]{6,})/);
+  if(m) return 'https://www.youtube-nocookie.com/embed/' + m[1] + '?rel=0&modestbranding=1';
+  m = String(u).match(/drive\.google\.com\/file\/d\/([A-Za-z0-9_-]+)/);
+  if(m) return 'https://drive.google.com/file/d/' + m[1] + '/preview';
+  return '';
+}
+SCREENS.previewPlayer = async (data) => {
+  const job = await getJob(currentJobId);
+  const files = job ? await loadProjectFiles(job.id) : [];
+  const pv = files.filter(f => f.kind === 'preview' && f.status === 'ready').sort((a, b) => (b.version || 0) - (a.version || 0));
+  const f = pv.find(x => x.id === (data && data.fileId)) || pv[0];
+  const back = `<button class="back-btn" onclick="openJob('${job ? job.id : ''}')">‹</button>`;
+  if(!job || !f) return `<div class="header">${back}<h1>Preview</h1></div><div class="screen"><p class="muted">No preview yet.</p></div>`;
+  const viewer = getCurrentUser();
+  const code = projectCode(job) + ' · Preview v' + f.version + ' · ' + String((viewer && viewer.name) || '').split(' ')[0];
+  let player = '';
+  if(f.source === 'upload'){
+    const { data: su, error } = await sb.storage.from(PROJECT_BUCKET).createSignedUrl(f.storage_path, 3600);
+    player = error ? `<p class="muted center-text" style="padding:40px 10px; color:#fff;">This preview could not be opened.</p>`
+      : `<video src="${esc(su.signedUrl)}" controls controlsList="nodownload nofullscreen noremoteplayback noplaybackrate" disablePictureInPicture disableRemotePlayback playsinline preload="metadata" oncontextmenu="return false"></video>`;
+  } else {
+    const emb = embedUrl(f.external_url);
+    player = emb ? `<iframe src="${esc(emb)}" allow="autoplay; encrypted-media" referrerpolicy="no-referrer"></iframe>`
+      : `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px; padding:16px; text-align:center; color:#fff;">
+          <p style="font-size:13px;">This link cannot be played inside Sphere.</p>${linkOrText(f.external_url)}</div>`;
+  }
+  return `
+  <div class="header">${back}<h1>Preview v${f.version}</h1><p>${projectCode(job)} · ${esc(job.title || job.category)}</p></div>
+  <div class="screen" style="padding-top:0;">
+    <div class="pv-wrap" id="pvWrap" oncontextmenu="return false">
+      ${player}
+      <div class="pv-wm"><em>${'SPHERE PREVIEW '.repeat(160)}</em><span>SPHERE</span></div>
+      <div class="pv-code">${esc(code)}</div>
+    </div>
+    <div class="cl-row" style="margin:10px 0;"><button class="btn btn-outline" onclick="pvFullscreen()">⛶ Full screen</button></div>
+    <div class="card">
+      <p style="font-size:12px;" class="muted">Sent ${fmtDT(f.created_at)}${f.duration_sec ? ' · ' + fmtDur(f.duration_sec) : ''}</p>
+      ${f.note ? `<p style="font-size:14px; margin-top:6px;">“${esc(f.note)}”</p>` : ''}
+      <p class="muted" style="font-size:12px; margin-top:8px;">🔒 Watermarked preview. Downloading is turned off; the clean final video comes after approval.</p>
+    </div>
+    ${pv.length > 1 ? `<div class="card"><b>Other versions</b>${pv.filter(x => x.id !== f.id).map(x => `<div class="pf-row"><div class="pf-ic">🎞</div><div class="pf-main"><b>Preview v${x.version}</b><small>${fmtDT(x.created_at)}</small></div><button class="btn-sm" onclick="nav('previewPlayer', { fileId: '${x.id}' })">Watch</button></div>`).join('')}</div>` : ''}
+  </div>`;
+};
+function pvFullscreen(){
+  const el = document.getElementById('pvWrap');
+  if(!el) return;
+  if(document.fullscreenElement) document.exitFullscreen();
+  else if(el.requestFullscreen) el.requestFullscreen().catch(() => {});
+  else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+}
+
+// ---- Project files (private)
+function fileIcon(f){
+  if(f.source === 'link') return '🔗';
+  if(/^video\//.test(f.mime || '')) return '🎞';
+  if(/^image\//.test(f.mime || '')) return '🖼';
+  if(/^audio\//.test(f.mime || '')) return '🎵';
+  return '📄';
+}
+function projectFilesSection(job, files, isClient, isEditor){
+  if(!(isClient || isEditor || isAdminUser(getCurrentUser()))) return '';
+  const list = files.filter(f => f.kind === 'client_file');
+  const me = (getCurrentUser() || {}).id;
+  const canAdd = isClient && !['closed', 'refunded'].includes(job.status);
+  const chip = f => f.status === 'uploading' ? '<span class="bid-chip warn">Uploading…</span>' : f.status === 'failed' ? '<span class="bid-chip bad">Failed</span>' : '';
+  return `<div class="card"><b>📎 Project files (${list.length})</b>
+    <p class="muted" style="font-size:12px; margin:2px 0 8px;">Private — only you${isClient ? ' and your editor' : ' and the client'} can open them.</p>
+    ${list.length === 0 ? `<p class="muted" style="font-size:13px;">${isClient ? 'Add the footage, photos, logo or music the editor needs.' : 'The client has not added files here yet.'}</p>` : ''}
+    ${list.map(f => `<div class="pf-row"><div class="pf-ic">${fileIcon(f)}</div><div class="pf-main"><b>${esc(f.file_name || 'File')}</b>
+        <small>${f.source === 'link' ? 'Link' : fmtSize(f.size_bytes)} · ${fmtDT(f.created_at)}${f.note ? ' · ' + esc(f.note) : ''}</small> ${chip(f)}</div>
+        ${f.status === 'ready' ? (f.source === 'link' ? `<a class="btn-sm" href="${esc(f.external_url)}" target="_blank" rel="noopener noreferrer">Open</a>` : `<button class="btn-sm" onclick="openProjectFile('${f.id}', '${esc(f.storage_path)}')">Open</button>`) : ''}
+        ${f.uploaded_by === me && f.status !== 'uploading' ? `<button class="btn-sm" style="color:#c62828;" onclick="removeProjectFile('${job.id}', '${f.id}')">✕</button>` : ''}</div>`).join('')}
+    ${canAdd ? `
+      <label class="btn btn-outline" style="display:block; text-align:center; margin-top:10px; cursor:pointer;">⬆️ Upload files (up to ${fileMaxMB()} MB each)
+        <input type="file" multiple style="display:none;" onchange="uploadProjectFiles('${job.id}', this)"></label>
+      <div id="pfStatus"></div>
+      <details style="margin-top:10px;"><summary><b>🔗 Big files (over ${fileMaxMB()} MB, even 1 GB+)</b></summary>
+        <ol class="muted" style="font-size:12px; margin:8px 0 8px 18px; line-height:1.6;"><li>Upload to Google Drive (or Dropbox / WeTransfer / OneDrive)</li><li>Share → <b>Anyone with the link</b> → <b>Viewer</b></li><li>Copy the link and paste it here — only your editor sees it</li></ol>
+        <div class="field"><input id="pfLink" placeholder="https://drive.google.com/…"></div>
+        <div class="field"><input id="pfLinkName" maxlength="120" placeholder="What is it? (e.g. All raw footage, 6 GB)"></div>
+        <button class="btn btn-outline" id="pfLinkBtn" onclick="addProjectLink('${job.id}')">Add link</button></details>` : ''}
+  </div>`;
+}
+async function uploadProjectFiles(jobId, input){
+  const picked = Array.from(input.files || []);
+  input.value = '';
+  if(!picked.length) return;
+  const max = fileMaxMB() * 1048576;
+  const tooBig = picked.filter(f => f.size > max);
+  if(tooBig.length) alert(tooBig.map(f => f.name).join(', ') + '\n\nThese are bigger than ' + fileMaxMB() + ' MB. Share them as a Google Drive / Dropbox / WeTransfer link (see "Big files").');
+  const ok = picked.filter(f => f.size <= max && f.size > 0);
+  let done = 0, failed = 0;
+  for(const f of ok){
+    let b = null;
+    try {
+      const { data, error } = await sb.rpc('sp_files_begin', { p_job: jobId, p_kind: 'client_file', p_name: f.name, p_mime: f.type || 'application/octet-stream', p_size: f.size });
+      if(error) throw new Error(filesRpcError(error));
+      b = data;
+      await uploadWithProgress(b.path, f, p => setUpStatus('pfStatus', `Uploading ${done + 1} of ${ok.length}: ${f.name} — ${Math.round(p * 100)}%`, p));
+      const { error: fe } = await sb.rpc('sp_files_finish', { p_id: b.id, p_ok: true, p_duration: null, p_note: null });
+      if(fe) throw new Error(filesRpcError(fe));
+      done++;
+    } catch(e) {
+      failed++;
+      if(b) sb.rpc('sp_files_finish', { p_id: b.id, p_ok: false, p_duration: null, p_note: null }).then(() => {}, () => {});
+      alert('Could not upload ' + f.name + ': ' + (e.message || e));
+    }
+  }
+  if(ok.length) alert(`${done} file${done === 1 ? '' : 's'} uploaded ✅${failed ? ' · ' + failed + ' failed' : ''}. Your editor has been told.`);
+  currentJobId = jobId; nav('projectStatus');
+}
+async function addProjectLink(jobId){
+  const url = ((document.getElementById('pfLink') || {}).value || '').trim();
+  const name = ((document.getElementById('pfLinkName') || {}).value || '').trim();
+  if(!/^https:\/\/\S+$/i.test(url)){ alert('Paste the full link (it starts with https://)'); return; }
+  const btn = document.getElementById('pfLinkBtn'); if(btn) btn.disabled = true;
+  const { error } = await sb.rpc('sp_files_add_link', { p_job: jobId, p_kind: 'client_file', p_url: url, p_name: name || null, p_note: null });
+  if(btn) btn.disabled = false;
+  if(error){ alert(filesRpcError(error)); return; }
+  alert('Link added ✅ Only your editor can see it.');
+  currentJobId = jobId; nav('projectStatus');
+}
+async function openProjectFile(fileId, path){
+  const w = window.open('', '_blank');
+  const { data, error } = await sb.storage.from(PROJECT_BUCKET).createSignedUrl(path, 600);
+  if(error || !data){ if(w) w.close(); alert('This file could not be opened.'); return; }
+  if(w) w.location = data.signedUrl; else window.location.href = data.signedUrl;
+}
+async function removeProjectFile(jobId, fileId){
+  if(!confirm('Remove this file from the project?')) return;
+  const { data, error } = await sb.rpc('sp_files_remove', { p_id: fileId });
+  if(error){ alert(filesRpcError(error)); return; }
+  if(data && data.path) await sb.storage.from(PROJECT_BUCKET).remove([data.path]);
+  currentJobId = jobId; nav('projectStatus');
+}
+
+/* ============ PART 11: REVISIONS + CHANGE REQUESTS ============
+   Revisions: after a preview, the client asks for changes. First free_revisions (3)
+   free; from the 4th the client pays revision_fee (₹50, all for the editor) first.
+   The editor gets revision_hours (24) for the next preview; that preview closes it.
+   Change requests: client describes new work + extra price + extra time + files/link
+   → editor accepts / rejects → client pays the extra (if any) → applied: new
+   requirements, new deadline, extra amount; old values kept on the request.
+   Extra money: Razorpay via the sphere-extra-payment Edge Function, or UPI + an
+   admin confirming the transaction ID. */
+const CR_HOURS = [0, 12, 24, 48, 72];
+async function loadRevisionData(jobId){
+  const [r, c, x] = await Promise.all([
+    sb.from('sp_revisions').select('*').eq('job_id', jobId).order('number', { ascending: true }).then(v => v, () => ({ data: null, error: true })),
+    sb.from('sp_change_requests').select('*').eq('job_id', jobId).order('created_at', { ascending: true }).then(v => v, () => ({ data: null })),
+    sb.from('sp_extra_payments').select('*').eq('job_id', jobId).then(v => v, () => ({ data: null }))
+  ]);
+  return { ready: !r.error, revs: r.data || [], crs: c.data || [], extras: x.data || [] };
+}
+function revStatusChip(st){
+  const m = { open: ['warn', 'Editor working'], awaiting_payment: ['bad', 'Payment needed'], delivered: ['ok', 'Delivered'], cancelled: ['', 'Cancelled'],
+              pending: ['warn', 'Waiting for editor'], accepted_awaiting_payment: ['bad', 'Accepted — payment needed'], applied: ['ok', 'Applied'], rejected: ['', 'Rejected'] }[st] || ['', st];
+  return `<span class="bid-chip ${m[0]}">${m[1]}</span>`;
+}
+async function revisionsSection(job, w, files, isClient, isEditor){
+  if(!(isClient || isEditor || isAdminUser(getCurrentUser()))) return '';
+  if(!['in-progress', 'delivered', 'approved', 'closed'].includes(job.status)) return '';
+  const d = await loadRevisionData(job.id);
+  if(!d.ready) return '';
+  const free = Number(getSetting('free_revisions')) || 3, fee = Number(getSetting('revision_fee')) || 50;
+  const used = d.revs.filter(r => r.status !== 'cancelled').length;
+  const openRev = d.revs.find(r => r.status === 'open'), payRev = d.revs.find(r => r.status === 'awaiting_payment');
+  const openCr = d.crs.find(c => c.status === 'pending' || c.status === 'accepted_awaiting_payment');
+  const extraFor = (kind, id) => d.extras.find(x => x.kind === kind && x.ref_id === id);
+  const inProgress = job.status === 'in-progress';
+  const canRevise = isClient && inProgress && w && w.phase === 'preview' && !openRev && !payRev;
+  const nextPaid = used + 1 > free;
+  let html = `<div class="card"><b>🔁 Revisions & changes</b>
+    <div class="rv-sum">
+      <div><b>${Math.min(used, free)} / ${free}</b><span>free revisions used</span></div>
+      <div><b>${used >= free ? '₹' + fee : 'Free'}</b><span>next revision</span></div>
+      ${job.extraAmount ? `<div><b>${rupees(job.extraAmount)}</b><span>extra work added</span></div>` : ''}
+      ${w && w.original_due_at && Math.abs(new Date(w.original_due_at) - new Date(w.due_at)) > 60000 ? `<div><b style="font-size:13px;">${fmtDT(w.due_at)}</b><span>revised deadline (was ${fmtDT(w.original_due_at)})</span></div>` : ''}
+    </div>`;
+  // open revision
+  if(openRev) html += `<div class="card rv-open" style="margin:8px 0;"><b>🔁 Revision #${openRev.number} — ${isEditor ? 'the client wants:' : 'editor is working on it'}</b>
+      <p style="font-size:13px; margin:6px 0; white-space:pre-wrap;">${esc(openRev.notes)}</p>
+      <p class="muted" style="font-size:12px;">Next preview due ${fmtDT(openRev.new_due_at)}${openRev.preview_version ? ' · about preview v' + openRev.preview_version : ''}</p></div>`;
+  // revision waiting for ₹50
+  if(payRev){
+    const x = extraFor('revision', payRev.id);
+    html += `<div class="card" style="border:1.5px solid #c62828; margin:8px 0;"><b>💳 Revision #${payRev.number} needs ${rupees(payRev.fee)}</b>
+      <p style="font-size:13px; margin:6px 0;">${esc(payRev.notes)}</p>
+      ${isClient ? `<p class="muted" style="font-size:12px; margin-bottom:8px;">${free} revisions were free. This one unlocks after payment — the full amount goes to your editor.</p>
+        ${x ? extraPayButtons(x, job) : ''}
+        <button class="btn btn-outline" style="margin-top:8px;" onclick="cancelRevision('${payRev.id}', '${job.id}')">Cancel this revision</button>` : `<p class="muted" style="font-size:12px;">Waiting for the client to pay. You will be told when it unlocks.</p>`}</div>`;
+  }
+  // client: ask for a revision
+  if(canRevise) html += `<div class="field" style="margin-top:10px;"><label>What should change in the preview?</label>
+      <textarea id="revNotes" maxlength="2000" placeholder="Example: 0:12 cut the drone shot, music a bit lower, end logo bigger" style="min-height:80px;"></textarea></div>
+      <button class="btn ${nextPaid ? 'btn-outline' : 'btn-primary'}" onclick="requestRevision('${job.id}')">🔁 Ask for revision #${used + 1}${nextPaid ? ' — ' + rupees(fee) : ' (free)'}</button>`;
+  else if(isClient && inProgress && w && w.phase === 'active' && !openRev && !payRev) html += `<p class="muted" style="font-size:12px; margin-top:8px;">You can ask for a revision after the editor sends a preview.</p>`;
+  // change requests
+  if(openCr){
+    const x = extraFor('change', openCr.id);
+    html += `<div class="card rv-open" style="margin:10px 0;"><b>📝 Change request</b> ${revStatusChip(openCr.status)}
+      <p style="font-size:13px; margin:6px 0; white-space:pre-wrap;">${esc(openCr.details)}</p>
+      <p class="muted" style="font-size:12px;">${openCr.extra_price > 0 ? 'Extra price: <b>' + rupees(openCr.extra_price) + '</b> · ' : 'No extra price · '}${openCr.extra_hours ? 'Extra time: +' + openCr.extra_hours + ' h' : 'Same deadline'}</p>
+      ${openCr.link ? `<p style="font-size:12px;">${linkOrText(openCr.link)}</p>` : ''}
+      ${(openCr.file_ids || []).length ? `<p class="muted" style="font-size:12px;">📎 ${(openCr.file_ids || []).length} file(s) added to Project files</p>` : ''}
+      ${openCr.editor_note ? `<p style="font-size:12px;">Editor: “${esc(openCr.editor_note)}”</p>` : ''}
+      ${isEditor && openCr.status === 'pending' ? `<div class="field" style="margin-top:8px;"><input id="crNote" maxlength="300" placeholder="Note for the client (optional)"></div>
+        <div class="cl-row"><button class="btn btn-primary" onclick="answerChange('${openCr.id}', '${job.id}', true)">Accept</button><button class="btn btn-outline" onclick="answerChange('${openCr.id}', '${job.id}', false)">Reject</button></div>` : ''}
+      ${isEditor && openCr.status === 'accepted_awaiting_payment' ? `<p class="muted" style="font-size:12px;">You accepted. Waiting for the client to pay ${rupees(openCr.extra_price)}.</p>` : ''}
+      ${isClient && openCr.status === 'pending' ? `<p class="muted" style="font-size:12px;">Waiting for the editor to accept or reject.</p>` : ''}
+      ${isClient && openCr.status === 'accepted_awaiting_payment' && x ? `<p style="font-size:12px; margin:6px 0;">✅ The editor accepted. Pay to start the new work.</p>${extraPayButtons(x, job)}` : ''}
+      ${isClient ? `<button class="btn btn-outline" style="margin-top:8px;" onclick="cancelChange('${openCr.id}', '${job.id}')">Cancel request</button>` : ''}</div>`;
+  } else if(isClient && inProgress){
+    html += `<details class="card" style="margin-top:10px;"><summary><b>📝 Ask for a change (new work)</b></summary>
+      <p class="muted" style="font-size:12px; margin:8px 0;">For something new — an extra version, more length, new scenes. The editor accepts or rejects; if you offer extra money you pay it after they accept.</p>
+      <div class="field"><label>What do you need?</label><textarea id="crDetails" maxlength="1500" placeholder="Example: also make a 15 sec teaser for Instagram from the same footage" style="min-height:80px;"></textarea></div>
+      <div class="field"><label>Extra price you offer (₹, optional)</label><input id="crPrice" type="number" inputmode="numeric" min="0" placeholder="0"></div>
+      <div class="field"><label>Extra time for the editor</label><select id="crHours">${CR_HOURS.map(h => `<option value="${h}">${h ? '+' + h + ' hours' : 'No extra time'}</option>`).join('')}</select></div>
+      <div class="field"><label>Link (optional)</label><input id="crLink" placeholder="https://drive.google.com/…"></div>
+      <div class="field"><label>Files (optional, up to ${fileMaxMB()} MB each)</label><input id="crFiles" type="file" multiple></div>
+      <div id="crStatus"></div>
+      <button class="btn btn-primary" id="crBtn" onclick="sendChangeRequest('${job.id}')">Send change request</button></details>`;
+  }
+  // history
+  const hist = [
+    ...d.revs.map(r => ({ at: r.created_at, html: `<div class="rv-item"><b>🔁 Revision #${r.number}</b> ${revStatusChip(r.status)} ${r.is_paid ? `<span class="bid-chip">paid ${rupees(r.fee)}</span>` : '<span class="bid-chip">free</span>'}
+        <p>${esc(r.notes)}</p><p class="muted">${fmtDT(r.created_at)}${r.new_due_at ? ' · due ' + fmtDT(r.new_due_at) : ''}${r.delivered_version ? ' · delivered as preview v' + r.delivered_version : ''}</p></div>` })),
+    ...d.crs.map(c => ({ at: c.created_at, html: `<div class="rv-item"><b>📝 Change request</b> ${revStatusChip(c.status)}
+        <p>${esc(c.details)}</p>
+        <p class="muted">${fmtDT(c.created_at)}${c.extra_price > 0 ? ' · +' + rupees(c.extra_price) : ''}${c.extra_hours ? ' · +' + c.extra_hours + ' h' : ''}</p>
+        ${c.status === 'applied' ? `<p class="muted">Deadline ${fmtDT(c.old_due_at)} → <b>${fmtDT(c.new_due_at)}</b> · extra total ${rupees(c.old_extra_amount)} → ${rupees(c.new_extra_amount)}</p>` : ''}
+        ${c.editor_note ? `<p class="muted">Editor: “${esc(c.editor_note)}”</p>` : ''}</div>` }))
+  ].sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  if(hist.length) html += `<details style="margin-top:10px;"><summary class="muted" style="font-size:13px;"><b>History (${hist.length})</b></summary>${hist.map(h => h.html).join('')}</details>`;
+  return html + `</div>`;
+}
+
+// ---- client actions
+async function requestRevision(jobId){
+  const notes = ((document.getElementById('revNotes') || {}).value || '').trim();
+  if(notes.length < 5){ alert('Write what should change.'); return; }
+  const { data, error } = await sb.rpc('sp_rev_request', { p_job: jobId, p_notes: notes });
+  if(error){ alert(revError(error)); return; }
+  if(data && data.needs_payment) alert(`Revision #${data.number} saved 💳\n\nYour ${getSetting('free_revisions')} free revisions are used. Pay ${rupees(data.amount)} to send it to the editor.`);
+  else alert(`Revision #${data.number} sent 🔁 The editor has ${getSetting('revision_hours')} hours for the next preview.${data && data.free_left !== undefined ? '\nFree revisions left: ' + data.free_left : ''}`);
+  currentJobId = jobId; nav('projectStatus');
+}
+async function cancelRevision(revId, jobId){
+  if(!confirm('Cancel this unpaid revision?')) return;
+  const { error } = await sb.rpc('sp_rev_cancel', { p_rev: revId });
+  if(error){ alert(revError(error)); return; }
+  currentJobId = jobId; nav('projectStatus');
+}
+async function sendChangeRequest(jobId){
+  const details = ((document.getElementById('crDetails') || {}).value || '').trim();
+  const price = Number((document.getElementById('crPrice') || {}).value || 0);
+  const hours = Number((document.getElementById('crHours') || {}).value || 0);
+  const link = ((document.getElementById('crLink') || {}).value || '').trim();
+  const picked = Array.from(((document.getElementById('crFiles') || {}).files) || []);
+  if(details.length < 10){ alert('Describe the change (at least 10 letters).'); return; }
+  if(price < 0 || price > 1000000){ alert('Check the extra price.'); return; }
+  if(link && !/^https:\/\/\S+$/i.test(link)){ alert('The link must start with https://'); return; }
+  const btn = document.getElementById('crBtn'); if(btn) btn.disabled = true;
+  const ids = [];
+  try {
+    for(const f of picked){
+      if(f.size > fileMaxMB() * 1048576) throw new Error(f.name + ' is bigger than ' + fileMaxMB() + ' MB — add it as a link.');
+      const { data: b, error } = await sb.rpc('sp_files_begin', { p_job: jobId, p_kind: 'client_file', p_name: f.name, p_mime: f.type || 'application/octet-stream', p_size: f.size });
+      if(error) throw new Error(filesRpcError(error));
+      await uploadWithProgress(b.path, f, p => setUpStatus('crStatus', 'Uploading ' + f.name + ' — ' + Math.round(p * 100) + '%', p));
+      const { error: fe } = await sb.rpc('sp_files_finish', { p_id: b.id, p_ok: true, p_duration: null, p_note: 'For a change request' });
+      if(fe) throw new Error(filesRpcError(fe));
+      ids.push(b.id);
+    }
+    const { error } = await sb.rpc('sp_cr_create', { p_job: jobId, p_details: details, p_extra_price: price, p_extra_hours: hours, p_link: link || null, p_file_ids: ids });
+    if(error) throw new Error(revError(error));
+    alert('Change request sent 📝 The editor will accept or reject it.');
+    currentJobId = jobId; nav('projectStatus');
+  } catch(e) {
+    if(btn) btn.disabled = false;
+    alert(e.message || e);
+  }
+}
+async function cancelChange(crId, jobId){
+  if(!confirm('Cancel this change request?')) return;
+  const { error } = await sb.rpc('sp_cr_cancel', { p_cr: crId });
+  if(error){ alert(revError(error)); return; }
+  currentJobId = jobId; nav('projectStatus');
+}
+// ---- editor action
+async function answerChange(crId, jobId, accept){
+  const note = ((document.getElementById('crNote') || {}).value || '').trim();
+  if(!confirm(accept ? 'Accept this change? The deadline and price change as shown.' : 'Reject this change?')) return;
+  const { data, error } = await sb.rpc('sp_cr_answer', { p_cr: crId, p_accept: accept, p_note: note || null });
+  if(error){ alert(revError(error)); return; }
+  alert(!accept ? 'Rejected. The client has been told.' : data && data.status === 'applied' ? 'Accepted ✅ The change is now part of the project.' : 'Accepted ✅ The client will pay the extra price, then you can start.');
+  currentJobId = jobId; nav('projectStatus');
+}
+function revError(error){
+  if(/sp_rev_|sp_cr_|sp_extra|schema cache|does not exist|Could not find/i.test((error && error.message) || '')) return 'This needs the latest database update (011_revisions_changes.sql).';
+  return (error && error.message) || 'Something went wrong';
+}
+
+// ---- paying extras (Razorpay via sphere-extra-payment, or UPI + transaction ID)
+function extraPayButtons(x, job){
+  if(x.status === 'paid') return '<p style="font-size:12px; color:#15803d;">✅ Paid</p>';
+  return `${x.utr ? `<p class="muted" style="font-size:12px; margin-bottom:6px;">UPI ID ${esc(x.utr)} sent — Sphere is checking it.</p>` : ''}
+    <button class="btn btn-primary" id="xPay_${x.id}" onclick="payExtra('${x.id}', '${job.id}')">🔒 Pay ${rupees(x.amount)}</button>
+    <details style="margin-top:8px;"><summary class="muted" style="font-size:12px;">Pay by UPI instead</summary>
+      <p style="font-size:12px; margin:8px 0;">Send <b>${rupees(x.amount)}</b> to UPI ID <b>${esc(FEE_UPI)}</b> (${esc(FEE_UPI_NAME)}), then type the 12-digit UPI transaction ID:</p>
+      <div class="field"><input id="xUtr_${x.id}" inputmode="numeric" maxlength="22" placeholder="e.g. 412345678901"></div>
+      <button class="btn btn-outline" onclick="submitExtraUtr('${x.id}', '${job.id}')">I have paid</button></details>`;
+}
+async function payExtra(extraId, jobId){
+  const btn = document.getElementById('xPay_' + extraId); if(btn) btn.disabled = true;
+  let order = null;
+  try {
+    const { data, error } = await sb.functions.invoke('sphere-extra-payment', { body: { action: 'create', extraId } });
+    if(!error && data && data.ok) order = data;
+    else if(data && data.paid){ alert('Already paid ✅'); currentJobId = jobId; return nav('projectStatus'); }
+  } catch(e) {}
+  if(!order || typeof Razorpay === 'undefined'){
+    if(btn) btn.disabled = false;
+    alert('Online payment is not available right now. Use "Pay by UPI instead" below.');
+    const d = btn && btn.parentElement && btn.parentElement.querySelector('details'); if(d) d.open = true;
+    return;
+  }
+  const user = getCurrentUser();
+  const rzp = new Razorpay({
+    key: order.key_id || RAZORPAY_KEY_ID, amount: order.amount, currency: order.currency, order_id: order.order_id,
+    name: 'Sphere — Syahi Films', description: 'Extra payment',
+    prefill: { name: user.name, email: user.email, contact: user.phone || '' }, theme: { color: '#1657ff' },
+    handler: async function(r){
+      const { data: v, error: ve } = await sb.functions.invoke('sphere-extra-payment', { body: { action: 'verify', extraId, order_id: r.razorpay_order_id, payment_id: r.razorpay_payment_id, signature: r.razorpay_signature } });
+      if(!ve && v && v.valid) alert('Payment successful ✅');
+      else alert('We could not confirm the payment yet. Payment ID: ' + r.razorpay_payment_id + '\nKeep this ID and contact Support — you will not be charged twice.');
+      currentJobId = jobId; nav('projectStatus');
+    },
+    modal: { ondismiss: function(){ if(btn) btn.disabled = false; } }
+  });
+  rzp.on('payment.failed', function(resp){ if(btn) btn.disabled = false; alert('Payment failed: ' + ((resp.error && resp.error.description) || '') + '\nNo money was taken.'); });
+  rzp.open();
+}
+async function submitExtraUtr(extraId, jobId){
+  const utr = ((document.getElementById('xUtr_' + extraId) || {}).value || '').replace(/\s+/g, '');
+  if(!/^[A-Za-z0-9]{10,22}$/.test(utr)){ alert('Enter the UPI transaction ID (usually 12 digits).'); return; }
+  const { error } = await sb.rpc('sp_extra_submit_utr', { p_extra: extraId, p_utr: utr });
+  if(error){ alert(revError(error)); return; }
+  alert('Thank you ✅ Sphere will check your payment and unlock it.');
+  currentJobId = jobId; nav('projectStatus');
+}
+
+// ---- admin: UPI extras waiting for a check
+async function loadExtrasQueue(){
+  try {
+    const { data, error } = await sb.from('sp_extra_payments').select('*').eq('status', 'pending').not('utr', 'is', null).order('created_at', { ascending: true }).limit(50);
+    if(error) return { ready: false, list: [] };
+    const ids = [...new Set((data || []).map(x => x.client_id))];
+    return { ready: true, list: data || [], people: ids.length ? await getProfilesByIds(ids) : {} };
+  } catch(e) { return { ready: false, list: [] }; }
+}
+function extrasQueueSection(q){
+  if(!q || !q.ready || !q.list.length) return '';
+  return `<h3 style="margin:20px 0 10px;">💳 Extra payments to check (${q.list.length})</h3>
+    ${q.list.map(x => `<div class="card mq-item"><p style="font-size:13px;"><b>${rupees(x.amount)}</b> · ${x.kind === 'revision' ? 'Paid revision' : 'Change request'} · ${esc(((q.people || {})[x.client_id] || {}).name || 'Client')}</p>
+      <p style="font-size:12px;">UPI transaction ID: <b>${esc(x.utr)}</b> · ${fmtDT(x.created_at)} · Project SPH-${String(x.job_id).replace(/-/g, '').slice(0, 6).toUpperCase()}</p>
+      <p class="muted" style="font-size:11px;">Check it in the ${esc(FEE_UPI)} account before confirming.</p>
+      <div style="display:flex; gap:6px; margin-top:8px;"><button class="btn-sm" style="background:#15803d; color:#fff;" onclick="extraAdmin('${x.id}', 'confirm')">✅ Received</button>
+        <button class="btn-sm" style="color:#c62828;" onclick="extraAdmin('${x.id}', 'reject')">❌ Not found</button></div></div>`).join('')}`;
+}
+async function extraAdmin(extraId, action){
+  if(needPin()) return;
+  if(!confirm(action === 'confirm' ? 'Mark this payment as received? The revision / change will start.' : 'Mark as not found? The client is told to try again.')) return;
+  const { error } = await sb.rpc('sp_extra_admin', { p_extra: extraId, p_action: action, p_pin: ADMIN_PIN });
+  if(error){ alert(error.message); if(/PIN/i.test(error.message)) ADMIN_PIN = ''; }
   nav('admin');
 }
 

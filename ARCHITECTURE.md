@@ -59,6 +59,8 @@ The script starts with a **map of headings**. Search for them:
 | `CHAT` | WhatsApp-style chat, realtime, media, voice notes |
 | `PAYMENT` / `PROJECT STATUS` | Razorpay checkout, escrow, delivery, approve & release |
 | `ADMIN` | Admin Panel (PIN unlock), verification, reports, payouts, suspicious users, system status |
+| `PART 11: REVISIONS + CHANGE REQUESTS` | `revisionsSection()`, `requestRevision()`, `sendChangeRequest()`, `answerChange()`, `payExtra()`, `submitExtraUtr()`, `extrasQueueSection()` |
+| `PART 10: PROJECT FILES + WATERMARKED PREVIEW` | `watermarkVideo()`, `uploadWithProgress()`, `previewUploadPanel()`, `previewVersionsCard()`, `SCREENS.previewPlayer`, `projectFilesSection()` |
 | `PART 9: CHAT + AI MODERATION` | `currentChatJob`, `openProjectChat()`, held-message handling, `loadModQueue()`, `modQueueSection()`, `reviewHeld()`, `askAIHeld()` |
 | `PART 8: PROJECT WORKFLOW + DEADLINES` | `WORK_CACHE`, `workState()`, `workChip()`, `projectWorkSection()`, countdown timer, preview / more-time actions |
 | `PART 7: SELECTION + PAYMENT` | `PAY_STATES`, `projectSummaryCard()`, `acceptAmount()`, `SCREENS.payment`, `payWithRazorpay()` |
@@ -87,7 +89,7 @@ The script starts with a **map of headings**. Search for them:
 |---|---|---|
 | public | anyone | splash, onboard1-3, authLanding, login, signup, resetPassword |
 | auth | logged in, profile not finished | chooseRole, addPhone |
-| user | any finished account | home, editProfile, profile, settings, notifications, chats, support, reports, Sphere AI, categories, editors, editor profile, jobs, project, portfolio, escrow, vault |
+| user | any finished account (previewPlayer: only the project's two people) | home, editProfile, previewPlayer, profile, settings, notifications, chats, support, reports, Sphere AI, categories, editors, editor profile, jobs, project, portfolio, escrow, vault |
 | client | Client mode (client · editor switched to Client · admin in Admin mode) | postJob, applications, payment, savedList, ratings |
 | editor | Editor mode (editor · admin switched to Editor) | jobBidScreen |
 | editorAccount | Editor account (any mode) or admin in Editor mode | editorDetails, verificationStatus, editorProfileEdit |
@@ -164,6 +166,21 @@ The script starts with a **map of headings**. Search for them:
 * **Admin Panel → 🛡️ Messages to review:** sender → receiver, project, original text, AI verdict + reason, **Deliver / Remove / Ask AI**; plus recently reviewed and recently hidden (📵) lists. Remove → the sender gets a warning; strikes still lead to 🚨 Suspicious Users.
 * Timestamps and ✓ / ✓✓ delivery ticks are the existing chat ones; moderated messages update live on both phones.
 * Photos, videos and voice notes are not read by the checker (only text and captions).
+
+### Project files + watermarked preview (Part 10)
+* **Private bucket `sphere-project`** (free plan: 50 MB per file). Paths: `<job id>/client/<file id>.<ext>` and `<job id>/preview/<file id>.<ext>`. Storage rules: only the project's client, its editor and admins can open files; only paths reserved by `sp_files_begin` can be uploaded; only the uploader can delete. Files open through short-lived signed links (10 min; previews 1 h).
+* **Client → 📎 Project files:** upload files up to 50 MB each (progress bar, status Uploading / Ready / Failed), or **🔗 Big files** — a Google Drive / Dropbox / WeTransfer / OneDrive / Mega link with simple steps ("Anyone with the link → Viewer"); links are checked (no Instagram etc.) and shown only to the editor. The old public "Add photos / videos" stays only before an editor is chosen.
+* **Editor → Send a watermarked preview:** picks the edited video (up to `preview_max_minutes`, 10). The phone/computer plays it once and records it again through a canvas with a **big moving SPHERE**, faint tiled "SPHERE PREVIEW" text and a project label (`watermarkVideo()`, MediaRecorder, sound kept, max 1280 px, sized to fit 50 MB) → uploads → `sp_files_finish` marks **Preview vN** ready, the work clock (Part 8) records it (on time / late) and the client is told. Longer previews: a YouTube (unlisted) / Drive link the editor watermarked in their editing app.
+* **Client → ▶ Watch preview** (`previewPlayer`): inside Sphere, with a second moving SPHERE layer on top, no download / picture-in-picture / native full screen (custom full screen keeps the watermark), right-click blocked; YouTube and Drive links play embedded with the same overlay. All versions listed (v1, v2 …) with time, length, size, note.
+* The clean final video still only comes through the existing final delivery after the preview (approval is a later part).
+* Known gap: files attached when **posting** a job (`sphere-raw`) and chat media (`sphere-chat`) are still in the older **public** buckets.
+
+### Revisions + change requests (Part 11)
+* **Revisions** (`sp_revisions`): after a preview, the client writes what to change → **Ask for revision #N**. First `free_revisions` (3) are free; from #4 the client pays `revision_fee` (₹50) first — 100 % recorded for the editor (`sp_extra_splits`). An open revision puts the project back to "editor working" with `revision_hours` (24 h) until the next preview; the next preview (upload or link) marks it **Delivered as preview vN**. Unpaid revisions can be cancelled. Counter on the project page: "x / 3 free used · next: Free / ₹50".
+* **Change requests** (`sp_change_requests`): the client describes new work + optional extra price + extra time (+12…72 h) + link + files (uploaded into Project files). Editor **Accept / Reject** (with a note). Accepted with a price → client pays → **applied**; without a price → applied at once. Applied = text added to *Accepted changes* on the job (`extra_requirements`), `extra_amount` increased, deadline moved; the old deadline / old extra total / old requirements stay on the request.
+* **Deadlines:** `sp_project_work.original_due_at` keeps the first deadline; the project page shows *Original deadline · Revised*.
+* **Extra payments** (`sp_extra_payments`): Razorpay through the Edge Function `sphere-extra-payment` (order amount from the database, signature checked on the server), or **UPI + transaction ID** → Admin Panel → 💳 Extra payments to check → Received / Not found. Only the server or an admin can mark them paid.
+* Notifications: revision asked / needs payment / started (editor), change asked (editor), accepted / rejected / pay now (client), change applied (both), UPI payment to check (admins). Every step is in the project timeline.
 
 ### Job lifecycle (today)
 `open → negotiating → payment-pending → in-progress → delivered → approved → closed` (+ `refunded`)

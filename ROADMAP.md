@@ -12,6 +12,8 @@ Budget: ₹0 (free tiers). One part at a time: build → test → fix → next. 
 | 1 | Foundation: structure, config, roles helpers, settings, system status, docs | 2.1.0 | `002_foundation.sql` |
 | 2 | Auth + user roles: route protection, session end handling, logout cleanup, DB role checks, suspended banner | 2.2.0 | `003_auth_roles.sql` |
 | 3 | Client profile + dashboard: home dashboard, My Projects (Active/History/All), friendly status, Edit Profile, client nav, empty states | 2.3.0 | none (app only) |
+| 11 | Revisions + change requests: 3 free revisions, ₹50 from the 4th (all to the editor), change requests with price / time / files, accept / reject, deadline + price history, Razorpay or UPI for extras | 2.11.0 | `011_revisions_changes.sql` + Edge Function `sphere-extra-payment` |
+| 10 | Project files + watermarked preview: private project bucket, uploads with progress, links for 1 GB+ files, SPHERE watermark burned in on the editor's device, in-app player with moving watermark, preview versions | 2.10.0 | `010_project_files.sql` |
 | 9 | Chat + AI moderation: project chat, UPI / bank / card / IFSC hidden, suspicious messages held, AI check (sphere-moderate), admin review queue | 2.9.0 | `009_chat_moderation.sql` + Edge Function `sphere-moderate` |
 | 8 | Project workflow + deadlines: work clock after payment, 24 h per delivery day, 4 h grace, late detection, live countdown, preview link, ask / give more time, timeline, notifications | 2.8.0 | `008_project_workflow.sql` |
 | 7 | Editor selection + payment: project card for both sides, price lock, payment screen, payment records (pending/paid/failed/refunded), duplicate protection, private split | 2.7.0 | `007_payments.sql` |
@@ -106,3 +108,22 @@ revisions (3 free, 4th ₹50) + approval + payout + bonus · disputes (AI summar
 6. Send "WhatsApp pe aa jao" → sender sees "being checked"; the other phone sees "⏳ This message is being checked by Sphere".
 7. Admin Panel → **🛡️ Messages to review** → the original text + AI chip → **Remove** → the bubble becomes "🚫 Message removed", sender gets a warning. Try **Deliver** on another → the real text appears on both phones.
 8. With `sphere-moderate` deployed: "export it for WhatsApp status also" is delivered automatically within seconds.
+
+## Part 10 — test checklist (use Chrome on a computer or Android for the editor)
+1. Supabase: run `010_project_files.sql` → then `checks/project_files_check.sql` → all ✅.
+2. Upload `index.html.html` → Settings shows **Sphere v2.10.0**.
+3. Client on a paid project → **📎 Project files** → **Upload files** (a photo + a small video) → progress bar → listed; editor gets a notification and can **Open** them.
+4. Client → **🔗 Big files** → paste a Google Drive folder link → listed as a link; an Instagram link is refused.
+5. Editor → **🎬 Choose video & add watermark** → pick a 20–60 s video → "Adding the SPHERE watermark… %" → "Uploading… %" → Preview v1 sent.
+6. Client → **▶ Watch preview v1** → the video plays inside Sphere with a big moving SPHERE (burned in + on top), no download button.
+7. Editor sends another preview → client sees **Preview v2** and can switch between versions.
+8. Log in as a third account and open the project link → refused; the files cannot be opened.
+
+## Part 11 — test checklist
+1. Supabase: run `011_revisions_changes.sql` → then `checks/revisions_check.sql` → all ✅.
+2. (Optional, for Razorpay) deploy `sphere-extra-payment` — see `supabase/functions/sphere-extra-payment/README.md`.
+3. Upload `index.html.html` → Settings shows **Sphere v2.11.0**.
+4. Paid project with a preview → client writes changes → **Ask for revision #1 (free)** → editor sees the notes + new deadline → editor sends the next preview → revision shows **Delivered as preview v2**.
+5. Repeat until 3 free are used → the button says **Ask for revision #4 — ₹50** → after asking, **Pay ₹50** (Razorpay test, or "Pay by UPI instead" + transaction ID → Admin Panel → 💳 Extra payments → Received) → revision #4 starts.
+6. Client → **📝 Ask for a change** → details + ₹400 + 24 h + a link + a file → editor **Accept** → client pays → *Accepted changes* shows on the job; project card shows original vs revised deadline; History keeps old deadline / old extra total.
+7. Another change → editor **Reject** with a note → client is told.
