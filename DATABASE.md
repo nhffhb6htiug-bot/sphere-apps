@@ -10,7 +10,7 @@
 | `profiles` | Every user | `id`, `role` (CLIENT/EDITOR/ADMIN), `full_name`, `email`, `phone`, `avatar_url`, `categories[]`, `languages[]`, `skills[]`, `experience_years`, `price_range`, `sample_video_url`, `portfolio_url`, `is_verified`, `verification_code`, `verification_note`, `razorpay_account_id`, **Part 4:** `bio`, `availability` (available/busy/away), `verification_status` (not_applied/pending/approved/rejected), `verification_fee_status` (unpaid/submitted/confirmed), `verification_fee_ref`, `verification_fee_at`, `verification_reviewed_at` |
 | `sp_public_profiles` (view) | Public editor directory without phone/email | same as profiles minus private fields |
 | `sp_editor_public_extra` (view) | Public bio + availability of editors (Part 4) | `id`, `bio`, `availability` |
-| `sp_jobs` | Jobs / projects | `client_id`, `category`, `description`, `budget`, `deadline`, `language`, `files_link`, `raw_files`, `status`, `assigned_editor`, `proposed_amount`, `proposed_by`, `locked_amount`, `payment_status`, `delivery_link`, `editor_amount`, `platform_fee`, `payout_status`, `razorpay_transfer_id`, **Part 11:** `extra_requirements`, `extra_amount`, **Part 5:** `title`, `video_length`, `video_format`, `style_notes`, `reference_links`, `revisions_expected`, `ai_assisted` |
+| `sp_jobs` | Jobs / projects | `client_id`, `category`, `description`, `budget`, `deadline`, `language`, `files_link`, `raw_files`, `status`, `assigned_editor`, `proposed_amount`, `proposed_by`, `locked_amount`, `payment_status`, `delivery_link`, `editor_amount`, `platform_fee`, `payout_status`, `razorpay_transfer_id`, **Part 5:** `title`, `video_length`, `video_format`, `style_notes`, `reference_links`, `revisions_expected`, `ai_assisted` |
 | `sp_project_work` | Work clock per paid project — Part 8 | `job_id`, `phase` (active/preview/completed/cancelled), `started_at`, `hours`, `due_at`, `grace_hours`, `extended_hours`, `pending_extension_hours`, `preview_link`, `preview_note`, `preview_at`, `preview_on_time`, `is_late`, `late_since`, notice times |
 | `sp_project_extensions` | More-time requests (one pending per project) — Part 8 | `job_id`, `requested_by`, `hours`, `reason`, `status` (pending/approved/declined) |
 | `sp_project_events` | Project timeline — Part 8 | `job_id`, `at`, `actor_id`, `kind`, `title`, `details` |
@@ -19,10 +19,6 @@
 | `sp_job_drafts` | Unfinished job posts (private to the client, max 20) — Part 5 | `id`, `client_id`, `data` (the form), `updated_at` |
 | `sp_applications` | Bids | `job_id`, `editor_id`, `message`, `bid_amount`, `status` (pending / selected / rejected), **Part 6:** `delivery_days`, `updated_at` — one per job+editor (`sp_app_job_editor_uq`) |
 | `sp_messages` | Chat | `sender_id`, `receiver_id`, `text`, `media_path`, `media_type`, `duration_sec`, `delivered_at`, `read_at`, `created_at`, **Part 9:** `job_id` (project chat), `mod_status` (ok / held / released / removed), `mod_reason` |
-| `sp_revisions` | Revisions per project — Part 11 | `number`, `notes`, `is_paid`, `fee`, `status` (awaiting_payment / open / delivered / cancelled), `old_due_at`, `new_due_at`, `preview_version`, `delivered_version` |
-| `sp_change_requests` | Change requests — Part 11 | `details`, `extra_price`, `extra_hours`, `link`, `file_ids`, `status` (pending / rejected / accepted_awaiting_payment / applied / cancelled), `editor_note`, `old_due_at`, `new_due_at`, `old_extra_amount`, `new_extra_amount`, `old_requirements` |
-| `sp_extra_payments` | Extra money in a project (paid revision, change price) — Part 11 | `kind`, `ref_id`, `amount`, `status` (pending / paid / failed / cancelled), `method` (razorpay / upi), `order_id`, `payment_id`, `utr` |
-| `sp_extra_splits` | Editor / Sphere share of each extra — admins only (Part 11) | `extra_id`, `editor_share`, `sphere_share` |
 | `sp_project_files` | Files, links and preview versions of a project — Part 10 | `job_id`, `uploaded_by`, `kind` (client_file / preview), `source` (upload / link), `storage_path`, `external_url`, `file_name`, `mime`, `size_bytes`, `duration_sec`, `version`, `status` (uploading / ready / failed / removed), `note` |
 | `sp_msg_holds` | Held messages — admins only (Part 9) | `message_id`, `job_id`, `sender_id`, `receiver_id`, `original_text`, `reason`, `status`, `ai_verdict`, `ai_confidence`, `ai_reason`, `reviewed_by` |
 | `sp_chat_clears` | "Clear chat" per person | `user_id`, `other_id`, `cleared_at` |
@@ -32,7 +28,7 @@
 | `sp_reports` | Reports / complaints | `job_id`, `reporter_id`, `against_id`, `chat_user_id`, `reason`, `details`, `status`, `admin_note`, `resolved_at` |
 | `sp_notifications` | In-app notifications | `user_id`, `title`, `body` |
 | `sp_saved` | Saved editors | `user_id`, `editor_id` |
-| `sp_settings` | Admin values | `key`, `value` — `platform_fee_percent`, `verify_fee`, `revision_fee`, `free_revisions`, `pro_fee`, `strike_limit`, `mod_skip_admins`, `free_works`, `bids_verified_only`, `work_default_hours`, `work_grace_hours`, `work_fixed_hours`, `work_reminder_hours`, `file_max_mb`, `preview_max_minutes`, `revision_hours` |
+| `sp_settings` | Admin values | `key`, `value` — `platform_fee_percent`, `verify_fee`, `revision_fee`, `free_revisions`, `pro_fee`, `strike_limit`, `mod_skip_admins`, `free_works`, `bids_verified_only`, `work_default_hours`, `work_grace_hours`, `work_fixed_hours`, `work_reminder_hours`, `file_max_mb`, `preview_max_minutes` |
 | `sp_mod_flags` | Strikes / suspension per user (admin-only write) | `user_id`, `strike_count`, `is_suspended`, `warned_at` |
 | `sp_mod_strikes` | Every hidden/flagged message (admins only) | `user_id`, `source`, `kind`, `original_text`, `cleared` |
 | `sp_schema_versions` | Which Sphere parts are installed | `version`, `name`, `applied_at` |
@@ -47,10 +43,6 @@
 | `sp_set_platform_fee` | Admin + PIN | Commission % |
 | `sp_mod_admin_action` | Admin + PIN | Warn / suspend / unsuspend / clear strikes |
 | `sp_core_status` | Admin | System status card |
-| `sp_rev_request`, `sp_rev_cancel` | Project's client | Ask for / cancel an unpaid revision (Part 11) |
-| `sp_cr_create`, `sp_cr_cancel` / `sp_cr_answer` | Client / editor | Change request: send, cancel / accept or reject (Part 11) |
-| `sp_extra_mark_paid` | sphere-extra-payment (server) or admin | Mark an extra paid → revision opens / change applied (Part 11) |
-| `sp_extra_submit_utr` / `sp_extra_admin` | Client / admin + PIN | UPI transaction ID / received or not found (Part 11) |
 | `sp_files_begin` / `sp_files_finish` | Client (files) / editor (previews) | Reserve an upload path → mark ready or failed; previews update the work clock (Part 10) |
 | `sp_files_add_link` | Client / editor | Big-file link or long-preview link (Part 10) |
 | `sp_files_remove` | Uploader / admin | Remove a file (previews stay) (Part 10) |
@@ -78,7 +70,6 @@
 | `sp_core_profile_guard` | `profiles` | Keeps roles in capitals; blocks self-made admins and self-given ✔ ticks |
 | `sp_ed_profile_sync` | `profiles` (before update) | Keeps verification state in step with the ✔ tick; editors can only apply / re-apply and submit a fee (Part 4) |
 | `sp_ed_profile_after` | `profiles` (after update) | Notifies admins when an editor applies or submits the fee (Part 4) |
-| `sp_rev_on_preview` | `sp_project_work` (phase / preview change) | Next preview delivers the open revision (Part 11) |
 | `sp_chat_project_guard` | `sp_messages` (insert) | Project chat only between that project's client and editor (Part 9) |
 | `zzz_sp_chat_hold`, `sp_chat_hold_after` | `sp_messages` (insert) | Hold messages with warning words; tell admins (Part 9) |
 | `sp_work_job_trigger` | `sp_jobs` (insert, status change) | Timeline lines; starts / completes / cancels the work clock (Part 8) |
@@ -92,7 +83,7 @@
 `sphere-project` (**private**, project files + watermarked previews — Part 10), `sphere-raw` (files attached when posting a job, max 5 × 50 MB, public), `sphere-media` (avatars, portfolio), `sphere-chat` (chat photos, videos, voice notes).
 
 ## Edge Functions (code not in GitHub yet — see `supabase/functions/README.md`)
-`sphere-moderate` (Part 9) and `sphere-extra-payment` (Part 11) — code in `supabase/functions/`, `sphere-ai`, `create-razorpay-order`, `verify-razorpay-payment`, `release-payout`, `refund-payment`.
+`sphere-moderate` (Part 9, code in `supabase/functions/sphere-moderate/`), `sphere-ai`, `create-razorpay-order`, `verify-razorpay-payment`, `release-payout`, `refund-payment`.
 
 ## Migrations (run in order)
 
@@ -111,4 +102,3 @@
 | `008_project_workflow.sql` | Part 8 |
 | `009_chat_moderation.sql` | Part 9 |
 | `010_project_files.sql` | Part 10 |
-| `011_revisions_changes.sql` | Part 11 |

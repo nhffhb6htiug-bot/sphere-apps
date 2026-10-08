@@ -248,13 +248,6 @@ h1,h2,h3{color:var(--text);}
 .chat-head .ch-back, .chat-head .ch-more{background:transparent; border:none; color:#fff; font-size:24px; line-height:1; cursor:pointer; padding:4px 8px;}
 .chat-head .avatar{margin:0 !important; width:40px !important; height:40px !important; flex:0 0 40px; font-size:18px;}
 .chat-head .ch-name{flex:1; min-width:0; cursor:pointer;}
-/* PART 11: revisions + changes */
-.rv-sum{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:10px 0;}
-.rv-sum div{background:#f6f8fc; border-radius:12px; padding:10px; text-align:center;}
-.rv-sum b{display:block; font-size:18px;} .rv-sum span{font-size:11px; color:var(--muted);}
-.rv-item{border-left:3px solid var(--border); padding:4px 0 4px 10px; margin:10px 0;}
-.rv-item b{font-size:13px;} .rv-item p{font-size:12px; margin:3px 0; white-space:pre-wrap; word-break:break-word;}
-.rv-open{border:1.5px solid #f59e0b;}
 /* PART 10: files + preview */
 .pf-row{display:flex; gap:10px; align-items:center; padding:9px 0; border-bottom:1px solid var(--border);}
 .pf-row:last-child{border-bottom:none;}
@@ -445,7 +438,7 @@ details.card[open] summary::after{content:'－';}
      PART 4: EDITOR PROFILE + VERIFICATION · PART 5: JOB POSTING + AI ·
      PART 6: JOB DISCOVERY + BIDDING · PART 7: SELECTION + PAYMENT ·
      PART 8: PROJECT WORKFLOW + DEADLINES · PART 9: CHAT + AI MODERATION ·
-     PART 10: PROJECT FILES + WATERMARKED PREVIEW · PART 11: REVISIONS + CHANGE REQUESTS
+     PART 10: PROJECT FILES + WATERMARKED PREVIEW
    Adding a new part: put its code in a block "PART n: <name>" near the end of
    this script, its database SQL in supabase/migrations/00n_<name>.sql, and
    turn it on with SPHERE_CONFIG.features. See docs/ARCHITECTURE.md.
@@ -456,8 +449,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.11.0',
-  build: 'part11-revisions-changes',
+  appVersion: '2.10.0',
+  build: 'part10-files-preview',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
@@ -953,7 +946,7 @@ function editorShare(amount){ return Math.round(Number(amount || 0) * (100 - PLA
 const SETTINGS_DEFAULTS = Object.freeze({
   platform_fee_percent: 5, verify_fee: 29, revision_fee: 50, free_revisions: 3, pro_fee: 199, strike_limit: 3,
   free_works: 3, bids_verified_only: 0, work_default_hours: 24, work_grace_hours: 4, work_reminder_hours: 4,
-  file_max_mb: 50, preview_max_minutes: 10, revision_hours: 24
+  file_max_mb: 50, preview_max_minutes: 10
 });
 let SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
 let settingsLoaded = false;
@@ -1045,8 +1038,6 @@ function mapJob(r){
     rawFiles: Array.isArray(r.raw_files) ? r.raw_files : [],
     language: r.language || '',
     title: r.title || '',
-    extraRequirements: r.extra_requirements || '',
-    extraAmount: Number(r.extra_amount) || 0,
     videoLength: r.video_length || '',
     videoFormat: r.video_format || '',
     styleNotes: r.style_notes || '',
@@ -2842,7 +2833,6 @@ SCREENS.admin = async () => {
   const sus = await loadSuspicious();
   const sys = await loadSystemStatus();
   const modq = await loadModQueue();
-  const extrasq = await loadExtrasQueue();
   const who = id => { const u = nameMap[id]; return u ? `${esc(u.name)} (${esc(u.role)}) ${u.phone ? `<a href="tel:${esc(u.phone)}">${esc(u.phone)}</a>` : ''}` : '-'; };
   return `
   <div class="header"><button class="back-btn" onclick="nav('profile')">‹</button><h1>Admin Panel</h1><p>Syahi Films Verification</p></div>
@@ -2880,7 +2870,6 @@ SCREENS.admin = async () => {
     <div class="search-row">${UI_ICONS.search}<input id="admSearch" type="search" name="sp-admin-search" placeholder="Search editors — name, phone, email or code" oninput="adminSearch(this.value)" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')"></div>
     ${systemStatusCard(sys)}
     ${modQueueSection(modq)}
-    ${extrasQueueSection(extrasq)}
     <h3 style="margin-bottom:10px;">Pending Verification (${pending.length})</h3>
     ${pending.length===0?'<p class="muted">No pending editors.</p>':''}
     ${pending.map(e=>{
@@ -4284,10 +4273,9 @@ function jobRequirementsHtml(job){
     job.styleNotes ? ['Style', job.styleNotes] : null, job.references ? ['References', job.references] : null,
     job.revisionsExpected ? ['Revisions expected', String(job.revisionsExpected)] : null
   ].filter(Boolean);
-  if(!rows.length && !job.aiAssisted && !job.extraRequirements) return '';
+  if(!rows.length && !job.aiAssisted) return '';
   return `<div class="pj-req" style="margin-top:8px;">${job.aiAssisted ? '<span class="pj-tag">✨ Written with Sphere AI</span>' : ''}
-    ${rows.map(([k, val]) => `<p><b>${k}:</b> ${k === 'References' ? linkOrText(val) : esc(val)}</p>`).join('')}
-    ${job.extraRequirements ? `<p style="margin-top:6px;"><b>📝 Accepted changes:</b></p><p style="white-space:pre-wrap; font-size:13px;">${esc(job.extraRequirements)}</p>` : ''}</div>`;
+    ${rows.map(([k, val]) => `<p><b>${k}:</b> ${k === 'References' ? linkOrText(val) : esc(val)}</p>`).join('')}</div>`;
 }
 
 /* ============ PART 6: JOB DISCOVERY + BIDDING ============
@@ -4911,7 +4899,6 @@ async function projectWorkSection(job, user, isClient, isEditor){
         <p class="wk-cap muted" style="font-size:12px;">${st.key === 'late' ? 'late by' : st.key === 'grace' ? 'grace time left' : 'left until the deadline'}</p>
         <div class="wk-bar"><i style="width:${pct}%; background:${barColor};"></i></div>` : ''}
       <p class="wk-meta">Started ${fmtDT(w.started_at)} · Deadline <b>${fmtDT(w.due_at)}</b>${w.extended_hours ? ' (+' + w.extended_hours + ' h given)' : ''}</p>
-      ${w.original_due_at && Math.abs(new Date(w.original_due_at) - new Date(w.due_at)) > 60000 ? `<p class="wk-meta">Original deadline: ${fmtDT(w.original_due_at)} · Revised: <b>${fmtDT(w.due_at)}</b></p>` : ''}
       <p class="wk-meta">${w.grace_hours}-hour grace period after the deadline, then the project is marked late.</p>
     </div>`;
     // editor: preview + more time
@@ -4939,16 +4926,13 @@ async function projectWorkSection(job, user, isClient, isEditor){
   // previews (both sides) + project files
   if(['in-progress', 'delivered', 'approved', 'closed'].includes(job.status)){
     html += previewVersionsCard(job, w, files, isClient, isEditor);
-    html += await revisionsSection(job, w, files, isClient, isEditor);
     if(isEditor && w && w.phase === 'preview' && job.status === 'in-progress') html += previewUploadPanel(job, files, true);
   }
   html += projectFilesSection(job, files, isClient, isEditor);
   // timeline
   if(events.length){
     const ic = { posted: '📝', editor_chosen: '🤝', price_locked: '🔒', paid: '💳', payment_failed: '⚠️', started: '▶️', reminder: '⏰', deadline_passed: '⚠️', late: '🔴',
-      extension_requested: '⏳', extension_approved: '✅', extension_declined: '✖', extension_given: '⏳', preview: '👀', preview_updated: '👀', file_added: '📎', file_removed: '🗑️',
-      revision_requested: '🔁', revision_open: '▶️', revision_delivered: '👀', revision_cancelled: '✖', extra_paid: '💳',
-      change_requested: '📝', change_accepted: '✅', change_rejected: '✖', change_applied: '✅', change_cancelled: '✖', delivered: '📦', approved: '✅', closed: '🏁', refunded: '💸', reopened: '🔄' };
+      extension_requested: '⏳', extension_approved: '✅', extension_declined: '✖', extension_given: '⏳', preview: '👀', preview_updated: '👀', file_added: '📎', file_removed: '🗑️', delivered: '📦', approved: '✅', closed: '🏁', refunded: '💸', reopened: '🔄' };
     const item = e => `<div class="tl-item"><i>${ic[e.kind] || '•'}</i><b>${esc(e.title)}</b><p>${fmtDT(e.at)}${e.details ? ' · ' + esc(e.details) : ''}</p></div>`;
     html += `<details class="card" ${job.status === 'in-progress' ? '' : 'open'}><summary><b>📜 Project timeline (${events.length})</b></summary>
       <div class="tl">${events.map(item).join('')}</div></details>`;
@@ -5430,248 +5414,6 @@ async function removeProjectFile(jobId, fileId){
   if(error){ alert(filesRpcError(error)); return; }
   if(data && data.path) await sb.storage.from(PROJECT_BUCKET).remove([data.path]);
   currentJobId = jobId; nav('projectStatus');
-}
-
-/* ============ PART 11: REVISIONS + CHANGE REQUESTS ============
-   Revisions: after a preview, the client asks for changes. First free_revisions (3)
-   free; from the 4th the client pays revision_fee (₹50, all for the editor) first.
-   The editor gets revision_hours (24) for the next preview; that preview closes it.
-   Change requests: client describes new work + extra price + extra time + files/link
-   → editor accepts / rejects → client pays the extra (if any) → applied: new
-   requirements, new deadline, extra amount; old values kept on the request.
-   Extra money: Razorpay via the sphere-extra-payment Edge Function, or UPI + an
-   admin confirming the transaction ID. */
-const CR_HOURS = [0, 12, 24, 48, 72];
-async function loadRevisionData(jobId){
-  const [r, c, x] = await Promise.all([
-    sb.from('sp_revisions').select('*').eq('job_id', jobId).order('number', { ascending: true }).then(v => v, () => ({ data: null, error: true })),
-    sb.from('sp_change_requests').select('*').eq('job_id', jobId).order('created_at', { ascending: true }).then(v => v, () => ({ data: null })),
-    sb.from('sp_extra_payments').select('*').eq('job_id', jobId).then(v => v, () => ({ data: null }))
-  ]);
-  return { ready: !r.error, revs: r.data || [], crs: c.data || [], extras: x.data || [] };
-}
-function revStatusChip(st){
-  const m = { open: ['warn', 'Editor working'], awaiting_payment: ['bad', 'Payment needed'], delivered: ['ok', 'Delivered'], cancelled: ['', 'Cancelled'],
-              pending: ['warn', 'Waiting for editor'], accepted_awaiting_payment: ['bad', 'Accepted — payment needed'], applied: ['ok', 'Applied'], rejected: ['', 'Rejected'] }[st] || ['', st];
-  return `<span class="bid-chip ${m[0]}">${m[1]}</span>`;
-}
-async function revisionsSection(job, w, files, isClient, isEditor){
-  if(!(isClient || isEditor || isAdminUser(getCurrentUser()))) return '';
-  if(!['in-progress', 'delivered', 'approved', 'closed'].includes(job.status)) return '';
-  const d = await loadRevisionData(job.id);
-  if(!d.ready) return '';
-  const free = Number(getSetting('free_revisions')) || 3, fee = Number(getSetting('revision_fee')) || 50;
-  const used = d.revs.filter(r => r.status !== 'cancelled').length;
-  const openRev = d.revs.find(r => r.status === 'open'), payRev = d.revs.find(r => r.status === 'awaiting_payment');
-  const openCr = d.crs.find(c => c.status === 'pending' || c.status === 'accepted_awaiting_payment');
-  const extraFor = (kind, id) => d.extras.find(x => x.kind === kind && x.ref_id === id);
-  const inProgress = job.status === 'in-progress';
-  const canRevise = isClient && inProgress && w && w.phase === 'preview' && !openRev && !payRev;
-  const nextPaid = used + 1 > free;
-  let html = `<div class="card"><b>🔁 Revisions & changes</b>
-    <div class="rv-sum">
-      <div><b>${Math.min(used, free)} / ${free}</b><span>free revisions used</span></div>
-      <div><b>${used >= free ? '₹' + fee : 'Free'}</b><span>next revision</span></div>
-      ${job.extraAmount ? `<div><b>${rupees(job.extraAmount)}</b><span>extra work added</span></div>` : ''}
-      ${w && w.original_due_at && Math.abs(new Date(w.original_due_at) - new Date(w.due_at)) > 60000 ? `<div><b style="font-size:13px;">${fmtDT(w.due_at)}</b><span>revised deadline (was ${fmtDT(w.original_due_at)})</span></div>` : ''}
-    </div>`;
-  // open revision
-  if(openRev) html += `<div class="card rv-open" style="margin:8px 0;"><b>🔁 Revision #${openRev.number} — ${isEditor ? 'the client wants:' : 'editor is working on it'}</b>
-      <p style="font-size:13px; margin:6px 0; white-space:pre-wrap;">${esc(openRev.notes)}</p>
-      <p class="muted" style="font-size:12px;">Next preview due ${fmtDT(openRev.new_due_at)}${openRev.preview_version ? ' · about preview v' + openRev.preview_version : ''}</p></div>`;
-  // revision waiting for ₹50
-  if(payRev){
-    const x = extraFor('revision', payRev.id);
-    html += `<div class="card" style="border:1.5px solid #c62828; margin:8px 0;"><b>💳 Revision #${payRev.number} needs ${rupees(payRev.fee)}</b>
-      <p style="font-size:13px; margin:6px 0;">${esc(payRev.notes)}</p>
-      ${isClient ? `<p class="muted" style="font-size:12px; margin-bottom:8px;">${free} revisions were free. This one unlocks after payment — the full amount goes to your editor.</p>
-        ${x ? extraPayButtons(x, job) : ''}
-        <button class="btn btn-outline" style="margin-top:8px;" onclick="cancelRevision('${payRev.id}', '${job.id}')">Cancel this revision</button>` : `<p class="muted" style="font-size:12px;">Waiting for the client to pay. You will be told when it unlocks.</p>`}</div>`;
-  }
-  // client: ask for a revision
-  if(canRevise) html += `<div class="field" style="margin-top:10px;"><label>What should change in the preview?</label>
-      <textarea id="revNotes" maxlength="2000" placeholder="Example: 0:12 cut the drone shot, music a bit lower, end logo bigger" style="min-height:80px;"></textarea></div>
-      <button class="btn ${nextPaid ? 'btn-outline' : 'btn-primary'}" onclick="requestRevision('${job.id}')">🔁 Ask for revision #${used + 1}${nextPaid ? ' — ' + rupees(fee) : ' (free)'}</button>`;
-  else if(isClient && inProgress && w && w.phase === 'active' && !openRev && !payRev) html += `<p class="muted" style="font-size:12px; margin-top:8px;">You can ask for a revision after the editor sends a preview.</p>`;
-  // change requests
-  if(openCr){
-    const x = extraFor('change', openCr.id);
-    html += `<div class="card rv-open" style="margin:10px 0;"><b>📝 Change request</b> ${revStatusChip(openCr.status)}
-      <p style="font-size:13px; margin:6px 0; white-space:pre-wrap;">${esc(openCr.details)}</p>
-      <p class="muted" style="font-size:12px;">${openCr.extra_price > 0 ? 'Extra price: <b>' + rupees(openCr.extra_price) + '</b> · ' : 'No extra price · '}${openCr.extra_hours ? 'Extra time: +' + openCr.extra_hours + ' h' : 'Same deadline'}</p>
-      ${openCr.link ? `<p style="font-size:12px;">${linkOrText(openCr.link)}</p>` : ''}
-      ${(openCr.file_ids || []).length ? `<p class="muted" style="font-size:12px;">📎 ${(openCr.file_ids || []).length} file(s) added to Project files</p>` : ''}
-      ${openCr.editor_note ? `<p style="font-size:12px;">Editor: “${esc(openCr.editor_note)}”</p>` : ''}
-      ${isEditor && openCr.status === 'pending' ? `<div class="field" style="margin-top:8px;"><input id="crNote" maxlength="300" placeholder="Note for the client (optional)"></div>
-        <div class="cl-row"><button class="btn btn-primary" onclick="answerChange('${openCr.id}', '${job.id}', true)">Accept</button><button class="btn btn-outline" onclick="answerChange('${openCr.id}', '${job.id}', false)">Reject</button></div>` : ''}
-      ${isEditor && openCr.status === 'accepted_awaiting_payment' ? `<p class="muted" style="font-size:12px;">You accepted. Waiting for the client to pay ${rupees(openCr.extra_price)}.</p>` : ''}
-      ${isClient && openCr.status === 'pending' ? `<p class="muted" style="font-size:12px;">Waiting for the editor to accept or reject.</p>` : ''}
-      ${isClient && openCr.status === 'accepted_awaiting_payment' && x ? `<p style="font-size:12px; margin:6px 0;">✅ The editor accepted. Pay to start the new work.</p>${extraPayButtons(x, job)}` : ''}
-      ${isClient ? `<button class="btn btn-outline" style="margin-top:8px;" onclick="cancelChange('${openCr.id}', '${job.id}')">Cancel request</button>` : ''}</div>`;
-  } else if(isClient && inProgress){
-    html += `<details class="card" style="margin-top:10px;"><summary><b>📝 Ask for a change (new work)</b></summary>
-      <p class="muted" style="font-size:12px; margin:8px 0;">For something new — an extra version, more length, new scenes. The editor accepts or rejects; if you offer extra money you pay it after they accept.</p>
-      <div class="field"><label>What do you need?</label><textarea id="crDetails" maxlength="1500" placeholder="Example: also make a 15 sec teaser for Instagram from the same footage" style="min-height:80px;"></textarea></div>
-      <div class="field"><label>Extra price you offer (₹, optional)</label><input id="crPrice" type="number" inputmode="numeric" min="0" placeholder="0"></div>
-      <div class="field"><label>Extra time for the editor</label><select id="crHours">${CR_HOURS.map(h => `<option value="${h}">${h ? '+' + h + ' hours' : 'No extra time'}</option>`).join('')}</select></div>
-      <div class="field"><label>Link (optional)</label><input id="crLink" placeholder="https://drive.google.com/…"></div>
-      <div class="field"><label>Files (optional, up to ${fileMaxMB()} MB each)</label><input id="crFiles" type="file" multiple></div>
-      <div id="crStatus"></div>
-      <button class="btn btn-primary" id="crBtn" onclick="sendChangeRequest('${job.id}')">Send change request</button></details>`;
-  }
-  // history
-  const hist = [
-    ...d.revs.map(r => ({ at: r.created_at, html: `<div class="rv-item"><b>🔁 Revision #${r.number}</b> ${revStatusChip(r.status)} ${r.is_paid ? `<span class="bid-chip">paid ${rupees(r.fee)}</span>` : '<span class="bid-chip">free</span>'}
-        <p>${esc(r.notes)}</p><p class="muted">${fmtDT(r.created_at)}${r.new_due_at ? ' · due ' + fmtDT(r.new_due_at) : ''}${r.delivered_version ? ' · delivered as preview v' + r.delivered_version : ''}</p></div>` })),
-    ...d.crs.map(c => ({ at: c.created_at, html: `<div class="rv-item"><b>📝 Change request</b> ${revStatusChip(c.status)}
-        <p>${esc(c.details)}</p>
-        <p class="muted">${fmtDT(c.created_at)}${c.extra_price > 0 ? ' · +' + rupees(c.extra_price) : ''}${c.extra_hours ? ' · +' + c.extra_hours + ' h' : ''}</p>
-        ${c.status === 'applied' ? `<p class="muted">Deadline ${fmtDT(c.old_due_at)} → <b>${fmtDT(c.new_due_at)}</b> · extra total ${rupees(c.old_extra_amount)} → ${rupees(c.new_extra_amount)}</p>` : ''}
-        ${c.editor_note ? `<p class="muted">Editor: “${esc(c.editor_note)}”</p>` : ''}</div>` }))
-  ].sort((a, b) => String(b.at).localeCompare(String(a.at)));
-  if(hist.length) html += `<details style="margin-top:10px;"><summary class="muted" style="font-size:13px;"><b>History (${hist.length})</b></summary>${hist.map(h => h.html).join('')}</details>`;
-  return html + `</div>`;
-}
-
-// ---- client actions
-async function requestRevision(jobId){
-  const notes = ((document.getElementById('revNotes') || {}).value || '').trim();
-  if(notes.length < 5){ alert('Write what should change.'); return; }
-  const { data, error } = await sb.rpc('sp_rev_request', { p_job: jobId, p_notes: notes });
-  if(error){ alert(revError(error)); return; }
-  if(data && data.needs_payment) alert(`Revision #${data.number} saved 💳\n\nYour ${getSetting('free_revisions')} free revisions are used. Pay ${rupees(data.amount)} to send it to the editor.`);
-  else alert(`Revision #${data.number} sent 🔁 The editor has ${getSetting('revision_hours')} hours for the next preview.${data && data.free_left !== undefined ? '\nFree revisions left: ' + data.free_left : ''}`);
-  currentJobId = jobId; nav('projectStatus');
-}
-async function cancelRevision(revId, jobId){
-  if(!confirm('Cancel this unpaid revision?')) return;
-  const { error } = await sb.rpc('sp_rev_cancel', { p_rev: revId });
-  if(error){ alert(revError(error)); return; }
-  currentJobId = jobId; nav('projectStatus');
-}
-async function sendChangeRequest(jobId){
-  const details = ((document.getElementById('crDetails') || {}).value || '').trim();
-  const price = Number((document.getElementById('crPrice') || {}).value || 0);
-  const hours = Number((document.getElementById('crHours') || {}).value || 0);
-  const link = ((document.getElementById('crLink') || {}).value || '').trim();
-  const picked = Array.from(((document.getElementById('crFiles') || {}).files) || []);
-  if(details.length < 10){ alert('Describe the change (at least 10 letters).'); return; }
-  if(price < 0 || price > 1000000){ alert('Check the extra price.'); return; }
-  if(link && !/^https:\/\/\S+$/i.test(link)){ alert('The link must start with https://'); return; }
-  const btn = document.getElementById('crBtn'); if(btn) btn.disabled = true;
-  const ids = [];
-  try {
-    for(const f of picked){
-      if(f.size > fileMaxMB() * 1048576) throw new Error(f.name + ' is bigger than ' + fileMaxMB() + ' MB — add it as a link.');
-      const { data: b, error } = await sb.rpc('sp_files_begin', { p_job: jobId, p_kind: 'client_file', p_name: f.name, p_mime: f.type || 'application/octet-stream', p_size: f.size });
-      if(error) throw new Error(filesRpcError(error));
-      await uploadWithProgress(b.path, f, p => setUpStatus('crStatus', 'Uploading ' + f.name + ' — ' + Math.round(p * 100) + '%', p));
-      const { error: fe } = await sb.rpc('sp_files_finish', { p_id: b.id, p_ok: true, p_duration: null, p_note: 'For a change request' });
-      if(fe) throw new Error(filesRpcError(fe));
-      ids.push(b.id);
-    }
-    const { error } = await sb.rpc('sp_cr_create', { p_job: jobId, p_details: details, p_extra_price: price, p_extra_hours: hours, p_link: link || null, p_file_ids: ids });
-    if(error) throw new Error(revError(error));
-    alert('Change request sent 📝 The editor will accept or reject it.');
-    currentJobId = jobId; nav('projectStatus');
-  } catch(e) {
-    if(btn) btn.disabled = false;
-    alert(e.message || e);
-  }
-}
-async function cancelChange(crId, jobId){
-  if(!confirm('Cancel this change request?')) return;
-  const { error } = await sb.rpc('sp_cr_cancel', { p_cr: crId });
-  if(error){ alert(revError(error)); return; }
-  currentJobId = jobId; nav('projectStatus');
-}
-// ---- editor action
-async function answerChange(crId, jobId, accept){
-  const note = ((document.getElementById('crNote') || {}).value || '').trim();
-  if(!confirm(accept ? 'Accept this change? The deadline and price change as shown.' : 'Reject this change?')) return;
-  const { data, error } = await sb.rpc('sp_cr_answer', { p_cr: crId, p_accept: accept, p_note: note || null });
-  if(error){ alert(revError(error)); return; }
-  alert(!accept ? 'Rejected. The client has been told.' : data && data.status === 'applied' ? 'Accepted ✅ The change is now part of the project.' : 'Accepted ✅ The client will pay the extra price, then you can start.');
-  currentJobId = jobId; nav('projectStatus');
-}
-function revError(error){
-  if(/sp_rev_|sp_cr_|sp_extra|schema cache|does not exist|Could not find/i.test((error && error.message) || '')) return 'This needs the latest database update (011_revisions_changes.sql).';
-  return (error && error.message) || 'Something went wrong';
-}
-
-// ---- paying extras (Razorpay via sphere-extra-payment, or UPI + transaction ID)
-function extraPayButtons(x, job){
-  if(x.status === 'paid') return '<p style="font-size:12px; color:#15803d;">✅ Paid</p>';
-  return `${x.utr ? `<p class="muted" style="font-size:12px; margin-bottom:6px;">UPI ID ${esc(x.utr)} sent — Sphere is checking it.</p>` : ''}
-    <button class="btn btn-primary" id="xPay_${x.id}" onclick="payExtra('${x.id}', '${job.id}')">🔒 Pay ${rupees(x.amount)}</button>
-    <details style="margin-top:8px;"><summary class="muted" style="font-size:12px;">Pay by UPI instead</summary>
-      <p style="font-size:12px; margin:8px 0;">Send <b>${rupees(x.amount)}</b> to UPI ID <b>${esc(FEE_UPI)}</b> (${esc(FEE_UPI_NAME)}), then type the 12-digit UPI transaction ID:</p>
-      <div class="field"><input id="xUtr_${x.id}" inputmode="numeric" maxlength="22" placeholder="e.g. 412345678901"></div>
-      <button class="btn btn-outline" onclick="submitExtraUtr('${x.id}', '${job.id}')">I have paid</button></details>`;
-}
-async function payExtra(extraId, jobId){
-  const btn = document.getElementById('xPay_' + extraId); if(btn) btn.disabled = true;
-  let order = null;
-  try {
-    const { data, error } = await sb.functions.invoke('sphere-extra-payment', { body: { action: 'create', extraId } });
-    if(!error && data && data.ok) order = data;
-    else if(data && data.paid){ alert('Already paid ✅'); currentJobId = jobId; return nav('projectStatus'); }
-  } catch(e) {}
-  if(!order || typeof Razorpay === 'undefined'){
-    if(btn) btn.disabled = false;
-    alert('Online payment is not available right now. Use "Pay by UPI instead" below.');
-    const d = btn && btn.parentElement && btn.parentElement.querySelector('details'); if(d) d.open = true;
-    return;
-  }
-  const user = getCurrentUser();
-  const rzp = new Razorpay({
-    key: order.key_id || RAZORPAY_KEY_ID, amount: order.amount, currency: order.currency, order_id: order.order_id,
-    name: 'Sphere — Syahi Films', description: 'Extra payment',
-    prefill: { name: user.name, email: user.email, contact: user.phone || '' }, theme: { color: '#1657ff' },
-    handler: async function(r){
-      const { data: v, error: ve } = await sb.functions.invoke('sphere-extra-payment', { body: { action: 'verify', extraId, order_id: r.razorpay_order_id, payment_id: r.razorpay_payment_id, signature: r.razorpay_signature } });
-      if(!ve && v && v.valid) alert('Payment successful ✅');
-      else alert('We could not confirm the payment yet. Payment ID: ' + r.razorpay_payment_id + '\nKeep this ID and contact Support — you will not be charged twice.');
-      currentJobId = jobId; nav('projectStatus');
-    },
-    modal: { ondismiss: function(){ if(btn) btn.disabled = false; } }
-  });
-  rzp.on('payment.failed', function(resp){ if(btn) btn.disabled = false; alert('Payment failed: ' + ((resp.error && resp.error.description) || '') + '\nNo money was taken.'); });
-  rzp.open();
-}
-async function submitExtraUtr(extraId, jobId){
-  const utr = ((document.getElementById('xUtr_' + extraId) || {}).value || '').replace(/\s+/g, '');
-  if(!/^[A-Za-z0-9]{10,22}$/.test(utr)){ alert('Enter the UPI transaction ID (usually 12 digits).'); return; }
-  const { error } = await sb.rpc('sp_extra_submit_utr', { p_extra: extraId, p_utr: utr });
-  if(error){ alert(revError(error)); return; }
-  alert('Thank you ✅ Sphere will check your payment and unlock it.');
-  currentJobId = jobId; nav('projectStatus');
-}
-
-// ---- admin: UPI extras waiting for a check
-async function loadExtrasQueue(){
-  try {
-    const { data, error } = await sb.from('sp_extra_payments').select('*').eq('status', 'pending').not('utr', 'is', null).order('created_at', { ascending: true }).limit(50);
-    if(error) return { ready: false, list: [] };
-    const ids = [...new Set((data || []).map(x => x.client_id))];
-    return { ready: true, list: data || [], people: ids.length ? await getProfilesByIds(ids) : {} };
-  } catch(e) { return { ready: false, list: [] }; }
-}
-function extrasQueueSection(q){
-  if(!q || !q.ready || !q.list.length) return '';
-  return `<h3 style="margin:20px 0 10px;">💳 Extra payments to check (${q.list.length})</h3>
-    ${q.list.map(x => `<div class="card mq-item"><p style="font-size:13px;"><b>${rupees(x.amount)}</b> · ${x.kind === 'revision' ? 'Paid revision' : 'Change request'} · ${esc(((q.people || {})[x.client_id] || {}).name || 'Client')}</p>
-      <p style="font-size:12px;">UPI transaction ID: <b>${esc(x.utr)}</b> · ${fmtDT(x.created_at)} · Project SPH-${String(x.job_id).replace(/-/g, '').slice(0, 6).toUpperCase()}</p>
-      <p class="muted" style="font-size:11px;">Check it in the ${esc(FEE_UPI)} account before confirming.</p>
-      <div style="display:flex; gap:6px; margin-top:8px;"><button class="btn-sm" style="background:#15803d; color:#fff;" onclick="extraAdmin('${x.id}', 'confirm')">✅ Received</button>
-        <button class="btn-sm" style="color:#c62828;" onclick="extraAdmin('${x.id}', 'reject')">❌ Not found</button></div></div>`).join('')}`;
-}
-async function extraAdmin(extraId, action){
-  if(needPin()) return;
-  if(!confirm(action === 'confirm' ? 'Mark this payment as received? The revision / change will start.' : 'Mark as not found? The client is told to try again.')) return;
-  const { error } = await sb.rpc('sp_extra_admin', { p_extra: extraId, p_action: action, p_pin: ADMIN_PIN });
-  if(error){ alert(error.message); if(/PIN/i.test(error.message)) ADMIN_PIN = ''; }
-  nav('admin');
 }
 
 (function(){

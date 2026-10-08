@@ -59,7 +59,6 @@ The script starts with a **map of headings**. Search for them:
 | `CHAT` | WhatsApp-style chat, realtime, media, voice notes |
 | `PAYMENT` / `PROJECT STATUS` | Razorpay checkout, escrow, delivery, approve & release |
 | `ADMIN` | Admin Panel (PIN unlock), verification, reports, payouts, suspicious users, system status |
-| `PART 11: REVISIONS + CHANGE REQUESTS` | `revisionsSection()`, `requestRevision()`, `sendChangeRequest()`, `answerChange()`, `payExtra()`, `submitExtraUtr()`, `extrasQueueSection()` |
 | `PART 10: PROJECT FILES + WATERMARKED PREVIEW` | `watermarkVideo()`, `uploadWithProgress()`, `previewUploadPanel()`, `previewVersionsCard()`, `SCREENS.previewPlayer`, `projectFilesSection()` |
 | `PART 9: CHAT + AI MODERATION` | `currentChatJob`, `openProjectChat()`, held-message handling, `loadModQueue()`, `modQueueSection()`, `reviewHeld()`, `askAIHeld()` |
 | `PART 8: PROJECT WORKFLOW + DEADLINES` | `WORK_CACHE`, `workState()`, `workChip()`, `projectWorkSection()`, countdown timer, preview / more-time actions |
@@ -174,13 +173,6 @@ The script starts with a **map of headings**. Search for them:
 * **Client → ▶ Watch preview** (`previewPlayer`): inside Sphere, with a second moving SPHERE layer on top, no download / picture-in-picture / native full screen (custom full screen keeps the watermark), right-click blocked; YouTube and Drive links play embedded with the same overlay. All versions listed (v1, v2 …) with time, length, size, note.
 * The clean final video still only comes through the existing final delivery after the preview (approval is a later part).
 * Known gap: files attached when **posting** a job (`sphere-raw`) and chat media (`sphere-chat`) are still in the older **public** buckets.
-
-### Revisions + change requests (Part 11)
-* **Revisions** (`sp_revisions`): after a preview, the client writes what to change → **Ask for revision #N**. First `free_revisions` (3) are free; from #4 the client pays `revision_fee` (₹50) first — 100 % recorded for the editor (`sp_extra_splits`). An open revision puts the project back to "editor working" with `revision_hours` (24 h) until the next preview; the next preview (upload or link) marks it **Delivered as preview vN**. Unpaid revisions can be cancelled. Counter on the project page: "x / 3 free used · next: Free / ₹50".
-* **Change requests** (`sp_change_requests`): the client describes new work + optional extra price + extra time (+12…72 h) + link + files (uploaded into Project files). Editor **Accept / Reject** (with a note). Accepted with a price → client pays → **applied**; without a price → applied at once. Applied = text added to *Accepted changes* on the job (`extra_requirements`), `extra_amount` increased, deadline moved; the old deadline / old extra total / old requirements stay on the request.
-* **Deadlines:** `sp_project_work.original_due_at` keeps the first deadline; the project page shows *Original deadline · Revised*.
-* **Extra payments** (`sp_extra_payments`): Razorpay through the Edge Function `sphere-extra-payment` (order amount from the database, signature checked on the server), or **UPI + transaction ID** → Admin Panel → 💳 Extra payments to check → Received / Not found. Only the server or an admin can mark them paid.
-* Notifications: revision asked / needs payment / started (editor), change asked (editor), accepted / rejected / pay now (client), change applied (both), UPI payment to check (admins). Every step is in the project timeline.
 
 ### Job lifecycle (today)
 `open → negotiating → payment-pending → in-progress → delivered → approved → closed` (+ `refunded`)
