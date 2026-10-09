@@ -1,16 +1,18 @@
-# sphere-extra-payment (Part 11) — optional Razorpay for extra payments
+# sphere-extra-payment (Parts 11 + 15) — Razorpay for every extra payment
 
-Used for the ₹50 fee of a 4th+ revision and for the extra price of an accepted change request.
-Without it, clients pay by UPI and type the transaction ID; an admin confirms it in
-Admin Panel → 💳 Extra payments to check.
+One function for:
+* ₹50 fee of a 4th+ revision and the extra price of an accepted change request (Part 11) — `{ extraId }`
+* ₹29 editor verification fee and ₹199 Editor Pro (Part 15) — `{ feeId }`
 
-## Deploy (Supabase dashboard)
-1. Edge Functions → **Deploy a new function** → **Via Editor**.
-2. Name: `sphere-extra-payment` (exactly) → paste `index.ts` → **Deploy**.
-3. Edge Functions → **Secrets**: `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` must be there
-   (the same keys the other Razorpay functions use; add them under these names if they have other names).
+The amount always comes from the database. A payment becomes PAID only after this
+function checks Razorpay's signature (or an admin confirms a UPI transaction ID).
+Without the function, people pay by UPI and type the transaction ID.
 
-## Note
-The money arrives in Sphere's Razorpay account. The editor's share (100 % of revision fees,
-change price minus Sphere's fee) is recorded in `sp_extra_splits` and is paid out with the
-project payout (payment release is a later part).
+## Deploy / update (Supabase dashboard)
+1. Edge Functions → if `sphere-extra-payment` exists: open it → **Code** → replace everything with this `index.ts` → **Deploy**.
+   If it does not exist: **Deploy a new function** → **Via Editor** → name `sphere-extra-payment` → paste → **Deploy**.
+2. Edge Functions → **Secrets**: `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` (the same Razorpay keys the other functions use).
+
+## Test without real money
+Keep the **test** keys (`rzp_test_…`). In the Razorpay window use the test card `4111 1111 1111 1111`
+(any future date, any CVV) or UPI `success@razorpay` for Paid and `failure@razorpay` for Failed.

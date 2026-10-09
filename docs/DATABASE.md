@@ -10,7 +10,7 @@
 | `profiles` | Every user | `id`, `role` (CLIENT/EDITOR/ADMIN), `full_name`, `email`, `phone`, `avatar_url`, `categories[]`, `languages[]`, `skills[]`, `experience_years`, `price_range`, `sample_video_url`, `portfolio_url`, `is_verified`, `verification_code`, `verification_note`, `razorpay_account_id`, **Part 4:** `bio`, `availability` (available/busy/away), `verification_status` (not_applied/pending/approved/rejected), `verification_fee_status` (unpaid/submitted/confirmed), `verification_fee_ref`, `verification_fee_at`, `verification_reviewed_at` |
 | `sp_public_profiles` (view) | Public editor directory without phone/email | same as profiles minus private fields |
 | `sp_editor_public_extra` (view) | Public bio + availability of editors (Part 4) | `id`, `bio`, `availability` |
-| `sp_jobs` | Jobs / projects | `client_id`, `category`, `description`, `budget`, `deadline`, `language`, `files_link`, `raw_files`, `status`, `assigned_editor`, `proposed_amount`, `proposed_by`, `locked_amount`, `payment_status`, `delivery_link`, `editor_amount`, `platform_fee`, `payout_status`, `razorpay_transfer_id`, **Part 11:** `extra_requirements`, `extra_amount`, **Part 12:** `review_state`, `final_submitted_at`, `decision_due_at`, **Part 13:** `released_at`, **Part 5:** `title`, `video_length`, `video_format`, `style_notes`, `reference_links`, `revisions_expected`, `ai_assisted` |
+| `sp_jobs` | Jobs / projects | `client_id`, `category`, `description`, `budget`, `deadline`, `language`, `files_link`, `raw_files`, `status`, `assigned_editor`, `proposed_amount`, `proposed_by`, `locked_amount`, `payment_status`, `delivery_link`, `editor_amount`, `platform_fee`, `payout_status`, `razorpay_transfer_id`, **Part 11:** `extra_requirements`, `extra_amount`, **Part 12:** `review_state`, `final_submitted_at`, `decision_due_at`, **Part 13:** `released_at`, **Part 14:** `admin_flag` (none / suspicious / cleared), `admin_note`, **Part 5:** `title`, `video_length`, `video_format`, `style_notes`, `reference_links`, `revisions_expected`, `ai_assisted` |
 | `sp_project_work` | Work clock per paid project — Part 8 | `job_id`, `phase` (active/preview/completed/cancelled), `started_at`, `hours`, `due_at`, `grace_hours`, `extended_hours`, `pending_extension_hours`, `preview_link`, `preview_note`, `preview_at`, `preview_on_time`, `is_late`, `late_since`, notice times |
 | `sp_project_extensions` | More-time requests (one pending per project) — Part 8 | `job_id`, `requested_by`, `hours`, `reason`, `status` (pending/approved/declined) |
 | `sp_project_events` | Project timeline — Part 8 | `job_id`, `at`, `actor_id`, `kind`, `title`, `details` |
@@ -19,6 +19,12 @@
 | `sp_job_drafts` | Unfinished job posts (private to the client, max 20) — Part 5 | `id`, `client_id`, `data` (the form), `updated_at` |
 | `sp_applications` | Bids | `job_id`, `editor_id`, `message`, `bid_amount`, `status` (pending / selected / rejected), **Part 6:** `delivery_days`, `updated_at` — one per job+editor (`sp_app_job_editor_uq`) |
 | `sp_messages` | Chat | `sender_id`, `receiver_id`, `text`, `media_path`, `media_type`, `duration_sec`, `delivered_at`, `read_at`, `created_at`, **Part 9:** `job_id` (project chat), `mod_status` (ok / held / released / removed), `mod_reason` |
+| `sp_fee_payments` | ₹29 verification / ₹199 Pro payments (Part 15) | `user_id`, `kind`, `amount`, `status` (pending / paid / failed / cancelled), `method`, `order_id`, `payment_id`, `utr`, `failure_reason`, `period_start`, `period_end`, `paid_at` |
+| `sp_subscriptions` | Editor Pro (Part 15) | `user_id`, `plan`, `status` (inactive / pending / active / expired / failed), `started_at`, `current_period_end`, `last_fee_id` |
+| `sp_pro_public` (view) | Who is Pro now (badge / list order) | `editor_id`, `current_period_end` |
+| `sp_monetization_config` | Prices, Pro benefits, Sponsored slots (Part 15) | `key` (verification / pro / sponsored), `value` (json) |
+| `sp_sponsored_items` | Sponsored cards — admins only (Part 15) | `slot`, `title`, `body`, `cta`, `link_url`, `image_url`, `advertiser`, `active`, `starts_at`, `ends_at`, `clicks` |
+| `sp_admin_audit` | Admin audit log — admins only (Part 14) | `at`, `actor_id` (null = system), `action`, `target_type`, `target_id`, `job_id`, `user_id`, `old_status`, `new_status`, `reason`, `details` |
 | `sp_project_ratings` | Client rating −3…+3 + feedback, one per project — Part 13 | `job_id` (unique), `editor_id`, `client_id`, `score`, `feedback` |
 | `sp_editor_ratings_public` (view) | Rating history for editor pages, no client names — Part 13 | `editor_id`, `score`, `feedback`, `created_at`, `category` |
 | `sp_delivery_checks` | Each preview vs the deadline valid then — Part 13 | `job_id`, `kind` (main / followup), `due_at`, `grace_hours`, `delivered_at`, `early_hours`, `late_minutes`, `late_hours` |
@@ -55,6 +61,12 @@
 | `sp_set_platform_fee` | Admin + PIN | Commission % |
 | `sp_mod_admin_action` | Admin + PIN | Warn / suspend / unsuspend / clear strikes |
 | `sp_core_status` | Admin | System status card |
+| `sp_fee_start`, `sp_fee_failed`, `sp_fee_submit_utr` | Editor (own) | Start a ₹29 / Pro payment, mark own attempt failed, UPI transaction ID (Part 15) |
+| `sp_fee_mark_paid` | sphere-extra-payment (server) or admin | Mark paid → verification request / Pro active (Part 15) |
+| `sp_fee_admin`, `sp_mon_admin`, `sp_mon_config_set`, `sp_sponsored_save` | Admin (+ PIN) | Confirm / reject UPI; monetization view; prices, benefits, slots; sponsored cards (Part 15) |
+| `sp_my_monetization`, `sp_pro_analytics`, `sp_sponsored_for`, `sp_ad_click`, `sp_sub_tick` | Logged in | Own payment state; Pro analytics; slot content; real clicks; expire plans (Part 15) |
+| `sp_admin_overview`, `sp_admin_projects`, `sp_admin_project_detail`, `sp_admin_users`, `sp_admin_user_detail`, `sp_admin_verifications`, `sp_admin_moderation`, `sp_admin_payments`, `sp_admin_audit_list` | Admin (server check) | Admin panel data (Part 14) |
+| `sp_admin_project_action`, `sp_admin_user_action`, `sp_admin_reveal` | Admin + PIN + reason | Flag / clear / review / time / close; suspend / reactivate / warn / clear strikes; show a hidden original (logged) (Part 14) |
 | `sp_rating_submit` | Project's client | Rate −3…+3 once → project closed → settlement final (Part 13) |
 | `sp_bonus_tick` | Anyone logged in, pg_cron | Settle projects not rated within the window (Part 13) |
 | `sp_settlement_mine`, `sp_editor_earnings_summary` | Editor (own) / admin | Earnings with bonus conditions; totals (Part 13) |
@@ -93,6 +105,10 @@
 | `sp_core_profile_guard` | `profiles` | Keeps roles in capitals; blocks self-made admins and self-given ✔ ticks |
 | `sp_ed_profile_sync` | `profiles` (before update) | Keeps verification state in step with the ✔ tick; editors can only apply / re-apply and submit a fee (Part 4) |
 | `sp_ed_profile_after` | `profiles` (after update) | Notifies admins when an editor applies or submits the fee (Part 4) |
+| `sp_fee_profile_sync` | profiles (fee confirmed) | Old "Fee received" button marks the ₹29 payment paid (Part 15) |
+| `sp_pro_bid_limit` | sp_applications (insert) | Open-bid limit for free editors when set (Part 15) |
+| `sp_pro_job_alert` | sp_jobs (insert) | Instant job alerts for Pro editors (Part 15) |
+| `zz_sp_audit` (10 tables) | profiles, sp_mod_flags, sp_disputes, sp_refunds, sp_msg_holds, sp_extra_payments, sp_payout_items, sp_jobs, sp_settings, sp_reports | Write admin / system changes to the audit log (Part 14) |
 | `sp_delivery_check_trigger` | `sp_project_work` (preview_at) | Record each delivery vs its valid deadline (Part 13) |
 | `sp_bonus_on_release` | `sp_jobs` (status → approved) | Provisional settlement at release (Part 13) |
 | `sp_final_job_before` / `sp_final_job_after` | `sp_jobs` (status → approved / refunded) | Unlock the final link, close cases, refunds → refunded, extras payout, notices (Part 12) |
@@ -111,7 +127,7 @@
 `sphere-project` (**private**, project files + watermarked previews — Part 10), `sphere-raw` (files attached when posting a job, max 5 × 50 MB, public), `sphere-media` (avatars, portfolio), `sphere-chat` (chat photos, videos, voice notes).
 
 ## Edge Functions (code not in GitHub yet — see `supabase/functions/README.md`)
-`sphere-moderate` (Part 9) and `sphere-extra-payment` (Part 11) — code in `supabase/functions/`, `sphere-ai`, `create-razorpay-order`, `verify-razorpay-payment`, `release-payout`, `refund-payment`.
+`sphere-moderate` (Part 9) and `sphere-extra-payment` (Parts 11 + 15: extras, ₹29, Pro) — code in `supabase/functions/`, `sphere-ai`, `create-razorpay-order`, `verify-razorpay-payment`, `release-payout`, `refund-payment`.
 
 ## Migrations (run in order)
 
@@ -133,3 +149,5 @@
 | `011_revisions_changes.sql` | Part 11 |
 | `012_final_disputes.sql` | Part 12 |
 | `013_ratings_bonus.sql` | Part 13 |
+| `014_admin_panel.sql` | Part 14 (also fixes the Part 12 refund-eligibility reasons) |
+| `015_monetization.sql` | Part 15 |

@@ -12,6 +12,8 @@ Budget: ₹0 (free tiers). One part at a time: build → test → fix → next. 
 | 1 | Foundation: structure, config, roles helpers, settings, system status, docs | 2.1.0 | `002_foundation.sql` |
 | 2 | Auth + user roles: route protection, session end handling, logout cleanup, DB role checks, suspended banner | 2.2.0 | `003_auth_roles.sql` |
 | 3 | Client profile + dashboard: home dashboard, My Projects (Active/History/All), friendly status, Edit Profile, client nav, empty states | 2.3.0 | none (app only) |
+| 15 | Monetization: ₹29 verification payments (never auto-approve), ₹199 Editor Pro with expiry and configurable benefits, 3 Sponsored slots, Admin → Monetization | 2.15.0 | `015_monetization.sql` + updated `sphere-extra-payment` |
+| 14 | Admin Panel: tabs for overview, projects (✅ / ⚠️ / 🔴), disputes, verification, moderation (masked), users, payments, audit log; server-checked admin functions; automatic audit | 2.14.0 | `014_admin_panel.sql` |
 | 13 | Ratings + performance bonus: −3…+3 ratings, rating history, delivery checks vs the valid deadline, 4-condition bonus from the Sphere pool, ₹10/hour late deduction, editor earnings card | 2.13.0 | `013_ratings_bonus.sql` |
 | 12 | Final approval + disputes + refunds: final submission with hidden clean link, release or not satisfied, 10-hour window → team review, case files, AI note (advice), team decisions, full refunds, complaints closed after release | 2.12.0 | `012_final_disputes.sql` |
 | 11 | Revisions + change requests: 3 free revisions, ₹50 from the 4th (all to the editor), change requests with price / time / files, accept / reject, deadline + price history, Razorpay or UPI for extras | 2.11.0 | `011_revisions_changes.sql` + Edge Function `sphere-extra-payment` |
@@ -149,3 +151,26 @@ revisions (3 free, 4th ₹50) + approval + payout + bonus · disputes (AI summar
 6. **Changed deadline:** a change request with +24 h → preview before the new deadline counts as on time (even if the original deadline passed).
 7. **No rating in 7 days:** settles automatically with the rating condition not met.
 8. Client screens never show pool / Sphere share / bonus.
+
+## Part 14 — test checklist
+1. Supabase: run `014_admin_panel.sql` → then `checks/admin_panel_check.sql` → all ✅ (line 5 "Not callable without login: yes").
+2. Upload `index.html.html` → Settings shows **Sphere v2.14.0**.
+3. **Authorization:** log in as a client and as an editor → open `…/#admin` or Profile → no Admin Panel; the app sends them Home. (Server side is also checked: the SQL test calls every admin function as a client → "Admins only".)
+4. Admin → **Overview** numbers + pending actions → tap one → the right tab opens.
+5. **Projects** → filter ⚠️ / 🔴 → open one → all sections → Flag suspicious (PIN + reason) → shows ⚠️ and appears in **Audit**.
+6. **Verification** → an editor who paid ₹29 is still Pending until you press Verify; Reject asks for a reason.
+7. **Moderation** → hidden messages show •••; Show original asks for a reason and is logged.
+8. **Users** → search → Suspend (reason) → the user sees the notice → Reactivate → both in Audit.
+9. **Payments** → mark a bonus paid / a deduction recovered → in Audit.
+10. **Classic tools** → commission, admins, reports, manual payouts still work.
+
+## Part 15 — test checklist (Razorpay TEST mode only)
+1. Supabase: run `015_monetization.sql` → then `checks/monetization_check.sql` → all ✅.
+2. Update the Edge Function `sphere-extra-payment` with the new `index.ts` (README in its folder). Keep `rzp_test_…` keys.
+3. Upload `index.html.html` → Settings shows **Sphere v2.15.0**.
+4. **₹29:** an unverified editor → verification screen shows **Not started** → Pay ₹29 → test card 4111 1111 1111 1111 → **Paid**, admins get "Verification request", the tick is still missing → Admin → Verification → Verify → tick appears. Try paying again → refused (one-time).
+5. **Failed:** Pay → UPI `failure@razorpay` → **Failed**, no money taken → pay again works.
+6. **UPI fallback:** "Pay by UPI instead" → transaction ID → **Pending** → Admin → 💰 Monetization → Received → **Paid**.
+7. **Pro:** editor Home → Sphere Pro → Upgrade ₹199 → test card → **Active until …**, PRO badge, analytics; Upgrade again → refused until the last 3 days.
+8. **Expiry (test account only):** `update public.sp_subscriptions set current_period_end = now() - interval '1 minute' where status = 'active';` → open the app → **Expired**, badge gone.
+9. **Client:** no Pro screen, never charged; sponsored only after Admin turns it on and adds a card; never on payment / chat / project screens.

@@ -59,6 +59,8 @@ The script starts with a **map of headings**. Search for them:
 | `CHAT` | WhatsApp-style chat, realtime, media, voice notes |
 | `PAYMENT` / `PROJECT STATUS` | Razorpay checkout, escrow, delivery, approve & release |
 | `ADMIN` | Admin Panel (PIN unlock), verification, reports, payouts, suspicious users, system status |
+| `PART 15: MONETIZATION` | `payFee()`, `fillVerifyFee()`, `SCREENS.proScreen`, `fillProHomeCard()`, `proChip()`, `loadProSet()`, `fillSponsored()`, `adminMonetizationTab()` |
+| `PART 14: ADMIN PANEL` | `SCREENS.admin` (tabs), `SCREENS.adminProject`, `SCREENS.adminUser`, `SCREENS.adminClassic` (old panel), `admin*Tab()`, `adminProjectAction()`, `adminUserAction()`, `adminReveal()`, `maskContactText()` |
 | `PART 13: RATINGS + PERFORMANCE BONUS` | `SCREENS.ratings` (−3…+3), `submitRating()`, `clientRatingCard()`, `earningsCard()`, `ratingHistoryHtml()` |
 | `PART 12: FINAL APPROVAL + DISPUTES + REFUNDS` | `finalSection()`, `finalSubmitPanel()`, `openDispute()`, `notDeliveredCard()`, `casesQueueSection()`, `SCREENS.caseFile`, `caseDecide()`, `caseAskAI()` |
 | `PART 11: REVISIONS + CHANGE REQUESTS` | `revisionsSection()`, `requestRevision()`, `sendChangeRequest()`, `answerChange()`, `payExtra()`, `submitExtraUtr()`, `extrasQueueSection()` |
@@ -95,7 +97,7 @@ The script starts with a **map of headings**. Search for them:
 | client | Client mode (client · editor switched to Client · admin in Admin mode) | postJob, applications, payment, savedList, ratings |
 | editor | Editor mode (editor · admin switched to Editor) | jobBidScreen |
 | editorAccount | Editor account (any mode) or admin in Editor mode | editorDetails, verificationStatus, editorProfileEdit |
-| admin | Admin accounts | admin, caseFile |
+| admin | Admin accounts | admin, adminProject, adminUser, adminClassic, caseFile |
 
 * **Job screens** also check the job: `applications`, `payment`, `ratings` → only the job's client (or an admin); `projectStatus` → client, assigned editor, admin, or anyone while the job is open.
 * **The database enforces the same rules** (`sp_core_role_guard`): only editors bid (for themselves), only editors edit their own portfolio, only the job's client reviews that job's editor. Screen checks are for the user experience; database checks are the real security.
@@ -203,6 +205,25 @@ The script starts with a **map of headings**. Search for them:
   * Late after grace → **no bonus**, and **₹10 × late hours** deducted (never more than the base)
   * Provisional at release → **final** after the rating (or after 7 days, `sp_bonus_tick`). Final rows are never recalculated; payout items `bonus` (to pay) / `deduction` (to recover) are created once.
 * **Who sees what:** editors → project card **💰 Your earnings** (base, extras, bonus x of 4 with each condition, late deduction, total) + totals on their profile (`sp_settlement_mine`, `sp_editor_earnings_summary`); clients → only their rating; admins → full settlement rows + payout list.
+
+### Admin Panel (Part 14)
+* **Tabs:** 📊 Overview · 📁 Projects · ⚖️ Disputes · ✔ Verification · 🛡️ Moderation · 👥 Users · 💳 Payments · 📜 Audit · 🧰 Classic tools (the older single-page panel: commission, admins, reports, manual payouts). Red badges show waiting items.
+* **Overview:** users / clients / editors / verified editors, active / completed projects, waiting for payment, refunds in progress, Sphere revenue (projects after bonuses + extras + confirmed ₹29 fees — internal), pending admin actions with links.
+* **Projects:** every project with ✅ Normal / ⚠️ Suspicious / 🔴 Dispute (+ why: open case / refund, admin flag, held / removed or 📵 messages, people with strikes / suspended, open report), search and filter. **Project screen** (`adminProject`): people & money, requirements + accepted changes, original vs current deadline, deliveries (early / late), time requests, revisions, change requests, previews, files, final submission (clean link for admins), rating, settlement (pool, Sphere, bonus conditions, deductions), payouts, refunds, cases, chat (contact details already hidden), timeline, admin history. Actions (PIN + reason): flag suspicious / clear, open a team review (→ case file), give the editor time, close an unpaid job.
+* **Disputes:** open cases → case file (Part 12) to release / refund / send back; recent decisions with reasons.
+* **Verification:** pending requests with everything the editor submitted, ₹29 fee state + UPI ID; Verify / Reject (reason) / Fee received / Fee not found. Paying never approves anyone.
+* **Moderation:** held messages (Part 9), automatically hidden messages shown **masked** ("Show original" needs PIN + reason and is logged), users with strikes, moderation history.
+* **Users:** search clients / editors / admins; user screen with account state, strikes (masked), projects, ratings received / given, earnings or spend, admin history; Suspend / Reactivate / Warn (reason, the user is told) / Clear strikes.
+* **Payments:** payment counts, UPI extras to check, payouts / bonuses to pay, deductions to recover, manual project payouts, refunds, editor earnings table (internal), latest client payments.
+* **Audit log** (`sp_admin_audit`): automatic triggers on profiles, sp_mod_flags, sp_disputes, sp_refunds, sp_msg_holds, sp_extra_payments, sp_payout_items, sp_jobs, sp_settings, sp_reports — logs admin and system (payment functions) changes with old → new and reason; normal users' own changes are not logged. Filter by action.
+* **Security:** admin screens are blocked in the app (route gate) **and** every `sp_admin_*` function checks ADMIN on the server; changes also need the Admin PIN and a reason. No `sp_admin_*` function can be called without login. Clients never see revenue or splits.
+
+### Monetization (Part 15)
+* **One payment table** `sp_fee_payments` (kind verification / pro): the app only *starts* a payment (`sp_fee_start`, amount from `sp_monetization_config`). It becomes **paid** only through `sp_fee_mark_paid` — called by the `sphere-extra-payment` Edge Function after Razorpay's signature check (service role), or by an admin confirming a UPI transaction ID (`sp_fee_admin`, PIN). Duplicate protection: one open attempt per person and kind, unique Razorpay payment IDs and UPI transaction IDs, repeated "paid" calls do nothing.
+* **₹29 verification** (verification screen): states **Not started / Pending / Paid / Failed**. Paid → `verification_fee_status = confirmed`, a verification request (status pending) and a notice to admins. It is **one-time** (a paid editor is never charged again, also when re-applying after a rejection) and **never approves** — the ✔ tick still comes only from Admin → Verification. The old admin "Fee received" button keeps the payment row in step.
+* **₹199 Editor Pro** (`proScreen`, card on the editor Home): editors only (clients are refused on the server). States **Inactive / Pending / Active / Expired / Failed** with the expiry date; 30 days per payment; renewal only in the last 3 days, adding 30 days to the current end (no double plans); `sp_sub_tick` expires plans. Benefits come from the config: PRO badge, shown first in editor lists, analytics (`sp_pro_analytics`), instant job alerts for new jobs in their categories, optional open-bid limit for free editors (`free_open_bids`, 0 = off).
+* **Sponsored placements** (`sp_sponsored_items`, `sp_sponsored_for`): small cards labelled **Sponsored** in 3 slots — Client Home (below projects), editor job list (after the 3rd job), All Editors (below the grid). Never on payment, chat or project screens. Off by default; a slot stays empty without an active card; only real taps are counted. `provider` in the config is ready for a real ad network later.
+* **Admin → 💰 Monetization:** UPI payments to check, verification payments, Pro subscriptions with status / expiry, sponsored on/off per slot, sponsored cards (add / turn off, clicks), prices and Pro benefits. Changes need the PIN and are in the audit log. Overview revenue now includes ₹29 records and Pro.
 
 ### Job lifecycle (today)
 `open → negotiating → payment-pending → in-progress → delivered (review_state: awaiting_client / disputed / team_review) → approved (released) → closed` (+ `refunded`; a team decision can send `delivered` back to `in-progress`)

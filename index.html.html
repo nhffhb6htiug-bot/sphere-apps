@@ -248,6 +248,33 @@ h1,h2,h3{color:var(--text);}
 .chat-head .ch-back, .chat-head .ch-more{background:transparent; border:none; color:#fff; font-size:24px; line-height:1; cursor:pointer; padding:4px 8px;}
 .chat-head .avatar{margin:0 !important; width:40px !important; height:40px !important; flex:0 0 40px; font-size:18px;}
 .chat-head .ch-name{flex:1; min-width:0; cursor:pointer;}
+/* PART 15: monetization */
+.pro-chip{display:inline-block; font-size:10px; font-weight:900; letter-spacing:.06em; padding:2px 7px; border-radius:8px; color:#fff; background:linear-gradient(135deg,#f59e0b,#d97706); vertical-align:middle; margin-left:4px;}
+.pay-state{display:inline-block; font-size:11px; font-weight:800; padding:3px 9px; border-radius:10px;}
+.pro-hero{background:linear-gradient(135deg,#111827,#374151); color:#fff; border-radius:18px; padding:18px; margin-bottom:12px;}
+.pro-hero h2{font-size:22px; margin:4px 0; color:#fff;} .pro-hero p{opacity:.85; font-size:13px; color:#fff;}
+.pro-ben{display:flex; gap:10px; align-items:flex-start; font-size:13px; margin:8px 0;}
+.sp-card{position:relative; border:1px dashed var(--border); background:#fbfcfe;}
+.sp-label{font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);}
+.sp-card .sp-row{display:flex; gap:10px; align-items:center; margin-top:4px;}
+.sp-card img{width:46px; height:46px; border-radius:10px; object-fit:cover; flex:none;}
+/* PART 14: admin panel */
+.ad-tabs{display:flex; gap:6px; overflow-x:auto; padding:2px 0 10px; margin-bottom:6px; scrollbar-width:none;}
+.ad-tabs::-webkit-scrollbar{display:none;}
+.ad-tabs button{flex:none; padding:8px 12px; border-radius:18px; border:1px solid var(--border); background:#fff; font-size:12px; font-weight:700; cursor:pointer; color:var(--text);}
+.ad-tabs button.on{background:#111827; border-color:#111827; color:#fff;}
+.ad-tabs .n{display:inline-block; min-width:16px; padding:0 5px; margin-left:4px; border-radius:9px; background:#c62828; color:#fff; font-size:10px;}
+.ad-grid{display:grid; grid-template-columns:repeat(2, 1fr); gap:8px; margin-bottom:12px;}
+.ad-stat{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px;}
+.ad-stat b{display:block; font-size:22px;} .ad-stat span{font-size:11px; color:var(--muted);}
+.ad-row{display:flex; gap:10px; align-items:center; cursor:pointer;}
+.ad-ic{font-size:20px; width:26px; text-align:center; flex:none;}
+.ad-main{flex:1; min-width:0;} .ad-main b{display:block; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.ad-main small{font-size:11px; color:var(--muted);}
+.ad-sec{font-size:12px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin:16px 0 6px;}
+.ad-tbl{width:100%; border-collapse:collapse; font-size:12px; min-width:520px;}
+.ad-tbl th, .ad-tbl td{padding:6px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap;}
+.ad-search{display:flex; gap:8px; margin-bottom:10px;} .ad-search input, .ad-search select{flex:1; padding:9px 10px; border-radius:10px; border:1px solid var(--border); font:inherit; font-size:13px; background:#fff;}
 /* PART 13: ratings + bonus */
 .rt-pick{display:grid; grid-template-columns:repeat(7, 1fr); gap:6px; margin:14px 0 6px;}
 .rt-pick button{padding:12px 0; border-radius:12px; border:1.5px solid var(--border); background:#fff; font-weight:800; font-size:15px; cursor:pointer; color:var(--text);}
@@ -461,7 +488,8 @@ details.card[open] summary::after{content:'－';}
      PART 6: JOB DISCOVERY + BIDDING · PART 7: SELECTION + PAYMENT ·
      PART 8: PROJECT WORKFLOW + DEADLINES · PART 9: CHAT + AI MODERATION ·
      PART 10: PROJECT FILES + WATERMARKED PREVIEW · PART 11: REVISIONS + CHANGE REQUESTS ·
-     PART 12: FINAL APPROVAL + DISPUTES + REFUNDS · PART 13: RATINGS + PERFORMANCE BONUS
+     PART 12: FINAL APPROVAL + DISPUTES + REFUNDS · PART 13: RATINGS + PERFORMANCE BONUS ·
+     PART 14: ADMIN PANEL · PART 15: MONETIZATION
    Adding a new part: put its code in a block "PART n: <name>" near the end of
    this script, its database SQL in supabase/migrations/00n_<name>.sql, and
    turn it on with SPHERE_CONFIG.features. See docs/ARCHITECTURE.md.
@@ -472,8 +500,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.13.0',
-  build: 'part13-ratings-bonus',
+  appVersion: '2.15.0',
+  build: 'part15-monetization',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
@@ -1125,7 +1153,10 @@ async function getVerifiedEditors(){
   const { data, error } = await publicEditors(t => t.select('*'));
   if(dbErr(error)) return [];
   const me = getCurrentUser();
-  return attachRatings((data || []).map(toAppUser).filter(u => !me || u.id !== me.id));
+  const list = await attachRatings((data || []).map(toAppUser).filter(u => !me || u.id !== me.id));
+  await loadProSet();
+  if(proBenefit('boost')) list.sort((x, y) => (PRO_SET.has(y.id) ? 1 : 0) - (PRO_SET.has(x.id) ? 1 : 0));
+  return list;
 }
 
 const app = document.getElementById('app');
@@ -1791,7 +1822,7 @@ function renderEditorCards(list){
   return list.map(e=>`
     <div class="card" onclick="openEditorProfile('${e.id}')">
       ${avatarHtml(e)}
-      <b>${esc(e.name)}</b> ${e.verified?'<span class="badge">✔ Verified</span>':''}
+      <b>${esc(e.name)}</b> ${e.verified?'<span class="badge">✔ Verified</span>':''}${proChip(e.id)}
       <p class="muted" style="font-size:12px; margin:4px 0;">${e.category||''}</p>
       <p class="muted" style="font-size:12px;">${e.experience||0} Yrs Exp • ⭐ ${e.rating||0}</p>
       <p style="font-weight:800; color:var(--blue); margin-top:6px;">₹${e.price||'-'} /video</p>
@@ -1822,11 +1853,13 @@ SCREENS.categoryDetail = async () => {
 
 SCREENS.allEditors = async () => {
   const editors = await getVerifiedEditors();
+  setTimeout(() => fillSponsored('editor_list'), 0);
   return `
   <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>All Editors</h1><p>Find verified professional editors</p></div>
   <div class="screen" style="padding-top:0;">
     <div>${CATEGORIES.map(c=>`<span class="pill" onclick="openCategory('${c}')">${c}</span>`).join('')}</div>
     <div class="grid2" style="margin-top:16px;">${renderEditorCards(editors)}</div>
+    <div id="ad_editor_list"></div>
   </div>`;
 };
 
@@ -2804,7 +2837,7 @@ async function logout(){
 }
 
 /* ============ ADMIN ============ */
-SCREENS.admin = async () => {
+SCREENS.adminClassic = async () => {
   const _u = getCurrentUser();
   if(!_u || _u.baseRole!=='admin'){
     return `<div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Access Denied</h1></div>
@@ -2836,7 +2869,7 @@ SCREENS.admin = async () => {
   const casesq = await loadCasesQueue();
   const who = id => { const u = nameMap[id]; return u ? `${esc(u.name)} (${esc(u.role)}) ${u.phone ? `<a href="tel:${esc(u.phone)}">${esc(u.phone)}</a>` : ''}` : '-'; };
   return `
-  <div class="header"><button class="back-btn" onclick="nav('profile')">‹</button><h1>Admin Panel</h1><p>Syahi Films Verification</p></div>
+  <div class="header"><button class="back-btn" onclick="nav('admin')">‹</button><h1>Classic tools</h1><p>Settings, admins, reports, payouts</p></div>
   <div class="screen" style="padding-top:0;">
     ${pinSet ? '' : `<div class="card" style="border:1.5px solid #e67e22;">
       <b>🔐 Set your Admin PIN</b>
@@ -2945,7 +2978,7 @@ SCREENS.admin = async () => {
       <b>${x.p ? esc(x.p.name || 'User') : 'User'}</b> <span class="muted" style="font-size:12px;">${x.p ? esc(x.p.role || '') : ''}</span>${x.suspended ? ' <b style="color:#c62828; font-size:12px;">SUSPENDED</b>' : ''}
       <p style="font-size:12px; margin:4px 0;">Strikes: <b>${x.strikes}</b>${x.reports ? ` • Outside-deal reports: <b>${x.reports}</b>` : ''}${x.warnedAt ? ' • Warned before' : ''}</p>
       ${x.p && x.p.phone ? `<p style="font-size:12px;"><a href="tel:${esc(x.p.phone)}">${esc(x.p.phone)}</a></p>` : ''}
-      ${(x.samples || []).map(m => `<p class="muted" style="font-size:12px; margin:6px 0; padding:6px 8px; border-left:3px solid #e67e22; white-space:pre-wrap; word-break:break-word;"><b>${esc(m.source)}:</b> ${esc((m.original_text || '').slice(0, 200))}</p>`).join('')}
+      ${(x.samples || []).map(m => `<p class="muted" style="font-size:12px; margin:6px 0; padding:6px 8px; border-left:3px solid #e67e22; white-space:pre-wrap; word-break:break-word;"><b>${esc(m.source)}:</b> ${esc(maskContactText(m.original_text || '').slice(0, 200))}</p>`).join('')}
       <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
         <button class="btn-sm" onclick="modAction('${x.id}','warn')">⚠️ Warn</button>
         ${x.suspended ? `<button class="btn-sm" onclick="modAction('${x.id}','unsuspend')">✅ Unsuspend</button>` : `<button class="btn-sm" style="color:#c62828;" onclick="modAction('${x.id}','suspend')">⛔ Suspend</button>`}
@@ -3205,8 +3238,8 @@ const ROUTE_ACCESS = Object.freeze({
   escrowScreen: 'user', vaultScreen: 'user', editProfile: 'user', previewPlayer: 'user',
   postJob: 'client', applications: 'client', payment: 'client', savedList: 'client', ratings: 'client',
   jobBidScreen: 'editor',
-  editorDetails: 'editorAccount', verificationStatus: 'editorAccount', editorProfileEdit: 'editorAccount',
-  admin: 'admin', caseFile: 'admin'
+  editorDetails: 'editorAccount', verificationStatus: 'editorAccount', editorProfileEdit: 'editorAccount', proScreen: 'editorAccount',
+  admin: 'admin', caseFile: 'admin', adminClassic: 'admin', adminProject: 'admin', adminUser: 'admin'
 });
 // Screens that belong to one job: only the people in that job (or an admin) may open them.
 const JOB_SCREENS = Object.freeze({ projectStatus: 'party', applications: 'owner', payment: 'owner', ratings: 'owner', previewPlayer: 'member' });
@@ -3418,7 +3451,9 @@ async function renderClientDashboard(){
       <div class="cl-stat" onclick="nav('jobs', { tab: 'history' })"><b>${st.done}</b><span>Completed</span></div>
     </div>
     ${needs.length ? `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Needs your action</h3></div>${needs.map(x => clientProjectCard(x, true)).join('')}` : ''}
-    ${recent.length ? `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Recent projects</h3><a onclick="nav('jobs')">See all</a></div>${recent.map(x => clientProjectCard(x, true)).join('')}` : ''}`;
+    ${recent.length ? `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Recent projects</h3><a onclick="nav('jobs')">See all</a></div>${recent.map(x => clientProjectCard(x, true)).join('')}` : ''}
+    <div id="ad_client_home"></div>`;
+  fillSponsored('client_home');
 }
 
 // ---- My Projects (client view of the Jobs tab)
@@ -3672,7 +3707,9 @@ async function renderEditorDashboard(tries){
       <div class="cl-stat" onclick="nav('jobs', { tab: 'history' })"><b>${w.done.length}</b><span>Completed</span></div>
     </div>
     ${w.done.length ? `<p class="muted" style="font-size:12px; margin:-6px 0 12px; text-align:center;">Earned on Sphere: <b style="color:var(--text);">${rupees(w.earned)}</b></p>` : ''}
+    <div id="proHomeCard"></div>
     ${w.active.length ? `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Your active work</h3><a onclick="nav('jobs', { tab: 'mine' })">See all</a></div>${w.active.slice(0, 3).map(j => editorJobCard(j, user)).join('')}` : ''}`;
+  fillProHomeCard();
 }
 async function setAvailability(v){
   if(!AVAILABILITY[v] || !currentUser) return;
@@ -3793,6 +3830,11 @@ async function saveEditorProfile(){
 
 // ---- Verification: ₹29 fee with UPI transaction ID
 function verifyFeeSection(u){
+  setTimeout(() => fillVerifyFee(u), 0);
+  return `<div id="vfeeBox"><div class="card"><p class="muted" style="font-size:13px;">Loading payment…</p></div></div>`;
+}
+// older UPI-only version (used when the database is not updated to 015 yet)
+function verifyFeeSectionLegacy(u){
   if(u.feeStatus === 'confirmed'){
     return `<div class="card" style="border:1.5px solid #15803d;"><b style="color:#15803d;">💳 Verification fee received ✅</b>
       <p class="muted" style="font-size:12px; margin-top:4px;">Our team will call you for the verification.</p></div>`;
@@ -3800,8 +3842,7 @@ function verifyFeeSection(u){
   if(u.feeStatus === 'submitted'){
     return `<div class="card" style="border:1.5px solid #f59e0b;"><b>💳 Payment submitted — Sphere is checking</b>
       <div class="kv" style="margin-top:6px;"><span>UPI transaction ID</span><b>${esc(u.feeRef || '-')}</b></div>
-      ${u.feeAt ? `<div class="kv"><span>Submitted</span><b>${fmtDate(u.feeAt)}</b></div>` : ''}
-      <p class="muted" style="font-size:12px; margin-top:6px;">Usually checked within a day. You can also send the screenshot on WhatsApp to ${FEE_PHONE}.</p></div>`;
+      <p class="muted" style="font-size:12px; margin-top:6px;">Usually checked within a day.</p></div>`;
   }
   return verifyFeeCard(u) + `<div class="card">
       <b>Already paid? Tell us here</b>
@@ -3865,8 +3906,10 @@ async function editorPublicExtra(e){
     if(!error && data){ bio = data.bio || ''; availability = data.availability || ''; }
   } catch(x) {}
   const hist = await ratingHistoryHtml(e.id, 5);
-  if(!bio && !availability) return hist;
-  return `<div class="card">${availability ? availabilityChip(availability) : ''}${bio ? `<p class="ed-bio">${esc(bio)}</p>` : ''}</div>` + hist;
+  await loadProSet();
+  const pro = proChip(e.id) ? `<div class="card" style="padding:10px 14px;">${proChip(e.id)} <span class="muted" style="font-size:12px;">Sphere Pro editor</span></div>` : '';
+  if(!bio && !availability) return pro + hist;
+  return pro + `<div class="card">${availability ? availabilityChip(availability) : ''}${bio ? `<p class="ed-bio">${esc(bio)}</p>` : ''}</div>` + hist;
 }
 
 // ---- Admin: verification state, fee check, reject with reason
@@ -4399,8 +4442,9 @@ function renderAvailList(){
   if(!box || !user) return;
   const list = filterJobs(availState.jobs, user, availState.ctx);
   box.innerHTML = `<p class="jf-count">${list.length} of ${availState.jobs.length} open job${availState.jobs.length === 1 ? '' : 's'}</p>` +
-    (list.length ? list.map(j => availableJobCard(j, user, availState.ctx)).join('')
+    (list.length ? list.map((j, i) => availableJobCard(j, user, availState.ctx) + (i === Math.min(2, list.length - 1) ? '<div id="ad_editor_jobs"></div>' : '')).join('')
       : `<div class="card cl-empty"><div class="cl-empty-ic">🔎</div><b>${availState.jobs.length ? 'No jobs match these filters' : 'No open jobs right now'}</b><p>${availState.jobs.length ? 'Try clearing a filter.' : 'New jobs from clients show up here. Keep your status on Available.'}</p></div>`);
+  if(list.length) fillSponsored('editor_jobs');
 }
 function openBid(id){ currentJobId = id; nav('jobBidScreen'); }
 
@@ -4828,6 +4872,8 @@ function workTickSoon(){
   sb.rpc('sp_work_tick').then(() => {}, () => {});
   sb.rpc('sp_final_tick').then(() => {}, () => {});
   sb.rpc('sp_bonus_tick').then(() => {}, () => {});
+  sb.rpc('sp_sub_tick').then(() => {}, () => {});
+  loadMonConfig(true);
 }
 async function loadWorkFor(ids){
   if(!ids || !ids.length) return;
@@ -5062,7 +5108,7 @@ function modQueueSection(q){
     ${q.done.length ? `<details class="card"><summary><b>Recently reviewed (${q.done.length})</b></summary>
       ${q.done.map(h => `<p style="font-size:12px; margin:8px 0;"><b>${h.status === 'released' ? '✅ Delivered' : '🚫 Removed'}</b>${h.reviewed_by ? '' : ' by AI'} — ${who(h.sender_id)}: ${esc(String(h.original_text).slice(0, 80))}</p>`).join('')}</details>` : ''}
     ${q.hidden.length ? `<details class="card"><summary><b>Recently hidden automatically (📵) (${q.hidden.length})</b></summary>
-      ${q.hidden.map(x => `<p style="font-size:12px; margin:8px 0;">${who(x.user_id)} · ${fmtDT(x.created_at)}<br><span class="muted">${esc(String(x.original_text || '').slice(0, 120))}</span></p>`).join('')}
+      ${q.hidden.map(x => `<p style="font-size:12px; margin:8px 0;">${who(x.user_id)} · ${fmtDT(x.created_at)}<br><span class="muted">${esc(maskContactText(String(x.original_text || '')).slice(0, 120))}</span></p>`).join('')}
       <p class="muted" style="font-size:11px;">Repeat offenders show in 🚨 Suspicious Users below.</p></details>` : ''}`;
 }
 async function reviewHeld(holdId, action){
@@ -5819,10 +5865,14 @@ function casesQueueSection(q){
       ${d.details ? `<p class="muted" style="font-size:12px; margin:4px 0;">${esc(String(d.details).slice(0, 140))}</p>` : ''}
       ${d.ai_category ? `<span class="bid-chip">🤖 ${esc(d.ai_category)}</span>` : ''}
       <button class="btn-sm" style="margin-top:8px;" onclick="nav('caseFile', { disputeId: '${d.id}' })">Open case file</button></div>`).join('')}
-    ${q.payouts.length ? `<h3 style="margin:20px 0 10px;">💸 Extra payouts to editors (${q.payouts.length})</h3>
+    ${payoutItemsHtml(q)}`;
+}
+function payoutItemsHtml(q){
+  const label = j => j ? esc(j.title || j.category) : 'Project';
+  return q.payouts.length ? `<h3 style="margin:20px 0 10px;">💸 Extra payouts to editors (${q.payouts.length})</h3>
       ${q.payouts.map(p => `<div class="card" style="${p.kind === 'deduction' ? 'border-left:4px solid #c62828;' : ''}"><p style="font-size:13px;"><b>${p.kind === 'deduction' ? '−' : ''}${rupees(p.amount)}</b> ${p.kind === 'deduction' ? 'to recover from' : 'to'} ${esc(((q.eds || {})[p.editor_id] || {}).name || 'Editor')} · ${label(q.jobs[p.job_id])}</p>
         <p class="muted" style="font-size:12px;">${p.kind === 'bonus' ? '🏆 Performance bonus' : p.kind === 'deduction' ? '⏰ Late deduction' : '➕ Paid revisions / changes'} — ${esc(p.note || '')}${p.kind === 'deduction' ? ' (take it from the next payout)' : ' (pay by UPI / bank)'}</p>
-        <button class="btn-sm" style="margin-top:6px;" onclick="markPayoutPaid('${p.id}')">✅ ${p.kind === 'deduction' ? 'Mark recovered' : 'Mark paid'}</button></div>`).join('')}` : ''}`;
+        <button class="btn-sm" style="margin-top:6px;" onclick="markPayoutPaid('${p.id}')">✅ ${p.kind === 'deduction' ? 'Mark recovered' : 'Mark paid'}</button></div>`).join('')}` : '';
 }
 async function markPayoutPaid(itemId){
   if(needPin()) return;
@@ -6045,6 +6095,655 @@ async function ratingHistoryHtml(editorId, limit){
     return `<div class="card"><b>⭐ Client ratings</b> <span class="muted" style="font-size:12px;">${data.length} project${data.length === 1 ? '' : 's'} · average ${avg > 0 ? '+' : ''}${avg} (−3 … +3)</span>
       ${data.slice(0, limit || 5).map(r => `<div style="margin-top:8px;">${ratingChip(r.score)} <span class="muted" style="font-size:11px;">${esc(r.category || '')} · ${fmtDate(r.created_at)}</span>${r.feedback ? `<p style="font-size:13px; margin-top:2px;">“${esc(r.feedback)}”</p>` : ''}</div>`).join('')}</div>`;
   } catch(e) { return ''; }
+}
+
+/* ============ PART 14: ADMIN PANEL ============
+   Tabs: Overview · Projects · Disputes · Verification · Moderation · Users ·
+   Payments · Audit · Classic tools. Every read uses an sp_admin_* function that
+   checks ADMIN on the server; every change needs the Admin PIN + a reason and is
+   written to sp_admin_audit (also automatic for the older admin buttons). */
+let adminTab = 'overview';
+let adminProjFilter = 'all', adminProjSearch = '', adminUserSearch = '', adminUserRole = 'all', adminAuditFilter = '';
+const ADMIN_TABS = [['overview', '📊 Overview'], ['projects', '📁 Projects'], ['disputes', '⚖️ Disputes'], ['verification', '✔ Verification'],
+  ['moderation', '🛡️ Moderation'], ['users', '👥 Users'], ['payments', '💳 Payments'], ['money', '💰 Monetization'], ['audit', '📜 Audit'], ['classic', '🧰 Classic tools']];
+const HEALTH = { normal: ['✅', 'Normal', '#15803d'], suspicious: ['⚠️', 'Suspicious', '#b45309'], dispute: ['🔴', 'Dispute', '#c62828'] };
+
+function maskContactText(t){
+  return String(t || '')
+    .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/g, '•••@•••')
+    .replace(/https?:\/\/\S+/gi, '•••link•••')
+    .replace(/(^|\s)@[A-Za-z0-9_.]{3,}/g, '$1@•••')
+    .replace(/[0-9०-९][0-9०-९\s.()+-]{6,}[0-9०-९]/g, '•••••');
+}
+function adminErr(error){
+  const m = (error && error.message) || String(error || '');
+  if(/sp_admin_|schema cache|does not exist|Could not find/i.test(m)) return 'This needs the latest database update (014_admin_panel.sql).';
+  return m;
+}
+async function adminRpc(fn, args){
+  const { data, error } = await sb.rpc(fn, args || {});
+  if(error) throw new Error(adminErr(error));
+  return data;
+}
+function adminReason(question){
+  const r = prompt(question + '\n\n(Reason is saved in the audit log)', '');
+  if(r === null) return null;
+  if(r.trim().length < 5){ alert('Please write a reason (at least 5 letters).'); return null; }
+  return r.trim();
+}
+function adminPinCard(pinSet){
+  if(!pinSet) return `<div class="card" style="border:1.5px solid #e67e22;"><b>🔐 Set your Admin PIN</b>
+      <p class="muted" style="font-size:12px; margin:4px 0 10px;">Every admin action needs this PIN. Keep it secret (4–8 digits).</p>
+      <div class="field"><label>New PIN</label><input id="pinNew" class="pin-input pin-mask" type="text" inputmode="numeric" autocomplete="off" maxlength="8"></div>
+      <div class="field"><label>Confirm PIN</label><input id="pinNew2" class="pin-input pin-mask" type="text" inputmode="numeric" autocomplete="off" maxlength="8"></div>
+      <button class="btn btn-primary" onclick="setAdminPin(false)">Save PIN</button></div>`;
+  if(ADMIN_PIN) return `<div class="card" style="border:1.5px solid #2e7d32; display:flex; align-items:center; gap:10px; padding:10px 14px;"><b style="flex:1; font-size:13px;">🔓 Unlocked — actions are allowed</b><button class="btn-sm" onclick="ADMIN_PIN=''; nav('admin')">Lock</button></div>`;
+  return `<div class="card" style="border:1.5px solid var(--blue);"><b>🔐 Enter your Admin PIN</b>
+      <p class="muted" style="font-size:12px; margin:4px 0 10px;">You can look around without it; every change needs the PIN.</p>
+      <div class="field"><input id="unlockPin" name="sp-unlock-pin" class="pin-input pin-mask" type="text" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="PIN" onkeypress="if(event.key==='Enter') unlockAdmin()"></div>
+      <button class="btn btn-primary" onclick="unlockAdmin()">Unlock</button></div>`;
+}
+
+SCREENS.admin = async (data) => {
+  const u = getCurrentUser();
+  if(!isAdminUser(u)) return `<div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Access Denied</h1></div><div class="screen center-text" style="padding-top:60px;"><p class="muted">🚫 This page is for admins only.</p></div>`;
+  if(data && data.tab) adminTab = data.tab;
+  if(adminTab === 'classic'){ adminTab = 'overview'; return SCREENS.adminClassic(); }
+  const [{ data: pinSet }, ov] = await Promise.all([sb.rpc('sp_admin_pin_status').then(r => r, () => ({ data: true })), adminRpc('sp_admin_overview').catch(e => ({ _error: e.message }))]);
+  const p = (ov && !ov._error && ov.pending) || {};
+  const counts = { disputes: p.disputes, verification: p.verifications, moderation: (p.held_messages || 0) + (p.suspicious_users || 0), payments: (p.payouts || 0) + (p.upi_extras || 0) + (p.refunds || 0), money: p.fees };
+  let body = '';
+  try {
+    body = await ({ overview: adminOverviewTab, projects: adminProjectsTab, disputes: adminDisputesTab, verification: adminVerificationTab, moderation: adminModerationTab,
+                    users: adminUsersTab, payments: adminPaymentsTab, money: adminMonetizationTab, audit: adminAuditTab }[adminTab] || adminOverviewTab)(ov);
+  } catch(e) { body = `<div class="card"><p style="color:#c62828;">${esc(e.message || e)}</p></div>`; }
+  return `
+  <div class="header"><button class="back-btn" onclick="nav('profile')">‹</button><h1>Admin Panel</h1><p>Sphere by Syahi Films</p></div>
+  <div class="screen" style="padding-top:0;">
+    ${adminPinCard(pinSet)}
+    <div class="ad-tabs">${ADMIN_TABS.map(([k, l]) => `<button class="${adminTab === k ? 'on' : ''}" onclick="nav('admin', { tab: '${k}' })">${l}${counts[k] ? `<span class="n">${counts[k]}</span>` : ''}</button>`).join('')}</div>
+    ${body}
+  </div>`;
+};
+
+// ---- 1) Overview
+async function adminOverviewTab(ov){
+  if(!ov || ov._error) return `<div class="card" style="border:1.5px solid #e67e22;"><p style="font-size:12px;">⚙️ This part needs the latest database update (<b>014_admin_panel.sql</b>).</p></div><button class="btn btn-outline" style="margin-bottom:12px;" onclick="nav('adminClassic')">Open classic tools</button>` + systemStatusCard(await loadSystemStatus());
+  const st = (n, l, tab) => `<div class="ad-stat" ${tab ? `style="cursor:pointer;" onclick="nav('admin', { tab: '${tab}' })"` : ''}><b>${n}</b><span>${l}</span></div>`;
+  const p = ov.pending || {}, r = ov.revenue || {};
+  const todo = [
+    [p.disputes, 'Open disputes / reviews', 'disputes'], [p.verifications, 'Editors waiting for verification', 'verification'],
+    [p.held_messages, 'Held chat messages', 'moderation'], [p.suspicious_users, 'Users with many strikes', 'moderation'],
+    [p.upi_extras, 'UPI payments to check', 'payments'], [p.fees, '₹29 / Pro UPI payments to check', 'money'], [p.payouts, 'Payouts to send / deductions to recover', 'payments'],
+    [p.refunds, 'Refunds to finish', 'payments'], [p.reports, 'Open reports', 'classic']
+  ].filter(x => Number(x[0]));
+  return `
+    <div class="ad-grid">
+      ${st(ov.users, 'Total users', 'users')}${st(ov.clients, 'Clients', 'users')}
+      ${st(ov.editors, 'Editors', 'users')}${st(ov.verified_editors, 'Verified editors', 'verification')}
+      ${st(ov.active_projects, 'Active projects', 'projects')}${st(ov.completed, 'Completed projects', 'projects')}
+      ${st(ov.pending_payments, 'Waiting for payment', 'payments')}${st(ov.pending_refunds, 'Refunds in progress', 'payments')}
+    </div>
+    <div class="card"><b>💰 Sphere revenue</b> <span class="muted" style="font-size:11px;">(internal — never shown to clients)</span>
+      <div class="earn-row" style="margin-top:8px;"><span>Projects (after bonuses)</span><b>${rupees(r.projects)}</b></div>
+      <div class="earn-row"><span>Paid revisions / changes</span><b>${rupees(r.extras)}</b></div>
+      <div class="earn-row"><span>Verification fees (₹29)</span><b>${rupees(r.verification)}</b></div>
+      ${r.pro !== undefined ? `<div class="earn-row"><span>Editor Pro (${ov.pro_active || 0} active)</span><b>${rupees(r.pro)}</b></div>` : ''}
+      <div class="earn-row"><span><b>Total</b></span><b>${rupees(r.total)}</b></div>
+      <p class="muted" style="font-size:11px; margin-top:6px;">Money handled: ${rupees(ov.paid_volume)} paid by clients · ${ov.refunded_projects} refunded projects · ${ov.suspended} suspended users</p></div>
+    <div class="card"><b>🧾 Pending admin actions (${todo.reduce((t, x) => t + Number(x[0]), 0)})</b>
+      ${todo.length ? todo.map(([n, l, tab]) => `<div class="earn-row" style="cursor:pointer;" onclick="nav('admin', { tab: '${tab}' })"><span>${l}</span><b>${n} ›</b></div>`).join('') : '<p class="muted" style="margin-top:6px;">Nothing waiting. 👍</p>'}</div>
+    ${systemStatusCard(await loadSystemStatus())}`;
+}
+
+// ---- 2) Projects
+async function adminProjectsTab(){
+  const rows = await adminRpc('sp_admin_projects', { p_filter: adminProjFilter, p_search: adminProjSearch || null, p_limit: 60, p_offset: 0 }).catch(() => null);
+  if(!rows) return `<div class="card" style="border:1.5px solid #e67e22;"><p style="font-size:12px;">⚙️ This part needs the latest database update (<b>014_admin_panel.sql</b>).</p></div>`;
+  const chip = (k, l) => `<button class="${adminProjFilter === k ? 'on' : ''}" onclick="adminProjFilter='${k}'; nav('admin', { tab: 'projects' })">${l}</button>`;
+  return `
+    <div class="ad-search"><input id="apSearch" placeholder="Search title, client, editor, project code" value="${esc(adminProjSearch)}" onkeypress="if(event.key==='Enter'){ adminProjSearch=this.value; nav('admin', { tab: 'projects' }); }">
+      <button class="btn-sm" onclick="adminProjSearch=document.getElementById('apSearch').value; nav('admin', { tab: 'projects' })">Search</button></div>
+    <div class="ad-tabs">${chip('all', 'All')}${chip('normal', '✅ Normal')}${chip('suspicious', '⚠️ Suspicious')}${chip('dispute', '🔴 Dispute')}</div>
+    ${(rows || []).length === 0 ? '<p class="muted">No projects.</p>' : ''}
+    ${(rows || []).map(x => { const h = HEALTH[x.health] || HEALTH.normal; return `<div class="card ad-row" onclick="nav('adminProject', { jobId: '${x.id}' })">
+      <div class="ad-ic">${h[0]}</div><div class="ad-main"><b>${esc(x.title || 'Project')}</b>
+        <small>SPH-${String(x.id).replace(/-/g, '').slice(0, 6).toUpperCase()} · ${esc(x.status)}${x.review_state && x.review_state !== 'none' ? ' · ' + esc(x.review_state) : ''} · ${esc(x.client_name || '-')} → ${esc(x.editor_name || '—')}</small>
+        ${(x.reasons || []).length ? `<small style="display:block; color:${h[2]};">${esc(x.reasons.join(' · '))}</small>` : ''}</div>
+      <div style="text-align:right;"><b style="font-size:13px;">${rupees(x.amount)}</b><small class="muted" style="display:block; font-size:11px;">${esc(x.payment_status || 'unpaid')}</small></div></div>`; }).join('')}`;
+}
+SCREENS.adminProject = async (data) => {
+  const id = data && data.jobId;
+  const back = `<button class="back-btn" onclick="nav('admin', { tab: 'projects' })">‹</button>`;
+  let d;
+  try { d = await adminRpc('sp_admin_project_detail', { p_job: id }); }
+  catch(e) { return `<div class="header">${back}<h1>Project</h1></div><div class="screen"><p style="color:#c62828;">${esc(e.message)}</p></div>`; }
+  currentJobId = id;
+  const c = d.case || {}, j = c.job || {}, w = c.work || {}, job = d.job || {}, people = d.people || {}, h = HEALTH[(d.health || {}).kind] || HEALTH.normal;
+  const name = uid => esc(((people || {})[uid] || {}).name || '-');
+  const row = (k, v) => (v !== undefined && v !== null && v !== '') ? `<div class="kv"><span>${k}</span><b style="text-align:right; max-width:62%; white-space:pre-wrap;">${v}</b></div>` : '';
+  const st = d.settlement, rt = d.rating, sp = d.split;
+  const previews = (c.files || []).filter(f => f.kind === 'preview');
+  const openCase = (d.disputes || []).find(x => x.status === 'open');
+  return `
+  <div class="header">${back}<h1>${h[0]} ${esc(j.title || 'Project')}</h1><p>SPH-${String(id).replace(/-/g, '').slice(0, 6).toUpperCase()} · ${esc(job.status)}</p></div>
+  <div class="screen" style="padding-top:0;">
+    <div class="card" style="border:1.5px solid ${h[2]};"><b>${h[0]} ${h[1]}</b>${((d.health || {}).reasons || []).length ? `<p style="font-size:12px; margin-top:4px;">${esc(d.health.reasons.join(' · '))}</p>` : ''}
+      ${job.admin_note ? `<p class="muted" style="font-size:12px; margin-top:4px;">Admin note: ${esc(job.admin_note)}</p>` : ''}
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;">
+        ${job.admin_flag === 'suspicious' ? `<button class="btn-sm" onclick="adminProjectAction('${id}', 'clear')">✅ Clear flag</button>` : `<button class="btn-sm" onclick="adminProjectAction('${id}', 'flag')">⚠️ Flag suspicious</button>`}
+        ${openCase ? `<button class="btn-sm" onclick="nav('caseFile', { disputeId: '${openCase.id}' })">⚖️ Open case file</button>` : (['in-progress', 'delivered'].includes(job.status) ? `<button class="btn-sm" onclick="adminProjectAction('${id}', 'open_review')">⚖️ Open team review</button>` : '')}
+        ${w.phase === 'active' && job.status === 'in-progress' ? `<button class="btn-sm" onclick="adminProjectAction('${id}', 'add_time')">⏳ Give editor time</button>` : ''}
+        ${['open', 'negotiating', 'payment-pending'].includes(job.status) ? `<button class="btn-sm" style="color:#c62828;" onclick="adminProjectAction('${id}', 'close_unpaid')">✖ Close unpaid job</button>` : ''}
+        <button class="btn-sm" onclick="openJob('${id}')">👁 Project page</button>
+      </div></div>
+
+    <div class="ad-sec">People & money</div>
+    <div class="card">${row('Client', name(j.client_id))}${row('Editor', name(j.editor_id))}${row('Status', esc(job.status) + (job.review_state && job.review_state !== 'none' ? ' · ' + esc(job.review_state) : ''))}
+      ${row('Client paid', c.payment ? rupees(c.payment.amount) + ' · ' + esc(c.payment.status) : 'not paid')}${row('Extras paid', Number(j.extra_paid) ? rupees(j.extra_paid) : '')}
+      ${row('Payout', esc(job.payout_status || '-'))}${row('Released', job.released_at ? fmtDT(job.released_at) : '')}
+      ${(d.refunds || []).map(r => row('Refund', rupees(r.amount) + ' · ' + esc(r.status))).join('')}</div>
+
+    <div class="ad-sec">Requirements</div>
+    <div class="card">${row('Category', esc(j.category || ''))}<p style="font-size:13px; white-space:pre-wrap; margin:6px 0;">${esc(j.description || '')}</p>
+      ${row('Length', esc(j.length || ''))}${row('Format', esc(j.format || ''))}${row('Style', esc(j.style || ''))}${row('References', esc(j.references || ''))}${row('Revisions expected', j.revisions_expected)}
+      ${j.accepted_changes ? `<p style="font-size:12px; margin-top:6px;"><b>Accepted changes</b></p><p style="font-size:12px; white-space:pre-wrap;">${esc(j.accepted_changes)}</p>` : ''}</div>
+
+    <div class="ad-sec">Deadline & deliveries</div>
+    <div class="card">${row('Started', w.started_at ? fmtDT(w.started_at) : '')}${row('Original deadline', w.original_due_at ? fmtDT(w.original_due_at) : '')}${row('Current deadline', w.due_at ? fmtDT(w.due_at) : '')}
+      ${row('Time given', Number(w.extended_hours) ? '+' + w.extended_hours + ' h' : '')}
+      ${(d.deliveries || []).map(x => row(x.kind === 'main' ? 'First delivery' : 'Follow-up', fmtDT(x.delivered_at) + ' · ' + (Number(x.late_hours) ? '<span style="color:#c62828;">' + x.late_hours + ' h late</span>' : Number(x.early_hours) >= 0 ? Number(x.early_hours).toFixed(1) + ' h early' : 'in grace'))).join('')}
+      ${(d.extensions || []).map(x => row('Time request', '+' + x.hours + ' h · ' + esc(x.status))).join('')}</div>
+
+    <div class="ad-sec">Revisions & change requests</div>
+    <div class="card">${(c.revisions || []).map(r => `<p style="font-size:12px; margin:6px 0;"><b>Revision #${r.number}</b> (${esc(r.status)}${r.is_paid ? ', paid ₹' + r.fee : ''}): ${esc(r.notes)}</p>`).join('')}
+      ${(c.changes || []).map(x => `<p style="font-size:12px; margin:6px 0;"><b>Change</b> (${esc(x.status)}${Number(x.extra_price) ? ', +' + rupees(x.extra_price) : ''}${x.extra_hours ? ', +' + x.extra_hours + ' h' : ''}): ${esc(x.details)}</p>`).join('') || ((c.revisions || []).length ? '' : '<p class="muted">None</p>')}</div>
+
+    <div class="ad-sec">Previews & files</div>
+    <div class="card">${previews.map(f => `<div class="pf-row"><div class="pf-ic">🎞</div><div class="pf-main"><b>Preview v${f.version}</b><small>${fmtDT(f.at)} · ${esc(f.status)}</small></div></div>`).join('')}
+      ${previews.length ? `<button class="btn-sm" style="margin:6px 0;" onclick="openJob('${id}')">Watch on the project page</button>` : ''}
+      ${(c.files || []).filter(f => f.kind === 'client_file').map(f => `<p style="font-size:12px; margin:4px 0;">${f.source === 'link' ? '🔗 ' + linkOrText(f.link) : '📎 ' + esc(f.name || 'file')} <span class="muted">${fmtDT(f.at)} · ${esc(f.status)}</span></p>`).join('') || (previews.length ? '' : '<p class="muted">None</p>')}
+      ${d.final ? `<p style="font-size:12px; margin-top:6px;">🏁 Final: preview v${d.final.preview_version} · ${fmtDT(d.final.submitted_at)} · clean link (admin): ${linkOrText(d.final.final_link)}</p>` : ''}</div>
+
+    <div class="ad-sec">Rating, bonus & payouts (internal)</div>
+    <div class="card">${rt ? row('Client rating', ratingChip(rt.score) + (rt.feedback ? ' “' + esc(rt.feedback) + '”' : '')) : row('Client rating', 'not rated')}
+      ${st ? `${row('Client paid / editor base', rupees(st.client_paid) + ' / ' + rupees(st.editor_base))}${row('Pool → Sphere / bonus pool', rupees(st.pool) + ' → ' + rupees(st.sphere_guaranteed) + ' / ' + rupees(st.bonus_pool))}
+        ${row('Conditions', [st.c_early ? '✅ early' : '⬜ early', st.c_rating ? '✅ +3' : '⬜ +3', st.c_revisions ? '✅ ≤1 rev' : '⬜ ≤1 rev', st.c_quality ? '✅ clean' : '⬜ clean'].join(' '))}
+        ${row('Bonus awarded', rupees(st.bonus_awarded) + ' (' + st.conditions_met + '/4)')}${row('Late', st.late_hours + ' h → −' + rupees(st.late_deduction))}${row('Sphere total', rupees(st.sphere_total))}${row('Settlement', esc(st.status))}`
+        : (sp ? row('Split (from payment)', 'editor ' + rupees(sp.editor_payout) + ' · Sphere ' + rupees(sp.platform_fee)) : '<p class="muted" style="font-size:12px;">No settlement yet</p>')}
+      ${(d.payouts || []).map(x => row('Payout item', esc(x.kind) + ' ' + rupees(x.amount) + ' · ' + esc(x.status))).join('')}</div>
+
+    ${(d.disputes || []).length ? `<div class="ad-sec">Cases</div><div class="card">${d.disputes.map(x => `<p style="font-size:12px; margin:6px 0;"><b>${esc(x.kind)}</b> · ${esc(x.status)} · ${fmtDT(x.created_at)}${x.details ? '<br>“' + esc(x.details) + '”' : ''}${x.decision_note ? '<br>Decision: ' + esc(x.decision_note) : ''}</p>`).join('')}</div>` : ''}
+
+    <div class="ad-sec">Chat (${(c.chat || []).length} messages, contact details already hidden)</div>
+    <div class="card case-chat">${(c.chat || []).map(m => `<p><b class="${m.from === 'client' ? 'c' : 'e'}">${m.from}</b> <span class="muted">${fmtDT(m.at)}</span> ${m.media ? '[' + esc(m.media) + '] ' : ''}${esc(m.text || '')}${m.moderation && m.moderation !== 'ok' ? ' <i class="muted">(' + esc(m.moderation) + ')</i>' : ''}</p>`).join('') || '<p class="muted">No messages</p>'}</div>
+
+    <div class="ad-sec">Timeline</div>
+    <div class="card"><div class="tl">${(c.timeline || []).slice().reverse().map(e => `<div class="tl-item"><i>•</i><b>${esc(e.title)}</b><p>${fmtDT(e.at)}${e.details ? ' · ' + esc(e.details) : ''}</p></div>`).join('') || '<p class="muted">Empty</p>'}</div></div>
+
+    <div class="ad-sec">Admin history</div>
+    <div class="card">${(d.audit || []).map(a => `<p style="font-size:12px; margin:5px 0;">${fmtDT(a.at)} · <b>${esc(a.by)}</b> · ${esc(a.action)}${a.old || a.new ? ' ' + esc(a.old || '–') + ' → ' + esc(a.new || '–') : ''}${a.reason ? '<br><span class="muted">' + esc(a.reason) + '</span>' : ''}</p>`).join('') || '<p class="muted">No admin actions yet</p>'}</div>
+  </div>`;
+};
+async function adminProjectAction(jobId, action){
+  if(needPin()) return;
+  const q = { flag: 'Why is this project suspicious?', clear: 'Why is it fine now?', open_review: 'Why should the Sphere team review this project?', add_time: 'Why does the editor get more time?', close_unpaid: 'Why close this unpaid job? (the client sees this)' }[action];
+  let hours = null;
+  if(action === 'add_time'){ const hv = prompt('How many hours (1–168)?', '24'); if(hv === null) return; hours = parseInt(hv, 10); if(!(hours >= 1 && hours <= 168)){ alert('1–168 hours'); return; } }
+  const reason = adminReason(q); if(!reason) return;
+  try {
+    const res = await adminRpc('sp_admin_project_action', { p_job: jobId, p_action: action, p_reason: reason, p_hours: hours, p_pin: ADMIN_PIN });
+    if(action === 'open_review' && res && res.dispute_id) return nav('caseFile', { disputeId: res.dispute_id });
+    alert('Done ✅ Saved in the audit log.');
+  } catch(e) { alert(e.message); if(/PIN/i.test(e.message)) ADMIN_PIN = ''; }
+  nav('adminProject', { jobId });
+}
+
+// ---- 3) Disputes
+async function adminDisputesTab(){
+  const q = await loadCasesQueue();
+  const done = await adminRpc('sp_admin_audit_list', { p_limit: 30, p_action: 'case_decision' }).catch(() => []);
+  return casesQueueSection(Object.assign({}, q, { payouts: [] })) +
+    `<p class="muted" style="font-size:12px; margin:6px 0 12px;">Open a case file to see the complaint, requirements vs submitted previews, revisions and chat, then decide: release, full refund or send back to fix. AI notes are advice only.</p>
+    <h3 style="margin:16px 0 10px;">Recent decisions</h3>
+    ${(done || []).length ? done.map(a => `<div class="card"><p style="font-size:12px;"><b>${esc(a.project || 'Project')}</b> · ${esc(a.old || '–')} → <b>${esc(a.new || '–')}</b> · ${fmtDT(a.at)} · ${esc(a.by)}</p>${a.reason ? `<p class="muted" style="font-size:12px; margin-top:4px;">${esc(a.reason)}</p>` : ''}</div>`).join('') : '<p class="muted">No decisions yet.</p>'}`;
+}
+
+// ---- 4) Verification
+async function adminVerificationTab(){
+  const list = await adminRpc('sp_admin_verifications').catch(() => null);
+  if(!list) return `<div class="card" style="border:1.5px solid #e67e22;"><p style="font-size:12px;">⚙️ This part needs the latest database update (<b>014_admin_panel.sql</b>).</p></div><button class="btn btn-outline" onclick="nav('adminClassic')">Open classic tools (old verification list)</button>`;
+  const arr = v => Array.isArray(v) ? v.join(', ') : (v || '');
+  return `<p class="muted" style="font-size:12px; margin-bottom:10px;">Paying ₹${VERIFY_FEE} does <b>not</b> approve anyone — verify only after the call / work check.</p>
+    ${(list || []).length === 0 ? '<p class="muted">No pending verification requests. 👍</p>' : ''}
+    ${(list || []).map(e => `<div class="card">
+      <b>${esc(e.name || 'Editor')}</b> ${verifyStateChip(e.status)}
+      <p style="font-size:12px; margin:4px 0;">📞 ${e.phone ? `<a href="tel:${esc(e.phone)}">${esc(e.phone)}</a>` : '-'} · ${esc(e.email || '')}</p>
+      ${adminVerifyBlock({ verification_status: e.status, verification_fee_status: e.fee_status, verification_fee_ref: e.fee_ref, verification_fee_at: e.fee_at, verification_note: e.note })}
+      <div class="kv"><span>Categories</span><b>${esc(arr(e.categories)) || '-'}</b></div>
+      <div class="kv"><span>Languages</span><b>${esc(arr(e.languages)) || '-'}</b></div>
+      <div class="kv"><span>Skills</span><b>${esc(arr(e.skills)) || '-'}</b></div>
+      <div class="kv"><span>Experience / price</span><b>${esc(e.experience || '-')} yrs · ₹${esc(e.price || '-')}</b></div>
+      <div class="kv"><span>Paid works so far</span><b>${e.works}</b></div>
+      ${e.bio ? `<p style="font-size:12px; margin:6px 0;">${esc(e.bio)}</p>` : ''}
+      ${e.sample ? `<p style="font-size:12px;">🎬 Sample: ${linkOrText(e.sample)}</p>` : ''}${e.portfolio ? `<p style="font-size:12px;">📁 Portfolio: ${linkOrText(e.portfolio)}</p>` : ''}
+      <button class="btn btn-primary" style="margin-top:10px;" onclick="verifyEditor('${e.id}')">✔ Verify after call</button>
+      ${adminVerifyActions({ id: e.id, verification_status: e.status, verification_fee_status: e.fee_status })}
+      <button class="btn-sm" style="margin-top:6px;" onclick="nav('adminUser', { userId: '${e.id}' })">👤 Full profile</button>
+    </div>`).join('')}`;
+}
+
+// ---- 5) Moderation
+async function adminModerationTab(){
+  const [q, m0] = await Promise.all([loadModQueue(), adminRpc('sp_admin_moderation').catch(() => null)]);
+  const held = modQueueSection(Object.assign({}, q, { hidden: [], done: [] }));
+  if(!m0) return held + `<div class="card" style="border:1.5px solid #e67e22;"><p style="font-size:12px;">⚙️ This part needs the latest database update (<b>014_admin_panel.sql</b>).</p></div>`;
+  const m = m0;
+  return held + `
+    <h3 style="margin:20px 0 10px;">📵 Hidden automatically (${(m.hidden || []).length})</h3>
+    <p class="muted" style="font-size:12px; margin-bottom:8px;">Contact details are shown hidden. "Show original" needs a reason and is logged.</p>
+    ${(m.hidden || []).map(x => `<div class="card"><p style="font-size:12px;"><b>${esc(x.name || 'User')}</b> · ${esc(x.source)} · ${esc(x.kind)} · ${fmtDT(x.at)}</p>
+      <p class="muted" style="font-size:12px; margin:4px 0; white-space:pre-wrap;">${esc(String(x.text || '').slice(0, 200))}</p>
+      <button class="btn-sm" onclick="adminReveal(${x.id})">👁 Show original</button></div>`).join('') || '<p class="muted">None</p>'}
+    <h3 style="margin:20px 0 10px;">👤 Users with strikes (${(m.flagged_users || []).length})</h3>
+    ${(m.flagged_users || []).map(x => `<div class="card ad-row" onclick="nav('adminUser', { userId: '${x.id}' })"><div class="ad-ic">${x.suspended ? '⛔' : '⚠️'}</div>
+      <div class="ad-main"><b>${esc(x.name || 'User')}</b><small>${esc(x.role || '')} · ${x.strikes} strike${x.strikes === 1 ? '' : 's'}${x.suspended ? ' · suspended' : ''}${x.warned_at ? ' · warned' : ''}</small></div><b>›</b></div>`).join('') || '<p class="muted">None</p>'}
+    <h3 style="margin:20px 0 10px;">🗂 Moderation history</h3>
+    ${(m.reviewed || []).map(x => `<p style="font-size:12px; margin:6px 0;">${x.status === 'released' ? '✅ Delivered' : '🚫 Removed'}${x.by_ai ? ' by AI' : ''} · ${esc(x.name || '')} · ${fmtDT(x.at)}<br><span class="muted">${esc(maskContactText(x.text || ''))}</span></p>`).join('') || '<p class="muted">Nothing yet</p>'}`;
+}
+async function adminReveal(strikeId){
+  if(needPin()) return;
+  const reason = adminReason('Why do you need to see the original (with contact details)?'); if(!reason) return;
+  try { const t = await adminRpc('sp_admin_reveal', { p_strike: strikeId, p_reason: reason, p_pin: ADMIN_PIN }); alert('Original:\n\n' + t); }
+  catch(e) { alert(e.message); }
+}
+
+// ---- 6) Users
+async function adminUsersTab(){
+  const rows = await adminRpc('sp_admin_users', { p_search: adminUserSearch || null, p_role: adminUserRole, p_limit: 100 }).catch(() => null);
+  if(!rows) return `<div class="card" style="border:1.5px solid #e67e22;"><p style="font-size:12px;">⚙️ This part needs the latest database update (<b>014_admin_panel.sql</b>).</p></div>`;
+  return `<div class="ad-search"><input id="auSearch" placeholder="Name, email or phone" value="${esc(adminUserSearch)}" onkeypress="if(event.key==='Enter'){ adminUserSearch=this.value; nav('admin', { tab: 'users' }); }">
+      <select onchange="adminUserRole=this.value; nav('admin', { tab: 'users' })">${[['all', 'Everyone'], ['CLIENT', 'Clients'], ['EDITOR', 'Editors'], ['ADMIN', 'Admins']].map(([k, l]) => `<option value="${k}" ${adminUserRole === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <button class="btn-sm" onclick="adminUserSearch=document.getElementById('auSearch').value; nav('admin', { tab: 'users' })">Go</button></div>
+    ${(rows || []).map(x => `<div class="card ad-row" onclick="nav('adminUser', { userId: '${x.id}' })"><div class="ad-ic">${x.suspended ? '⛔' : x.role === 'EDITOR' ? (x.verified ? '✔' : '🎬') : x.role === 'ADMIN' ? '🛠' : '👤'}</div>
+      <div class="ad-main"><b>${esc(x.name || '-')}</b><small>${esc(x.role)} · ${esc(x.email || '')}${x.strikes ? ' · ' + x.strikes + ' strikes' : ''}${x.rating_avg !== null && x.rating_avg !== undefined ? ' · rating ' + x.rating_avg : ''} · ${x.projects} projects</small></div><b>›</b></div>`).join('') || '<p class="muted">No users found.</p>'}`;
+}
+SCREENS.adminUser = async (data) => {
+  const id = data && data.userId;
+  const back = `<button class="back-btn" onclick="nav('admin', { tab: 'users' })">‹</button>`;
+  let d;
+  try { d = await adminRpc('sp_admin_user_detail', { p_user: id }); }
+  catch(e) { return `<div class="header">${back}<h1>User</h1></div><div class="screen"><p style="color:#c62828;">${esc(e.message)}</p></div>`; }
+  const p = d.profile || {}, f = d.flags || {}, ea = d.earnings || {};
+  const row = (k, v) => (v !== undefined && v !== null && v !== '') ? `<div class="kv"><span>${k}</span><b style="text-align:right; max-width:62%;">${v}</b></div>` : '';
+  const me = (getCurrentUser() || {}).id;
+  return `
+  <div class="header">${back}<h1>${esc(p.name || 'User')}</h1><p>${esc(p.role || '')}${f.is_suspended ? ' · ⛔ suspended' : ''}</p></div>
+  <div class="screen" style="padding-top:0;">
+    <div class="card">${row('Email', esc(p.email || ''))}${row('Phone', p.phone ? `<a href="tel:${esc(p.phone)}">${esc(p.phone)}</a>` : '')}${row('Role', esc(p.role))}
+      ${p.role === 'EDITOR' ? row('Verification', verifyStateChip(p.verified ? 'approved' : (p.verification_status || 'pending')) + (p.verification_code ? ' ' + esc(p.verification_code) : '')) : ''}
+      ${p.verification_note ? row('Note', esc(p.verification_note)) : ''}${row('Strikes', (f.strike_count || 0) + (f.warned_at ? ' · warned ' + fmtDT(f.warned_at) : ''))}
+      ${row('Account', f.is_suspended ? '⛔ Suspended' : '✅ Active')}${row('Joined', p.created_at ? fmtDate(p.created_at) : '')}
+      ${p.id !== me ? `<div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;">
+        ${f.is_suspended ? `<button class="btn-sm" onclick="adminUserAction('${id}', 'reactivate')">✅ Reactivate</button>` : `<button class="btn-sm" style="color:#c62828;" onclick="adminUserAction('${id}', 'suspend')">⛔ Suspend</button>`}
+        <button class="btn-sm" onclick="adminUserAction('${id}', 'warn')">⚠️ Warn</button>
+        ${f.strike_count ? `<button class="btn-sm" onclick="adminUserAction('${id}', 'clear_strikes')">🧹 Clear strikes</button>` : ''}</div>` : ''}</div>
+    ${p.role === 'EDITOR' ? `<div class="ad-sec">Earnings (internal)</div><div class="card">${row('Settled projects', ea.projects)}${row('Base', rupees(ea.base))}${row('Bonus', rupees(ea.bonus))}${row('Late deductions', rupees(ea.deductions))}</div>` : `<div class="ad-sec">Spent</div><div class="card">${row('Paid through Sphere', rupees(d.spent))}</div>`}
+    <div class="ad-sec">Projects (${(d.projects || []).length})</div>
+    <div class="card">${(d.projects || []).map(x => `<div class="pf-row" style="cursor:pointer;" onclick="nav('adminProject', { jobId: '${x.id}' })"><div class="pf-ic">${x.as === 'client' ? '🧑‍💼' : '🎬'}</div><div class="pf-main"><b>${esc(x.title || 'Project')}</b><small>${esc(x.as)} · ${esc(x.status)} · ${fmtDate(x.created_at)}</small></div><b style="font-size:12px;">${rupees(x.amount)}</b></div>`).join('') || '<p class="muted">None</p>'}</div>
+    ${(d.ratings_received || []).length ? `<div class="ad-sec">Ratings received</div><div class="card">${d.ratings_received.map(r => `<p style="font-size:12px; margin:5px 0;">${ratingChip(r.score)} ${fmtDate(r.at)}${r.feedback ? ' · “' + esc(r.feedback) + '”' : ''}</p>`).join('')}</div>` : ''}
+    ${(d.ratings_given || []).length ? `<div class="ad-sec">Ratings given</div><div class="card">${d.ratings_given.map(r => `<p style="font-size:12px; margin:5px 0;">${ratingChip(r.score)} ${fmtDate(r.at)}</p>`).join('')}</div>` : ''}
+    <div class="ad-sec">Strikes (contact details hidden)</div>
+    <div class="card">${(d.strikes || []).map(x => `<p style="font-size:12px; margin:5px 0;">${fmtDT(x.at)} · ${esc(x.source)} · ${esc(x.kind)}${x.cleared ? ' · cleared' : ''}<br><span class="muted">${esc(String(x.text || '').slice(0, 160))}</span></p>`).join('') || '<p class="muted">None</p>'}</div>
+    <div class="ad-sec">Admin history</div>
+    <div class="card">${(d.audit || []).map(a => `<p style="font-size:12px; margin:5px 0;">${fmtDT(a.at)} · <b>${esc(a.by)}</b> · ${esc(a.action)}${a.old || a.new ? ' ' + esc(a.old || '–') + ' → ' + esc(a.new || '–') : ''}${a.reason ? '<br><span class="muted">' + esc(a.reason) + '</span>' : ''}</p>`).join('') || '<p class="muted">No admin actions yet</p>'}</div>
+  </div>`;
+};
+async function adminUserAction(userId, action){
+  if(needPin()) return;
+  let reason = '';
+  if(action !== 'clear_strikes'){
+    reason = adminReason({ suspend: 'Why suspend this account? (the user sees it)', reactivate: 'Why reactivate?', warn: 'Warning message for the user:' }[action]);
+    if(!reason) return;
+  } else if(!confirm('Clear all strikes for this user?')) return;
+  try { await adminRpc('sp_admin_user_action', { p_user: userId, p_action: action, p_reason: reason || 'Strikes cleared by admin', p_pin: ADMIN_PIN }); alert('Done ✅ Saved in the audit log.'); }
+  catch(e) { alert(e.message); if(/PIN/i.test(e.message)) ADMIN_PIN = ''; }
+  nav('adminUser', { userId });
+}
+
+// ---- 7) Payments
+async function adminPaymentsTab(){
+  const [d0, xq] = await Promise.all([adminRpc('sp_admin_payments').catch(() => null), loadExtrasQueue()]);
+  if(!d0) return extrasQueueSection(xq) + payoutItemsHtml(await loadCasesQueue()) + `<div class="card" style="border:1.5px solid #e67e22;"><p style="font-size:12px;">⚙️ This part needs the latest database update (<b>014_admin_panel.sql</b>).</p></div>`;
+  const d = d0, bs = d.by_status || {}, t = d.totals || {};
+  const pend = (d.payout_items || []).filter(x => x.status === 'pending');
+  return `
+    <div class="ad-grid">
+      <div class="ad-stat"><b>${bs.paid || 0}</b><span>Paid (held / released)</span></div><div class="ad-stat"><b>${bs.pending || 0}</b><span>Pending</span></div>
+      <div class="ad-stat"><b>${bs.failed || 0}</b><span>Failed attempts</span></div><div class="ad-stat"><b>${bs.refunded || 0}</b><span>Refunded</span></div>
+    </div>
+    ${extrasQueueSection(xq)}
+    <h3 style="margin:16px 0 10px;">💸 Payouts & deductions (${pend.length + (d.manual_payouts || []).length})</h3>
+    ${(d.manual_payouts || []).map(x => `<div class="card" style="border-left:4px solid #e67e22;"><p style="font-size:13px;"><b>${rupees(x.amount)}</b> to ${esc(x.editor || 'Editor')} · ${esc(x.title || '')}</p><p class="muted" style="font-size:12px;">Project payout ${esc(x.payout_status)} — handle it in Classic tools → Manual payouts.</p>
+      <button class="btn-sm" style="margin-top:6px;" onclick="nav('adminClassic')">Open classic tools</button></div>`).join('')}
+    ${pend.map(p => `<div class="card" style="${p.kind === 'deduction' ? 'border-left:4px solid #c62828;' : ''}"><p style="font-size:13px;"><b>${p.kind === 'deduction' ? '−' : ''}${rupees(p.amount)}</b> · ${esc(p.editor || 'Editor')}</p>
+      <p class="muted" style="font-size:12px;">${p.kind === 'bonus' ? '🏆 Performance bonus' : p.kind === 'deduction' ? '⏰ Late deduction to recover' : '➕ Paid revisions / changes'} — ${esc(p.note || '')}</p>
+      <button class="btn-sm" style="margin-top:6px;" onclick="markPayoutPaid('${p.id}')">✅ ${p.kind === 'deduction' ? 'Mark recovered' : 'Mark paid'}</button></div>`).join('') || ((d.manual_payouts || []).length ? '' : '<p class="muted">Nothing to pay. 👍</p>')}
+    <h3 style="margin:16px 0 10px;">↩️ Refunds (${(d.refunds || []).length})</h3>
+    ${(d.refunds || []).map(r => `<div class="card"><p style="font-size:13px;"><b>${rupees(r.amount)}</b> · ${esc(r.title || '')} · <b>${esc(r.status)}</b></p><p class="muted" style="font-size:12px;">${fmtDT(r.created_at)}${r.reason ? ' · ' + esc(r.reason) : ''}${r.error ? ' · error: ' + esc(r.error) : ''}</p>
+      <button class="btn-sm" style="margin-top:6px;" onclick="nav('adminProject', { jobId: '${r.job_id}' })">Open project</button></div>`).join('') || '<p class="muted">No refunds.</p>'}
+    <h3 style="margin:16px 0 10px;">🏆 Editor earnings (internal)</h3>
+    <div class="card"><div class="earn-row"><span>Editor base (settled)</span><b>${rupees(t.base)}</b></div><div class="earn-row"><span>Bonuses</span><b>${rupees(t.bonus)}</b></div>
+      <div class="earn-row"><span>Late deductions</span><b>${rupees(t.deductions)}</b></div><div class="earn-row"><span>Sphere from settled projects</span><b>${rupees(t.sphere)}</b></div></div>
+    <div class="card" style="overflow-x:auto;"><table class="ad-tbl"><tr><th>Project</th><th>Editor</th><th>Paid</th><th>Base</th><th>Pool</th><th>Bonus</th><th>Late</th><th>Status</th></tr>
+      ${(d.settlements || []).map(x => `<tr style="cursor:pointer;" onclick="nav('adminProject', { jobId: '${x.job_id}' })"><td>${esc(String(x.title || '').slice(0, 18))}</td><td>${esc(String(x.editor || '').split(' ')[0])}</td><td>${rupees(x.paid)}</td><td>${rupees(x.base)}</td><td>${rupees(x.pool)}</td><td>${rupees(x.bonus)} (${x.met}/4)</td><td>${x.late_hours ? x.late_hours + 'h −' + rupees(x.deduction) : '–'}</td><td>${esc(x.status)}</td></tr>`).join('')}</table></div>
+    <h3 style="margin:16px 0 10px;">🧾 Latest client payments</h3>
+    <div class="card" style="overflow-x:auto;"><table class="ad-tbl"><tr><th>Project</th><th>Amount</th><th>Status</th><th>Project</th><th>Payout</th><th>Paid at</th></tr>
+      ${(d.payments || []).map(x => `<tr style="cursor:pointer;" onclick="nav('adminProject', { jobId: '${x.job_id}' })"><td>${esc(String(x.title || '').slice(0, 18))}</td><td>${rupees(x.amount)}</td><td>${esc(x.status)}</td><td>${esc(x.job_status || '')}</td><td>${esc(x.payout_status || '–')}</td><td>${x.paid_at ? fmtDT(x.paid_at) : '–'}</td></tr>`).join('')}</table></div>`;
+}
+
+// ---- 8) Audit log
+async function adminAuditTab(){
+  const rows = await adminRpc('sp_admin_audit_list', { p_limit: 150, p_action: adminAuditFilter || null }).catch(() => null);
+  if(!rows) return `<div class="card" style="border:1.5px solid #e67e22;"><p style="font-size:12px;">⚙️ This part needs the latest database update (<b>014_admin_panel.sql</b>).</p></div>`;
+  const actions = ['', 'verification', 'verification_fee', 'suspend', 'reactivate', 'warn', 'clear_strikes', 'case_opened', 'case_decision', 'refund', 'message_review',
+    'reveal_hidden_text', 'extra_payment', 'payout', 'project_status', 'project_flag', 'project_payout', 'add_time', 'setting', 'report', 'role'];
+  return `<div class="ad-search"><select onchange="adminAuditFilter=this.value; nav('admin', { tab: 'audit' })">${actions.map(a => `<option value="${a}" ${adminAuditFilter === a ? 'selected' : ''}>${a ? a.replace(/_/g, ' ') : 'All actions'}</option>`).join('')}</select></div>
+    ${(rows || []).map(a => `<div class="card" style="padding:10px 12px;"><p style="font-size:12px;"><b>${esc(a.action.replace(/_/g, ' '))}</b> · ${esc(a.by)} · ${fmtDT(a.at)}</p>
+      <p style="font-size:12px; margin-top:2px;">${a.project ? '📁 ' + esc(a.project) + ' ' : ''}${a.user ? '👤 ' + esc(a.user) + ' ' : ''}${a.old || a.new ? '· ' + esc(a.old || '–') + ' → <b>' + esc(a.new || '–') + '</b>' : ''}</p>
+      ${a.reason ? `<p class="muted" style="font-size:12px; margin-top:2px;">${esc(a.reason)}</p>` : ''}</div>`).join('') || '<p class="muted">No entries yet.</p>'}`;
+}
+
+/* ============ PART 15: MONETIZATION ============
+   ₹29 verification and ₹199 Editor Pro are rows in sp_fee_payments. The app only
+   STARTS a payment (sp_fee_start); it becomes PAID only on the server — the
+   sphere-extra-payment Edge Function after Razorpay's signature check, or an admin
+   confirming a UPI transaction ID. Paying ₹29 never approves anyone.
+   Pro benefits and Sponsored slots come from sp_monetization_config (Admin →
+   Monetization), so they can change without touching the payment code. */
+let MON_CFG = null, MON_CFG_AT = 0, PRO_SET = new Set(), PRO_SET_AT = 0;
+async function loadMonConfig(force){
+  if(!force && MON_CFG && Date.now() - MON_CFG_AT < 300000) return MON_CFG;
+  try {
+    const { data, error } = await sb.from('sp_monetization_config').select('key, value');
+    if(!error){ MON_CFG = {}; (data || []).forEach(r => { MON_CFG[r.key] = r.value || {}; }); MON_CFG_AT = Date.now(); }
+  } catch(e) {}
+  return MON_CFG;
+}
+function monCfg(key){ return (MON_CFG && MON_CFG[key]) || {}; }
+function proBenefit(k){ const b = (monCfg('pro').benefits || {}); return k === 'free_open_bids' ? Number(b[k]) || 0 : b[k] === true; }
+async function loadProSet(){
+  if(Date.now() - PRO_SET_AT < 120000) return PRO_SET;
+  await loadMonConfig();
+  try {
+    const { data, error } = await sb.from('sp_pro_public').select('editor_id');
+    if(!error){ PRO_SET = new Set((data || []).map(r => r.editor_id)); PRO_SET_AT = Date.now(); }
+  } catch(e) {}
+  return PRO_SET;
+}
+function proChip(id){ return PRO_SET.has(id) && proBenefit('badge') ? '<span class="pro-chip">PRO</span>' : ''; }
+const PAY_STATE = { not_started: ['Not started', '#475569', '#eef2f7'], pending: ['Pending', '#b45309', '#fff4e0'], paid: ['Paid', '#15803d', '#e7f7ec'], failed: ['Failed', '#c62828', '#fdecec'] };
+function payStateChip(k){ const m = PAY_STATE[k] || PAY_STATE.not_started; return `<span class="pay-state" style="color:${m[1]}; background:${m[2]};">${m[0]}</span>`; }
+const SUB_STATE = { inactive: ['Inactive', '#475569', '#eef2f7'], pending: ['Pending', '#b45309', '#fff4e0'], active: ['Active', '#15803d', '#e7f7ec'], expired: ['Expired', '#6b7280', '#f1f2f4'], failed: ['Failed', '#c62828', '#fdecec'] };
+function subStateChip(k){ const m = SUB_STATE[k] || SUB_STATE.inactive; return `<span class="pay-state" style="color:${m[1]}; background:${m[2]};">${m[0]}</span>`; }
+async function loadMyMoney(){
+  try { const { data, error } = await sb.rpc('sp_my_monetization'); return error ? null : data; } catch(e) { return null; }
+}
+function subStatus(m){
+  const s = m && m.subscription;
+  if(!s) return 'inactive';
+  if(s.status === 'active' && s.current_period_end && new Date(s.current_period_end) <= new Date()) return 'expired';
+  return s.status || 'inactive';
+}
+
+// ---- pay a fee: Razorpay through the server, UPI transaction ID as the fallback
+async function payFee(kind, after){
+  const btn = document.getElementById('feePayBtn'); if(btn) btn.disabled = true;
+  const { data: f, error } = await sb.rpc('sp_fee_start', { p_kind: kind });
+  if(error){ if(btn) btn.disabled = false; alert(error.message); return; }
+  let order = null;
+  try {
+    const { data, error: e2 } = await sb.functions.invoke('sphere-extra-payment', { body: { action: 'create', feeId: f.id } });
+    if(!e2 && data && data.ok) order = data;
+  } catch(e) {}
+  if(!order || typeof Razorpay === 'undefined'){
+    if(btn) btn.disabled = false;
+    alert('Online payment is not available right now. Pay by UPI and type the transaction ID below.');
+    const d = document.getElementById('feeUpi'); if(d){ d.open = true; d.scrollIntoView({ behavior: 'smooth' }); }
+    return;
+  }
+  const user = getCurrentUser();
+  const rzp = new Razorpay({
+    key: order.key_id || RAZORPAY_KEY_ID, amount: order.amount, currency: order.currency, order_id: order.order_id,
+    name: 'Sphere — Syahi Films', description: kind === 'pro' ? 'Editor Pro — 1 month' : 'Editor verification fee (one-time)',
+    prefill: { name: user.name, email: user.email, contact: user.phone || '' }, theme: { color: '#1657ff' },
+    handler: async function(r){
+      const { data: v, error: ve } = await sb.functions.invoke('sphere-extra-payment', { body: { action: 'verify', feeId: f.id, order_id: r.razorpay_order_id, payment_id: r.razorpay_payment_id, signature: r.razorpay_signature } });
+      if(!ve && v && v.valid) alert(kind === 'pro' ? 'Payment successful ✅ Sphere Pro is active.' : 'Payment successful ✅ Your verification request is with the Sphere team.');
+      else alert('We could not confirm the payment yet. Payment ID: ' + r.razorpay_payment_id + '\nKeep this ID — you will not be charged twice.');
+      await fetchAndSetCurrentUser(); PRO_SET_AT = 0; nav(after);
+    },
+    modal: { ondismiss: function(){ if(btn) btn.disabled = false; nav(after); } }
+  });
+  rzp.on('payment.failed', async function(resp){
+    await sb.rpc('sp_fee_failed', { p_fee: f.id, p_reason: (resp.error && resp.error.description) || 'Payment failed' }).then(() => {}, () => {});
+    alert('Payment failed: ' + ((resp.error && resp.error.description) || '') + '\nNo money was taken.');
+  });
+  rzp.open();
+}
+function feeUpiBlock(kind, amount, pendingId){
+  const upi = `upi://pay?pa=${encodeURIComponent(FEE_UPI)}&pn=${encodeURIComponent(FEE_UPI_NAME)}&am=${amount}&cu=INR&tn=${encodeURIComponent(kind === 'pro' ? 'Sphere Pro' : 'Sphere verification')}`;
+  const mobile = /android|iphone|ipad/i.test(navigator.userAgent);
+  return `<details id="feeUpi" style="margin-top:10px;"><summary class="muted" style="font-size:12px;">Pay by UPI instead</summary>
+    <p style="font-size:12px; margin:8px 0;">Send <b>₹${amount}</b> to UPI ID <b>${esc(FEE_UPI)}</b> (${esc(FEE_UPI_NAME)})${mobile ? '' : ' — scan the QR with your phone'}, then type the 12-digit transaction ID.</p>
+    ${mobile ? `<a class="btn btn-outline" style="display:block; text-align:center; text-decoration:none; margin-bottom:8px;" href="${upi}">Open UPI app</a>` : `<div style="text-align:center; margin:6px 0;"><img alt="UPI QR" style="width:170px; height:170px;" src="https://api.qrserver.com/v1/create-qr-code/?size=340x340&data=${encodeURIComponent(upi)}"></div>`}
+    <div class="field"><input id="feeUtr" inputmode="numeric" maxlength="22" placeholder="e.g. 412345678901"></div>
+    <button class="btn btn-outline" onclick="submitFeeUtr('${kind}')">I have paid ₹${amount}</button></details>`;
+}
+async function submitFeeUtr(kind){
+  const utr = ((document.getElementById('feeUtr') || {}).value || '').replace(/\s+/g, '');
+  if(!/^[A-Za-z0-9]{10,22}$/.test(utr)){ alert('Enter the UPI transaction ID (usually 12 digits).'); return; }
+  const { data: f, error } = await sb.rpc('sp_fee_start', { p_kind: kind });
+  if(error){ alert(error.message); return; }
+  const { error: e2 } = await sb.rpc('sp_fee_submit_utr', { p_fee: f.id, p_utr: utr });
+  if(e2){ alert(e2.message); return; }
+  alert('Thank you ✅ Sphere will check your payment' + (kind === 'pro' ? ' and turn on Pro.' : ' and then review your verification.'));
+  await fetchAndSetCurrentUser();
+  nav(kind === 'pro' ? 'proScreen' : 'verificationStatus');
+}
+
+// ---- ₹29 verification card on the verification screen
+async function fillVerifyFee(u){
+  const box = document.getElementById('vfeeBox');
+  if(!box) return;
+  const m = await loadMyMoney();
+  if(!m){ box.innerHTML = verifyFeeSectionLegacy(u); return; }
+  const price = Number(((m.config || {}).verification || {}).price) || VERIFY_FEE;
+  const v = m.verification;
+  let state = 'not_started';
+  if(m.verification_paid || u.feeStatus === 'confirmed') state = 'paid';
+  else if(v && v.status === 'pending' && (v.utr || u.feeStatus === 'submitted')) state = 'pending';
+  else if(v && v.status === 'pending') state = 'pending';
+  else if(v && v.status === 'failed') state = 'failed';
+  let html = `<div class="card" style="border:1.5px solid ${PAY_STATE[state][1]};"><b>💳 Verification fee: ₹${price}</b> ${payStateChip(state)}
+    <p class="muted" style="font-size:12px; margin:4px 0 8px;">One-time processing fee. Paying does <b>not</b> give the tick by itself — the Sphere team reviews you after payment.</p>`;
+  if(state === 'paid') html += `<p style="font-size:13px;">✅ Paid${v && v.paid_at ? ' on ' + fmtDate(v.paid_at) : ''}. Your request is with the Sphere team — you get the ✔ tick only after they approve it.</p>`;
+  else if(state === 'pending' && (v && v.utr || u.feeStatus === 'submitted')) html += `<p style="font-size:13px;">⏳ UPI transaction ID <b>${esc((v && v.utr) || u.feeRef || '')}</b> sent — Sphere is checking it.</p>`;
+  else {
+    if(state === 'failed') html += `<p style="font-size:12px; color:#c62828; margin-bottom:8px;">Last attempt failed${v.failure_reason ? ': ' + esc(v.failure_reason) : ''}. No money was taken — try again.</p>`;
+    if(state === 'pending') html += `<p style="font-size:12px; margin-bottom:8px;">A payment was started but not finished.</p>`;
+    html += `<button class="btn btn-primary" id="feePayBtn" onclick="payFee('verification', 'verificationStatus')">🔒 Pay ₹${price}</button>` + feeUpiBlock('verification', price);
+  }
+  box.innerHTML = html + '</div>';
+}
+
+// ---- Editor Pro
+async function fillProHomeCard(){
+  const el = document.getElementById('proHomeCard');
+  if(!el) return;
+  const m = await loadMyMoney();
+  if(!m) return;
+  const st = subStatus(m), price = Number(((m.config || {}).pro || {}).price) || 199, s = m.subscription || {};
+  el.innerHTML = `<div class="card" style="display:flex; align-items:center; gap:12px; cursor:pointer;" onclick="nav('proScreen')">
+    <div style="font-size:26px;">⭐</div><div style="flex:1;"><b>Sphere Pro</b> ${subStateChip(st)}
+      <p class="muted" style="font-size:12px; margin-top:2px;">${st === 'active' ? 'Active until ' + fmtDate(s.current_period_end) : 'Boost your profile and get jobs faster — ₹' + price + '/month'}</p></div>
+    <b style="color:var(--blue); font-size:13px;">${st === 'active' ? 'Manage' : 'Upgrade'} ›</b></div>`;
+}
+SCREENS.proScreen = async () => {
+  const back = `<button class="back-btn" onclick="nav('home')">‹</button>`;
+  const m = await loadMyMoney();
+  if(!m) return `<div class="header">${back}<h1>Sphere Pro</h1></div><div class="screen"><div class="card"><p>Sphere Pro needs the latest database update (015_monetization.sql).</p></div></div>`;
+  const cfg = (m.config || {}).pro || {}, price = Number(cfg.price) || 199, days = Number(cfg.days) || 30, renewDays = Number(cfg.renew_days) || 3;
+  const ben = cfg.benefits || {}, labels = cfg.labels || {};
+  const st = subStatus(m), s = m.subscription || {};
+  const end = s.current_period_end ? new Date(s.current_period_end) : null;
+  const canBuy = st !== 'active' || (end && end - Date.now() <= renewDays * 86400000);
+  const pending = (m.pro_payments || []).find(p => p.status === 'pending' && p.utr);
+  const list = Object.keys(labels).filter(k => k === 'free_open_bids' ? Number(ben[k]) > 0 : ben[k] === true);
+  let analytics = '';
+  if(st === 'active' && ben.analytics){
+    try { const { data: a } = await sb.rpc('sp_pro_analytics'); if(a) analytics = `<div class="card"><b>📈 Your analytics</b>
+      <div class="ad-grid" style="margin-top:10px;"><div class="ad-stat"><b>${rupees(a.earned_30d)}</b><span>Earned (30 days)</span></div><div class="ad-stat"><b>${rupees(a.earned_90d)}</b><span>Earned (90 days)</span></div>
+      <div class="ad-stat"><b>${a.won_90d}/${a.bids_90d}</b><span>Bids won (90 days)</span></div><div class="ad-stat"><b>${a.on_time_pct === null ? '–' : a.on_time_pct + '%'}</b><span>On-time deliveries</span></div>
+      <div class="ad-stat"><b>${a.avg_rating === null ? '–' : (a.avg_rating > 0 ? '+' : '') + a.avg_rating}</b><span>Average rating</span></div><div class="ad-stat"><b>${rupees(a.bonus_total)}</b><span>Bonus earned</span></div></div></div>`; } catch(e) {}
+  }
+  return `
+  <div class="header">${back}<h1>Sphere Pro</h1><p>For editors · clients are never charged</p></div>
+  <div class="screen" style="padding-top:0;">
+    <div class="pro-hero"><span class="pro-chip" style="margin:0;">PRO</span><h2>₹${price} / month</h2><p>${days} days per payment · renew any time in the last ${renewDays} days</p></div>
+    <div class="card"><b>Your plan</b> ${subStateChip(st)}
+      ${st === 'active' ? `<p style="font-size:13px; margin-top:6px;">Active until <b>${fmtDT(s.current_period_end)}</b></p>` : ''}
+      ${st === 'expired' ? `<p style="font-size:13px; margin-top:6px;">Expired on ${fmtDT(s.current_period_end)}</p>` : ''}
+      ${st === 'failed' ? `<p style="font-size:12px; margin-top:6px; color:#c62828;">The last payment failed. No money was taken — try again.</p>` : ''}
+      ${pending ? `<p style="font-size:12px; margin-top:6px;">⏳ UPI transaction ID <b>${esc(pending.utr)}</b> sent — Sphere is checking it.</p>` : ''}
+      ${!pending && canBuy ? `<button class="btn btn-primary" style="margin-top:10px;" id="feePayBtn" onclick="payFee('pro', 'proScreen')">${st === 'active' ? 'Renew' : 'Upgrade'} — ₹${price}</button>${feeUpiBlock('pro', price)}`
+        : (!pending && st === 'active' ? `<p class="muted" style="font-size:12px; margin-top:8px;">You can renew in the last ${renewDays} days before it ends.</p>` : '')}
+    </div>
+    <div class="card"><b>What you get</b>${list.map(k => `<div class="pro-ben"><span>✅</span><span>${esc(labels[k])}${k === 'free_open_bids' ? ' (free editors: ' + Number(ben[k]) + ' at a time)' : ''}</span></div>`).join('') || '<p class="muted">Benefits are being updated.</p>'}</div>
+    ${analytics}
+    ${(m.pro_payments || []).length ? `<div class="card"><b>Payments</b>${m.pro_payments.map(p => `<div class="earn-row"><span>${fmtDate(p.created_at)} · ${esc(p.method || '')}</span><span>${rupees(p.amount)} ${payStateChip(p.status === 'cancelled' ? 'failed' : p.status)}</span></div>`).join('')}</div>` : ''}
+  </div>`;
+};
+
+// ---- Sponsored cards (empty when switched off; nothing is faked)
+async function fillSponsored(slot, tries){
+  const el = document.getElementById('ad_' + slot);
+  if(!el){ if((tries || 0) < 12) setTimeout(() => fillSponsored(slot, (tries || 0) + 1), 150); return; }
+  if(el.dataset.filled) return;
+  el.dataset.filled = '1';
+  await loadMonConfig();
+  const c = monCfg('sponsored');
+  if(!c.enabled || !(c.slots || {})[slot]) return;
+  try {
+    const { data, error } = await sb.rpc('sp_sponsored_for', { p_slot: slot });
+    const it = !error && data && data[0];
+    if(!it || !document.getElementById('ad_' + slot)) return;
+    el.innerHTML = `<div class="card sp-card" ${it.link ? `style="cursor:pointer;" onclick="sponsoredClick('${it.id}', '${esc(it.link)}')"` : ''}>
+      <span class="sp-label">Sponsored${it.advertiser ? ' · ' + esc(it.advertiser) : ''}</span>
+      <div class="sp-row">${it.image ? `<img src="${esc(it.image)}" alt="" loading="lazy">` : ''}<div style="flex:1;"><b style="font-size:14px;">${esc(it.title)}</b>${it.body ? `<p class="muted" style="font-size:12px; margin-top:2px;">${esc(it.body)}</p>` : ''}</div>
+      ${it.cta && it.link ? `<span class="btn-sm" style="flex:none;">${esc(it.cta)}</span>` : ''}</div></div>`;
+  } catch(e) {}
+}
+function sponsoredClick(id, link){
+  sb.rpc('sp_ad_click', { p_item: id }).then(() => {}, () => {});
+  if(/^https:\/\//i.test(link)) window.open(link, '_blank', 'noopener,noreferrer');
+}
+
+// ---- Admin → Monetization
+async function adminMonetizationTab(){
+  const d = await adminRpc('sp_mon_admin').catch(() => null);
+  if(!d) return `<div class="card" style="border:1.5px solid #e67e22;"><p style="font-size:12px;">⚙️ This part needs the latest database update (<b>015_monetization.sql</b>).</p></div>`;
+  const cfg = d.config || {}, sp = cfg.sponsored || { slots: {} }, pro = cfg.pro || { benefits: {} }, ver = cfg.verification || {}, t = d.totals || {};
+  const SLOTS = [['client_home', 'Client Home (below projects)'], ['editor_jobs', 'Editor job list (after 3rd job)'], ['editor_list', 'All Editors list (below the grid)']];
+  const BEN = [['badge', 'PRO badge'], ['boost', 'Shown first in editor lists'], ['analytics', 'Analytics'], ['priority_alerts', 'Instant job alerts']];
+  return `
+    <div class="ad-grid">
+      <div class="ad-stat"><b>${rupees(t.verification)}</b><span>₹29 fees paid</span></div><div class="ad-stat"><b>${rupees(t.pro)}</b><span>Pro payments</span></div>
+      <div class="ad-stat"><b>${t.pro_active}</b><span>Active Pro editors</span></div><div class="ad-stat"><b>${t.ad_clicks}</b><span>Real sponsored clicks</span></div>
+    </div>
+    <h3 style="margin:14px 0 10px;">🧾 UPI payments to check (${(d.to_check || []).length})</h3>
+    ${(d.to_check || []).map(x => `<div class="card mq-item"><p style="font-size:13px;"><b>${rupees(x.amount)}</b> · ${x.kind === 'pro' ? '⭐ Pro' : '✔ Verification'} · ${esc(x.name || 'Editor')}</p>
+      <p style="font-size:12px;">UPI transaction ID: <b>${esc(x.utr)}</b> · ${fmtDT(x.created_at)}</p><p class="muted" style="font-size:11px;">Check it in the ${esc(FEE_UPI)} account first.</p>
+      <div style="display:flex; gap:6px; margin-top:8px;"><button class="btn-sm" style="background:#15803d; color:#fff;" onclick="feeAdmin('${x.id}', 'confirm')">✅ Received</button><button class="btn-sm" style="color:#c62828;" onclick="feeAdmin('${x.id}', 'reject')">❌ Not found</button></div></div>`).join('') || '<p class="muted">Nothing to check. 👍</p>'}
+    <h3 style="margin:16px 0 10px;">✔ Verification payments</h3>
+    <div class="card" style="overflow-x:auto;"><table class="ad-tbl"><tr><th>Editor</th><th>Amount</th><th>Payment</th><th>Method</th><th>Review</th><th>Date</th></tr>
+      ${(d.verification_payments || []).map(x => `<tr><td>${esc(String(x.name || '').slice(0, 16))}</td><td>${rupees(x.amount)}</td><td>${esc(x.status)}</td><td>${esc(x.method || '–')}</td><td>${x.verified ? '✔ approved' : esc(x.verification)}</td><td>${fmtDate(x.paid_at || x.created_at)}</td></tr>`).join('')}</table>
+      <p class="muted" style="font-size:11px; margin-top:6px;">Approve or reject in the ✔ Verification tab — payment alone never approves.</p></div>
+    <h3 style="margin:16px 0 10px;">⭐ Pro subscriptions</h3>
+    <div class="card" style="overflow-x:auto;"><table class="ad-tbl"><tr><th>Editor</th><th>Status</th><th>Expires</th><th>Paid total</th></tr>
+      ${(d.subscriptions || []).map(x => `<tr style="cursor:pointer;" onclick="nav('adminUser', { userId: '${x.user_id}' })"><td>${esc(String(x.name || '').slice(0, 16))}</td><td>${subStateChip(x.status)}</td><td>${x.expires ? fmtDT(x.expires) : '–'}</td><td>${rupees(x.paid_total)}</td></tr>`).join('')}</table></div>
+    <h3 style="margin:16px 0 10px;">📣 Sponsored placements</h3>
+    <div class="card"><label class="kv" style="cursor:pointer;"><span><b>Show sponsored cards</b></span><input type="checkbox" id="spOn" ${sp.enabled ? 'checked' : ''}></label>
+      ${SLOTS.map(([k, l]) => `<label class="kv" style="cursor:pointer;"><span>${l}</span><input type="checkbox" class="spSlot" data-k="${k}" ${(sp.slots || {})[k] ? 'checked' : ''}></label>`).join('')}
+      <p class="muted" style="font-size:11px; margin:6px 0;">Never shown on payment, chat or project screens. A slot stays empty when it has no active card.</p>
+      <button class="btn btn-outline" onclick="saveSponsoredCfg()">Save placements</button></div>
+    ${(d.sponsored || []).map(i => `<div class="card" style="padding:10px 14px;"><p style="font-size:13px;"><b>${esc(i.title)}</b> · ${esc(i.slot)} · ${i.active ? '🟢 on' : '⚪ off'} · ${i.clicks} clicks</p>
+      <p class="muted" style="font-size:12px;">${esc(i.body || '')}${i.link_url ? ' · ' + esc(i.link_url) : ''}</p>
+      <button class="btn-sm" style="margin-top:6px;" onclick="toggleSponsored('${i.id}', ${!i.active})">${i.active ? 'Turn off' : 'Turn on'}</button></div>`).join('')}
+    <details class="card"><summary><b>➕ Add a sponsored card</b></summary>
+      <div class="field" style="margin-top:8px;"><label>Where</label><select id="spSlot">${SLOTS.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></div>
+      <div class="field"><label>Title</label><input id="spTitle" maxlength="80"></div>
+      <div class="field"><label>Short text</label><input id="spBody" maxlength="160"></div>
+      <div class="field"><label>Button text</label><input id="spCta" maxlength="30" placeholder="Learn more"></div>
+      <div class="field"><label>Link (https://)</label><input id="spLink" placeholder="https://"></div>
+      <div class="field"><label>Image link (optional, https://)</label><input id="spImg" placeholder="https://"></div>
+      <div class="field"><label>Advertiser</label><input id="spAdv" maxlength="60"></div>
+      <button class="btn btn-primary" onclick="addSponsored()">Add card</button></details>
+    <h3 style="margin:16px 0 10px;">⚙️ Prices & Pro benefits</h3>
+    <div class="card"><div class="field"><label>Verification fee (₹)</label><input id="cfgVer" type="number" min="1" value="${esc(ver.price || 29)}"></div>
+      <div class="field"><label>Pro price (₹ / period)</label><input id="cfgProPrice" type="number" min="1" value="${esc(pro.price || 199)}"></div>
+      <div class="field"><label>Pro period (days)</label><input id="cfgProDays" type="number" min="1" value="${esc(pro.days || 30)}"></div>
+      ${BEN.map(([k, l]) => `<label class="kv" style="cursor:pointer;"><span>${l}</span><input type="checkbox" class="cfgBen" data-k="${k}" ${(pro.benefits || {})[k] ? 'checked' : ''}></label>`).join('')}
+      <div class="field" style="margin-top:8px;"><label>Open bids allowed for free editors (0 = no limit)</label><input id="cfgBids" type="number" min="0" value="${esc((pro.benefits || {}).free_open_bids || 0)}"></div>
+      <p class="muted" style="font-size:11px; margin:6px 0;">New prices apply to new payments only.</p>
+      <button class="btn btn-outline" onclick="saveMonPrices()">Save prices & benefits</button></div>`;
+}
+async function feeAdmin(id, action){
+  if(needPin()) return;
+  let reason = null;
+  if(action === 'reject'){ reason = adminReason('Why was the payment not found? (the editor sees this)'); if(!reason) return; }
+  else if(!confirm('Mark this payment as received?')) return;
+  try { await adminRpc('sp_fee_admin', { p_fee: id, p_action: action, p_reason: reason, p_pin: ADMIN_PIN }); alert('Done ✅'); }
+  catch(e) { alert(e.message); if(/PIN/i.test(e.message)) ADMIN_PIN = ''; }
+  nav('admin', { tab: 'money' });
+}
+async function saveSponsoredCfg(){
+  if(needPin()) return;
+  const slots = {}; document.querySelectorAll('.spSlot').forEach(x => { slots[x.dataset.k] = x.checked; });
+  const value = Object.assign({}, monCfg('sponsored'), { enabled: document.getElementById('spOn').checked, slots, provider: monCfg('sponsored').provider || 'house' });
+  try { await adminRpc('sp_mon_config_set', { p_key: 'sponsored', p_value: value, p_reason: 'Sponsored placements updated', p_pin: ADMIN_PIN }); MON_CFG_AT = 0; alert('Saved ✅'); }
+  catch(e) { alert(e.message); }
+  nav('admin', { tab: 'money' });
+}
+async function addSponsored(){
+  if(needPin()) return;
+  const v = id => ((document.getElementById(id) || {}).value || '').trim();
+  const item = { slot: v('spSlot'), title: v('spTitle'), body: v('spBody'), cta: v('spCta'), link: v('spLink'), image: v('spImg'), advertiser: v('spAdv'), active: true };
+  if(item.title.length < 3){ alert('Add a title'); return; }
+  if((item.link && !/^https:\/\//i.test(item.link)) || (item.image && !/^https:\/\//i.test(item.image))){ alert('Links must start with https://'); return; }
+  try { await adminRpc('sp_sponsored_save', { p_item: item, p_pin: ADMIN_PIN }); alert('Card added ✅'); }
+  catch(e) { alert(e.message); }
+  nav('admin', { tab: 'money' });
+}
+async function toggleSponsored(id, on){
+  if(needPin()) return;
+  try { await adminRpc('sp_sponsored_save', { p_item: { id, active: on }, p_pin: ADMIN_PIN }); } catch(e) { alert(e.message); }
+  nav('admin', { tab: 'money' });
+}
+async function saveMonPrices(){
+  if(needPin()) return;
+  const reason = adminReason('Why are you changing prices / benefits?'); if(!reason) return;
+  const num = id => Number((document.getElementById(id) || {}).value);
+  const pro = JSON.parse(JSON.stringify(monCfg('pro') || {}));
+  pro.price = num('cfgProPrice'); pro.days = num('cfgProDays'); pro.benefits = pro.benefits || {};
+  document.querySelectorAll('.cfgBen').forEach(x => { pro.benefits[x.dataset.k] = x.checked; });
+  pro.benefits.free_open_bids = Math.max(0, Math.round(num('cfgBids')) || 0);
+  try {
+    await adminRpc('sp_mon_config_set', { p_key: 'verification', p_value: { price: num('cfgVer') }, p_reason: reason, p_pin: ADMIN_PIN });
+    await adminRpc('sp_mon_config_set', { p_key: 'pro', p_value: pro, p_reason: reason, p_pin: ADMIN_PIN });
+    MON_CFG_AT = 0; alert('Saved ✅');
+  } catch(e) { alert(e.message); }
+  nav('admin', { tab: 'money' });
 }
 
 (function(){
