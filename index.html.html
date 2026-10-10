@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://*.razorpay.com https://accounts.google.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://accounts.google.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self' data:; connect-src 'self' https://sphere-api.niteshkumarmatho37.workers.dev wss://sphere-api.niteshkumarmatho37.workers.dev https://*.supabase.co wss://*.supabase.co https://*.razorpay.com https://accounts.google.com; frame-src https://*.razorpay.com https://accounts.google.com https://www.youtube-nocookie.com https://drive.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Sphere</title>
 <meta name="theme-color" content="#dfe6fb">
@@ -248,6 +250,21 @@ h1,h2,h3{color:var(--text);}
 .chat-head .ch-back, .chat-head .ch-more{background:transparent; border:none; color:#fff; font-size:24px; line-height:1; cursor:pointer; padding:4px 8px;}
 .chat-head .avatar{margin:0 !important; width:40px !important; height:40px !important; flex:0 0 40px; font-size:18px;}
 .chat-head .ch-name{flex:1; min-width:0; cursor:pointer;}
+/* PART 16: notifications */
+.bell-btn{position:relative;}
+.bell-n{position:absolute; top:-4px; right:-4px; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:#e11d48; color:#fff; font-size:10px; font-weight:800; line-height:18px; text-align:center; border:2px solid #fff;}
+.nt-item{display:flex; gap:10px; padding:12px 14px; border-radius:14px; background:var(--card); border:1px solid var(--border); margin-bottom:8px; cursor:pointer;}
+.nt-item.unread{border-color:#bfd0ff; background:#f4f7ff;}
+.nt-ic{font-size:20px; width:28px; text-align:center; flex:none; padding-top:2px;}
+.nt-main{flex:1; min-width:0;} .nt-main b{font-size:14px; display:block;} .nt-item:not(.unread) .nt-main b{font-weight:600;}
+.nt-main p{font-size:12px; color:var(--muted); margin-top:2px; word-break:break-word;}
+.nt-meta{font-size:11px; color:var(--muted); margin-top:4px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;}
+.nt-tag{font-size:10px; font-weight:800; padding:1px 6px; border-radius:8px; background:#eef2f7; color:#334155;}
+.nt-tag.imp{background:#fff1f2; color:#be123c;}
+.nt-del{flex:none; background:none; border:none; color:var(--muted); font-size:16px; cursor:pointer; padding:0 2px; align-self:flex-start;}
+.nt-dot{width:8px; height:8px; border-radius:50%; background:#1657ff; flex:none; margin-top:8px;}
+.nt-toast{position:fixed; left:12px; right:12px; top:calc(12px + env(safe-area-inset-top, 0px)); z-index:9999; background:#111827; color:#fff; border-radius:14px; padding:12px 14px; box-shadow:0 10px 30px rgba(0,0,0,.25); font-size:13px; cursor:pointer; max-width:460px; margin:0 auto;}
+.nt-toast b{display:block; font-size:14px; margin-bottom:2px;}
 /* PART 15: monetization */
 .pro-chip{display:inline-block; font-size:10px; font-weight:900; letter-spacing:.06em; padding:2px 7px; border-radius:8px; color:#fff; background:linear-gradient(135deg,#f59e0b,#d97706); vertical-align:middle; margin-left:4px;}
 .pay-state{display:inline-block; font-size:11px; font-weight:800; padding:3px 9px; border-radius:10px;}
@@ -474,7 +491,8 @@ details.card[open] summary::after{content:'－';}
 <nav class="bottom-nav hidden" id="bottomNav"></nav>
 
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="vendor/supabase-2.117.2.js"></script>
+<script>if(!window.supabase){ document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"><\/script>'); }</script>
 <script>
 /* ==========================================================================
    SPHERE by Syahi Films — web app (one file, no build step)
@@ -489,7 +507,8 @@ details.card[open] summary::after{content:'－';}
      PART 8: PROJECT WORKFLOW + DEADLINES · PART 9: CHAT + AI MODERATION ·
      PART 10: PROJECT FILES + WATERMARKED PREVIEW · PART 11: REVISIONS + CHANGE REQUESTS ·
      PART 12: FINAL APPROVAL + DISPUTES + REFUNDS · PART 13: RATINGS + PERFORMANCE BONUS ·
-     PART 14: ADMIN PANEL · PART 15: MONETIZATION
+     PART 14: ADMIN PANEL · PART 15: MONETIZATION · PART 16: NOTIFICATIONS · PART 17: SECURITY ·
+     PART 18: PRODUCTION
    Adding a new part: put its code in a block "PART n: <name>" near the end of
    this script, its database SQL in supabase/migrations/00n_<name>.sql, and
    turn it on with SPHERE_CONFIG.features. See docs/ARCHITECTURE.md.
@@ -500,8 +519,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.15.0',
-  build: 'part15-monetization',
+  appVersion: '2.18.2',
+  build: 'part19-2-security',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
@@ -509,16 +528,16 @@ const SPHERE_CONFIG = Object.freeze({
   razorpayKeyId: 'rzp_test_TiF5Py5F7SLGDs',                        // rzp_test_ = test money, rzp_live_ = real money
   googleClientId: '258192736968-ocmgvgkm00t0sglunn6tqgodpf6d4ak2.apps.googleusercontent.com',
   website: 'https://sphere-live.onrender.com',
-  // Switches for upcoming modules. Each module flips its own switch to true when it is ready.
+  // Which modules are built (Parts 1–18). Not used to hide screens — kept for reference / future switches.
   features: Object.freeze({
     hiddenNames: false,
-    aiJobIntake: false,
-    smartBids: false,
-    previews: false,
-    revisions: false,
+    aiJobIntake: true,
+    smartBids: true,
+    previews: true,
+    revisions: true,
     editorLevels: false,
-    proPlan: false,
-    sponsored: false
+    proPlan: true,
+    sponsored: true
   })
 });
 function featureOn(name){ return !!(SPHERE_CONFIG.features && SPHERE_CONFIG.features[name]); }
@@ -526,7 +545,34 @@ function featureOn(name){ return !!(SPHERE_CONFIG.features && SPHERE_CONFIG.feat
 const SUPABASE_URL = SPHERE_CONFIG.supabaseUrl;
 const SUPABASE_KEY = SPHERE_CONFIG.supabaseKey;
 // keep the same login storage key as before, so nobody gets logged out by the switch
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storageKey: 'sb-' + SPHERE_CONFIG.supabaseProjectRef + '-auth-token' } });
+// Part 19.1: remember when Sphere's server could not be reached, so screens can say so
+let NET_DOWN_AT = 0;
+function trackedFetch(input, init){
+  return fetch(input, init).then(res => {
+    if(res.status >= 500 || res.status === 0) NET_DOWN_AT = Date.now(); else if(res.ok) NET_DOWN_AT = 0;
+    try { netNotice(); } catch(e) {}
+    return res;
+  }, err => { NET_DOWN_AT = Date.now(); try { netNotice(); } catch(e) {} throw err; });
+}
+function netIsDown(){ return NET_DOWN_AT && Date.now() - NET_DOWN_AT < 30000; }
+function netNotice(){
+  let el = document.getElementById('netBanner');
+  if(!netIsDown()){ if(el) el.remove(); return; }
+  if(!el && document.body){
+    el = document.createElement('div'); el.id = 'netBanner';
+    el.textContent = '⚠️ Can\u2019t reach Sphere right now — check your internet. Some things may not show until it is back.';
+    el.style.cssText = 'position:fixed; left:0; right:0; top:0; z-index:9997; background:#b91c1c; color:#fff; font:600 12px Arial, sans-serif; text-align:center; padding:calc(5px + env(safe-area-inset-top, 0px)) 8px 5px;';
+    document.body.appendChild(el);
+  }
+  // cards that say "needs the latest database update" are wrong while the server is unreachable
+  document.querySelectorAll('#app .card, #app p').forEach(n => {
+    if(/needs the latest database update/i.test(n.textContent) && !n.dataset.netFixed && n.children.length < 4){
+      n.dataset.netFixed = '1';
+      n.innerHTML = '<p style="font-size:12px;">📶 Could not load this part — Sphere could not be reached. Please check your internet and try again.</p>';
+    }
+  });
+}
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storageKey: 'sb-' + SPHERE_CONFIG.supabaseProjectRef + '-auth-token' }, global: { fetch: trackedFetch } });
 const RAZORPAY_KEY_ID = SPHERE_CONFIG.razorpayKeyId;
 
 /* ============ ROLES ============ */
@@ -656,7 +702,7 @@ async function fetchAndSetCurrentUser(){
   setTimeout(() => { if(currentUser){ listenForMessages(); markDelivered(); } }, 0);
   const { data:{ user } } = await sb.auth.getUser();
   if(!user){ currentUser = null; return null; }
-  let { data: profile } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
+  let profile = await loadMyProfile(user.id);
   const meta = user.user_metadata || {};
   if((!profile || !profile.role) && meta.role){
     // Email signup ke baad pehli login: profile ab banao (signup ke waqt bhari details se)
@@ -665,7 +711,7 @@ async function fetchAndSetCurrentUser(){
       email: user.email, phone: meta.phone || ''
     }, { onConflict: 'id' });
     if(error) console.error(error);
-    ({ data: profile } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle());
+    profile = await loadMyProfile(user.id);
   }
   if(profile && !profile.role) profile = null;  // role abhi chuna nahi -> chooseRole screen
   // Onboarding adhoora (role/number kabhi confirm nahi kiya) -> Client/Editor + number wali screen dikhao
@@ -827,7 +873,7 @@ function isExpired(j){ return !!(j && j.status === 'open' && j.deadline && Strin
 function notExpiredFilter(){ return 'deadline.is.null,deadline.gte.' + todayIST(); }
 const RAW_BUCKET = 'sphere-raw';
 const MAX_RAW_FILES = 5, MAX_RAW_MB = 50;
-function rawUrl(path){ return path ? sb.storage.from(RAW_BUCKET).getPublicUrl(path).data.publicUrl : ''; }
+function rawUrl(path){ return path ? registerSigned(RAW_BUCKET, path, sb.storage.from(RAW_BUCKET).getPublicUrl(path).data.publicUrl) : ''; }
 async function uploadRawFiles(fileList, statusEl){
   const files = Array.from(fileList || []);
   for(const f of files){
@@ -1073,6 +1119,17 @@ function contactCheck(typed, saved){
   if(CONTACT_SOFT_RE.test(t)){ alert(CONTACT_SOFT_MSG); return 'soft'; }
   return '';
 }
+// a value placed inside a JavaScript string in an HTML attribute (onclick="f(${jsq(x)})")
+// Part 19.2: password rule for NEW passwords (sign-up and reset). Set the same in Supabase → Auth.
+function passwordProblem(p){
+  p = String(p || '');
+  if(p.length < 8) return 'Password must be at least 8 characters.';
+  if(!/[A-Za-z]/.test(p) || !/[0-9]/.test(p)) return 'Password must have at least one letter and one number.';
+  if(/^(12345678|password1|qwerty12|abcd1234)$/i.test(p)) return 'This password is too easy to guess. Please choose another.';
+  return '';
+}
+function jsq(v){ return esc(JSON.stringify(String(v == null ? '' : v))); }
+function safeOpen(u){ if(/^https:\/\//i.test(String(u || ''))) window.open(u, '_blank', 'noopener,noreferrer'); }
 function linkOrText(v){
   if(!v) return '-';
   return /^https?:\/\//i.test(v)
@@ -1113,12 +1170,20 @@ async function updateJob(id, fields){
   const { error } = await sb.from('sp_jobs').update(fields).eq('id', id);
   return !dbErr(error);
 }
-async function notify(userIds, title, body){
+async function notify(userIds, title, body, extra){
   const ids = (Array.isArray(userIds) ? userIds : [userIds]).filter(Boolean);
   if(ids.length === 0) return;
-  const { error } = await sb.from('sp_notifications').insert(ids.map(id => ({ user_id: id, title, body })));
-  if(error) console.error('notify failed', error);
+  try {
+    const more = extra && NOTIF_V2 !== false ? { job_id: extra.job_id || null, category: extra.category || null } : {};
+    let { error } = await sb.from('sp_notifications').insert(ids.map(id => Object.assign({ user_id: id, title, body }, more)));
+    if(error && Object.keys(more).length && /column|schema cache/i.test(error.message || '')){
+      NOTIF_V2 = false;
+      ({ error } = await sb.from('sp_notifications').insert(ids.map(id => ({ user_id: id, title, body }))));
+    }
+    if(error) console.error('notify failed', error);
+  } catch(e) { console.error('notify failed', e); }   // a notification must never break the action
 }
+let NOTIF_V2 = null;
 async function attachRatings(users){
   if(users.length === 0) return users;
   const { data } = await sb.from('sp_ratings').select('editor_id, stars').in('editor_id', users.map(u => u.id));
@@ -1137,7 +1202,9 @@ async function attachRatings(users){
 async function getProfilesByIds(ids){
   const unique = [...new Set(ids.filter(Boolean))];
   if(unique.length === 0) return {};
-  const { data } = await sb.from('profiles').select('*').in('id', unique);
+  let data = null;
+  try { const r = await sb.rpc('sp_profiles_public', { p_ids: unique }); if(!r.error) data = r.data; } catch(e) {}
+  if(data === null){ const r = await sb.from('profiles').select('*').in('id', unique); data = r.data; }   // before 017
   // people you are not connected to yet: public editor details only (no phone/email)
   const got = new Set((data || []).map(r => r.id));
   const missing = unique.filter(id => !got.has(id));
@@ -1180,9 +1247,12 @@ function renderBottomNav(){
   }).join('');
 }
 
+let NAV_SEQ = 0;     // Part 19.1: only the newest navigation may change the screen
 async function nav(screen, data){
+  const mySeq = ++NAV_SEQ;
   // PART 2: every screen is checked against the user's role before it opens
   const gate = await routeGate(screen);
+  if(mySeq !== NAV_SEQ) return;              // the person already moved on while this was checked
   if(!gate.ok){
     if(gate.msg) alert(gate.msg);
     if(gate.to && gate.to !== screen) return nav(gate.to);
@@ -1200,7 +1270,10 @@ async function nav(screen, data){
     const result = renderer(data);
     if(result instanceof Promise){
       app.innerHTML = '<div class="screen center-text muted" style="padding-top:120px;">Loading…</div>';
-      app.innerHTML = await result;
+      const html = await result;
+      if(mySeq !== NAV_SEQ) return;            // a newer screen was opened while this one was loading
+      app.innerHTML = html;
+      if(netIsDown()) netNotice();
     } else {
       app.innerHTML = result;
     }
@@ -1358,7 +1431,7 @@ SCREENS.resetPassword = () => `
   </div>`;
 async function saveNewPassword(){
   const a = document.getElementById('npPass').value, b = document.getElementById('npPass2').value;
-  if(a.length < 6){ alert('Password must be at least 6 characters'); return; }
+  { const pw = passwordProblem(a); if(pw){ alert(pw); return; } }
   if(a !== b){ alert('Passwords do not match'); return; }
   const { error } = await sb.auth.updateUser({ password: a });
   if(error){ alert(friendlyAuthError(error)); return; }
@@ -1371,8 +1444,11 @@ async function doLogin(){
   const email = document.getElementById('loginEmail').value.trim();
   const pass = document.getElementById('loginPass').value.trim();
   if(!email||!pass){ alert('Enter your email and password'); return; }
+  const wait = loginWaitSeconds();
+  if(wait > 0){ alert('Too many wrong tries. Please wait ' + wait + ' seconds.'); return; }
   const { error } = await sb.auth.signInWithPassword({ email, password: pass });
-  if(error){ alert(friendlyAuthError(error)); return; }
+  if(error){ loginFailed(); alert(friendlyAuthError(error)); return; }
+  loginOk();
   const user = await fetchAndSetCurrentUser();
   if(!user){
     // account hai par profile adhoori hai -> role + number le lo
@@ -1413,7 +1489,7 @@ async function doSignup(){
   if(!name||!email||!pass){ alert('Please fill all fields'); return; }
   const phone = readPhone('suPhone');
   if(!phone) return;
-  if(pass.length < 6){ alert('Password must be at least 6 characters'); return; }
+  { const pw = passwordProblem(pass); if(pw){ alert(pw); return; } }
   const { data, error } = await sb.auth.signUp({
     email, password: pass,
     options: { data: { full_name: name, role: selectedRole.toUpperCase(), phone }, emailRedirectTo: window.location.origin }
@@ -1505,7 +1581,7 @@ async function editorHomeScreen(user){
   const negotiating = (negRes.data || []).map(mapJob);
   return `
   <div class="topbar">
-    <div class="icon-btn" onclick="nav('notifications')">🔔</div>
+    <div class="icon-btn bell-btn" onclick="nav('notifications')">🔔<span class="bell-n" hidden></span></div>
     <div class="icon-btn" onclick="nav('settingsScreen')">⚙️</div>
     <div class="search-box"><span>🔍</span><input placeholder="Search work"></div>
     <div class="topbar-logo">${img('data:image/webp;base64,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','🔷')}<span>Sphere</span></div>
@@ -1526,7 +1602,7 @@ async function editorHomeScreen(user){
     <div class="section-title" style="padding:0; margin-top:18px;"><h3>Active Negotiations</h3></div>
     ${negotiating.map(j=>`
       <div class="card" onclick="currentJobId='${j.id}'; nav('projectStatus')">
-        <b>${j.category}</b> <span class="badge" style="background:var(--blue);">negotiating</span>
+        <b>${esc(j.category)}</b> <span class="badge" style="background:var(--blue);">negotiating</span>
         <p class="muted" style="font-size:13px; margin:6px 0;">${esc(j.desc).slice(0,60)}...</p>
         <p>Amount so far: <b>₹${j.proposedAmount||j.budget}</b></p>
       </div>`).join('')}
@@ -1558,7 +1634,7 @@ function clientHomeScreen(user){
   setTimeout(renderClientDashboard, 0);
   return `
   <div class="topbar">
-    <div class="icon-btn" onclick="nav('notifications')">🔔</div>
+    <div class="icon-btn bell-btn" onclick="nav('notifications')">🔔<span class="bell-n" hidden></span></div>
     <div class="icon-btn" onclick="nav('settingsScreen')">⚙️</div>
     <div class="search-box"><span>🔍</span><input placeholder="Search"></div>
     <div class="topbar-logo">${img('data:image/webp;base64,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','🔷')}<span>Sphere</span></div>
@@ -1799,10 +1875,10 @@ function renderPortfolio(e, items, editable){
     const img = it.image_path ? mediaUrl(it.image_path) : youtubeThumb(it.video_url);
     const bg = img ? `background:#111 url('${esc(img)}') center/cover;` : 'background:linear-gradient(135deg,#0b3d91,#0e6ba8);';
     const inner = `${it.video_url ? '<div class="play-ic">▶</div>' : ''}<div class="pf-title">${esc(it.title)}</div>`;
-    const del = editable ? `<button class="pf-del" onclick="event.preventDefault(); event.stopPropagation(); deletePortfolioItem('${it.id}', '${esc(it.image_path || '')}')">✕</button>` : '';
+    const del = editable ? `<button class="pf-del" onclick="event.preventDefault(); event.stopPropagation(); deletePortfolioItem('${it.id}', ${jsq(it.image_path || '')})">✕</button>` : '';
     tiles.push(it.video_url && /^https?:\/\//i.test(it.video_url)
       ? `<a class="portfolio-item" href="${esc(it.video_url)}" target="_blank" rel="noopener noreferrer" style="${bg}">${del}${inner}</a>`
-      : `<div class="portfolio-item" style="${bg}" onclick="window.open('${esc(img)}', '_blank')">${del}${inner}</div>`);
+      : `<div class="portfolio-item" style="${bg}" onclick="safeOpen(${jsq(img)})">${del}${inner}</div>`);
   });
   const links = [];
   if(e && e.sample) links.push({ title: 'Sample Video', url: e.sample });
@@ -1811,7 +1887,7 @@ function renderPortfolio(e, items, editable){
     const th = youtubeThumb(l.url);
     const bg = th ? `background:#000 url('${th}') center/cover;` : 'background:linear-gradient(135deg,#0b3d91,#0e6ba8);';
     tiles.push(`<a class="portfolio-item" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" style="${bg}">
-      <div class="play-ic">▶</div><div class="pf-title">${l.title}</div></a>`);
+      <div class="play-ic">▶</div><div class="pf-title">${esc(l.title)}</div></a>`);
   });
   const head = `<div class="section-title" style="padding:0; margin-top:16px;"><h3>Portfolio</h3></div>`;
   if(tiles.length === 0) return head + `<p class="muted">No portfolio items yet.</p>`;
@@ -1823,9 +1899,9 @@ function renderEditorCards(list){
     <div class="card" onclick="openEditorProfile('${e.id}')">
       ${avatarHtml(e)}
       <b>${esc(e.name)}</b> ${e.verified?'<span class="badge">✔ Verified</span>':''}${proChip(e.id)}
-      <p class="muted" style="font-size:12px; margin:4px 0;">${e.category||''}</p>
+      <p class="muted" style="font-size:12px; margin:4px 0;">${esc(e.category||'')}</p>
       <p class="muted" style="font-size:12px;">${e.experience||0} Yrs Exp • ⭐ ${e.rating||0}</p>
-      <p style="font-weight:800; color:var(--blue); margin-top:6px;">₹${e.price||'-'} /video</p>
+      <p style="font-weight:800; color:var(--blue); margin-top:6px;">₹${esc(e.price||'-')} /video</p>
     </div>`).join('');
 }
 
@@ -2044,7 +2120,7 @@ async function proposeAmount(jobId){
   if(!job) return;
   if(!await updateJob(jobId, { proposed_amount: Number(amt), proposed_by: user.id })) return;
   const otherId = isClientRole(user) ? job.assignedEditor : job.clientId;
-  await notify(otherId, 'New Amount Proposed', `₹${amt} proposed for your ${job.category} project.`);
+  await notify(otherId, 'New Amount Proposed', `₹${amt} proposed for your ${job.category} project.`, { job_id: job.id, category: 'bids' });
   alert('Amount proposed!');
   currentJobId = jobId;
   nav('projectStatus');
@@ -2262,7 +2338,7 @@ function startChat(otherUserId){
 }
 const CHAT_BUCKET = 'sphere-chat';
 const CHAT_MAX_MB = 50;
-function chatUrl(p){ return p ? sb.storage.from(CHAT_BUCKET).getPublicUrl(p).data.publicUrl : ''; }
+function chatUrl(p){ return p ? registerSigned(CHAT_BUCKET, p, sb.storage.from(CHAT_BUCKET).getPublicUrl(p).data.publicUrl) : ''; }
 function fmtTime(iso){ try { return new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }); } catch(e){ return ''; } }
 function dayKey(iso){ const d = new Date(iso); return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate(); }
 function dayLabel(iso){
@@ -2561,7 +2637,7 @@ async function insertMessage(row){
     box.insertAdjacentHTML('beforeend', withDay(data, user.id));
     scrollChat();
   }
-  notify(currentChatWith, 'New Message', `${user.name}: ${msgPreview(data).slice(0, 80)}`);
+  notify(currentChatWith, 'New Message', `${user.name}: ${msgPreview(data).slice(0, 80)}`, { job_id: currentChatJob || null, category: 'messages' });
   if(data.mod_status === 'held'){
     alert('⏳ Your message is being checked by Sphere.\n\nIt looks like it may ask to talk or pay outside Sphere. It will be delivered if it is fine. Keep all talks and payments inside Sphere.');
     sb.functions.invoke('sphere-moderate', { body: { messageId: String(data.id) } }).then(() => {}, () => {});
@@ -2757,7 +2833,7 @@ async function uploadDelivery(jobId){
   const job = await getJob(jobId);
   if(!job) return;
   if(!await updateJob(jobId, { delivery_link: link, status: 'delivered' })) return;
-  await notify(job.clientId, 'Video Delivered', 'Your editor has delivered the final video.');
+  await notify(job.clientId, 'Video Delivered', 'Your editor has delivered the final video.', { job_id: job.id, category: 'preview' });
   alert('Delivered! Waiting for client approval.');
   currentJobId = jobId;
   nav('projectStatus');
@@ -2778,22 +2854,7 @@ async function approveJob(jobId){
 let selectedStars = 5;
 /* Rating screen + submitRating(): see PART 13 below */
 
-SCREENS.notifications = async () => {
-  const user = getCurrentUser();
-  const { data, error } = await sb.from('sp_notifications').select('*').eq('user_id', user.id)
-    .order('created_at', { ascending: false }).limit(50);
-  if(error) console.error(error);
-  const list = data || [];
-  if(list.some(n => !n.is_read)){
-    sb.from('sp_notifications').update({ is_read: true }).eq('user_id', user.id).eq('is_read', false).then(() => {});
-  }
-  return `
-  <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Notifications</h1></div>
-  <div class="screen" style="padding-top:0;">
-    ${list.length===0?'<p class="muted">No notifications yet.</p>':''}
-    ${list.map(n=>`<div class="notif-item"><div class="dot-icon">${n.is_read?'🔔':'🔴'}</div><div><b>${esc(n.title)}</b><p class="muted" style="font-size:12px;">${esc(n.body)}</p><p class="muted" style="font-size:10px;">${new Date(n.created_at).toLocaleString()}</p></div></div>`).join('')}
-  </div>`;
-};
+/* Notification center: see PART 16 below */
 
 SCREENS.profile = async () => {
   const user = getCurrentUser();
@@ -2807,8 +2868,8 @@ SCREENS.profile = async () => {
       <span class="avatar-edit" style="display:inline-flex; align-items:center; gap:5px; margin-right:12px;" onclick="nav('editProfile')">✏️ Edit profile</span>
       <label class="avatar-edit" style="display:inline-flex; align-items:center; gap:5px;"><span style="width:15px; height:15px; display:inline-flex;">${UI_ICONS.camera}</span>Change photo<input type="file" accept="image/*" style="display:none;" onchange="changeAvatar(this)"></label><br>
       <b>${esc(user.name)}</b> ${user.verified?'<span class="badge">✔ Verified</span>':''}
-      <p class="muted">${user.email}</p>
-      <p class="muted">${user.phone||''}</p>
+      <p class="muted">${esc(user.email)}</p>
+      <p class="muted">${esc(user.phone||'')}</p>
       ${modeChip(user)}
       ${clientInfo ? clientProfileInfo(user, clientInfo) : ''}
       ${user.role==='editor' ? editorProfileExtra(user) : ''}
@@ -2843,12 +2904,12 @@ SCREENS.adminClassic = async () => {
     return `<div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Access Denied</h1></div>
     <div class="screen center-text" style="padding-top:60px;"><p class="muted">🚫 This page is for admins only.</p></div>`;
   }
-  const { data: pendingData } = await sb.from('profiles').select('*').eq('role','EDITOR').eq('is_verified', false);
-  const { data: verifiedData } = await sb.from('profiles').select('*').eq('role','EDITOR').eq('is_verified', true);
+  const pendingData = await adminProfiles('EDITOR', false);
+  const verifiedData = await adminProfiles('EDITOR', true);
   const pending = pendingData || []; const verified = verifiedData || [];
   const { data: pinSet } = await sb.rpc('sp_admin_pin_status');
   await loadPlatformFee();
-  const { data: adminRows } = await sb.from('profiles').select('id, full_name, email, phone').eq('role', 'ADMIN');
+  const adminRows = await adminProfiles('ADMIN', null);
   const meId = (getCurrentUser() || {}).id;
   const { data: payJobs } = await sb.from('sp_jobs').select('*')
     .or('status.eq.delivered,payout_status.eq.manual,payout_status.eq.failed')
@@ -2894,7 +2955,7 @@ SCREENS.adminClassic = async () => {
 
     <details class="card"><summary><b>👥 Admins (${(adminRows || []).length})</b></summary>
       ${(adminRows || []).map(a => `<div class="kv"><span>${esc(a.full_name || '-')}<br><small>${esc(a.email || '')}</small></span>
-        ${a.id === meId ? '<b>You</b>' : `<button class="btn-sm" style="color:#c62828;" onclick="removeAdmin('${esc(a.email || '')}')">Remove</button>`}</div>`).join('')}
+        ${a.id === meId ? '<b>You</b>' : `<button class="btn-sm" style="color:#c62828;" onclick="removeAdmin(${jsq(a.email || '')})">Remove</button>`}</div>`).join('')}
       <div class="field" style="margin-top:10px;"><label>Make someone admin (their Sphere email)</label>
         <input id="newAdminEmail" type="email" name="sp-new-admin" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" placeholder="friend@gmail.com"></div>
       <button class="btn btn-outline" onclick="makeAdmin()">Make admin</button>
@@ -3130,9 +3191,19 @@ function needPin(){
 async function unlockAdmin(){
   const pin = (document.getElementById('unlockPin').value || '').trim();
   if(!pin){ alert('Enter your Admin PIN'); return; }
-  const { error } = await sb.rpc('sp_admin_check_pin', { p_pin: pin });
-  if(error){ alert(error.message); document.getElementById('unlockPin').value = ''; return; }
-  ADMIN_PIN = pin;
+  const r = await sb.rpc('sp_admin_unlock', { p_pin: pin });
+  if(r.error && /sp_admin_unlock|schema cache|Could not find/i.test(r.error.message || '')){   // before 017
+    const { error } = await sb.rpc('sp_admin_check_pin', { p_pin: pin });
+    if(error){ alert(error.message); document.getElementById('unlockPin').value = ''; return; }
+    ADMIN_PIN = pin; nav('admin'); return;
+  }
+  if(r.error || !r.data || !r.data.ok){
+    document.getElementById('unlockPin').value = '';
+    alert((r.data && r.data.message) || (r.error && r.error.message) || 'Wrong PIN.');
+    if(r.data && r.data.tries_left !== undefined && !r.data.locked) alert(r.data.tries_left + ' tries left before a 15-minute lock.');
+    return;
+  }
+  ADMIN_PIN = r.data.token;          // a 2-hour unlock token, not the PIN itself
   nav('admin');
 }
 async function saveFee(){
@@ -3235,7 +3306,7 @@ const ROUTE_ACCESS = Object.freeze({
   support: 'user', report: 'user', myReports: 'user', sphereAI: 'user',
   categories: 'user', categoryDetail: 'user', allEditors: 'user', verifiedEditorsScreen: 'user',
   editorProfile: 'user', jobs: 'user', projectStatus: 'user', portfolio: 'user',
-  escrowScreen: 'user', vaultScreen: 'user', editProfile: 'user', previewPlayer: 'user',
+  escrowScreen: 'user', vaultScreen: 'user', editProfile: 'user', previewPlayer: 'user', notifSettings: 'user',
   postJob: 'client', applications: 'client', payment: 'client', savedList: 'client', ratings: 'client',
   jobBidScreen: 'editor',
   editorDetails: 'editorAccount', verificationStatus: 'editorAccount', editorProfileEdit: 'editorAccount', proScreen: 'editorAccount',
@@ -4554,7 +4625,7 @@ async function submitBid(jobId){
     alert(res.error.message || 'Could not send the bid'); return;
   }
   const label = job.title || job.category;
-  await notify(job.clientId, existing ? 'Bid updated' : 'New Bid Received', `${user.name}: ${rupees(amount)} in ${days} day${days === 1 ? '' : 's'} for "${label}".`);
+  await notify(job.clientId, existing ? 'Bid updated' : 'New Bid Received', `${user.name}: ${rupees(amount)} in ${days} day${days === 1 ? '' : 's'} for "${label}".`, { job_id: job.id, category: 'bids' });
   contactCheck(msg, res.data && res.data.message);
   alert(existing ? 'Bid updated ✅' : 'Bid sent ✅ The client will compare bids and choose.');
   nav('jobs', { tab: 'available' });
@@ -4732,8 +4803,8 @@ async function acceptAmount(jobId){
   if(error){
     // database not updated yet (007): the old way
     if(!await updateJob(jobId, { locked_amount: job.proposedAmount, budget: job.proposedAmount, status: 'payment-pending' })) return;
-    await notify(job.clientId, 'Amount Locked 🔒', `Final amount ₹${job.proposedAmount} is locked. Please make the payment.`);
-    await notify(job.assignedEditor, 'Amount Locked 🔒', `Final amount ₹${job.proposedAmount} is locked. Waiting for the client's payment.`);
+    await notify(job.clientId, 'Amount Locked 🔒', `Final amount ₹${job.proposedAmount} is locked. Please make the payment.`, { job_id: job.id, category: 'payment' });
+    await notify(job.assignedEditor, 'Amount Locked 🔒', `Final amount ₹${job.proposedAmount} is locked. Waiting for the client's payment.`, { job_id: job.id, category: 'payment' });
   }
   currentJobId = jobId;
   if(isClient){ alert(`Price locked 🔒 ${rupees(job.proposedAmount)}\n\nNext: pay securely to start the project.`); nav('payment'); }
@@ -4873,6 +4944,7 @@ function workTickSoon(){
   sb.rpc('sp_final_tick').then(() => {}, () => {});
   sb.rpc('sp_bonus_tick').then(() => {}, () => {});
   sb.rpc('sp_sub_tick').then(() => {}, () => {});
+  setTimeout(() => { refreshBell(); startNotifRealtime(); }, 800);
   loadMonConfig(true);
 }
 async function loadWorkFor(ids){
@@ -6193,6 +6265,7 @@ async function adminOverviewTab(ov){
       <p class="muted" style="font-size:11px; margin-top:6px;">Money handled: ${rupees(ov.paid_volume)} paid by clients · ${ov.refunded_projects} refunded projects · ${ov.suspended} suspended users</p></div>
     <div class="card"><b>🧾 Pending admin actions (${todo.reduce((t, x) => t + Number(x[0]), 0)})</b>
       ${todo.length ? todo.map(([n, l, tab]) => `<div class="earn-row" style="cursor:pointer;" onclick="nav('admin', { tab: '${tab}' })"><span>${l}</span><b>${n} ›</b></div>`).join('') : '<p class="muted" style="margin-top:6px;">Nothing waiting. 👍</p>'}</div>
+    ${await appErrorsCard()}
     ${systemStatusCard(await loadSystemStatus())}`;
 }
 
@@ -6638,7 +6711,7 @@ async function fillSponsored(slot, tries){
     const { data, error } = await sb.rpc('sp_sponsored_for', { p_slot: slot });
     const it = !error && data && data[0];
     if(!it || !document.getElementById('ad_' + slot)) return;
-    el.innerHTML = `<div class="card sp-card" ${it.link ? `style="cursor:pointer;" onclick="sponsoredClick('${it.id}', '${esc(it.link)}')"` : ''}>
+    el.innerHTML = `<div class="card sp-card" ${it.link ? `style="cursor:pointer;" onclick="sponsoredClick('${it.id}', ${jsq(it.link)})"` : ''}>
       <span class="sp-label">Sponsored${it.advertiser ? ' · ' + esc(it.advertiser) : ''}</span>
       <div class="sp-row">${it.image ? `<img src="${esc(it.image)}" alt="" loading="lazy">` : ''}<div style="flex:1;"><b style="font-size:14px;">${esc(it.title)}</b>${it.body ? `<p class="muted" style="font-size:12px; margin-top:2px;">${esc(it.body)}</p>` : ''}</div>
       ${it.cta && it.link ? `<span class="btn-sm" style="flex:none;">${esc(it.cta)}</span>` : ''}</div></div>`;
@@ -6745,6 +6818,280 @@ async function saveMonPrices(){
   } catch(e) { alert(e.message); }
   nav('admin', { tab: 'money' });
 }
+
+/* ============ PART 16: NOTIFICATIONS ============
+   One table (sp_notifications). The database adds category, related project, link,
+   important / optional, admin-only flag and duplicate protection to every
+   notification (also the ones written by Parts 1–15). This screen reads only the
+   user's own rows; admin alerts are visible only to current admins. */
+const NOTIF_CATS = {
+  payment: ['💳', 'Payments'], refund: ['💸', 'Refunds'], dispute: ['⚖️', 'Disputes & reviews'], security: ['🔐', 'Account & security'],
+  verification: ['✔', 'Verification'], admin: ['🛠', 'Admin alerts'], preview: ['👀', 'Previews & final work'], revision: ['🔁', 'Revisions & changes'],
+  deadline: ['⏰', 'Deadlines & project status'], new_jobs: ['🆕', 'New matching jobs'], bids: ['💬', 'Bids & price proposals'], messages: ['✉️', 'Chat messages'],
+  rating: ['⭐', 'Ratings'], bonus: ['💰', 'Earnings & bonus'], pro: ['🚀', 'Sphere Pro'], files: ['📎', 'Project files'], general: ['🔔', 'Other updates']
+};
+const NOTIF_OPTIONAL_BY_ROLE = { client: ['bids', 'messages', 'files', 'general'], editor: ['new_jobs', 'messages', 'rating', 'bonus', 'pro', 'files', 'general'],
+                                 admin: ['bids', 'new_jobs', 'messages', 'rating', 'bonus', 'pro', 'files', 'general'] };
+let notifTab = 'all', notifLimit = 30, notifChannel = null, lastToastId = 0;
+
+async function refreshBell(){
+  if(!currentUser) return;
+  let n = 0;
+  try {
+    const { data, error } = await sb.rpc('sp_notif_unread');
+    if(!error && data) n = Number(data.unread) || 0;
+    else {
+      const r = await sb.from('sp_notifications').select('id', { count: 'exact', head: true }).eq('user_id', currentUser.id).eq('is_read', false);
+      n = r.count || 0;
+    }
+  } catch(e) {}
+  document.querySelectorAll('.bell-n').forEach(el => { el.hidden = !n; el.textContent = n > 99 ? '99+' : String(n); });
+}
+function startNotifRealtime(){
+  if(!currentUser || notifChannel) return;
+  try {
+    notifChannel = sb.channel('notif-' + currentUser.id)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sp_notifications', filter: `user_id=eq.${currentUser.id}` }, (payload) => {
+        const n = payload.new || {};
+        refreshBell();
+        if(currentScreenName === 'notifications') return nav('notifications');
+        if(n.id && n.id !== lastToastId && !(currentScreenName === 'chatThread' && n.category === 'messages')) { lastToastId = n.id; showNotifToast(n); }
+      }).subscribe();
+  } catch(e) { notifChannel = null; }
+}
+function showNotifToast(n){
+  const old = document.querySelector('.nt-toast'); if(old) old.remove();
+  const el = document.createElement('div');
+  el.className = 'nt-toast';
+  el.innerHTML = `<b>${esc((NOTIF_CATS[n.category] || NOTIF_CATS.general)[0] + ' ' + (n.title || 'Notification'))}</b>${esc(String(n.body || '').slice(0, 120))}`;
+  el.onclick = () => { el.remove(); openNotif(n.id, n.link, n.job_id); };
+  document.body.appendChild(el);
+  setTimeout(() => { if(el.parentNode) el.remove(); }, 5000);
+}
+function notifTarget(link, jobId){
+  const l = link || (jobId ? { screen: 'project', job: jobId } : null);
+  if(!l || !l.screen) return () => {};
+  if(l.screen === 'project' && l.job) return () => openJob(l.job);
+  if(l.screen === 'applications' && l.job) return () => { currentJobId = l.job; nav('applications'); };
+  if(l.screen === 'admin') return () => nav('admin', { tab: l.tab || 'overview' });
+  return () => nav(l.screen);
+}
+async function openNotif(id, link, jobId){
+  if(id) await sb.rpc('sp_notif_mark_read', { p_ids: [id] }).then(r => r.error ? sb.from('sp_notifications').update({ is_read: true }).eq('id', id) : r, () => {});
+  refreshBell();
+  if(typeof link === 'string'){ try { link = JSON.parse(link); } catch(e) { link = null; } }
+  const go = notifTarget(link, jobId);
+  go();
+}
+async function markAllNotifs(){
+  const { error } = await sb.rpc('sp_notif_mark_read', { p_ids: null });
+  if(error) await sb.from('sp_notifications').update({ is_read: true }).eq('user_id', currentUser.id).eq('is_read', false);
+  refreshBell(); nav('notifications');
+}
+async function deleteNotif(ev, id){
+  ev.stopPropagation();
+  const { error } = await sb.rpc('sp_notif_delete', { p_id: id });
+  if(error){
+    if(/schema cache|Could not find/i.test(error.message || '')){ const r = await sb.from('sp_notifications').delete().eq('id', id); if(r.error){ alert(r.error.message); return; } }
+    else { alert(error.message); return; }
+  }
+  refreshBell(); nav('notifications');
+}
+SCREENS.notifications = async (data) => {
+  const user = getCurrentUser();
+  if(data && data.tab) notifTab = data.tab;
+  if(data && data.more) notifLimit += 30; else if(!data || !data.keep) notifLimit = 30;
+  const isAdmin = isAdminUser(user);
+  let q = sb.from('sp_notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(notifLimit);
+  if(notifTab === 'unread') q = q.eq('is_read', false);
+  if(notifTab === 'admin') q = q.eq('audience', 'admin');
+  if(notifTab === 'projects') q = q.not('job_id', 'is', null);
+  let { data: list, error } = await q;
+  if(error && /column|audience|job_id|category/i.test(error.message || '')){     // database not updated yet (016)
+    notifTab = 'all';
+    ({ data: list, error } = await sb.from('sp_notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(notifLimit));
+  }
+  list = list || [];
+  const v2 = list.length === 0 || 'category' in list[0];
+  const unread = list.filter(n => !n.is_read).length;
+  const tab = (k, l) => `<button class="${notifTab === k ? 'on' : ''}" onclick="nav('notifications', { tab: '${k}' })">${l}</button>`;
+  setTimeout(refreshBell, 0);
+  return `
+  <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Notifications</h1>${v2 ? `<button class="ch-more" style="color:#fff; font-size:20px;" title="Settings" onclick="nav('notifSettings')">⚙️</button>` : ''}</div>
+  <div class="screen" style="padding-top:0;">
+    ${v2 ? `<div class="ad-tabs">${tab('all', 'All')}${tab('unread', 'Unread')}${tab('projects', 'Projects')}${isAdmin ? tab('admin', '🛠 Admin') : ''}</div>` : ''}
+    ${list.some(n => !n.is_read) ? `<button class="btn btn-outline" style="margin-bottom:10px;" onclick="markAllNotifs()">✓ Mark all as read${unread ? ' (' + unread + ')' : ''}</button>` : ''}
+    ${list.length === 0 ? `<div class="card cl-empty"><div class="cl-empty-ic">🔔</div><b>${notifTab === 'unread' ? 'All caught up' : 'No notifications yet'}</b><p>Project updates, payments and messages show up here.</p></div>` : ''}
+    ${list.map(n => {
+      const c = NOTIF_CATS[n.category] || NOTIF_CATS.general;
+      const link = n.link ? esc(JSON.stringify(n.link)) : '';
+      const canDelete = n.is_read || !n.important;
+      return `<div class="nt-item ${n.is_read ? '' : 'unread'}" onclick='openNotif(${Number(n.id)}, ${n.link ? JSON.stringify(n.link).replace(/'/g, "&#39;") : 'null'}, ${n.job_id ? "\"" + esc(n.job_id) + "\"" : 'null'})'>
+        <div class="nt-ic">${c[0]}</div>
+        <div class="nt-main"><b>${esc(n.title || '')}</b>${n.body ? `<p>${esc(n.body)}</p>` : ''}
+          <div class="nt-meta">${fmtDT(n.created_at)}${n.job_id ? `<span class="nt-tag">📁 SPH-${esc(String(n.job_id).replace(/-/g, '').slice(0, 6).toUpperCase())}</span>` : ''}${n.important ? '<span class="nt-tag imp">Important</span>' : ''}${n.audience === 'admin' ? '<span class="nt-tag">Admin</span>' : ''}</div></div>
+        ${n.is_read ? '' : '<span class="nt-dot"></span>'}
+        ${canDelete ? `<button class="nt-del" title="Delete" onclick="deleteNotif(event, ${Number(n.id)})">✕</button>` : ''}
+      </div>`; }).join('')}
+    ${list.length >= notifLimit ? `<button class="btn btn-outline" onclick="nav('notifications', { more: true, keep: true })">Load more</button>` : ''}
+  </div>`;
+};
+SCREENS.notifSettings = async () => {
+  const user = getCurrentUser();
+  let d = null;
+  try { const r = await sb.rpc('sp_notif_prefs_get'); if(!r.error) d = r.data; } catch(e) {}
+  const back = `<button class="back-btn" onclick="nav('notifications')">‹</button>`;
+  if(!d) return `<div class="header">${back}<h1>Notification settings</h1></div><div class="screen"><div class="card"><p>Needs the latest database update (016_notifications.sql).</p></div></div>`;
+  const prefs = d.prefs || {}, cats = prefs.categories || {};
+  const role = isAdminUser(user) ? 'admin' : (user.role === 'editor' ? 'editor' : 'client');
+  const optional = NOTIF_OPTIONAL_BY_ROLE[role];
+  const mandatory = (d.mandatory || []).filter(k => k !== 'admin' || role === 'admin');
+  return `
+  <div class="header">${back}<h1>Notification settings</h1><p>Choose what you want to hear about</p></div>
+  <div class="screen" style="padding-top:0;">
+    <div class="card"><b>You can turn these off</b>
+      ${optional.map(k => `<label class="kv" style="cursor:pointer;"><span>${NOTIF_CATS[k][0]} ${NOTIF_CATS[k][1]}</span><input type="checkbox" class="npref" data-k="${k}" ${cats[k] === false ? '' : 'checked'}></label>`).join('')}</div>
+    <div class="card"><b>Always on</b><p class="muted" style="font-size:12px; margin:4px 0 6px;">Needed for your projects, money and account safety, so these cannot be switched off.</p>
+      ${mandatory.map(k => `<div class="kv"><span>${(NOTIF_CATS[k] || NOTIF_CATS.general)[0]} ${(NOTIF_CATS[k] || NOTIF_CATS.general)[1]}</span><span class="muted" style="font-size:12px;">🔒 On</span></div>`).join('')}</div>
+    <div class="card"><b>Other ways to reach you</b> <span class="bid-chip">coming soon</span>
+      <p class="muted" style="font-size:12px; margin:4px 0 6px;">Your choice is saved now and used when phone push and email alerts are switched on.</p>
+      <label class="kv" style="cursor:pointer;"><span>📱 Phone push notifications</span><input type="checkbox" id="npPush" ${prefs.push ? 'checked' : ''}></label>
+      <label class="kv" style="cursor:pointer;"><span>📧 Email for important updates</span><input type="checkbox" id="npEmail" ${prefs.email ? 'checked' : ''}></label></div>
+    <button class="btn btn-primary" onclick="saveNotifPrefs()">Save</button>
+  </div>`;
+};
+async function saveNotifPrefs(){
+  const categories = {};
+  document.querySelectorAll('.npref').forEach(x => { categories[x.dataset.k] = x.checked; });
+  const { error } = await sb.rpc('sp_notif_prefs_set', { p_prefs: { categories, push: document.getElementById('npPush').checked, email: document.getElementById('npEmail').checked } });
+  if(error){ alert(error.message); return; }
+  alert('Saved ✅');
+  nav('notifications');
+}
+
+/* ============ PART 17: SECURITY ============
+   Own profile from sp_me(); other people from sp_profiles_public() (no phone /
+   email). Admin actions use a 2-hour unlock token from sp_admin_unlock().
+   Raw-file and chat media links are turned into signed links (they keep working
+   when those buckets become private in 017b). Database / internal error text is
+   never shown to people. */
+async function loadMyProfile(uid){
+  try { const r = await sb.rpc('sp_me'); if(!r.error) return r.data || null; } catch(e) {}
+  const { data } = await sb.from('profiles').select('*').eq('id', uid).maybeSingle();   // before 017
+  return data;
+}
+async function adminProfiles(role, verified){
+  try {
+    const r = await sb.rpc('sp_admin_profiles', { p_role: role, p_verified: verified });
+    if(!r.error) return r.data || [];
+  } catch(e) {}
+  let q = sb.from('profiles').select('*').eq('role', role);
+  if(verified !== null) q = q.eq('is_verified', verified);
+  const { data } = await q;
+  return data || [];
+}
+
+// --- login: wait longer after repeated wrong passwords (the server also limits this)
+function loginState(){ try { return JSON.parse(localStorage.getItem('sp_login_fails') || '{"n":0,"t":0}'); } catch(e) { return { n: 0, t: 0 }; } }
+function loginWaitSeconds(){ const s = loginState(); if(s.n < 5) return 0; const w = Math.min(300, 30 * Math.pow(2, s.n - 5)) - Math.floor((Date.now() - s.t) / 1000); return w > 0 ? w : 0; }
+function loginFailed(){ const s = loginState(); try { localStorage.setItem('sp_login_fails', JSON.stringify({ n: s.n + 1, t: Date.now() })); } catch(e) {} }
+function loginOk(){ try { localStorage.removeItem('sp_login_fails'); } catch(e) {} }
+
+// --- never show database internals to people
+const INTERNAL_ERR = /(violates|relation "|column "|permission denied|function .* does not exist|syntax error|duplicate key value|null value in column|invalid input syntax|JWT|PGRST|schema cache|row-level security|out of range|deadlock|could not serialize|timeout|unexpected end of JSON|Failed to fetch|NetworkError)/i;
+function friendlyError(msg){
+  const m = String(msg == null ? '' : msg);
+  if(/Failed to fetch|NetworkError|timeout/i.test(m)) return 'Network problem — please check your internet and try again.';
+  if(/row-level security|permission denied/i.test(m)) return 'You are not allowed to do that.';
+  if(/duplicate key value/i.test(m)) return 'This was already done.';
+  if(INTERNAL_ERR.test(m)) return 'Something went wrong. Please try again — if it keeps happening, contact Sphere support.';
+  return m;
+}
+(function(){
+  const nativeAlert = window.alert.bind(window);
+  window.alert = function(msg){ return nativeAlert(friendlyError(msg)); };
+})();
+
+// --- private files: swap public links for signed links (works before and after 017b)
+const SIGN_MAP = new Map();            // public url → { bucket, path }
+const SIGNED = new Map();              // public url → { url, until }
+let signTimer = null;
+function registerSigned(bucket, path, publicUrl){ if(path && publicUrl) SIGN_MAP.set(publicUrl, { bucket, path }); return publicUrl; }
+async function resolveSignedMedia(){
+  signTimer = null;
+  const els = document.querySelectorAll('img[src], video[src], audio[src], source[src], a[href]');
+  const need = new Map();
+  els.forEach(el => {
+    const attr = el.tagName === 'A' ? 'href' : 'src';
+    const u = el.getAttribute(attr);
+    if(!u || !SIGN_MAP.has(u)) return;
+    const c = SIGNED.get(u);
+    if(c && c.until > Date.now()) { el.setAttribute(attr, c.url); return; }
+    const info = SIGN_MAP.get(u);
+    if(!need.has(info.bucket)) need.set(info.bucket, new Map());
+    need.get(info.bucket).set(info.path, u);
+  });
+  for(const [bucket, paths] of need){
+    try {
+      const { data } = await sb.storage.from(bucket).createSignedUrls([...paths.keys()], 3600);
+      (data || []).forEach(d => { if(d && d.signedUrl && paths.has(d.path)) SIGNED.set(paths.get(d.path), { url: d.signedUrl, until: Date.now() + 50 * 60000 }); });
+    } catch(e) {}
+  }
+  if(need.size) document.querySelectorAll('img[src], video[src], audio[src], source[src], a[href]').forEach(el => {
+    const attr = el.tagName === 'A' ? 'href' : 'src';
+    const c = SIGNED.get(el.getAttribute(attr));
+    if(c) el.setAttribute(attr, c.url);
+  });
+}
+function scheduleSign(){ if(!signTimer) signTimer = setTimeout(resolveSignedMedia, 60); }
+try { new MutationObserver(scheduleSign).observe(document.body, { childList: true, subtree: true }); } catch(e) {}
+
+/* ============ PART 18: PRODUCTION ============
+   Crash reports go to sp_client_errors (the database removes phone numbers,
+   emails and tokens; max 20 per person / 10 min). Admin → Overview shows them.
+   A non-production build shows a banner so test data is never confused with real. */
+let CRASH_SENT = 0;
+const CRASH_SEEN = new Set();
+function reportCrash(message, source, line, stack){
+  try {
+    const msg = String(message || '').slice(0, 500);
+    if(!msg || CRASH_SENT >= 15 || CRASH_SEEN.has(msg)) return;
+    if(/ResizeObserver loop|Script error\.?$|chrome-extension:|moz-extension:|safari-extension:/i.test(msg + ' ' + (source || ''))) return;
+    CRASH_SEEN.add(msg); CRASH_SENT++;
+    sb.from('sp_client_errors').insert({
+      message: msg, source: String(source || '').slice(0, 300), line: Number(line) || null, stack: String(stack || '').slice(0, 3000),
+      page: (typeof currentScreenName !== 'undefined' && currentScreenName) || location.pathname,
+      app_version: SPHERE_CONFIG.appVersion, app_env: SPHERE_CONFIG.appEnv || 'production', ua: navigator.userAgent.slice(0, 160)
+    }).then(() => {}, () => {});
+  } catch(e) {}
+}
+window.addEventListener('error', (e) => reportCrash(e.message, e.filename, e.lineno, e.error && e.error.stack));
+window.addEventListener('unhandledrejection', (e) => { const r = e.reason || {}; reportCrash(r.message || String(r), '', 0, r.stack); });
+
+async function appErrorsCard(){
+  try {
+    const { data, error } = await sb.rpc('sp_admin_client_errors');
+    if(error || !data) return '';
+    const top = data.top || [];
+    return `<details class="card" ${Number(data.last_24h) ? '' : ''}><summary><b>🐞 App errors in the last 24 h: ${Number(data.last_24h) || 0}</b></summary>
+      ${top.length ? top.map(t => `<p style="font-size:12px; margin:8px 0;"><b>${t.n}×</b> ${esc(t.message)}<br><span class="muted">${t.people} people · v${esc(t.version || '?')} · last ${fmtDT(t.last_at)}</span></p>`).join('')
+        : '<p class="muted" style="font-size:12px; margin-top:6px;">No crashes reported. 👍</p>'}
+      <p class="muted" style="font-size:11px;">Phone numbers, emails and tokens are removed before saving. Kept 30 days.</p></details>`;
+  } catch(e) { return ''; }
+}
+(function(){
+  const envName = SPHERE_CONFIG.appEnv || 'production';
+  if(envName === 'production') return;
+  const show = () => {
+    if(document.getElementById('envBanner')) return;
+    const b = document.createElement('div');
+    b.id = 'envBanner';
+    b.textContent = envName.toUpperCase() + ' — test copy of Sphere · no real money';
+    b.style.cssText = 'position:fixed; left:0; right:0; bottom:0; z-index:9998; background:#f59e0b; color:#111; font:700 11px Arial, sans-serif; text-align:center; padding:3px 6px calc(3px + env(safe-area-inset-bottom, 0px)); pointer-events:none;';
+    document.body.appendChild(b);
+  };
+  if(document.body) show(); else document.addEventListener('DOMContentLoaded', show);
+})();
 
 (function(){
   const q = new URLSearchParams(window.location.search);
