@@ -519,8 +519,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.18.2',
-  build: 'part19-2-security',
+  appVersion: '2.18.3',
+  build: 'part19-4-e2e',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
@@ -706,10 +706,10 @@ async function fetchAndSetCurrentUser(){
   const meta = user.user_metadata || {};
   if((!profile || !profile.role) && meta.role){
     // Email signup ke baad pehli login: profile ab banao (signup ke waqt bhari details se)
-    const { error } = await sb.from('profiles').upsert({
+    const { error } = await saveOwnProfile({
       id: user.id, role: meta.role, full_name: meta.full_name || user.email.split('@')[0],
       email: user.email, phone: meta.phone || ''
-    }, { onConflict: 'id' });
+    });
     if(error) console.error(error);
     profile = await loadMyProfile(user.id);
   }
@@ -1128,6 +1128,17 @@ function passwordProblem(p){
   if(/^(12345678|password1|qwerty12|abcd1234)$/i.test(p)) return 'This password is too easy to guess. Please choose another.';
   return '';
 }
+// Part 19.4: create / complete MY profile without "upsert" — an upsert needs read access to the private
+// columns (phone, email), which the privacy lock (017b) correctly blocks. Insert, and if the row already
+// exists, update it. The database still decides the role (nobody can make himself admin).
+async function saveOwnProfile(row){
+  let { error } = await sb.from('profiles').insert(row);
+  if(error && (error.code === '23505' || /duplicate key/i.test(error.message || ''))){
+    const upd = Object.assign({}, row); delete upd.id;
+    ({ error } = await sb.from('profiles').update(upd).eq('id', row.id));
+  }
+  return { error };
+}
 function jsq(v){ return esc(JSON.stringify(String(v == null ? '' : v))); }
 function safeOpen(u){ if(/^https:\/\//i.test(String(u || ''))) window.open(u, '_blank', 'noopener,noreferrer'); }
 function linkOrText(v){
@@ -1364,9 +1375,9 @@ async function confirmGoogleRole(){
   const phone = readPhone('grPhone');
   if(!phone) return;
   const name = (u.user_metadata && (u.user_metadata.full_name || u.user_metadata.name)) || u.email.split('@')[0];
-  const { error } = await sb.from('profiles').upsert({
+  const { error } = await saveOwnProfile({
     id: u.id, role: googleSelectedRole.toUpperCase(), full_name: name, email: u.email, phone
-  }, { onConflict: 'id' });
+  });
   if(error){ alert(error.message); return; }
   await fetchAndSetCurrentUser();
   if(!currentUser){ alert('Could not save your profile. Please try again.'); return; }
@@ -4861,9 +4872,10 @@ SCREENS.payment = async () => {
 
 async function payWithRazorpay(jobId){
   if(payBusy) return;
+  payBusy = true;            // Part 19.4: block a second tap at once — before anything is awaited (double tap = double charge)
   const job = await getJob(jobId);
-  if(!job) return;
-  if(typeof Razorpay === 'undefined'){ alert('The payment page did not load. Check your internet and try again.'); return; }
+  if(!job){ payBusy = false; return; }
+  if(typeof Razorpay === 'undefined'){ payBusy = false; alert('The payment page did not load. Check your internet and try again.'); return; }
   const user = getCurrentUser();
   const btn = document.getElementById('payBtn');
   const busy = on => { payBusy = on; if(btn){ btn.disabled = on; btn.textContent = on ? 'Opening secure payment…' : `🔒 Pay ${rupees(job.lockedAmount || job.budget)} securely`; } };
