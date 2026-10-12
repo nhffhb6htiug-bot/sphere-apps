@@ -519,8 +519,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.18.3',
-  build: 'part19-4-e2e',
+  appVersion: '2.19.0',
+  build: 'part20-1-client-premium',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
@@ -1150,7 +1150,7 @@ function linkOrText(v){
 function mapJob(r){
   if(!r) return null;
   return {
-    id: r.id, clientId: r.client_id, category: r.category, desc: r.description || '',
+    id: r.id, clientId: r.client_id, category: r.category, desc: r.description || '', audience: r.audience || 'all',
     budget: r.budget, deadline: r.deadline, files: r.files_link, status: r.status,
     assignedEditor: r.assigned_editor, proposedAmount: r.proposed_amount, proposedBy: r.proposed_by,
     lockedAmount: r.locked_amount, payment: r.payment_status, deliveryLink: r.delivery_link,
@@ -3317,7 +3317,7 @@ const ROUTE_ACCESS = Object.freeze({
   support: 'user', report: 'user', myReports: 'user', sphereAI: 'user',
   categories: 'user', categoryDetail: 'user', allEditors: 'user', verifiedEditorsScreen: 'user',
   editorProfile: 'user', jobs: 'user', projectStatus: 'user', portfolio: 'user',
-  escrowScreen: 'user', vaultScreen: 'user', editProfile: 'user', previewPlayer: 'user', notifSettings: 'user',
+  escrowScreen: 'user', vaultScreen: 'user', editProfile: 'user', previewPlayer: 'user', notifSettings: 'user', premiumScreen: 'client',
   postJob: 'client', applications: 'client', payment: 'client', savedList: 'client', ratings: 'client',
   jobBidScreen: 'editor',
   editorDetails: 'editorAccount', verificationStatus: 'editorAccount', editorProfileEdit: 'editorAccount', proScreen: 'editorAccount',
@@ -3534,8 +3534,10 @@ async function renderClientDashboard(){
     </div>
     ${needs.length ? `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Needs your action</h3></div>${needs.map(x => clientProjectCard(x, true)).join('')}` : ''}
     ${recent.length ? `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Recent projects</h3><a onclick="nav('jobs')">See all</a></div>${recent.map(x => clientProjectCard(x, true)).join('')}` : ''}
+    <div id="premiumHomeCard"></div>
     <div id="ad_client_home"></div>`;
   fillSponsored('client_home');
+  setTimeout(() => fillPremiumHomeCard(0), 0);
 }
 
 // ---- My Projects (client view of the Jobs tab)
@@ -4048,6 +4050,7 @@ function revisionHelp(){
 }
 
 SCREENS.postJob = async (data) => {
+  setTimeout(() => fillPjPremium(0), 0);
   const d = data || {};
   pj = { draftId: d.draftId || null, presetEditor: d.presetEditor || '', ai: false };
   let pre = null;
@@ -4115,6 +4118,7 @@ SCREENS.postJob = async (data) => {
 
     <div id="pjStep3" style="display:none;">
       <div id="pjReviewBox"></div>
+      ${pj.presetEditor ? '' : '<div id="pjPremiumBox"></div>'}
       <p class="muted" id="jobUploadStatus" style="font-size:12px; margin:8px 0;"></p>
       <button class="btn btn-primary" id="jobPostBtn" onclick="submitJob()">${pj.presetEditor ? 'Send to editor' : 'Post job'}</button>
       <button class="btn btn-outline" style="margin-top:10px;" onclick="pjShowStep(2)">✏️ Edit</button>
@@ -4174,7 +4178,8 @@ function pjCollect(){
     video_length: val('pjLength'), video_format: fmt ? fmt.dataset.v : '', language: val('jobLang'),
     style_notes: val('pjStyle'), reference_links: val('pjRefs'),
     revisions_expected: val('pjRevs') ? Number(val('pjRevs')) : null, files_link: val('jobFiles'),
-    ai_assisted: !!pj.ai
+    ai_assisted: !!pj.ai,
+    audience: (document.getElementById('pjPremium') || {}).checked ? 'premium' : 'all'
   };
 }
 function pjValidate(v){
@@ -4269,7 +4274,8 @@ async function submitJob(){
     status: presetEditor ? 'negotiating' : 'open', assigned_editor: presetEditor || null,
     title: v.title || null, video_length: v.video_length || null, video_format: v.video_format || null,
     style_notes: v.style_notes || null, reference_links: v.reference_links || null,
-    revisions_expected: v.revisions_expected, ai_assisted: !!v.ai_assisted
+    revisions_expected: v.revisions_expected, ai_assisted: !!v.ai_assisted,
+    ...(v.audience === 'premium' && !presetEditor ? { audience: 'premium' } : {})
   };
   let { data: jobRow, error } = await sb.from('sp_jobs').insert(row).select('description, title, style_notes').single();
   if(error && /column|schema cache|does not exist|Could not find/i.test(error.message || '')){
@@ -4514,6 +4520,7 @@ function availableJobCard(j, user, ctx){
       ${j.videoFormat ? `<span class="bid-chip">${esc(j.videoFormat.split(' ')[0])}</span>` : ''}
       ${typeof n === 'number' ? `<span class="bid-chip">${n} bid${n === 1 ? '' : 's'}</span>` : ''}
       ${mineCats.includes(j.category) ? '<span class="bid-chip ok">Matches you</span>' : ''}
+      ${j.audience === 'premium' ? '<span class="bid-chip blue">💎 Premium</span>' : ''}
       ${bidStatusChip(myBid)}
     </div>
   </div>`;
@@ -6632,9 +6639,9 @@ async function submitFeeUtr(kind){
   if(error){ alert(error.message); return; }
   const { error: e2 } = await sb.rpc('sp_fee_submit_utr', { p_fee: f.id, p_utr: utr });
   if(e2){ alert(e2.message); return; }
-  alert('Thank you ✅ Sphere will check your payment' + (kind === 'pro' ? ' and turn on Pro.' : ' and then review your verification.'));
+  alert('Thank you ✅ Sphere will check your payment' + (kind === 'pro' ? ' and turn on Pro.' : kind === 'client_premium' ? ' and turn on Premium.' : ' and then review your verification.'));
   await fetchAndSetCurrentUser();
-  nav(kind === 'pro' ? 'proScreen' : 'verificationStatus');
+  nav(kind === 'pro' ? 'proScreen' : kind === 'client_premium' ? 'premiumScreen' : 'verificationStatus');
 }
 
 // ---- ₹29 verification card on the verification screen
@@ -7057,6 +7064,68 @@ async function resolveSignedMedia(){
 }
 function scheduleSign(){ if(!signTimer) signTimer = setTimeout(resolveSignedMedia, 60); }
 try { new MutationObserver(scheduleSign).observe(document.body, { childList: true, subtree: true }); } catch(e) {}
+
+/* ============ PART 20.1: CLIENT PREMIUM (₹199 / 30 days) ============
+   Free clients post jobs as before. Premium clients may also post "Premium" jobs that only
+   verified editors with an active Sphere Pro plan can see and bid on. Status and expiry are
+   written only by the server (sp_fee_* / sp_sub_tick); the database checks everything. */
+function premiumStatus(m){
+  if(!m) return 'inactive';
+  if(m.premium_active) return 'active';
+  const s = m.subscription;
+  if(!s || s.plan !== 'client_premium') return 'inactive';
+  if(s.status === 'active' && s.current_period_end && new Date(s.current_period_end) <= new Date()) return 'expired';
+  return s.status || 'inactive';
+}
+async function fillPremiumHomeCard(tries){
+  const el = document.getElementById('premiumHomeCard');
+  if(!el){ if((tries || 0) < 15) setTimeout(() => fillPremiumHomeCard((tries || 0) + 1), 150); return; }   // the screen may not be on the page yet
+  if(el.dataset.filled) return; el.dataset.filled = '1';
+  const m = await loadMyMoney(); if(!m || !(m.config || {}).client_premium) return;
+  const st = premiumStatus(m), price = Number(m.config.client_premium.price) || 199, s = m.subscription || {};
+  el.innerHTML = `<div class="card" style="display:flex; align-items:center; gap:12px; cursor:pointer;" onclick="nav('premiumScreen')">
+    <div style="font-size:26px;">💎</div><div style="flex:1;"><b>Sphere Premium</b> ${subStateChip(st)}
+      <p class="muted" style="font-size:12px; margin-top:2px;">${st === 'active' ? 'Active until ' + fmtDate(s.current_period_end) : 'Post Premium jobs for verified Pro editors · ₹' + price + '/month'}</p></div>
+    <b style="color:var(--blue); font-size:13px;">${st === 'active' ? 'Manage' : 'See plan'} ›</b></div>`;
+}
+async function fillPjPremium(tries){
+  const box = document.getElementById('pjPremiumBox');
+  if(!box){ if((tries || 0) < 15) setTimeout(() => fillPjPremium((tries || 0) + 1), 150); return; }
+  if(box.dataset.filled) return; box.dataset.filled = '1';
+  const m = await loadMyMoney(); if(!m || !(m.config || {}).client_premium) return;
+  box.innerHTML = premiumStatus(m) === 'active'
+    ? `<label class="card" style="display:flex; gap:10px; align-items:flex-start; cursor:pointer;"><input type="checkbox" id="pjPremium" style="margin-top:3px;">
+        <span><b>💎 Premium job</b><br><span class="muted" style="font-size:12px;">Only verified editors with Sphere Pro can see and bid on it.</span></span></label>`
+    : `<p class="muted" style="font-size:12px; margin:8px 0;">💎 Want only verified Pro editors? <a onclick="nav('premiumScreen')" style="color:var(--blue); cursor:pointer;">Sphere Premium</a> · free jobs stay free.</p>`;
+}
+SCREENS.premiumScreen = async () => {
+  const back = `<button class="back-btn" onclick="nav('home')">‹</button>`;
+  const m = await loadMyMoney();
+  if(!m || !(m.config || {}).client_premium) return `<div class="header">${back}<h1>Sphere Premium</h1></div><div class="screen"><div class="card"><p>Sphere Premium needs the latest database update (024_client_premium.sql).</p></div></div>`;
+  const cfg = m.config.client_premium, price = Number(cfg.price) || 199, days = Number(cfg.days) || 30, renewDays = Number(cfg.renew_days) || 3;
+  const st = premiumStatus(m), s = m.subscription || {};
+  const end = s.current_period_end ? new Date(s.current_period_end) : null;
+  const canBuy = st !== 'active' || (end && end - Date.now() <= renewDays * 86400000);
+  const pays = m.premium_payments || [], pending = pays.find(p => p.status === 'pending' && p.utr);
+  return `
+  <div class="header">${back}<h1>Sphere Premium</h1><p>For clients · posting jobs stays free</p></div>
+  <div class="screen" style="padding-top:0;">
+    <div class="pro-hero"><span class="pro-chip" style="margin:0;">💎 PREMIUM</span><h2>₹${price} / month</h2><p>${days} days per payment · renew any time in the last ${renewDays} days</p></div>
+    <div class="card"><b>Your plan</b> ${subStateChip(st)}
+      ${st === 'active' ? `<p style="font-size:13px; margin-top:6px;">Active until <b>${fmtDT(s.current_period_end)}</b></p>` : ''}
+      ${st === 'expired' ? `<p style="font-size:13px; margin-top:6px;">Expired on ${fmtDT(s.current_period_end)} — your open Premium jobs are now visible to all editors.</p>` : ''}
+      ${st === 'failed' ? `<p style="font-size:12px; margin-top:6px; color:#c62828;">The last payment failed. No money was taken — try again.</p>` : ''}
+      ${pending ? `<p style="font-size:12px; margin-top:6px;">⏳ UPI transaction ID <b>${esc(pending.utr)}</b> sent — Sphere is checking it.</p>` : ''}
+      ${!pending && canBuy ? `<button class="btn btn-primary" style="margin-top:10px;" id="feePayBtn" onclick="payFee('client_premium', 'premiumScreen')">${st === 'active' ? 'Renew' : 'Get Premium'} — ₹${price}</button>${feeUpiBlock('client_premium', price)}`
+        : (!pending && st === 'active' ? `<p class="muted" style="font-size:12px; margin-top:8px;">You can renew in the last ${renewDays} days before it ends.</p>` : '')}
+    </div>
+    <div class="card"><b>What you get</b>
+      <div class="pro-ben"><span>✅</span><span>Post <b>Premium jobs</b> that only verified editors with Sphere Pro can see and bid on</span></div>
+      <div class="pro-ben"><span>✅</span><span>Premium jobs are announced only to those editors</span></div>
+      <div class="pro-ben"><span>✅</span><span>Free jobs, bids and choosing your editor work exactly as before</span></div></div>
+    ${pays.length ? `<div class="card"><b>Payments</b>${pays.map(p => `<div class="earn-row"><span>${fmtDate(p.created_at)} · ${esc(p.method || '')}</span><span>${rupees(p.amount)} · ${esc(p.status)}</span></div>`).join('')}</div>` : ''}
+  </div>`;
+};
 
 /* ============ PART 18: PRODUCTION ============
    Crash reports go to sp_client_errors (the database removes phone numbers,
