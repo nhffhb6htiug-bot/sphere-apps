@@ -129,6 +129,7 @@ img{max-width:100%; display:block;}
 h1,h2,h3{color:var(--text);}
 .field textarea{resize:vertical; min-height:80px;}
 .phone-wrap{display:flex; align-items:stretch;}
+.phone-locked{font-size:18px; letter-spacing:2px; filter:blur(3px); user-select:none; margin:6px 0;}
 .phone-prefix{display:flex; align-items:center; padding:0 12px; border:1px solid var(--border); border-right:none; border-radius:12px 0 0 12px; background:#f2f2f2; font-weight:600; font-size:14px; color:#111;}
 .field .phone-wrap input{border-radius:0 12px 12px 0; flex:1; min-width:0;}
 
@@ -519,8 +520,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.19.0',
-  build: 'part20-1-client-premium',
+  appVersion: '2.20.0',
+  build: 'part20-3-contact-access',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
@@ -1983,6 +1984,7 @@ SCREENS.editorProfile = async () => {
       <button class="btn btn-outline" onclick="startChat('${e.id}')">💬 Chat</button>
       <button class="btn btn-primary" onclick="hireDirect('${e.id}')">Hire Now</button>
     </div>
+    ${currentUser && currentUser.id !== e.id && !isAdminUser(currentUser) ? `<div id="contactCard"></div>${(setTimeout(() => fillContactCard(0), 0), '')}` : ''}
     ${isClientRole(currentUser) && currentUser.id!==e.id ? `<button class="btn btn-outline" id="saveBtn" data-saved="${isSaved?'1':'0'}" onclick="toggleSaveEditor('${e.id}')">${isSaved?'❤️ Saved':'🤍 Save Editor'}</button>` : ''}
     ${renderPortfolio(e, await loadPortfolio(e.id))}
   </div>`;
@@ -6589,9 +6591,9 @@ function subStatus(m){
 }
 
 // ---- pay a fee: Razorpay through the server, UPI transaction ID as the fallback
-async function payFee(kind, after){
+async function payFee(kind, after, preFee){
   const btn = document.getElementById('feePayBtn'); if(btn) btn.disabled = true;
-  const { data: f, error } = await sb.rpc('sp_fee_start', { p_kind: kind });
+  const { data: f, error } = preFee ? { data: preFee, error: null } : await sb.rpc('sp_fee_start', { p_kind: kind });
   if(error){ if(btn) btn.disabled = false; alert(error.message); return; }
   let order = null;
   try {
@@ -6600,6 +6602,7 @@ async function payFee(kind, after){
   } catch(e) {}
   if(!order || typeof Razorpay === 'undefined'){
     if(btn) btn.disabled = false;
+    if(kind === 'contact_unlock'){ alert('Online payment is not available right now. Please try again a little later — nothing was charged.'); return; }
     alert('Online payment is not available right now. Pay by UPI and type the transaction ID below.');
     const d = document.getElementById('feeUpi'); if(d){ d.open = true; d.scrollIntoView({ behavior: 'smooth' }); }
     return;
@@ -6607,11 +6610,11 @@ async function payFee(kind, after){
   const user = getCurrentUser();
   const rzp = new Razorpay({
     key: order.key_id || RAZORPAY_KEY_ID, amount: order.amount, currency: order.currency, order_id: order.order_id,
-    name: 'Sphere — Syahi Films', description: kind === 'pro' ? 'Editor Pro — 1 month' : 'Editor verification fee (one-time)',
+    name: 'Sphere — Syahi Films', description: kind === 'pro' ? 'Editor Pro — 1 month' : kind === 'client_premium' ? 'Sphere Premium — 1 month' : kind === 'contact_unlock' ? 'Chat & Phone Number Access' : 'Editor verification fee (one-time)',
     prefill: { name: user.name, email: user.email, contact: user.phone || '' }, theme: { color: '#1657ff' },
     handler: async function(r){
       const { data: v, error: ve } = await sb.functions.invoke('sphere-extra-payment', { body: { action: 'verify', feeId: f.id, order_id: r.razorpay_order_id, payment_id: r.razorpay_payment_id, signature: r.razorpay_signature } });
-      if(!ve && v && v.valid) alert(kind === 'pro' ? 'Payment successful ✅ Sphere Pro is active.' : 'Payment successful ✅ Your verification request is with the Sphere team.');
+      if(!ve && v && v.valid) alert(kind === 'contact_unlock' ? 'Payment successful ✅ The phone number is unlocked.' : kind === 'client_premium' ? 'Payment successful ✅ Sphere Premium is active.' : kind === 'pro' ? 'Payment successful ✅ Sphere Pro is active.' : 'Payment successful ✅ Your verification request is with the Sphere team.');
       else alert('We could not confirm the payment yet. Payment ID: ' + r.razorpay_payment_id + '\nKeep this ID — you will not be charged twice.');
       await fetchAndSetCurrentUser(); PRO_SET_AT = 0; nav(after);
     },
@@ -7126,6 +7129,49 @@ SCREENS.premiumScreen = async () => {
     ${pays.length ? `<div class="card"><b>Payments</b>${pays.map(p => `<div class="earn-row"><span>${fmtDate(p.created_at)} · ${esc(p.method || '')}</span><span>${rupees(p.amount)} · ${esc(p.status)}</span></div>`).join('')}</div>` : ''}
   </div>`;
 };
+
+/* ============ PART 20.3: PROFILE & CONTACT ACCESS ============
+   The phone number is never part of a profile response. Only sp_contact_status / sp_contact_unlock
+   return it — and only after the server has an access grant (7 free per account, then ₹5 each,
+   granted only when the payment is confirmed on the server). The locked number below is a fixed
+   placeholder, not the real number hidden with CSS. Chat stays free and moderated as before. */
+async function fillContactCard(tries){
+  const box = document.getElementById('contactCard');
+  if(!box){ if((tries || 0) < 15) setTimeout(() => fillContactCard((tries || 0) + 1), 150); return; }
+  const id = currentEditorId;
+  const { data: c, error } = await sb.rpc('sp_contact_status', { p_target: id });
+  if(error || !c){ box.innerHTML = ''; return; }          // database not updated yet → nothing shown
+  const price = Number(c.price) || 5, total = Number(c.free_total) || 7, left = Number(c.free_left) || 0;
+  let body;
+  if(c.unlocked && c.phone){
+    const digits = String(c.phone).replace(/[^0-9+]/g, '');
+    body = `<p style="font-size:18px; margin:6px 0;">📞 <a href="tel:${esc(digits)}" style="color:var(--blue);">${esc(c.phone)}</a></p>
+      <p class="muted" style="font-size:12px;">Unlocked — you can see it any time, no extra charge.</p>`;
+  } else if(!c.eligible){
+    body = `<p class="phone-locked" aria-hidden="true">+91 ••••• •••••</p><p class="muted" style="font-size:12px;">${esc(c.reason || 'Not available.')}</p>`;
+  } else if(c.pending_fee && c.pending_fee.utr){
+    body = `<p class="phone-locked" aria-hidden="true">+91 ••••• •••••</p><p class="muted" style="font-size:12px;">⏳ Your payment is being checked.</p>`;
+  } else {
+    body = `<p class="phone-locked" aria-hidden="true">+91 ••••• •••••</p>
+      <p class="muted" style="font-size:12px; margin-bottom:8px;">🎁 <b>${left}</b> of ${total} free contact accesses left</p>
+      ${left > 0 ? `<button class="btn btn-primary" id="ccBtn" onclick="contactUnlock('${id}')">🔓 Unlock free (${left} left)</button>`
+                 : `<button class="btn btn-primary" id="feePayBtn" onclick="contactPay('${id}')">🔓 Unlock for ₹${price}</button>`}`;
+  }
+  box.innerHTML = `<div class="card"><b>Chat &amp; Phone Number Access — ₹${price}</b>${body}</div>`;
+}
+async function contactUnlock(id){
+  const btn = document.getElementById('ccBtn'); if(btn){ if(btn.disabled) return; btn.disabled = true; }
+  const { data, error } = await sb.rpc('sp_contact_unlock', { p_target: id });
+  if(error){ if(btn) btn.disabled = false; alert(friendlyError ? friendlyError(error) : error.message); return; }
+  await fillContactCard(0);
+}
+async function contactPay(id){
+  const btn = document.getElementById('feePayBtn'); if(btn){ if(btn.disabled) return; btn.disabled = true; }
+  const { data, error } = await sb.rpc('sp_contact_pay_start', { p_target: id });
+  if(error){ if(btn) btn.disabled = false; alert(error.message); return; }
+  if(btn) btn.disabled = false;
+  await payFee('contact_unlock', 'editorProfile', data);
+}
 
 /* ============ PART 18: PRODUCTION ============
    Crash reports go to sp_client_errors (the database removes phone numbers,
