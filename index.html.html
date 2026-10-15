@@ -530,8 +530,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.20.3',
-  build: 'loading-logo-name',
+  appVersion: '2.20.4',
+  build: 'premium-card-home',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
@@ -3539,7 +3539,8 @@ async function renderClientDashboard(){
     return;
   }
   if(st.total === 0){
-    el.innerHTML = `<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first} 👋</b><span>Welcome to Sphere</span></div></div>${clientEmptyState('all')}`;
+    el.innerHTML = `<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first} 👋</b><span>Welcome to Sphere</span></div></div>${clientEmptyState('all')}<div id="premiumHomeCard"></div>`;
+    setTimeout(() => fillPremiumHomeCard(0), 0);    // Part 20.1 card also for clients with no projects yet
     return;
   }
   const needs = res.items.filter(x => x.action).slice(0, 3);
@@ -3551,9 +3552,9 @@ async function renderClientDashboard(){
       <div class="cl-stat ${st.needYou ? 'warn' : ''}" onclick="nav('jobs', { tab: 'active' })"><b>${st.needYou}</b><span>Need you</span></div>
       <div class="cl-stat" onclick="nav('jobs', { tab: 'history' })"><b>${st.done}</b><span>Completed</span></div>
     </div>
+    <div id="premiumHomeCard"></div>
     ${needs.length ? `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Needs your action</h3></div>${needs.map(x => clientProjectCard(x, true)).join('')}` : ''}
     ${recent.length ? `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Recent projects</h3><a onclick="nav('jobs')">See all</a></div>${recent.map(x => clientProjectCard(x, true)).join('')}` : ''}
-    <div id="premiumHomeCard"></div>
     <div id="ad_client_home"></div>`;
   fillSponsored('client_home');
   setTimeout(() => fillPremiumHomeCard(0), 0);
