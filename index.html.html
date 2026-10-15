@@ -140,6 +140,15 @@ h1,h2,h3{color:var(--text);}
 .sp-dlg-p{font-size:14px; color:#4b5563; line-height:1.45; margin:0 0 14px;} .sp-dlg-ok{width:100%;}
 .sp-dlg-raw{text-align:left; margin:-4px 0 12px; font-size:12px; color:#6b7280;} .sp-dlg-raw code{display:block; white-space:pre-wrap; word-break:break-word; background:#f3f4f6; padding:8px; border-radius:8px; margin-top:6px;}
 @keyframes spDlgIn{from{opacity:0} to{opacity:1}}
+.sp-load-ov{position:fixed; inset:0; z-index:9000; display:flex; align-items:center; justify-content:center;
+  background:rgba(232,238,255,.30); -webkit-backdrop-filter:blur(18px) saturate(170%); backdrop-filter:blur(18px) saturate(170%);
+  opacity:0; visibility:hidden; transition:opacity .2s ease, visibility 0s linear .2s;}
+.sp-load-ov.on{opacity:1; visibility:visible; transition:opacity .2s ease;}
+.sp-load-card{display:flex; flex-direction:column; align-items:center; gap:4px; padding:26px 38px 22px; border-radius:30px;
+  background:rgba(255,255,255,.38); border:1px solid rgba(255,255,255,.65); box-shadow:0 12px 40px rgba(30,64,175,.16), inset 0 1px 0 rgba(255,255,255,.7);
+  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);}
+.sp-load-card .sp-loader{margin:6px 18px 10px;}
+.sp-load-card p{margin:0;}
 .sp-loading{display:flex; flex-direction:column; align-items:center; padding-top:110px; gap:6px;}
 .sp-loader{position:relative; width:130px; height:130px; margin:18px;}
 .sp-loader img{position:absolute; inset:0; width:100%; height:100%;}
@@ -541,8 +550,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.20.9',
-  build: 'part-c-speed',
+  appVersion: '2.21.0',
+  build: 'glass-loader',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
@@ -1178,6 +1187,19 @@ async function saveOwnProfile(row){
   }
   return { error };
 }
+// Frosted-glass loading layer over the current page (iPhone-style blur), with the animated logo
+function loadOverlayEl(){
+  let el = document.getElementById('spLoadOv');
+  if(!el){
+    el = document.createElement('div'); el.id = 'spLoadOv'; el.className = 'sp-load-ov';
+    el.setAttribute('role', 'status'); el.setAttribute('aria-label', 'Loading');
+    el.innerHTML = '<div class="sp-load-card">' + SPHERE_LOADER_SVG + '<div class="sp-name">Sphere</div><p class="muted">Loading…</p></div>';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+function showLoadOverlay(){ loadOverlayEl().classList.add('on'); }
+function hideLoadOverlay(){ const el = document.getElementById('spLoadOv'); if(el) el.classList.remove('on'); }
 // Loading screen: the REAL Sphere logo cut into its 3 parts (left curve, play button, right curve).
 // The play button stays; the two curves slide out diagonally and back. At rest they form the exact logo.
 const SPHERE_LOADER_SVG = '<div class="sp-loader" aria-hidden="true">'
@@ -1372,13 +1394,16 @@ async function nav(screen, data){
     const result = renderer(data);
     if(result instanceof Promise){
       // Part C: show the loading screen only if the screen is slow (no flash on fast screens)
-      const loaderTimer = setTimeout(() => { if(mySeq === NAV_SEQ) app.innerHTML = '<div class="screen sp-loading" role="status" aria-label="Loading">' + SPHERE_LOADER_SVG + '<div class="sp-name">Sphere</div><p class="muted">Loading…</p></div>'; }, 180);
+      // loading: the current page stays behind a frosted-glass layer with the Sphere logo (only if slow)
+      const loaderTimer = setTimeout(() => { if(mySeq === NAV_SEQ) showLoadOverlay(); }, 180);
       const html = await result;
       clearTimeout(loaderTimer);
       if(mySeq !== NAV_SEQ) return;            // a newer screen was opened while this one was loading
+      hideLoadOverlay();
       app.innerHTML = html;
       if(netIsDown()) netNotice();
     } else {
+      hideLoadOverlay();
       app.innerHTML = result;
     }
   }
