@@ -530,8 +530,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.20.4',
-  build: 'premium-card-home',
+  appVersion: '2.20.5',
+  build: 'premium-card-always',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
@@ -7100,10 +7100,20 @@ function premiumStatus(m){
 }
 async function fillPremiumHomeCard(tries){
   const el = document.getElementById('premiumHomeCard');
-  if(!el){ if((tries || 0) < 15) setTimeout(() => fillPremiumHomeCard((tries || 0) + 1), 150); return; }   // the screen may not be on the page yet
+  if(!el){
+    if((tries || 0) < 40) setTimeout(() => fillPremiumHomeCard((tries || 0) + 1), 150);   // the screen may not be on the page yet
+    else reportCrash('premium card: home slot not found', 'fillPremiumHomeCard');
+    return;
+  }
   if(el.dataset.filled) return; el.dataset.filled = '1';
-  const m = await loadMyMoney(); if(!m || !(m.config || {}).client_premium) return;
-  const st = premiumStatus(m), price = Number(m.config.client_premium.price) || 199, s = m.subscription || {};
+  let m = null, err = null;
+  try { const r = await sb.rpc('sp_my_monetization'); m = r.data; err = r.error; } catch(e) { err = e; }
+  if(err || !m || !(m.config || {}).client_premium) {
+    reportCrash('premium card: ' + ((err && (err.message || err.code)) || (m ? 'no client_premium config' : 'no data')), 'fillPremiumHomeCard');
+  }
+  // the card is always shown; the Premium screen itself checks everything on the server
+  const cfg = (m && m.config && m.config.client_premium) || { price: 199 };
+  const st = m ? premiumStatus(m) : 'inactive', price = Number(cfg.price) || 199, s = (m && m.subscription) || {};
   el.innerHTML = `<div class="card" style="display:flex; align-items:center; gap:12px; cursor:pointer;" onclick="nav('premiumScreen')">
     <div style="font-size:26px;">💎</div><div style="flex:1;"><b>Sphere Premium</b> ${subStateChip(st)}
       <p class="muted" style="font-size:12px; margin-top:2px;">${st === 'active' ? 'Active until ' + fmtDate(s.current_period_end) : 'Post Premium jobs for verified Pro editors · ₹' + price + '/month'}</p></div>
