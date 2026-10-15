@@ -144,9 +144,7 @@ h1,h2,h3{color:var(--text);}
   background:rgba(232,238,255,.30); -webkit-backdrop-filter:blur(18px) saturate(170%); backdrop-filter:blur(18px) saturate(170%);
   opacity:0; visibility:hidden; transition:opacity .2s ease, visibility 0s linear .2s;}
 .sp-load-ov.on{opacity:1; visibility:visible; transition:opacity .2s ease;}
-.sp-load-card{display:flex; flex-direction:column; align-items:center; gap:4px; padding:26px 38px 22px; border-radius:30px;
-  background:rgba(255,255,255,.38); border:1px solid rgba(255,255,255,.65); box-shadow:0 12px 40px rgba(30,64,175,.16), inset 0 1px 0 rgba(255,255,255,.7);
-  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);}
+.sp-load-card{display:flex; flex-direction:column; align-items:center; gap:4px;}   /* no box: logo straight on the frosted page */
 .sp-load-card .sp-loader{margin:6px 18px 10px;}
 .sp-load-card p{margin:0;}
 .sp-loading{display:flex; flex-direction:column; align-items:center; padding-top:110px; gap:6px;}
@@ -550,8 +548,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.21.0',
-  build: 'glass-loader',
+  appVersion: '2.21.1',
+  build: 'glass-loader-nobox',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
