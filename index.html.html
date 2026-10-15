@@ -132,6 +132,8 @@ h1,h2,h3{color:var(--text);}
 .sp-loading{display:flex; flex-direction:column; align-items:center; padding-top:110px; gap:6px;}
 .sp-loader{position:relative; width:130px; height:130px; margin:18px;}
 .sp-loader img{position:absolute; inset:0; width:100%; height:100%;}
+.sp-name{font-size:30px; font-weight:800; letter-spacing:.5px; line-height:1.1; margin-top:2px;
+  background:linear-gradient(90deg,#0a3fe0,#1e7ff0 55%,#12c8f5); -webkit-background-clip:text; background-clip:text; color:transparent;}
 .sp-l{animation:spLoadL .9s ease-in-out infinite;}
 .sp-r{animation:spLoadR .9s ease-in-out infinite;}
 @keyframes spLoadL{0%,100%{transform:translate(0,0)} 50%{transform:translate(-18px,18px)}}
@@ -528,8 +530,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.20.2',
-  build: 'loading-logo-real',
+  appVersion: '2.20.3',
+  build: 'loading-logo-name',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
@@ -1296,7 +1298,7 @@ async function nav(screen, data){
   if(renderer){
     const result = renderer(data);
     if(result instanceof Promise){
-      app.innerHTML = '<div class="screen sp-loading" role="status" aria-label="Loading">' + SPHERE_LOADER_SVG + '<p class="muted">Loading…</p></div>';
+      app.innerHTML = '<div class="screen sp-loading" role="status" aria-label="Loading">' + SPHERE_LOADER_SVG + '<div class="sp-name">Sphere</div><p class="muted">Loading…</p></div>';
       const html = await result;
       if(mySeq !== NAV_SEQ) return;            // a newer screen was opened while this one was loading
       app.innerHTML = html;
