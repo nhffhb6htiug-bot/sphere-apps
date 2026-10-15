@@ -129,6 +129,8 @@ img{max-width:100%; display:block;}
 h1,h2,h3{color:var(--text);}
 .field textarea{resize:vertical; min-height:80px;}
 .phone-wrap{display:flex; align-items:stretch;}
+.prem-pill{margin-left:auto; flex-shrink:0; border:none; border-radius:999px; padding:8px 13px; font-weight:700; font-size:13px; color:#fff; white-space:nowrap; cursor:pointer;
+  background:linear-gradient(90deg,#0a3fe0,#1e7ff0 55%,#12c8f5); box-shadow:0 4px 12px rgba(30,127,240,.3);}
 .sp-loading{display:flex; flex-direction:column; align-items:center; padding-top:110px; gap:6px;}
 .sp-loader{position:relative; width:130px; height:130px; margin:18px;}
 .sp-loader img{position:absolute; inset:0; width:100%; height:100%;}
@@ -530,8 +532,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.20.5',
-  build: 'premium-card-always',
+  appVersion: '2.20.6',
+  build: 'premium-pill',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
@@ -3535,29 +3537,27 @@ async function renderClientDashboard(){
   const first = esc(String(user.name || '').split(' ')[0] || 'there');
   const st = res.stats;
   if(!res.ok){
-    el.innerHTML = `<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first} 👋</b><span>Couldn't load your projects. Pull down to refresh.</span></div></div>`;
+    el.innerHTML = `<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first} 👋</b><span>Couldn't load your projects. Pull down to refresh.</span></div>${premiumPill()}</div>`;
     return;
   }
   if(st.total === 0){
-    el.innerHTML = `<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first} 👋</b><span>Welcome to Sphere</span></div></div>${clientEmptyState('all')}<div id="premiumHomeCard"></div>`;
-    setTimeout(() => fillPremiumHomeCard(0), 0);    // Part 20.1 card also for clients with no projects yet
+    el.innerHTML = `<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first} 👋</b><span>Welcome to Sphere</span></div>${premiumPill()}</div>${clientEmptyState('all')}`;
     return;
   }
   const needs = res.items.filter(x => x.action).slice(0, 3);
   const recent = res.items.filter(x => !x.action).slice(0, 3);
   el.innerHTML = `
-    <div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first} 👋</b><span>${st.active ? 'Here is how your projects are going' : 'All your projects are finished'}</span></div></div>
+    <div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first} 👋</b><span>${st.active ? 'Here is how your projects are going' : 'All your projects are finished'}</span></div>${premiumPill()}</div>
     <div class="cl-stats">
       <div class="cl-stat" onclick="nav('jobs', { tab: 'active' })"><b>${st.active}</b><span>Active</span></div>
       <div class="cl-stat ${st.needYou ? 'warn' : ''}" onclick="nav('jobs', { tab: 'active' })"><b>${st.needYou}</b><span>Need you</span></div>
       <div class="cl-stat" onclick="nav('jobs', { tab: 'history' })"><b>${st.done}</b><span>Completed</span></div>
     </div>
-    <div id="premiumHomeCard"></div>
     ${needs.length ? `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Needs your action</h3></div>${needs.map(x => clientProjectCard(x, true)).join('')}` : ''}
     ${recent.length ? `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Recent projects</h3><a onclick="nav('jobs')">See all</a></div>${recent.map(x => clientProjectCard(x, true)).join('')}` : ''}
     <div id="ad_client_home"></div>`;
   fillSponsored('client_home');
-  setTimeout(() => fillPremiumHomeCard(0), 0);
+
 }
 
 // ---- My Projects (client view of the Jobs tab)
@@ -7098,6 +7098,8 @@ function premiumStatus(m){
   if(s.status === 'active' && s.current_period_end && new Date(s.current_period_end) <= new Date()) return 'expired';
   return s.status || 'inactive';
 }
+// small "💎 Premium" button on the client home greeting (opens the Premium screen; the server checks everything)
+function premiumPill(){ return `<button class="prem-pill" onclick="nav('premiumScreen')">💎 Premium</button>`; }
 async function fillPremiumHomeCard(tries){
   const el = document.getElementById('premiumHomeCard');
   if(!el){
