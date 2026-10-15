@@ -129,6 +129,13 @@ img{max-width:100%; display:block;}
 h1,h2,h3{color:var(--text);}
 .field textarea{resize:vertical; min-height:80px;}
 .phone-wrap{display:flex; align-items:stretch;}
+.sp-loading{display:flex; flex-direction:column; align-items:center; padding-top:110px; gap:6px;}
+.sp-loader{width:120px; height:120px; overflow:visible;}
+.sp-l{animation:spLoadL .9s ease-in-out infinite;}
+.sp-r{animation:spLoadR .9s ease-in-out infinite;}
+@keyframes spLoadL{0%,100%{transform:translate(0,0)} 50%{transform:translate(-75px,75px)}}
+@keyframes spLoadR{0%,100%{transform:translate(0,0)} 50%{transform:translate(75px,-75px)}}
+@media (prefers-reduced-motion: reduce){ .sp-l,.sp-r{animation:none;} }
 .phone-locked{font-size:18px; letter-spacing:2px; filter:blur(3px); user-select:none; margin:6px 0;}
 .phone-prefix{display:flex; align-items:center; padding:0 12px; border:1px solid var(--border); border-right:none; border-radius:12px 0 0 12px; background:#f2f2f2; font-weight:600; font-size:14px; color:#111;}
 .field .phone-wrap input{border-radius:0 12px 12px 0; flex:1; min-width:0;}
@@ -520,8 +527,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.20.0',
-  build: 'part20-3-contact-access',
+  appVersion: '2.20.1',
+  build: 'loading-logo',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
@@ -1140,6 +1147,12 @@ async function saveOwnProfile(row){
   }
   return { error };
 }
+// Loading screen: the Sphere logo — the play button stays, the two side curves slide out diagonally and back
+const SPHERE_LOADER_SVG = '<svg class="sp-loader" viewBox="-90 -90 692 692" aria-hidden="true">'
+  + '<g class="sp-l"><path d="M115 140 L115 350 Q115 405 165 382 L295 318" fill="none" stroke="#2563eb" stroke-width="54" stroke-linecap="round" stroke-linejoin="round"/></g>'
+  + '<polygon points="182,178 182,318 296,248" fill="#1d4ed8" stroke="#1d4ed8" stroke-width="26" stroke-linejoin="round"/>'
+  + '<g class="sp-r"><path d="M190 100 L340 185 Q400 222 388 288 Q375 348 315 368 L238 398" fill="none" stroke="#1ea0f0" stroke-width="54" stroke-linecap="round" stroke-linejoin="round"/></g>'
+  + '</svg>';
 function jsq(v){ return esc(JSON.stringify(String(v == null ? '' : v))); }
 function safeOpen(u){ if(/^https:\/\//i.test(String(u || ''))) window.open(u, '_blank', 'noopener,noreferrer'); }
 function linkOrText(v){
@@ -1281,7 +1294,7 @@ async function nav(screen, data){
   if(renderer){
     const result = renderer(data);
     if(result instanceof Promise){
-      app.innerHTML = '<div class="screen center-text muted" style="padding-top:120px;">Loading…</div>';
+      app.innerHTML = '<div class="screen sp-loading" role="status" aria-label="Loading">' + SPHERE_LOADER_SVG + '<p class="muted">Loading…</p></div>';
       const html = await result;
       if(mySeq !== NAV_SEQ) return;            // a newer screen was opened while this one was loading
       app.innerHTML = html;
