@@ -548,10 +548,12 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.21.2',
-  build: 'razorpay-test-key',
+  appVersion: '2.21.3',
+  build: 'api-via-render',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
-  supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
+  // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
+  // some Indian networks block *.workers.dev and supabase.co. Elsewhere (tests, local) the old address.
+  supabaseUrl: (location.hostname === 'sphere-live.onrender.com' ? location.origin + '/sb' : 'https://sphere-api.niteshkumarmatho37.workers.dev'),
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
   supabaseProjectRef: 'pwcchgjsgkwrsvbzqspp',
   razorpayKeyId: 'rzp_test_ToP8tptwI8hD6g',                        // rzp_test_ = test money, rzp_live_ = real money
