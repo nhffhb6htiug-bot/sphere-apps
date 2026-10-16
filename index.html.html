@@ -548,13 +548,13 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.21.1',
-  build: 'glass-loader-nobox',
+  appVersion: '2.21.2',
+  build: 'razorpay-test-key',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   supabaseUrl: 'https://sphere-api.niteshkumarmatho37.workers.dev',
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
   supabaseProjectRef: 'pwcchgjsgkwrsvbzqspp',
-  razorpayKeyId: 'rzp_test_TiF5Py5F7SLGDs',                        // rzp_test_ = test money, rzp_live_ = real money
+  razorpayKeyId: 'rzp_test_ToP8tptwI8hD6g',                        // rzp_test_ = test money, rzp_live_ = real money
   googleClientId: '258192736968-ocmgvgkm00t0sglunn6tqgodpf6d4ak2.apps.googleusercontent.com',
   website: 'https://sphere-live.onrender.com',
   // Which modules are built (Parts 1–18). Not used to hide screens — kept for reference / future switches.
