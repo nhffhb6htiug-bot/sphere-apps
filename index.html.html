@@ -548,8 +548,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.21.5',
-  build: 'auto-payment-only',
+  appVersion: '2.21.6',
+  build: 'upi-first-checkout',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
   // some Indian networks block *.workers.dev and supabase.co. Elsewhere (tests, local) the old address.
@@ -1248,15 +1248,17 @@ function showSphereDialog(message){
 // the amount is already filled in, the user just enters the PIN. No cards / netbanking / wallets.
 // The server still checks every payment before anything is unlocked.
 function spRazorpay(opts){
-  const upiOnly = {
-    method: { upi: true, card: false, netbanking: false, wallet: false, emi: false, paylater: false, cardless_emi: false },
+  // UPI first (your phone's UPI apps, amount filled in, just the PIN). The other methods stay below
+  // only because Razorpay has not switched UPI on for this account yet — otherwise checkout shows
+  // "No appropriate payment method found". The server checks every payment before anything unlocks.
+  const upiFirst = {
     config: { display: {
       blocks: { upi: { name: 'Pay with any UPI app', instruments: [{ method: 'upi', flows: ['intent', 'qr', 'collect'] }] } },
       sequence: ['block.upi'],
-      preferences: { show_default_blocks: false }
+      preferences: { show_default_blocks: true }
     } }
   };
-  return new Razorpay(Object.assign({}, opts, upiOnly));
+  return new Razorpay(Object.assign({}, opts, upiFirst));
 }
 function jsq(v){ return esc(JSON.stringify(String(v == null ? '' : v))); }
 function safeOpen(u){ if(/^https:\/\//i.test(String(u || ''))) window.open(u, '_blank', 'noopener,noreferrer'); }
