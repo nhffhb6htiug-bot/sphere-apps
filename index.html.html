@@ -548,8 +548,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.21.3',
-  build: 'api-via-render',
+  appVersion: '2.21.4',
+  build: 'upi-only-checkout',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
   // some Indian networks block *.workers.dev and supabase.co. Elsewhere (tests, local) the old address.
@@ -1244,6 +1244,20 @@ function showSphereDialog(message){
 }
 (function(){ const native = window.alert ? window.alert.bind(window) : null;
   window.alert = function(m){ try { showSphereDialog(m); } catch(e){ if(native) native(m); } }; })();
+// Every payment opens Razorpay with UPI ONLY: the phone's UPI apps (GPay, PhonePe, Paytm…) are shown,
+// the amount is already filled in, the user just enters the PIN. No cards / netbanking / wallets.
+// The server still checks every payment before anything is unlocked.
+function spRazorpay(opts){
+  const upiOnly = {
+    method: { upi: true, card: false, netbanking: false, wallet: false, emi: false, paylater: false, cardless_emi: false },
+    config: { display: {
+      blocks: { upi: { name: 'Pay with any UPI app', instruments: [{ method: 'upi', flows: ['intent', 'qr', 'collect'] }] } },
+      sequence: ['block.upi'],
+      preferences: { show_default_blocks: false }
+    } }
+  };
+  return new Razorpay(Object.assign({}, opts, upiOnly));
+}
 function jsq(v){ return esc(JSON.stringify(String(v == null ? '' : v))); }
 function safeOpen(u){ if(/^https:\/\//i.test(String(u || ''))) window.open(u, '_blank', 'noopener,noreferrer'); }
 function linkOrText(v){
@@ -5029,7 +5043,7 @@ async function payWithRazorpay(jobId){
       alert('Could not start the payment: ' + msg);
       return;
     }
-    const rzp = new Razorpay({
+    const rzp = spRazorpay({
       key: RAZORPAY_KEY_ID,
       amount: order.amount,
       currency: order.currency,
@@ -5893,7 +5907,7 @@ async function payExtra(extraId, jobId){
     return;
   }
   const user = getCurrentUser();
-  const rzp = new Razorpay({
+  const rzp = spRazorpay({
     key: order.key_id || RAZORPAY_KEY_ID, amount: order.amount, currency: order.currency, order_id: order.order_id,
     name: 'Sphere — Syahi Films', description: 'Extra payment',
     prefill: { name: user.name, email: user.email, contact: user.phone || '' }, theme: { color: '#1657ff' },
@@ -6732,7 +6746,7 @@ async function payFee(kind, after, preFee){
     return;
   }
   const user = getCurrentUser();
-  const rzp = new Razorpay({
+  const rzp = spRazorpay({
     key: order.key_id || RAZORPAY_KEY_ID, amount: order.amount, currency: order.currency, order_id: order.order_id,
     name: 'Sphere — Syahi Films', description: kind === 'pro' ? 'Editor Pro — 1 month' : kind === 'client_premium' ? 'Sphere Premium — 1 month' : kind === 'contact_unlock' ? 'Chat & Phone Number Access' : 'Editor verification fee (one-time)',
     prefill: { name: user.name, email: user.email, contact: user.phone || '' }, theme: { color: '#1657ff' },
