@@ -548,8 +548,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.21.4',
-  build: 'upi-only-checkout',
+  appVersion: '2.21.5',
+  build: 'auto-payment-only',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
   // some Indian networks block *.workers.dev and supabase.co. Elsewhere (tests, local) the old address.
@@ -5886,11 +5886,8 @@ function revError(error){
 function extraPayButtons(x, job){
   if(x.status === 'paid') return '<p style="font-size:12px; color:#15803d;">✅ Paid</p>';
   return `${x.utr ? `<p class="muted" style="font-size:12px; margin-bottom:6px;">UPI ID ${esc(x.utr)} sent — Sphere is checking it.</p>` : ''}
-    <button class="btn btn-primary" id="xPay_${x.id}" onclick="payExtra('${x.id}', '${job.id}')">🔒 Pay ${rupees(x.amount)}</button>
-    <details style="margin-top:8px;"><summary class="muted" style="font-size:12px;">Pay by UPI instead</summary>
-      <p style="font-size:12px; margin:8px 0;">Send <b>${rupees(x.amount)}</b> to UPI ID <b>${esc(FEE_UPI)}</b> (${esc(FEE_UPI_NAME)}), then type the 12-digit UPI transaction ID:</p>
-      <div class="field"><input id="xUtr_${x.id}" inputmode="numeric" maxlength="22" placeholder="e.g. 412345678901"></div>
-      <button class="btn btn-outline" onclick="submitExtraUtr('${x.id}', '${job.id}')">I have paid</button></details>`;
+    <button class="btn btn-primary" id="xPay_${x.id}" onclick="payExtra('${x.id}', '${job.id}')">📲 Pay ${rupees(x.amount)} with UPI</button>
+    <p class="muted" style="font-size:11px; margin-top:6px;">Opens your UPI app (GPay, PhonePe, Paytm…). Unlocks automatically after payment.</p>`;
 }
 async function payExtra(extraId, jobId){
   const btn = document.getElementById('xPay_' + extraId); if(btn) btn.disabled = true;
@@ -5902,7 +5899,7 @@ async function payExtra(extraId, jobId){
   } catch(e) {}
   if(!order || typeof Razorpay === 'undefined'){
     if(btn) btn.disabled = false;
-    alert('Online payment is not available right now. Use "Pay by UPI instead" below.');
+    alert('Payment could not start right now. Please try again in a minute — nothing was charged.');
     const d = btn && btn.parentElement && btn.parentElement.querySelector('details'); if(d) d.open = true;
     return;
   }
@@ -6741,7 +6738,7 @@ async function payFee(kind, after, preFee){
   if(!order || typeof Razorpay === 'undefined'){
     if(btn) btn.disabled = false;
     if(kind === 'contact_unlock'){ alert('Online payment is not available right now. Please try again a little later — nothing was charged.'); return; }
-    alert('Online payment is not available right now. Pay by UPI and type the transaction ID below.');
+    alert('Payment could not start right now. Please try again in a minute — nothing was charged.');
     const d = document.getElementById('feeUpi'); if(d){ d.open = true; d.scrollIntoView({ behavior: 'smooth' }); }
     return;
   }
@@ -6765,6 +6762,9 @@ async function payFee(kind, after, preFee){
   rzp.open();
 }
 function feeUpiBlock(kind, amount, pendingId){
+  return '';   // payments are automatic now (Razorpay UPI, checked by the server) — no manual transaction ID
+}
+function feeUpiBlockManualOld(kind, amount, pendingId){
   const upi = `upi://pay?pa=${encodeURIComponent(FEE_UPI)}&pn=${encodeURIComponent(FEE_UPI_NAME)}&am=${amount}&cu=INR&tn=${encodeURIComponent(kind === 'pro' ? 'Sphere Pro' : 'Sphere verification')}`;
   const mobile = /android|iphone|ipad/i.test(navigator.userAgent);
   return `<details id="feeUpi" open style="margin-top:12px;"><summary style="font-size:14px; font-weight:700;">📲 Pay by UPI</summary>
