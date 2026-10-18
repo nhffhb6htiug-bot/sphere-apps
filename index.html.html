@@ -280,7 +280,8 @@ h1,h2,h3{color:var(--text);}
 .notif-item{display:flex; gap:12px; background:var(--card); border-radius:14px; padding:12px; margin-bottom:10px;}
 .notif-item .dot-icon{width:36px;height:36px;border-radius:10px;background:var(--blue);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;flex-shrink:0;}
 
-.chat-bubble{max-width:78%; padding:8px 12px 6px; border-radius:16px; margin-bottom:8px; font-size:14px; word-wrap:break-word;}
+.chat-bubble{max-width:76%; padding:6px 10px 4px; border-radius:14px; margin-bottom:5px; font-size:13.5px; line-height:1.35; word-wrap:break-word;}
+.chat-bubble audio{height:34px; max-width:210px;}
 .chat-head{position:fixed; top:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; z-index:60; display:flex; align-items:center; gap:10px; padding:10px 8px; padding-top:calc(10px + env(safe-area-inset-top, 0px)); background:linear-gradient(135deg,#0f3fcc,#1657ff); color:#fff; box-shadow:0 2px 10px rgba(0,0,0,.12);}
 .chat-head .ch-back, .chat-head .ch-more{background:transparent; border:none; color:#fff; font-size:24px; line-height:1; cursor:pointer; padding:4px 8px;}
 .chat-head .avatar{margin:0 !important; width:40px !important; height:40px !important; flex:0 0 40px; font-size:18px;}
@@ -471,7 +472,7 @@ textarea.ed-text{width:100%; min-height:84px; padding:12px 14px; border-radius:1
 .media-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:6px;}
 .media-grid a{position:relative; aspect-ratio:1/1; border-radius:10px; overflow:hidden; background:#111; display:flex; align-items:center; justify-content:center; color:#fff; text-decoration:none; font-size:22px;}
 .media-grid img{width:100%; height:100%; object-fit:cover;}
-.msg-meta{display:block; text-align:right; font-size:10.5px; opacity:.75; margin-top:3px; white-space:nowrap;}
+.msg-meta{display:block; text-align:right; font-size:10px; opacity:.75; margin-top:2px; white-space:nowrap;}
 .tick{letter-spacing:-4px; margin-left:3px; font-weight:700;} .tick.read{color:#7ee3ff; opacity:1;}
 .chat-bubble.them .tick{display:none;}
 .chat-img{display:block; max-width:240px; width:100%; border-radius:12px; margin-bottom:4px;}
@@ -554,8 +555,8 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.21.8',
-  build: 'animated-start',
+  appVersion: '2.21.9',
+  build: 'chat-send-compact',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
   // some Indian networks block *.workers.dev and supabase.co. Elsewhere (tests, local) the old address.
@@ -2694,8 +2695,7 @@ SCREENS.chatThread = async () => {
     <input id="chatInput" placeholder="Type a message..." maxlength="2000" onkeypress="if(event.key==='Enter')sendMsg()">
     <div class="rec-bar" id="recBar"><span class="rec-dot"></span><span id="recTime">0:00</span><span class="muted" style="font-weight:400;">Recording…</span>
       <button class="chat-tool" title="Cancel" style="color:#c62828 !important; margin-left:auto;" onclick="stopVoice(false)">✕</button></div>
-    <button class="chat-tool" id="micBtn" title="Voice message" onclick="startVoice()">🎤</button>
-    <button id="sendBtn" onclick="recording() ? stopVoice(true) : sendMsg()">➤</button>
+    <button id="sendBtn" title="Send" aria-label="Send" onclick="recording() ? stopVoice(true) : sendMsg()">➤</button>
   </div>`}`;
 };
 
