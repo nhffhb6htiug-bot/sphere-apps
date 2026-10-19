@@ -559,7 +559,7 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.0',
+  appVersion: '2.22.1',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -2558,7 +2558,49 @@ async function markRead(otherId){
 }
 document.addEventListener('visibilitychange', () => {
   if(!document.hidden && currentScreenName === 'chatThread' && currentChatWith) markRead(currentChatWith);
+  if(!document.hidden && currentUser){ catchUpChat(); try { refreshBell(); } catch(e) {} }
 });
+
+// ---- Part 21: live-update health + catch-up ----
+// Realtime reconnects by itself but does not resend what arrived while it was down. So: when it
+// (re)connects or the app comes back to the screen, fetch only the messages newer than the last one
+// shown (no duplicates: every bubble carries its id). A light 10-second check runs ONLY while live
+// updates are not connected.
+let THREAD_SINCE = null, RT_OK = { msg: false, notif: false }, rtPollTimer = null, catchingUp = false;
+function rtStatus(kind){
+  return (status) => {
+    const was = RT_OK[kind]; RT_OK[kind] = (status === 'SUBSCRIBED');
+    if(RT_OK[kind] && !was){ if(kind === 'msg') catchUpChat(); else { try { refreshBell(); } catch(e) {} } }
+    rtPollSchedule();
+  };
+}
+function rtPollSchedule(){
+  const need = !!currentUser && (!RT_OK.msg || !RT_OK.notif);
+  if(need && !rtPollTimer) rtPollTimer = setInterval(() => { if(document.hidden || !currentUser) return; catchUpChat(); try { refreshBell(); } catch(e) {} }, 10000);
+  if(!need && rtPollTimer){ clearInterval(rtPollTimer); rtPollTimer = null; }
+}
+async function catchUpChat(){
+  if(!currentUser) return;
+  const box = document.getElementById('chatBox');
+  if(!box || currentScreenName !== 'chatThread' || !currentChatWith || !THREAD_SINCE || catchingUp){ refreshChatBadge(); return; }
+  catchingUp = true;
+  try {
+    const me = currentUser.id;
+    let q = sb.from('sp_messages').select('*')
+      .or(`and(sender_id.eq.${me},receiver_id.eq.${currentChatWith}),and(sender_id.eq.${currentChatWith},receiver_id.eq.${me})`)
+      .gt('created_at', THREAD_SINCE);
+    if(currentChatJob) q = q.eq('job_id', currentChatJob);
+    const { data } = await q.order('created_at', { ascending: true }).limit(100);
+    let added = 0;
+    (data || []).forEach(m => {
+      if(m.created_at > THREAD_SINCE) THREAD_SINCE = m.created_at;
+      if(box.querySelector(`.chat-bubble[data-id="${m.id}"]`)) return;
+      if(box.querySelector('p.muted.center-text')) box.innerHTML = '';
+      box.insertAdjacentHTML('beforeend', withDay(m, me)); added++;
+    });
+    if(added){ scrollChat(); if(!document.hidden) markRead(currentChatWith); }
+  } catch(e) {} finally { catchingUp = false; refreshChatBadge(); }
+}
 
 // ---- unread badge on the Chat tab ----
 async function refreshChatBadge(){
@@ -2595,7 +2637,9 @@ function listenForMessages(){
       const m = payload.new;
       const box = document.getElementById('chatBox');
       const inThread = !!box && currentScreenName === 'chatThread' && m.sender_id === currentChatWith && (!currentChatJob || m.job_id === currentChatJob);
+      if(inThread && box.querySelector(`.chat-bubble[data-id="${m.id}"]`)) return;   // already shown (catch-up got it first)
       if(inThread){
+        if(m.created_at && (!THREAD_SINCE || m.created_at > THREAD_SINCE)) THREAD_SINCE = m.created_at;
         box.insertAdjacentHTML('beforeend', withDay(m, me));
         scrollChat();
         if(!document.hidden) markRead(m.sender_id); else markDelivered();
@@ -2616,7 +2660,7 @@ function listenForMessages(){
       const m = payload.new;
       if((m.text && m.text.includes('📵')) || (m.mod_status && m.mod_status !== 'ok')) refreshBubble(m);
     })
-    .subscribe();
+    .subscribe(rtStatus('msg'));
 }
 
 SCREENS.chatList = async () => {
@@ -2674,6 +2718,7 @@ SCREENS.chatThread = async () => {
   listenForMessages();
   markRead(currentChatWith);
   lastChatDay = '';
+  THREAD_SINCE = (data && data.length) ? data[data.length - 1].created_at : new Date(Date.now() - 60000).toISOString();
   const body = (data || []).map(m => withDay(m, user.id)).join('');
   scrollChat();
   return `
@@ -2790,7 +2835,8 @@ async function insertMessage(row){
     ({ data, error } = await sb.from('sp_messages').insert(Object.assign(base, row)).select().single());
   }
   if(error){
-    if(/row-level security/i.test(error.message || '')) alert('Message not sent. You cannot message this person right now.');
+    if(/blocked/i.test(error.message || '')) alert('Message not sent — one of you has blocked the other.');
+    else if(/row-level security/i.test(error.message || '')) alert('Message not sent. You cannot message this person right now.');
     else if(!dbErr(error)) alert('This message could not be sent. Please try again.');
     return null;
   }
@@ -3543,6 +3589,7 @@ function accountStatusBanner(u){
 let loggingOut = false;
 function clearSessionState(){
   if(msgChannel){ try { sb.removeChannel(msgChannel); } catch(e){} msgChannel = null; }
+  RT_OK = { msg: false, notif: false }; if(rtPollTimer){ clearInterval(rtPollTimer); rtPollTimer = null; }
   currentUser = null;
   pendingAuthUser = null;
   ADMIN_PIN = '';
@@ -7030,7 +7077,7 @@ function startNotifRealtime(){
         refreshBell();
         if(currentScreenName === 'notifications') return nav('notifications');
         if(n.id && n.id !== lastToastId && !(currentScreenName === 'chatThread' && n.category === 'messages')) { lastToastId = n.id; showNotifToast(n); }
-      }).subscribe();
+      }).subscribe(rtStatus('notif'));
   } catch(e) { notifChannel = null; }
 }
 function showNotifToast(n){
