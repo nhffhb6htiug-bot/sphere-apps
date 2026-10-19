@@ -1,0 +1,10 @@
+# never commit secrets, local env files, database dumps or build output
+.env
+.env.*
+*.pem
+*.key
+backups/
+*.dump
+*.sql.gz
+node_modules/
+dist/
