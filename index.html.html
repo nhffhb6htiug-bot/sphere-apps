@@ -151,6 +151,7 @@ h1,h2,h3{color:var(--text);}
 .home-search-bottom input{flex:1; border:none; outline:none; font-size:15px; background:transparent; min-width:0;}
 .sr-row{display:flex; align-items:center; gap:12px; padding:12px 14px; margin-top:8px; cursor:pointer;}
 .sr-ic{font-size:20px;}
+.prem-badge{display:inline-block; margin-left:4px; font-size:.9em; line-height:1; vertical-align:1px;}
 .sp-loading{display:flex; flex-direction:column; align-items:center; padding-top:110px; gap:6px;}
 .sp-loader{position:relative; width:130px; height:130px; margin:18px;}
 .sp-loader img{position:absolute; inset:0; width:100%; height:100%;}
@@ -564,7 +565,7 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.3',
+  appVersion: '2.22.4',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -1276,6 +1277,30 @@ function spRazorpay(opts){
   };
   return new Razorpay(Object.assign({}, opts, upiFirst));
 }
+// Part 24: 💎 Premium badge. Eligibility comes ONLY from the server (sp_is_premium_client reads
+// sp_subscriptions, which users cannot write). Each name gets an empty slot; the badge is filled in
+// only when the server says "active". Answers are remembered for 5 minutes, so an expired plan
+// loses its badge on the next check; logout clears them.
+const PREMIUM_CACHE = new Map();
+async function isPremiumClient(id){
+  if(!id) return false;
+  const c = PREMIUM_CACHE.get(id);
+  if(c && Date.now() - c.at < 300000) return c.v;
+  let v = false;
+  try { const { data, error } = await sb.rpc('sp_is_premium_client', { p_user: id }); v = !error && data === true; } catch(e) {}
+  PREMIUM_CACHE.set(id, { v, at: Date.now() });
+  return v;
+}
+function premiumBadgeSlot(id){ return id ? `<span class="prem-badge-slot" data-pb="${esc(String(id))}"></span>` : ''; }
+let pbTimer = null;
+async function fillPremiumBadges(){
+  const els = [...document.querySelectorAll('.prem-badge-slot[data-pb]:not([data-done])')];
+  if(!els.length || !getCurrentUser()) return;
+  const ids = [...new Set(els.map(e => e.dataset.pb))].slice(0, 30);
+  const res = new Map(await Promise.all(ids.map(async id => [id, await isPremiumClient(id)])));
+  els.forEach(e => { if(!res.has(e.dataset.pb)) return; e.dataset.done = '1'; e.innerHTML = res.get(e.dataset.pb) ? '<span class="prem-badge" title="Sphere Premium client" aria-label="Premium">💎</span>' : ''; });
+}
+new MutationObserver(() => { clearTimeout(pbTimer); pbTimer = setTimeout(fillPremiumBadges, 80); }).observe(document.documentElement, { childList: true, subtree: true });
 function jsq(v){ return esc(JSON.stringify(String(v == null ? '' : v))); }
 function safeOpen(u){ if(/^https:\/\//i.test(String(u || ''))) window.open(u, '_blank', 'noopener,noreferrer'); }
 function linkOrText(v){
@@ -2730,7 +2755,7 @@ SCREENS.chatThread = async () => {
   <div class="chat-head" style="flex-wrap:wrap;">
     <button class="ch-back" onclick="nav('chatList')">‹</button>
     ${avatarHtml(other)}
-    <div class="ch-name" onclick="nav('chatInfo')"><b>${other?esc(other.name):'Chat'}</b><small>${chatJob ? '📁 ' + projectCode(chatJob) + ' · ' + esc(chatJob.title || chatJob.category) : roleLine(other)}</small></div>
+    <div class="ch-name" onclick="nav('chatInfo')"><b>${other?esc(other.name):'Chat'}${other ? premiumBadgeSlot(other.id) : ''}</b><small>${chatJob ? '📁 ' + projectCode(chatJob) + ' · ' + esc(chatJob.title || chatJob.category) : roleLine(other)}</small></div>
     <button class="ch-more" title="More" onclick="toggleChatMenu(event)">⋮</button>
     <div class="chat-warn" role="note"><span>${CHAT_WARN_TEXT}</span></div>
   </div>
@@ -3081,7 +3106,7 @@ SCREENS.profile = async () => {
       ${avatarHtml(user, 'margin:0 auto 4px; width:84px; height:84px; font-size:34px;')}
       <span class="avatar-edit" style="display:inline-flex; align-items:center; gap:5px; margin-right:12px;" onclick="nav('editProfile')">✏️ Edit profile</span>
       <label class="avatar-edit" style="display:inline-flex; align-items:center; gap:5px;"><span style="width:15px; height:15px; display:inline-flex;">${UI_ICONS.camera}</span>Change photo<input type="file" accept="image/*" style="display:none;" onchange="changeAvatar(this)"></label><br>
-      <b>${esc(user.name)}</b> ${user.verified?'<span class="badge">✔ Verified</span>':''}
+      <b>${esc(user.name)}</b>${premiumBadgeSlot(user.id)} ${user.verified?'<span class="badge">✔ Verified</span>':''}
       <p class="muted">${esc(user.email)}</p>
       <p class="muted">${esc(user.phone||'')}</p>
       ${modeChip(user)}
@@ -3104,7 +3129,7 @@ SCREENS.profile = async () => {
   </div>`;
 };
 async function logout(){
-  VERIFIED_CACHE = null; CLIENT_DASH_CACHE = { uid: null, html: '' };   // Part C: forget cached screens on logout
+  VERIFIED_CACHE = null; CLIENT_DASH_CACHE = { uid: null, html: '' }; PREMIUM_CACHE.clear();   // Part C: forget cached screens on logout
   loggingOut = true;
   clearSessionState();
   await sb.auth.signOut();
@@ -3709,7 +3734,7 @@ function clientEmptyState(kind){
 // ---- Home dashboard (fills in after the home screen shows, so Home stays fast)
 function clientDashSkeleton(user){
   const first = esc(String((user && user.name) || '').split(' ')[0] || 'there');
-  return `<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first} 👋</b><span>Loading your projects…</span></div></div>`;
+  return `<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first}${premiumBadgeSlot(user.id)} 👋</b><span>Loading your projects…</span></div></div>`;
 }
 let CLIENT_DASH_CACHE = { uid: null, html: '' };   // Part C: last client dashboard, shown at once on return
 async function renderClientDashboard(){
@@ -3723,17 +3748,17 @@ async function renderClientDashboard(){
   const st = res.stats;
   CLIENT_DASH_CACHE.uid = user.id;
   if(!res.ok){
-    el.innerHTML = CLIENT_DASH_CACHE.html = `<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first} 👋</b><span>Couldn't load your projects. Pull down to refresh.</span></div>${premiumPill()}</div>`;
+    el.innerHTML = CLIENT_DASH_CACHE.html = `<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first}${premiumBadgeSlot(user.id)} 👋</b><span>Couldn't load your projects. Pull down to refresh.</span></div>${premiumPill()}</div>`;
     return;
   }
   if(st.total === 0){
-    el.innerHTML = CLIENT_DASH_CACHE.html = `<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first} 👋</b><span>Welcome to Sphere</span></div>${premiumPill()}</div>${clientEmptyState('all')}`;
+    el.innerHTML = CLIENT_DASH_CACHE.html = `<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first}${premiumBadgeSlot(user.id)} 👋</b><span>Welcome to Sphere</span></div>${premiumPill()}</div>${clientEmptyState('all')}`;
     return;
   }
   const needs = res.items.filter(x => x.action).slice(0, 3);
   const recent = res.items.filter(x => !x.action).slice(0, 3);
   el.innerHTML = CLIENT_DASH_CACHE.html = `
-    <div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first} 👋</b><span>${st.active ? 'Here is how your projects are going' : 'All your projects are finished'}</span></div>${premiumPill()}</div>
+    <div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first}${premiumBadgeSlot(user.id)} 👋</b><span>${st.active ? 'Here is how your projects are going' : 'All your projects are finished'}</span></div>${premiumPill()}</div>
     <div class="cl-stats">
       <div class="cl-stat" onclick="nav('jobs', { tab: 'active' })"><b>${st.active}</b><span>Active</span></div>
       <div class="cl-stat ${st.needYou ? 'warn' : ''}" onclick="nav('jobs', { tab: 'active' })"><b>${st.needYou}</b><span>Need you</span></div>

@@ -1,5 +1,5 @@
 // =====================================================================
-// SPHERE — sphere-extra-payment (Part 11 + Part 15)
+// SPHERE — sphere-extra-payment (Parts 11 + 15 + 17)
 // Razorpay checkout for:
 //   • the ₹50 fee for a 4th+ revision (100 % recorded for the editor)      { extraId }
 //   • the extra price of an accepted change request                        { extraId }
@@ -27,6 +27,14 @@ async function hmacHex(secret: string, message: string): Promise<string> {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
   return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// constant-time compare: the time taken does not reveal how much of a signature matched
+function sameText(a: string, b: string): boolean {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
 
 Deno.serve(async (req) => {
@@ -58,6 +66,10 @@ Deno.serve(async (req) => {
     if (!keyId || !secret) return json({ ok: false, error: "Online payment is not set up — use UPI" });
 
     if (action === "create") {
+      // reuse the open order (no new order on every tap — stops order spam and double charges)
+      if (x.order_id && x.status === "pending") {
+        return json({ ok: true, order_id: x.order_id, amount: Math.round(Number(x.amount) * 100), currency: "INR", key_id: keyId });
+      }
       const r = await fetch("https://api.razorpay.com/v1/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: "Basic " + btoa(keyId + ":" + secret) },
@@ -78,7 +90,7 @@ Deno.serve(async (req) => {
     const { order_id, payment_id, signature } = body;
     if (!order_id || !payment_id || !signature || order_id !== x.order_id) return json({ ok: false, valid: false, error: "Order does not match" });
     const expected = await hmacHex(secret, order_id + "|" + payment_id);
-    if (expected !== signature) return json({ ok: false, valid: false, error: "Payment could not be verified" });
+    if (!sameText(expected, String(signature))) return json({ ok: false, valid: false, error: "Payment could not be verified" });
     const args = isFee ? { p_fee: x.id, p_method: "razorpay", p_payment: payment_id, p_order: order_id }
                        : { p_extra: x.id, p_method: "razorpay", p_payment: payment_id, p_order: order_id };
     const { error } = await db.rpc(markPaid, args);
