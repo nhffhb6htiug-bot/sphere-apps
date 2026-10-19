@@ -253,11 +253,16 @@ h1,h2,h3{color:var(--text);}
 
 .bottom-nav{
   position:fixed; bottom:14px; left:50%; transform:translateX(-50%); width:calc(100% - 32px); max-width:448px;
-  background:#fff; border-radius:28px; display:flex; justify-content:space-around; padding:10px 6px; z-index:50;
-  box-shadow:0 10px 30px rgba(20,30,60,.16), 0 2px 6px rgba(20,30,60,.08);
+  border-radius:28px; display:flex; justify-content:space-around; padding:10px 6px; z-index:50;
+  /* Apple-style frosted glass: the page shows through, blurred */
+  background:rgba(255,255,255,.55);
+  -webkit-backdrop-filter:blur(22px) saturate(180%); backdrop-filter:blur(22px) saturate(180%);
+  border:1px solid rgba(255,255,255,.7);
+  box-shadow:0 10px 30px rgba(20,30,60,.14), 0 2px 6px rgba(20,30,60,.06), inset 0 1px 0 rgba(255,255,255,.8);
 }
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){ .bottom-nav{ background:rgba(255,255,255,.94); } }
 .bottom-nav button{background:none; border:none; display:flex; flex-direction:column; align-items:center; font-size:10px; color:var(--muted); gap:3px; cursor:pointer; padding:4px 10px; border-radius:16px; transition:.15s;}
-.bottom-nav button.active{color:var(--blue); font-weight:700; background:#eaf0ff;}
+.bottom-nav button.active{color:var(--blue); font-weight:700; background:rgba(234,240,255,.75); box-shadow:inset 0 0 0 1px rgba(255,255,255,.6);}
 .bottom-nav .icon{font-size:19px; display:flex; align-items:center; justify-content:center;}
 .bottom-nav .icon svg{width:22px; height:22px;}
 
@@ -559,7 +564,7 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.1',
+  appVersion: '2.22.3',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -1581,7 +1586,7 @@ SCREENS.resetPassword = () => `
   <div class="screen">
     <h2>New Password</h2>
     <p class="muted" style="margin-bottom:20px;">Set your new password</p>
-    <div class="field"><label>New password</label><input id="npPass" type="password" placeholder="At least 6 characters"></div>
+    <div class="field"><label>New password</label><input id="npPass" type="password" placeholder="At least 8 characters, with a letter and a number"></div>
     <div class="field"><label>Confirm password</label><input id="npPass2" type="password"></div>
     <button class="btn btn-primary" onclick="saveNewPassword()">Save Password</button>
   </div>`;
