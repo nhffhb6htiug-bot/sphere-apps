@@ -1,4 +1,6 @@
 from playwright.sync_api import sync_playwright
+import tempfile as _tf, os as _os
+SHOTS=_tf.mkdtemp(prefix='sphere_shots_')
 import os
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 html=open(os.path.join(ROOT, 'index.html.html'), encoding='utf-8').read()
@@ -11,6 +13,7 @@ with sync_playwright() as p:
     def rt(r):
         u=r.request.url
         if 'supabase-2.117.2' in u: return r.fulfill(body=js, content_type='application/javascript')
+        if u.startswith('http://sphere.test/img/'): return r.fulfill(path=os.path.join(ROOT, u[len('http://sphere.test/'):]), content_type='image/webp')
         if u.startswith('http://sphere.test'): return r.fulfill(body=html, content_type='text/html')
         return r.abort()
     pg.route('**/*', rt); pg.goto('http://sphere.test/'); pg.wait_for_timeout(2500)
@@ -21,7 +24,7 @@ with sync_playwright() as p:
     pg.wait_for_timeout(600)
     a=pg.evaluate("() => !!document.querySelector('.cl-hello .prem-badge')"); f=pg.evaluate("() => !!document.querySelector('#free .prem-badge')")
     pg.add_style_tag(content='#netBanner{display:none !important}'); pg.wait_for_timeout(200)
-    pg.screenshot(path=os.path.join('/tmp', 'premium_badge_home.png'), clip={'x':0,'y':0,'width':360,'height':140})
+    pg.screenshot(path=_os.path.join(SHOTS, 'premium_badge_home.png'), clip={'x':0,'y':0,'width':360,'height':140})
     check('P01 active Premium client shows 💎 (server said yes)', a, f'greeting badge={a}')
     check('P02 free client shows no badge (server said no)', not f, f'free badge={f}')
     calls1=pg.evaluate("() => window.__calls")
