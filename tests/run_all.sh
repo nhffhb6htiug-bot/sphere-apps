@@ -26,6 +26,8 @@ echo "== 3b. database: chat replies + private last seen (migration 034)"
 run_sql_group chat034 tests/db/fixture_034.sql supabase/migrations/034_chat_reply_last_seen.sql tests/db/test_034_chat.sql
 echo "== 3c. database: delete for me (migration 035)"
 run_sql_group chat035 tests/db/fixture_034.sql supabase/migrations/034_chat_reply_last_seen.sql supabase/migrations/035_chat_delete_for_me.sql tests/db/test_035_delete_for_me.sql
+echo "== 3d. database: admin editor review + private note (migration 036)"
+run_sql_group admin036 tests/db/fixture_036.sql supabase/migrations/036_admin_editor_review.sql tests/db/test_036_admin_review.sql
 echo "== 4. unit: payment signature checks (real code from supabase/functions)"
 out=$(node tests/unit/payment_signature.test.mjs 2>&1); rc=$?; check_out unit "$out"; [ $rc -eq 0 ] || FAILED=1
 echo "== 4b. unit: service worker notification click"
@@ -44,4 +46,6 @@ echo "== 9. browser: message alerts, tones, preferences, notification links"
 out=$(python3 tests/browser/message_alerts_test.py 2>&1); rc=$?; check_out alerts "$out"; [ $rc -eq 0 ] || FAILED=1
 echo "== 10. browser: v2.22.10 (Send button, delete for me, bell, auto-read, permission prompt, last seen)"
 out=$(python3 tests/browser/chat_fixes_2210_test.py 2>&1); rc=$?; check_out fixes2210 "$out"; [ $rc -eq 0 ] || FAILED=1
+echo "== 11. browser: admin verification — who verified, notes, unverify"
+out=$(python3 tests/browser/admin_editor_review_test.py 2>&1); rc=$?; check_out admin2211 "$out"; [ $rc -eq 0 ] || FAILED=1
 [ $FAILED -eq 0 ] && echo "ALL TEST GROUPS PASSED" || { echo "SOME TESTS FAILED"; exit 1; }

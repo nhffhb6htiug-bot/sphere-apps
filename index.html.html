@@ -170,6 +170,8 @@ h1,h2,h3{color:var(--text);}
 .mp-bar{display:flex; gap:8px; padding:10px 12px calc(10px + env(safe-area-inset-bottom, 0px));} .mp-bar input{flex:1; border-radius:20px; border:none; padding:12px 14px;} .mp-bar button{width:48px; height:48px; border-radius:50%; border:none; background:#22c55e; color:#fff; font-size:20px;}
 .img-viewer{align-items:center; justify-content:center;} .img-viewer > button{position:absolute; top:calc(12px + env(safe-area-inset-top, 0px)); right:12px;} .img-viewer img{max-width:100%; max-height:100%; object-fit:contain;}
 .ch-seen{opacity:.9;}
+.rev-hist{font-size:12px; background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:8px 10px; margin:8px 0;} .rev-hist div{margin-top:3px;}
+.rev-note{margin-top:8px;} .rev-note textarea{width:100%; box-sizing:border-box; border:1px solid var(--border); border-radius:10px; padding:8px; font:inherit; font-size:13px; margin-top:4px; resize:vertical;}
 .chat-input-bar{box-sizing:border-box; align-items:center; padding:8px 10px calc(8px + env(safe-area-inset-bottom, 0px));}
 .chat-input-bar input{min-width:0; flex:1 1 auto; height:42px; box-sizing:border-box;}
 .chat-input-bar #sendBtn{flex:0 0 46px; width:46px; height:46px; padding:0; display:inline-flex; align-items:center; justify-content:center; font-size:18px; box-shadow:0 4px 12px rgba(37,99,235,.35);}
@@ -612,7 +614,7 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.10',
+  appVersion: '2.22.11',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -1764,6 +1766,57 @@ async function allowNotifications(){
 function notNowNotifications(){
   const d = document.getElementById('askNotif'); if(d) d.remove();
   try { localStorage.setItem('sp_notif_ask_until:' + getCurrentUser().id, String(Date.now() + 3 * 86400000)); } catch(e) {}
+}
+// ---- v2.22.11: admin — who verified / rejected each editor, private admin note, unverify ----
+function reviewHistoryHtml(r){
+  if(!r || !(r.history || []).length) return '';
+  return `<div class="rev-hist"><b>Decisions</b>${r.history.map(h => `<div>${h.decision === 'approved' ? '✅ Approved' : h.decision === 'rejected' ? '❌ Rejected' : esc(h.decision || '')} by <b>${esc(h.by || 'admin')}</b> · ${esc(fmtDT(h.at))}${h.reason ? ` — ${esc(h.reason)}` : ''}</div>`).join('')}</div>`;
+}
+function editorNoteHtml(r){
+  return `<div class="rev-note"><b>📝 Admin note</b> <span class="muted" style="font-size:11px;">(only admins see this)</span>
+    <textarea id="enote_${esc(r.id)}" maxlength="500" rows="2" aria-label="Admin note about ${esc(r.name || 'editor')}" placeholder="e.g. Fast delivery, good colour grading">${esc(r.note || '')}</textarea>
+    <div style="display:flex; align-items:center; gap:8px; margin-top:6px;"><button class="btn-sm" onclick="saveEditorNote('${esc(r.id)}')">Save note</button>
+    <span class="muted" style="font-size:11px;" id="enoteInfo_${esc(r.id)}">${r.note_at ? `Last edited by ${esc(r.note_by || 'admin')} · ${esc(fmtDT(r.note_at))}` : ''}</span></div></div>`;
+}
+function verifiedEditorsSection(list){
+  if(list === null) return `<div class="card" style="border:1.5px solid #e67e22; margin-top:16px;"><p style="font-size:12px;">⚙️ Verified-editor details need the latest database update (036).</p></div>`;
+  return `<h3 style="margin:18px 4px 8px;">✔ Verified editors (${list.length})</h3>
+    ${list.length === 0 ? '<p class="muted">No verified editors yet.</p>' : ''}
+    ${list.map(r => `<div class="card" id="vcard_${esc(r.id)}">
+      <b>${esc(r.name || 'Editor')}</b> <span class="badge">✔ Verified</span>
+      <p style="font-size:12px; margin:4px 0;">Verified by <b>${esc(r.verified_by_name || (r.history && r.history[0] && r.history[0].decision === 'approved' ? r.history[0].by : '—') || '—')}</b>${r.verified_at ? ' · ' + esc(fmtDT(r.verified_at)) : ''}</p>
+      ${reviewHistoryHtml(r)}
+      ${editorNoteHtml(r)}
+      <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+        <button class="btn-sm" onclick="nav('adminUser', { userId: '${esc(r.id)}' })">👤 Full profile</button>
+        <button class="btn-sm" style="color:#c62828; border-color:#c62828;" onclick="toggleUnverify('${esc(r.id)}')">🚫 Unverify</button></div>
+      <div id="unvBox_${esc(r.id)}" hidden style="margin-top:8px;">
+        <input id="unvR_${esc(r.id)}" maxlength="300" placeholder="Reason (the editor will see it)" aria-label="Reason for removing the verified badge" style="width:100%; box-sizing:border-box;">
+        <button class="btn btn-outline" style="color:#c62828; border-color:#c62828; margin-top:6px;" onclick="unverifyFromReview('${esc(r.id)}')">Remove verified badge</button></div>
+    </div>`).join('')}`;
+}
+function toggleUnverify(id){
+  const b = document.getElementById('unvBox_' + id); if(!b) return;
+  b.hidden = !b.hidden; if(!b.hidden){ const i = document.getElementById('unvR_' + id); if(i) i.focus(); }
+}
+async function unverifyFromReview(id){
+  const reason = (document.getElementById('unvR_' + id).value || '').trim();
+  if(reason.length < 5){ alert('Write a clear reason (the editor will see it)'); return; }
+  if(needPin()) return;
+  if(!confirm('Remove this editor\'s verified badge? They will stop appearing as verified and cannot bid until verified again.')) return;
+  const { error } = await sb.rpc('sp_unverify_editor', { p_editor: id, p_reason: reason, p_pin: ADMIN_PIN });
+  if(error){ alert(adminErr(error)); return; }
+  alert('Verified badge removed. The editor has been notified.');
+  nav('admin', { tab: 'verification' });
+}
+async function saveEditorNote(id){
+  if(needPin()) return;
+  const t = document.getElementById('enote_' + id); if(!t) return;
+  const v = (t.value || '').trim();
+  const { error } = await sb.rpc('sp_admin_set_editor_note', { p_editor: id, p_note: v, p_pin: ADMIN_PIN });
+  if(error){ alert(adminErr(error)); return; }
+  const info = document.getElementById('enoteInfo_' + id);
+  if(info) info.textContent = v ? 'Saved · ' + fmtDT(new Date().toISOString()) : 'Note cleared';
 }
 function jsq(v){ return esc(JSON.stringify(String(v == null ? '' : v))); }
 function safeOpen(u){ if(/^https:\/\//i.test(String(u || ''))) window.open(u, '_blank', 'noopener,noreferrer'); }
@@ -7150,12 +7203,17 @@ async function adminVerificationTab(){
   const list = await adminRpc('sp_admin_verifications').catch(() => null);
   if(!list) return `<div class="card" style="border:1.5px solid #e67e22;"><p style="font-size:12px;">⚙️ This part needs the latest database update (<b>014_admin_panel.sql</b>).</p></div><button class="btn btn-outline" onclick="nav('adminClassic')">Open classic tools (old verification list)</button>`;
   const arr = v => Array.isArray(v) ? v.join(', ') : (v || '');
+  const ids = (list || []).map(e => e.id);
+  const verified = await adminRpc('sp_admin_editor_review', { p_ids: null }).catch(() => null);
+  const pendingRev = ids.length ? await adminRpc('sp_admin_editor_review', { p_ids: ids }).catch(() => []) : [];
+  const revOf = id => (pendingRev || []).find(r => r.id === id);
   return `<p class="muted" style="font-size:12px; margin-bottom:10px;">Paying ₹${VERIFY_FEE} does <b>not</b> approve anyone — verify only after the call / work check.</p>
     ${(list || []).length === 0 ? '<p class="muted">No pending verification requests. 👍</p>' : ''}
     ${(list || []).map(e => `<div class="card">
       <b>${esc(e.name || 'Editor')}</b> ${verifyStateChip(e.status)}
       <p style="font-size:12px; margin:4px 0;">📞 ${e.phone ? `<a href="tel:${esc(e.phone)}">${esc(e.phone)}</a>` : '-'} · ${esc(e.email || '')}</p>
       ${adminVerifyBlock({ verification_status: e.status, verification_fee_status: e.fee_status, verification_fee_ref: e.fee_ref, verification_fee_at: e.fee_at, verification_note: e.note })}
+      ${reviewHistoryHtml(revOf(e.id))}
       <div class="kv"><span>Categories</span><b>${esc(arr(e.categories)) || '-'}</b></div>
       <div class="kv"><span>Languages</span><b>${esc(arr(e.languages)) || '-'}</b></div>
       <div class="kv"><span>Skills</span><b>${esc(arr(e.skills)) || '-'}</b></div>
@@ -7166,7 +7224,8 @@ async function adminVerificationTab(){
       <button class="btn btn-primary" style="margin-top:10px;" onclick="verifyEditor('${e.id}')">✔ Verify after call</button>
       ${adminVerifyActions({ id: e.id, verification_status: e.status, verification_fee_status: e.fee_status })}
       <button class="btn-sm" style="margin-top:6px;" onclick="nav('adminUser', { userId: '${e.id}' })">👤 Full profile</button>
-    </div>`).join('')}`;
+    </div>`).join('')}
+    ${verifiedEditorsSection(verified)}`;
 }
 
 // ---- 5) Moderation
