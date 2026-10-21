@@ -22,8 +22,12 @@ echo "== 2. database: Premium status + webhook duplicates"
 run_sql_group premium tests/db/test_premium_webhook.sql
 echo "== 3. database: fee one-pending rules (migration 033)"
 run_sql_group fees tests/db/test_fee_pending.sql
+echo "== 3b. database: chat replies + private last seen (migration 034)"
+run_sql_group chat034 tests/db/fixture_034.sql supabase/migrations/034_chat_reply_last_seen.sql tests/db/test_034_chat.sql
 echo "== 4. unit: payment signature checks (real code from supabase/functions)"
 out=$(node tests/unit/payment_signature.test.mjs 2>&1); rc=$?; check_out unit "$out"; [ $rc -eq 0 ] || FAILED=1
+echo "== 4b. unit: service worker notification click"
+out=$(node tests/unit/sw_notification_click.test.mjs 2>&1); rc=$?; check_out sw "$out"; [ $rc -eq 0 ] || FAILED=1
 echo "== 5. browser: Premium badge"
 out=$(python3 tests/browser/premium_badge_test.py 2>&1); rc=$?; check_out badge "$out"; [ $rc -eq 0 ] || FAILED=1
 if [ -f tests/browser/chat_online_test.py ]; then
@@ -32,4 +36,8 @@ if [ -f tests/browser/chat_online_test.py ]; then
 fi
 echo "== 7. browser: instant tabs (cached copy) + Liquid Glass"
 out=$(python3 tests/browser/instant_tabs_test.py 2>&1); rc=$?; check_out tabs "$out"; [ $rc -eq 0 ] || FAILED=1
+echo "== 8. browser: chat upgrade (keyboard, reply, emoji, photos, viewer, typing, last seen)"
+out=$(python3 tests/browser/chat_upgrade_test.py 2>&1); rc=$?; check_out chat "$out"; [ $rc -eq 0 ] || FAILED=1
+echo "== 9. browser: message alerts, tones, preferences, notification links"
+out=$(python3 tests/browser/message_alerts_test.py 2>&1); rc=$?; check_out alerts "$out"; [ $rc -eq 0 ] || FAILED=1
 [ $FAILED -eq 0 ] && echo "ALL TEST GROUPS PASSED" || { echo "SOME TESTS FAILED"; exit 1; }

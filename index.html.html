@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://*.razorpay.com https://accounts.google.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://accounts.google.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self' data:; connect-src 'self' https://sphere-api.niteshkumarmatho37.workers.dev wss://sphere-api.niteshkumarmatho37.workers.dev https://*.supabase.co wss://*.supabase.co https://*.razorpay.com https://accounts.google.com; frame-src https://*.razorpay.com https://accounts.google.com https://www.youtube-nocookie.com https://drive.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
 <title>Sphere</title>
 <meta name="theme-color" content="#dfe6fb">
 <meta name="description" content="Hire verified video editors or find editing work — Sphere by Syahi Films.">
@@ -152,6 +152,29 @@ h1,h2,h3{color:var(--text);}
 .sr-row{display:flex; align-items:center; gap:12px; padding:12px 14px; margin-top:8px; cursor:pointer;}
 .sr-ic{font-size:20px;}
 .prem-badge{display:inline-block; margin-left:4px; font-size:.9em; line-height:1; vertical-align:1px;}
+.reply-bar, .emoji-panel, .attach-sheet{position:fixed; left:50%; transform:translateX(-50%); width:100%; max-width:480px; bottom:calc(62px + env(safe-area-inset-bottom, 0px)); z-index:41; background:#fff; border-top:1px solid var(--border); box-sizing:border-box;}
+.reply-bar{display:flex; align-items:center; gap:10px; padding:8px 12px;}
+.reply-bar .rb-text{flex:1; min-width:0; border-left:3px solid var(--blue); padding-left:8px;} .reply-bar .rb-text b{display:block; font-size:12px; color:var(--blue);} .reply-bar .rb-text span{display:block; font-size:13px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.reply-bar button{width:36px; height:36px; border:none; background:transparent; font-size:18px;}
+.emoji-panel{display:grid; grid-template-columns:repeat(8, 1fr); gap:2px; padding:8px; max-height:210px; overflow-y:auto;}
+.emoji-panel button{font-size:24px; height:42px; border:none; background:transparent; border-radius:10px;} .emoji-panel button:active{background:#eef2ff;}
+.attach-sheet{display:flex; gap:12px; padding:12px 16px;} .attach-sheet button{flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:12px; font-size:26px; border:1px solid var(--border); border-radius:14px; background:#f8fafc;} .attach-sheet button span{font-size:12px; font-weight:600; color:var(--text);}
+.msg-quote{display:block; border-left:3px solid currentColor; opacity:.9; background:rgba(0,0,0,.06); border-radius:8px; padding:4px 8px; margin-bottom:4px; cursor:pointer; max-width:100%;}
+.chat-bubble.me .msg-quote{background:rgba(255,255,255,.18);} .msg-quote b{display:block; font-size:11px;} .msg-quote span{display:block; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.chat-bubble.flash{animation:msgFlash 1.4s ease;} @keyframes msgFlash{0%,100%{box-shadow:none} 25%,60%{box-shadow:0 0 0 3px #facc15}}
+.chat-img{cursor:zoom-in;}
+.media-preview, .img-viewer{position:fixed; inset:0; z-index:9500; background:#0b1220; display:flex; flex-direction:column; color:#fff;}
+.mp-top{display:flex; align-items:center; gap:12px; padding:calc(10px + env(safe-area-inset-top, 0px)) 12px 10px;} .mp-top button, .img-viewer > button{width:44px; height:44px; border-radius:50%; border:none; background:rgba(255,255,255,.14); color:#fff; font-size:20px;}
+.mp-body{flex:1; display:flex; align-items:center; justify-content:center; min-height:0; padding:8px;} .mp-body img, .mp-body video{max-width:100%; max-height:100%; object-fit:contain; border-radius:10px;}
+.mp-err{background:#7f1d1d; padding:8px 14px; font-size:13px;} .mp-prog{height:4px; background:rgba(255,255,255,.2);} .mp-prog i{display:block; height:100%; width:0; background:#22c55e; transition:width .2s;}
+.mp-bar{display:flex; gap:8px; padding:10px 12px calc(10px + env(safe-area-inset-bottom, 0px));} .mp-bar input{flex:1; border-radius:20px; border:none; padding:12px 14px;} .mp-bar button{width:48px; height:48px; border-radius:50%; border:none; background:#22c55e; color:#fff; font-size:20px;}
+.img-viewer{align-items:center; justify-content:center;} .img-viewer > button{position:absolute; top:calc(12px + env(safe-area-inset-top, 0px)); right:12px;} .img-viewer img{max-width:100%; max-height:100%; object-fit:contain;}
+.ch-seen{opacity:.9;}
+.tone-row{display:flex; align-items:center; gap:10px; padding:10px 16px; border-top:1px solid var(--border);} .tone-row.on{background:#eef4ff;}
+.tone-play{width:40px; height:40px; border-radius:50%; border:1px solid var(--border); background:#fff; color:var(--blue); font-size:14px;}
+.msg-banner{position:fixed; left:50%; transform:translateX(-50%); top:calc(10px + env(safe-area-inset-top, 0px)); z-index:9400; width:calc(100% - 24px); max-width:456px; text-align:left; border:none; border-radius:16px; padding:10px 14px; background:rgba(15,23,42,.92); color:#fff; box-shadow:0 10px 30px rgba(0,0,0,.25); display:flex; flex-direction:column; gap:2px;}
+.msg-banner b{font-size:13px;} .msg-banner span{font-size:13px; opacity:.85; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.reply-bar[hidden], .emoji-panel[hidden], .attach-sheet[hidden], .mp-err[hidden], .mp-prog[hidden]{display:none !important;}
 .sp-loading{display:flex; flex-direction:column; align-items:center; padding-top:110px; gap:6px;}
 .sp-loader{position:relative; width:130px; height:130px; margin:18px;}
 .sp-loader img{position:absolute; inset:0; width:100%; height:100%;}
@@ -576,7 +599,7 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.7',
+  appVersion: '2.22.9',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -1316,12 +1339,17 @@ new MutationObserver(() => { clearTimeout(pbTimer); pbTimer = setTimeout(fillPre
 // Both people of a chat join a small channel named after their two ids. "online" shows while the
 // other person has this chat open and the app on screen; it disappears when they leave or hide the app.
 let chatPresence = null, chatPresenceOther = null;
-function setOnlineLabel(on){ const el = document.getElementById('chOnline'); if(el) el.hidden = !on; }
+function setOnlineLabel(on){
+  const el = document.getElementById('chOnline'); if(el) el.hidden = !on || TYPING_ON;
+  const seen = document.getElementById('chSeen'); if(seen && on) seen.hidden = true;
+  if(!on && chatPresenceOther) loadLastSeen(chatPresenceOther);
+}
 function stopChatPresence(){
   if(chatPresence){ try { sb.removeChannel(chatPresence); } catch(e) {} }
   chatPresence = null; chatPresenceOther = null; setOnlineLabel(false);
 }
 function startChatPresence(otherId){
+  if(PENDING_CHAT && PENDING_CHAT === otherId) setTimeout(() => { if(currentScreenName === 'chatThread' && currentChatWith === otherId) PENDING_CHAT = null; }, 1500);   // the linked chat stayed open → done
   const me = getCurrentUser();
   if(!me || !otherId || !sb.channel) return;
   if(chatPresence && chatPresenceOther === otherId) return;
@@ -1330,7 +1358,8 @@ function startChatPresence(otherId){
   try {
     const ch = sb.channel(name, { config: { presence: { key: me.id } } });
     const refresh = () => { try { const st = ch.presenceState() || {}; setOnlineLabel(!!st[otherId] && st[otherId].length > 0); } catch(e) {} };
-    ch.on('presence', { event: 'sync' }, refresh).on('presence', { event: 'join' }, refresh).on('presence', { event: 'leave' }, refresh)
+    ch.on('broadcast', { event: 'typing' }, (m) => { if(m && m.payload && m.payload.from === otherId) showTyping(); })
+      .on('presence', { event: 'sync' }, refresh).on('presence', { event: 'join' }, refresh).on('presence', { event: 'leave' }, refresh)
       .subscribe(async (status) => { if(status === 'SUBSCRIBED' && !document.hidden){ try { await ch.track({ at: Date.now() }); } catch(e) {} } });
     chatPresence = ch; chatPresenceOther = otherId;
   } catch(e) { chatPresence = null; }
@@ -1339,6 +1368,311 @@ document.addEventListener('visibilitychange', () => {
   if(!chatPresence) return;
   try { if(document.hidden) chatPresence.untrack(); else chatPresence.track({ at: Date.now() }); } catch(e) {}
 });
+// ---- Chat upgrade (part 1): reply, emoji, attachments, photo viewer, typing, last seen ----
+const MSG_INDEX = new Map();
+let REPLY_TO = null, TYPING_ON = false, typingTimer = null, lastTypingSent = 0;
+let LAST_SEEN_FOR = null, LAST_SEEN_VAL = null, lastSeenAt = 0, SEEN_RPC_OK = true, PENDING_MEDIA = null;
+const EMOJIS = ['😀','😂','🤣','😊','😍','😘','😎','🤔','😅','😢','😭','😡','👍','👎','👏','🙏','🙌','💪','🔥','✨','🎉','❤️','💙','💯','✅','❌','⭐','🎬','🎥','📸','🎞️','✂️','🎵','💰','⏰','📌','👀','😴','🤝','👌'];
+function snippetOf(x){
+  if(!x) return 'Original message';
+  if(x.text) return x.text.slice(0, 80);
+  return x.media === 'image' ? '📷 Photo' : x.media === 'video' ? '🎬 Video' : x.media === 'audio' ? '🎤 Voice message' : 'Message';
+}
+function chatOtherFirstName(){
+  const b = document.querySelector('.chat-head .ch-name b');
+  const t = b && b.childNodes[0] ? String(b.childNodes[0].textContent || '').trim() : '';
+  return t ? t.split(' ')[0] : 'Them';
+}
+function replyQuoteHtml(id){
+  const x = MSG_INDEX.get(id);
+  return `<div class="msg-quote" role="button" tabindex="0" onclick="event.stopPropagation(); jumpToMsg('${esc(id)}')"><b>${x ? (x.mine ? 'You' : esc(chatOtherFirstName())) : ''}</b><span>${esc(snippetOf(x))}</span></div>`;
+}
+function startReply(id){
+  const x = MSG_INDEX.get(String(id)); const bar = document.getElementById('replyBar');
+  if(!x || !bar) return;
+  REPLY_TO = { id: String(id) };
+  bar.innerHTML = `<div class="rb-text"><b>Replying to ${x.mine ? 'yourself' : esc(chatOtherFirstName())}</b><span>${esc(snippetOf(x))}</span></div><button aria-label="Cancel reply" onpointerdown="event.preventDefault()" onclick="clearReply()">✕</button>`;
+  bar.hidden = false;
+  const i = document.getElementById('chatInput'); if(i) i.focus();
+}
+function clearReply(){ REPLY_TO = null; const bar = document.getElementById('replyBar'); if(bar){ bar.hidden = true; bar.innerHTML = ''; } }
+function jumpToMsg(id){
+  const el = document.querySelector(`#chatBox .chat-bubble[data-id="${CSS.escape(String(id))}"]`);
+  if(!el){ alert('The original message is not loaded in this chat.'); return; }
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1400);
+}
+// swipe right on a message to reply (vertical scrolling is never blocked); double-click on a computer
+(function(){
+  let el = null, sx = 0, sy = 0, dx = 0, dir = null;
+  document.addEventListener('touchstart', (e) => {
+    const b = e.target.closest && e.target.closest('#chatBox .chat-bubble');
+    if(!b || e.touches.length !== 1){ el = null; return; }
+    el = b; sx = e.touches[0].clientX; sy = e.touches[0].clientY; dx = 0; dir = null;
+  }, { passive: true });
+  document.addEventListener('touchmove', (e) => {
+    if(!el) return;
+    const x = e.touches[0].clientX - sx, y = e.touches[0].clientY - sy;
+    if(dir === null && (Math.abs(x) > 10 || Math.abs(y) > 10)) dir = (x > 0 && Math.abs(x) > Math.abs(y) * 1.5) ? 'h' : 'v';
+    if(dir !== 'h') return;
+    dx = Math.max(0, Math.min(x, 80)); el.style.transform = `translateX(${dx}px)`;
+  }, { passive: true });
+  document.addEventListener('touchend', () => {
+    if(!el) return;
+    const b = el; el = null;
+    if(dir === 'h'){ b.style.transition = 'transform .15s'; b.style.transform = ''; setTimeout(() => { b.style.transition = ''; }, 170); if(dx > 55) startReply(b.dataset.id); }
+  }, { passive: true });
+  document.addEventListener('dblclick', (e) => { const b = e.target.closest && e.target.closest('#chatBox .chat-bubble'); if(b) startReply(b.dataset.id); });
+})();
+// emoji + attachment panels above the message box
+function closeComposerPanels(){ ['emojiPanel', 'attachSheet'].forEach(id => { const p = document.getElementById(id); if(p) p.hidden = true; }); }
+function togglePanel(id, e){
+  if(e) e.stopPropagation();
+  const p = document.getElementById(id); if(!p) return;
+  const open = p.hidden; closeComposerPanels();
+  if(id === 'emojiPanel' && !p.dataset.built){
+    p.innerHTML = EMOJIS.map(em => `<button aria-label="${em}" onpointerdown="event.preventDefault()" onclick="insertEmoji('${em}')">${em}</button>`).join('');
+    p.dataset.built = '1';
+  }
+  p.hidden = !open;
+}
+document.addEventListener('click', (e) => { if(!(e.target.closest && e.target.closest('#emojiPanel, #attachSheet, .chat-input-bar'))) closeComposerPanels(); });
+function insertEmoji(em){
+  const i = document.getElementById('chatInput'); if(!i) return;
+  const a = i.selectionStart == null ? i.value.length : i.selectionStart, b = i.selectionEnd == null ? a : i.selectionEnd;
+  i.setRangeText(em, a, b, 'end'); i.focus(); chatTyping();
+}
+// photo / video: preview → caption → upload with progress → retry on failure
+function pickChatMedia(input){
+  const f = input.files && input.files[0]; input.value = '';
+  if(!f) return;
+  const kind = f.type.startsWith('image/') ? 'image' : f.type.startsWith('video/') ? 'video' : null;
+  if(!kind){ alert('You can send photos and videos here.'); return; }
+  if(f.size > CHAT_MAX_MB * 1024 * 1024){ alert(`File is bigger than ${CHAT_MAX_MB} MB. Share big videos as a Google Drive link.`); return; }
+  closeMediaPreview();
+  const url = URL.createObjectURL(f); PENDING_MEDIA = { f, kind, url };
+  const cap = (document.getElementById('chatInput') || {}).value || '';
+  const el = document.createElement('div'); el.id = 'mediaPreview'; el.className = 'media-preview';
+  el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Send ' + (kind === 'image' ? 'photo' : 'video'));
+  el.innerHTML = `<div class="mp-top"><button aria-label="Cancel" onclick="closeMediaPreview()">✕</button><span>${kind === 'image' ? 'Photo' : 'Video'} · ${(f.size / 1048576).toFixed(1)} MB</span></div>
+    <div class="mp-body">${kind === 'image' ? `<img src="${url}" alt="Preview">` : `<video src="${url}" controls playsinline></video>`}</div>
+    <div class="mp-err" id="mpErr" hidden></div><div class="mp-prog" id="mpProg" hidden><i></i></div>
+    <div class="mp-bar"><input id="mpCaption" placeholder="Add a caption…" maxlength="2000" value="${esc(cap)}"><button id="mpSend" aria-label="Send" onclick="sendPendingMedia()">➤</button></div>`;
+  document.body.appendChild(el);
+}
+function closeMediaPreview(){
+  const el = document.getElementById('mediaPreview'); if(el) el.remove();
+  if(PENDING_MEDIA){ try { URL.revokeObjectURL(PENDING_MEDIA.url); } catch(e) {} PENDING_MEDIA = null; }
+}
+async function sendPendingMedia(){
+  const p = PENDING_MEDIA; if(!p || p.busy) return;
+  p.busy = true;
+  const btn = document.getElementById('mpSend'), prog = document.getElementById('mpProg'), err = document.getElementById('mpErr');
+  if(btn) btn.disabled = true; if(err) err.hidden = true; if(prog){ prog.hidden = false; prog.firstElementChild.style.width = '0%'; }
+  try {
+    if(!p.path){
+      const user = getCurrentUser();
+      const ext = ((p.f.name.split('.').pop() || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5)) || (p.kind === 'image' ? 'jpg' : 'mp4');
+      const path = `${user.id}/chat/${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`;
+      await uploadWithProgress(path, p.f, (r) => { if(prog) prog.firstElementChild.style.width = Math.round(r * 100) + '%'; }, CHAT_BUCKET);
+      p.path = path;                                     // a retry after a failed send does not upload again
+    }
+    const caption = ((document.getElementById('mpCaption') || {}).value || '').trim();
+    const ok = await insertMessage({ text: caption, media_path: p.path, media_type: p.kind, media_name: p.f.name.slice(0, 80) });
+    if(!ok) throw new Error('the message could not be sent');
+    const ci = document.getElementById('chatInput'); if(ci && caption && ci.value.trim() === caption) ci.value = '';
+    clearReply(); closeMediaPreview();
+  } catch(e){
+    p.busy = false;
+    if(btn){ btn.disabled = false; btn.textContent = '↻'; btn.setAttribute('aria-label', 'Retry'); }
+    if(err){ err.hidden = false; err.textContent = 'Upload failed: ' + (e.message || e) + ' — tap ↻ to try again.'; }
+  }
+}
+// full-screen photo viewer
+function openImageViewer(src){
+  if(!src) return; closeImageViewer();
+  const v = document.createElement('div'); v.id = 'imgViewer'; v.className = 'img-viewer'; v.setAttribute('role', 'dialog'); v.setAttribute('aria-label', 'Photo');
+  v.innerHTML = `<button aria-label="Close" onclick="closeImageViewer()">✕</button><img src="${esc(src)}" alt="Photo">`;
+  v.addEventListener('click', (e) => { if(e.target === v) closeImageViewer(); });
+  document.body.appendChild(v);
+}
+function closeImageViewer(){ const v = document.getElementById('imgViewer'); if(v) v.remove(); }
+document.addEventListener('keydown', (e) => { if(e.key === 'Escape'){ closeImageViewer(); closeMediaPreview(); } });
+// typing… (sent over the chat's private live channel, at most every 2.5 s)
+function chatTyping(){
+  if(!chatPresence) return;
+  const now = Date.now(); if(now - lastTypingSent < 2500) return;
+  lastTypingSent = now; const me = getCurrentUser();
+  try { chatPresence.send({ type: 'broadcast', event: 'typing', payload: { from: me && me.id } }); } catch(e) {}
+}
+function showTyping(){
+  TYPING_ON = true;
+  const t = document.getElementById('chTyping'), o = document.getElementById('chOnline'), sn = document.getElementById('chSeen');
+  if(t) t.hidden = false; if(o) o.hidden = true; if(sn) sn.hidden = true;
+  clearTimeout(typingTimer);
+  typingTimer = setTimeout(() => {
+    TYPING_ON = false; if(t) t.hidden = true;
+    try { const st = chatPresence && chatPresence.presenceState ? chatPresence.presenceState() : {}; setOnlineLabel(!!(chatPresenceOther && st[chatPresenceOther] && st[chatPresenceOther].length)); } catch(e) {}
+  }, 3500);
+}
+// last seen (only if the database has it — migration 034; shown only when not online)
+async function loadLastSeen(otherId){
+  if(!SEEN_RPC_OK || !otherId) return;
+  if(LAST_SEEN_FOR === otherId && Date.now() - lastSeenAt < 30000){ renderSeen(); return; }
+  LAST_SEEN_FOR = otherId; lastSeenAt = Date.now(); LAST_SEEN_VAL = null;
+  try {
+    const { data, error } = await sb.rpc('sp_last_seen', { p_other: otherId });
+    if(error && /function|PGRST202|not find/i.test((error.message || '') + (error.code || ''))) SEEN_RPC_OK = false;
+    if(!error && data && data.visible && data.last_seen_at) LAST_SEEN_VAL = data.last_seen_at;
+  } catch(e) {}
+  renderSeen();
+}
+function renderSeen(){
+  const el = document.getElementById('chSeen'), on = document.getElementById('chOnline'); if(!el) return;
+  if(!LAST_SEEN_VAL || (on && !on.hidden) || TYPING_ON){ el.hidden = true; return; }
+  el.textContent = ' · last seen ' + seenLabel(LAST_SEEN_VAL); el.hidden = false;
+}
+function seenLabel(ts){
+  const d = new Date(ts), now = new Date();
+  const t = d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+  const days = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
+  if(days <= 0) return 'today at ' + t;
+  if(days === 1) return 'yesterday at ' + t;
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + ' at ' + t;
+}
+async function setShowLastSeen(box){
+  try { const { error } = await sb.rpc('sp_set_show_last_seen', { p_show: !!box.checked }); if(error) throw error; LAST_SEEN_FOR = null; }
+  catch(e){ box.checked = !box.checked; alert('Could not change this setting. Please try again.'); }
+}
+function seenPing(){
+  if(!SEEN_RPC_OK || !getCurrentUser()) return;
+  sb.rpc('sp_seen_ping').then(({ error }) => { if(error && /function|PGRST202|not find/i.test((error.message || '') + (error.code || ''))) SEEN_RPC_OK = false; }, () => {});
+}
+setInterval(() => { if(!document.hidden) seenPing(); }, 60000);
+document.addEventListener('visibilitychange', () => seenPing());
+// ---- Chat upgrade (part 2): message alerts, Sphere tones, preferences ----
+// A. Inside the open app: Sphere plays the chosen tone (made by the browser — no sound files).
+// B. App in the background: the browser/phone shows a system notification with ITS OWN sound.
+// Nothing is delivered while Sphere is fully closed (that needs Web Push, which is not set up).
+const SEEN_ALERTS = new Set();
+let PENDING_CHAT = null, PENDING_TRIES = 0, AUDIO_CTX = null;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+try { const q = new URLSearchParams(location.search).get('chat'); if(q && UUID_RE.test(q)) PENDING_CHAT = q; if(q){ history.replaceState(null, '', location.pathname + location.hash); } } catch(e) {}
+function msgPrefsKey(){ const u = getCurrentUser(); return 'sp_msg_prefs:' + (u ? u.id : 'guest'); }
+function getMsgPrefs(){
+  const d = { enabled: true, preview: true, tone: 'signal' };
+  try { const v = JSON.parse(localStorage.getItem(msgPrefsKey()) || 'null'); if(v && typeof v === 'object') return Object.assign(d, v); } catch(e) {}
+  return d;
+}
+function setMsgPrefs(patch){
+  const p = Object.assign(getMsgPrefs(), patch);
+  try { localStorage.setItem(msgPrefsKey(), JSON.stringify(p)); } catch(e) {}
+  return p;
+}
+// [frequency Hz, start s, length s, wave, volume, slide-to Hz]
+const SPHERE_TONES = {
+  jump:        { label: 'Jump',        notes: [[523, 0, .09, 'sine', .5, 784], [1046, .1, .12, 'sine', .45]] },
+  laser:       { label: 'Laser',       notes: [[1800, 0, .22, 'sawtooth', .18, 300]] },
+  latch:       { label: 'Latch',       notes: [[1200, 0, .03, 'square', .25], [700, .07, .05, 'square', .25]] },
+  molecule:    { label: 'Molecule',    notes: [[660, 0, .07, 'sine', .4], [880, .08, .07, 'sine', .4], [990, .16, .07, 'sine', .4], [1320, .24, .12, 'sine', .35]] },
+  prism:       { label: 'Prism',       notes: [[1318, 0, .35, 'triangle', .35], [1975, .05, .35, 'sine', .2]] },
+  signal:      { label: 'Signal',      notes: [[880, 0, .12, 'sine', .5], [1320, .14, .18, 'sine', .45]] },
+  spaceline:   { label: 'Spaceline',   notes: [[440, 0, .4, 'sine', .4, 1320]] },
+  sticky:      { label: 'Sticky',      notes: [[392, 0, .06, 'triangle', .5], [392, .09, .06, 'triangle', .5], [587, .18, .14, 'triangle', .45]] },
+  telepathy:   { label: 'Telepathy',   notes: [[740, 0, .3, 'sine', .3], [745, 0, .3, 'sine', .3], [1110, .18, .3, 'sine', .25]] },
+  transmitter: { label: 'Transmitter', notes: [[1500, 0, .05, 'square', .2], [1500, .1, .05, 'square', .2], [1500, .2, .05, 'square', .2], [2000, .3, .1, 'square', .2]] },
+  vintage:     { label: 'Vintage',     notes: [[1046, 0, .25, 'triangle', .45], [1318, .02, .25, 'triangle', .3]] },
+  wobble:      { label: 'Wobble',      notes: [[600, 0, .12, 'sine', .4, 900], [900, .12, .12, 'sine', .4, 600], [600, .24, .12, 'sine', .4, 900]] },
+};
+function audioReady(){ return !!AUDIO_CTX && AUDIO_CTX.state === 'running'; }
+function unlockAudio(){
+  // browsers allow sound only after the person has touched / typed on the page
+  try {
+    if(!AUDIO_CTX){ const C = window.AudioContext || window.webkitAudioContext; if(!C) return; AUDIO_CTX = new C(); }
+    if(AUDIO_CTX.state === 'suspended') AUDIO_CTX.resume();
+  } catch(e) {}
+}
+['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, unlockAudio, { passive: true }));
+let lastToneAt = 0;
+function playTone(id, opts){
+  const t = SPHERE_TONES[id]; if(!t) return false;          // 'silent' or unknown → nothing
+  if(!(opts && opts.preview) && Date.now() - lastToneAt < 1200) return false;   // a burst of messages → one sound
+  if(!AUDIO_CTX && opts && opts.preview) unlockAudio();
+  if(!audioReady()) return false;                            // no touch on the page yet → stay silent
+  lastToneAt = Date.now();
+  const now = AUDIO_CTX.currentTime + .02;
+  t.notes.forEach(([f, st, len, wave, vol, to]) => {
+    const o = AUDIO_CTX.createOscillator(), g = AUDIO_CTX.createGain();
+    o.type = wave; o.frequency.setValueAtTime(f, now + st);
+    if(to) o.frequency.exponentialRampToValueAtTime(to, now + st + len);
+    g.gain.setValueAtTime(0.0001, now + st); g.gain.exponentialRampToValueAtTime(vol * .6, now + st + .01);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + st + len);
+    o.connect(g); g.connect(AUDIO_CTX.destination); o.start(now + st); o.stop(now + st + len + .02);
+  });
+  return true;
+}
+function alertIncoming(m, inThread){
+  if(!m || m.id == null) return;
+  const key = String(m.id);
+  if(SEEN_ALERTS.has(key)) return;                          // the same message never alerts twice
+  SEEN_ALERTS.add(key); if(SEEN_ALERTS.size > 500) SEEN_ALERTS.delete(SEEN_ALERTS.values().next().value);
+  const prefs = getMsgPrefs();
+  if(!prefs.enabled) return;
+  if(inThread && !document.hidden) return;                  // already reading this chat
+  if(document.hidden){ showMsgNotification(m, prefs); return; }   // background: system notification
+  playTone(prefs.tone);                                     // app on screen, another screen: Sphere tone + banner
+  showMsgBanner(m, prefs);
+}
+async function showMsgBanner(m, prefs){
+  const people = await getProfilesByIds([m.sender_id]).catch(() => ({}));
+  const name = people && people[m.sender_id] ? people[m.sender_id].name : 'New message';
+  let b = document.getElementById('msgBanner'); if(b) b.remove();
+  b = document.createElement('button'); b.id = 'msgBanner'; b.className = 'msg-banner'; b.type = 'button';
+  b.innerHTML = `<b>💬 ${esc(name)}</b><span>${esc(prefs.preview ? msgPreview(m) : 'New message')}</span>`;
+  b.onclick = () => { b.remove(); openChatFromNotification(m.sender_id); };
+  document.body.appendChild(b);
+  setTimeout(() => { if(b.isConnected) b.remove(); }, 4500);
+}
+function openChatFromNotification(otherId){
+  if(!otherId || !UUID_RE.test(String(otherId))) return;
+  if(getCurrentUser()) startChat(String(otherId));          // the chat itself still checks who may read it
+  else { PENDING_CHAT = String(otherId); PENDING_TRIES = 0; }   // open after login
+}
+if(navigator.serviceWorker){
+  navigator.serviceWorker.addEventListener('message', (e) => { if(e.data && e.data.type === 'sphere-open-chat') openChatFromNotification(e.data.chatWith); });
+}
+async function askNotifyPermission(){
+  if(!canNotify()) return;
+  if(Notification.permission === 'default'){ try { await Notification.requestPermission(); } catch(e) {} }
+  nav('msgAlerts');
+}
+function renderMsgAlerts(){   // registered as SCREENS.msgAlerts after SCREENS exists
+  const p = getMsgPrefs();
+  const perm = !('Notification' in window) || IN_ANDROID_APP ? 'unsupported' : Notification.permission;
+  const permCard = perm === 'granted' ? '<p class="muted" style="font-size:12px;">✅ Notifications are allowed on this device.</p>'
+    : perm === 'denied' ? '<p class="muted" style="font-size:12px;">🔕 Notifications are blocked for Sphere in this browser. To allow them: browser menu → Site settings → Notifications → Allow.</p>'
+    : perm === 'unsupported' ? '<p class="muted" style="font-size:12px;">This browser / app cannot show system notifications. Sounds still play while Sphere is open.</p>'
+    : '<button class="btn btn-outline" style="margin-top:6px;" onclick="askNotifyPermission()">🔔 Allow notifications</button>';
+  const row = (id, label) => `<div class="tone-row${p.tone === id ? ' on' : ''}">
+      <label style="flex:1; display:flex; align-items:center; gap:10px; cursor:pointer;"><input type="radio" name="tone" value="${id}" ${p.tone === id ? 'checked' : ''} onchange="pickTone('${id}')"> ${label}</label>
+      ${id === 'silent' ? '' : `<button class="tone-play" aria-label="Play ${label}" onclick="playTone('${id}', { preview: true })">▶</button>`}</div>`;
+  return `
+  <div class="header"><button class="back-btn" onclick="nav('settingsScreen')">‹</button><h1>Message alerts</h1></div>
+  <div class="screen" style="padding-top:0;">
+    <div class="card">
+      <label style="display:flex; align-items:center; gap:12px;"><span style="flex:1;"><b>Message alerts</b><br><span class="muted" style="font-size:12px;">Sound and notification for new chat messages</span></span>
+        <input type="checkbox" aria-label="Message alerts" ${p.enabled ? 'checked' : ''} onchange="setMsgPrefs({ enabled: this.checked })" style="width:22px; height:22px;"></label>
+      <label style="display:flex; align-items:center; gap:12px; margin-top:12px;"><span style="flex:1;"><b>Show message preview</b><br><span class="muted" style="font-size:12px;">Off: notifications only say “New message”</span></span>
+        <input type="checkbox" aria-label="Show message preview" ${p.preview ? 'checked' : ''} onchange="setMsgPrefs({ preview: this.checked })" style="width:22px; height:22px;"></label>
+      <div style="margin-top:12px;">${permCard}</div>
+    </div>
+    <div class="card" style="padding:6px 0;">
+      <b style="display:block; padding:8px 16px;">Tone (inside Sphere)</b>
+      ${row('silent', '🔇 Silent')}${Object.keys(SPHERE_TONES).map(id => row(id, SPHERE_TONES[id].label)).join('')}
+    </div>
+    <p class="muted" style="font-size:11px; padding:0 6px;">The tone plays while Sphere is open on screen. When Sphere is in the background your phone or browser shows the notification with its own sound. Nothing arrives while Sphere is fully closed.</p>
+  </div>`;
+}
+function pickTone(id){ setMsgPrefs({ tone: id }); document.querySelectorAll('.tone-row').forEach(r => r.classList.toggle('on', r.querySelector('input').value === id)); if(id !== 'silent') playTone(id, { preview: true }); }
 function jsq(v){ return esc(JSON.stringify(String(v == null ? '' : v))); }
 function safeOpen(u){ if(/^https:\/\//i.test(String(u || ''))) window.open(u, '_blank', 'noopener,noreferrer'); }
 function linkOrText(v){
@@ -1468,6 +1802,8 @@ function renderBottomNav(){
 
 let NAV_SEQ = 0;     // Part 19.1: only the newest navigation may change the screen
 async function nav(screen, data){
+  // a chat opened from a notification link waits until the user can really see it (e.g. after adding a phone number)
+  if(PENDING_CHAT && screen === 'home' && getCurrentUser()){ if(++PENDING_TRIES > 3) PENDING_CHAT = null; else { const id = PENDING_CHAT; setTimeout(() => startChat(id), 0); } }
   if(screen !== 'chatThread' && chatPresence) stopChatPresence();   // left the chat: stop sharing online status
   const mySeq = ++NAV_SEQ;
   // PART 2: every screen is checked against the user's role before it opens
@@ -1510,6 +1846,7 @@ async function nav(screen, data){
 }
 
 const SCREENS = {};
+SCREENS.msgAlerts = () => renderMsgAlerts();
 // Screens that may show their last copy first. Never payments, chats threads or forms.
 const SWR_SCREENS = new Set(['home', 'chatList', 'jobs', 'notifications', 'profile', 'portfolio', 'allEditors']);
 const SCREEN_CACHE = new Map();
@@ -2099,6 +2436,7 @@ SCREENS.settingsScreen = () => `
   <div class="screen" style="padding-top:0;">
     ${menuItem('user', 'Profile', "nav('profile')")}
     ${menuItem('bell', 'Notifications', "nav('notifications')")}
+    ${menuItem('bell', 'Message alerts & sounds', "nav('msgAlerts')")}
     ${menuItem('help', 'Help, Support & Policies', "nav('support')")}
     ${modeSwitchCard(getCurrentUser())}
     ${menuItem('logout', 'Logout', 'logout()', { cls: 'danger' })}
@@ -2610,13 +2948,15 @@ function bubbleHtml(m, meId){
   let media = '';
   if(m.media_path){
     const u = esc(chatUrl(m.media_path));
-    if(m.media_type === 'image') media = `<a href="${u}" target="_blank" rel="noopener"><img class="chat-img" src="${u}" loading="lazy" alt="Photo"></a>`;
+    if(m.media_type === 'image') media = `<img class="chat-img" src="${u}" loading="lazy" alt="Photo" role="button" tabindex="0" onclick="openImageViewer(this.src)">`;
     else if(m.media_type === 'video') media = `<video class="chat-video" src="${u}" controls preload="metadata" playsinline></video>`;
     else if(m.media_type === 'audio') media = `<audio class="chat-audio" src="${u}" controls preload="none"></audio>`;
   }
   const modCls = m.mod_status === 'held' ? ' held' : m.mod_status === 'removed' ? ' removed' : '';
+  MSG_INDEX.set(String(m.id), { mine, text: m.text || '', media: m.media_type || '' });
+  const quote = m.reply_to ? replyQuoteHtml(String(m.reply_to)) : '';
   const tag = m.job_id && typeof currentChatJob !== 'undefined' && !currentChatJob ? `<small class="msg-proj" onclick="openProjectChat('${esc(m.job_id)}', '${esc(mine ? m.receiver_id : m.sender_id)}')">📁 ${'SPH-' + String(m.job_id).replace(/-/g, '').slice(0, 6).toUpperCase()}</small>` : '';
-  return `<div class="chat-bubble ${mine ? 'me' : 'them'}${modCls}" data-id="${esc(m.id)}">${tag}${media}${m.text ? `<div>${esc(m.text)}</div>` : ''}<span class="msg-meta">${m.media_type === 'audio' ? '🎤 ' + fmtDur(m.duration_sec) + ' · ' : ''}${fmtTime(m.created_at)}${mine ? tickHtml(m) : ''}</span></div>`;
+  return `<div class="chat-bubble ${mine ? 'me' : 'them'}${modCls}" data-id="${esc(m.id)}">${tag}${quote}${media}${m.text ? `<div>${esc(m.text)}</div>` : ''}<span class="msg-meta">${m.media_type === 'audio' ? '🎤 ' + fmtDur(m.duration_sec) + ' · ' : ''}${fmtTime(m.created_at)}${mine ? tickHtml(m) : ''}</span></div>`;
 }
 let lastChatDay = '';
 function withDay(m, meId){
@@ -2695,14 +3035,17 @@ async function refreshChatBadge(){
 
 // ---- phone notifications (while Sphere is open, even in a background tab) ----
 function canNotify(){ return !IN_ANDROID_APP && 'Notification' in window; }
-async function showMsgNotification(m){
+async function showMsgNotification(m, prefs){
   if(!canNotify() || Notification.permission !== 'granted') return;
+  prefs = prefs || getMsgPrefs();
   const people = await getProfilesByIds([m.sender_id]);
   const title = people[m.sender_id] ? people[m.sender_id].name : 'New message';
-  const opts = { body: msgPreview(m), icon: '/icon-192.png', badge: '/favicon.png', tag: 'chat-' + m.sender_id, data: { url: '/' } };
+  const opts = { body: prefs.preview ? msgPreview(m) : 'New message', icon: '/icon-192.png', badge: '/favicon.png',
+                 tag: 'chat-' + m.sender_id, renotify: true, data: { url: '/?chat=' + encodeURIComponent(m.sender_id), chatWith: m.sender_id } };
   try {
     const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
-    if(reg) reg.showNotification(title, opts); else new Notification(title, opts);
+    if(reg) reg.showNotification(title, opts);
+    else { const n = new Notification(title, opts); n.onclick = () => { try { window.focus(); } catch(e) {} openChatFromNotification(m.sender_id); n.close(); }; }
   } catch(e){}
 }
 function notifChip(){
@@ -2728,7 +3071,7 @@ function listenForMessages(){
       } else {
         markDelivered();
       }
-      if(!inThread || document.hidden) showMsgNotification(m);
+      alertIncoming(m, inThread);
       refreshChatBadge();
       if(currentScreenName === 'chatList') nav('chatList');
     })
@@ -2808,7 +3151,7 @@ SCREENS.chatThread = async () => {
   <div class="chat-head" style="flex-wrap:wrap;">
     <button class="ch-back" onclick="nav('chatList')">‹</button>
     ${avatarHtml(other)}
-    <div class="ch-name" onclick="nav('chatInfo')"><b>${other?esc(other.name):'Chat'}${other ? premiumBadgeSlot(other.id) : ''}</b><small>${chatJob ? '📁 ' + projectCode(chatJob) + ' · ' + esc(chatJob.title || chatJob.category) : roleLine(other)}<span id="chOnline" class="ch-online" hidden> · <i></i>online</span></small></div>
+    <div class="ch-name" onclick="nav('chatInfo')"><b>${other?esc(other.name):'Chat'}${other ? premiumBadgeSlot(other.id) : ''}</b><small>${chatJob ? '📁 ' + projectCode(chatJob) + ' · ' + esc(chatJob.title || chatJob.category) : roleLine(other)}<span id="chOnline" class="ch-online" hidden> · <i></i>online</span><span id="chTyping" class="ch-online" hidden> · typing…</span><span id="chSeen" class="ch-seen" hidden></span></small></div>
     <button class="ch-more" title="More" onclick="toggleChatMenu(event)">⋮</button>
     <div class="chat-warn" role="note"><span>${CHAT_WARN_TEXT}</span></div>
   </div>
@@ -2823,13 +3166,22 @@ SCREENS.chatThread = async () => {
   </div>
   <div class="screen" id="chatBox" style="padding-top:calc(104px + env(safe-area-inset-top, 0px)); padding-bottom:84px;">${body || '<p class="muted center-text" style="margin-top:20px;">Say hi 👋</p>'}</div>
   ${st.iBlocked ? `<div class="blocked-bar" onclick="setBlocked('${currentChatWith}', false)">You blocked this contact. <b style="color:var(--blue);">Tap to unblock.</b></div>` : `
-  <input type="file" id="chatFile" accept="image/*,video/*" style="display:none;" onchange="sendChatMedia(this)">
+  <input type="file" id="chatFile" accept="image/*,video/*" style="display:none;" onchange="pickChatMedia(this)">
+  <input type="file" id="chatCam" accept="image/*" capture="environment" style="display:none;" onchange="pickChatMedia(this)">
+  <div id="replyBar" class="reply-bar" hidden></div>
+  <div id="emojiPanel" class="emoji-panel" hidden></div>
+  <div id="attachSheet" class="attach-sheet" hidden>
+    <button onpointerdown="event.preventDefault()" onclick="closeComposerPanels(); document.getElementById('chatCam').click()">📷<span>Camera</span></button>
+    <button onpointerdown="event.preventDefault()" onclick="closeComposerPanels(); document.getElementById('chatFile').click()">🖼️<span>Gallery</span></button>
+  </div>
   <div class="chat-input-bar">
-    <button class="chat-tool" title="Photo or video" onclick="document.getElementById('chatFile').click()">📎</button>
-    <input id="chatInput" placeholder="Type a message..." maxlength="2000" onkeypress="if(event.key==='Enter')sendMsg()">
+    <button class="chat-tool" aria-label="Attach a photo or video" title="Photo or video" onpointerdown="event.preventDefault()" onclick="togglePanel('attachSheet', event)">📎</button>
+    <button class="chat-tool" aria-label="Emoji" title="Emoji" onpointerdown="event.preventDefault()" onclick="togglePanel('emojiPanel', event)">😊</button>
+    <input id="chatInput" placeholder="Type a message..." maxlength="2000" enterkeyhint="send" autocomplete="off" aria-label="Message"
+      onkeydown="if(event.key==='Enter' && !event.shiftKey && !event.isComposing){ event.preventDefault(); sendMsg(); }" oninput="chatTyping()">
     <div class="rec-bar" id="recBar"><span class="rec-dot"></span><span id="recTime">0:00</span><span class="muted" style="font-weight:400;">Recording…</span>
       <button class="chat-tool" title="Cancel" style="color:#c62828 !important; margin-left:auto;" onclick="stopVoice(false)">✕</button></div>
-    <button id="sendBtn" title="Send" aria-label="Send" onclick="recording() ? stopVoice(true) : sendMsg()">➤</button>
+    <button id="sendBtn" title="Send" aria-label="Send" onpointerdown="event.preventDefault()" onclick="recording() ? stopVoice(true) : sendMsg()">➤</button>
   </div>`}`;
 };
 
@@ -2845,6 +3197,7 @@ SCREENS.chatInfo = async () => {
   const media = (data || []).filter(m => m.media_type === 'image' || m.media_type === 'video');
   const voices = (data || []).filter(m => m.media_type === 'audio');
   const isEditor = other && (other.baseRole === 'editor' || other.role === 'editor') && other.verified;
+  let showSeen = null; try { const { data: ss, error: se } = await sb.rpc('sp_my_show_last_seen'); if(!se) showSeen = ss !== false; } catch(e) {}
   return `
   <div class="header"><button class="back-btn" onclick="nav('chatThread')">‹</button><h1>Contact info</h1></div>
   <div class="screen" style="padding-top:0;">
@@ -2857,10 +3210,12 @@ SCREENS.chatInfo = async () => {
     <div class="card">
       <b>Media, photos & videos (${media.length})</b>
       ${media.length ? `<div class="media-grid" style="margin-top:10px;">${media.map(m => m.media_type === 'image'
-        ? `<a href="${esc(chatUrl(m.media_path))}" target="_blank" rel="noopener"><img src="${esc(chatUrl(m.media_path))}" loading="lazy" alt=""></a>`
+        ? `<img src="${esc(chatUrl(m.media_path))}" loading="lazy" alt="Photo" role="button" tabindex="0" onclick="openImageViewer(this.src)">`
         : `<a href="${esc(chatUrl(m.media_path))}" target="_blank" rel="noopener">▶</a>`).join('')}</div>` : '<p class="muted" style="font-size:12px; margin-top:6px;">No photos or videos yet.</p>'}
       ${voices.length ? `<p class="muted" style="font-size:12px; margin-top:10px;">🎤 ${voices.length} voice message(s) in this chat</p>` : ''}
     </div>
+    ${showSeen === null ? '' : `<div class="card" style="display:flex; align-items:center; gap:12px;"><div style="flex:1;"><b>👁️ Show my last seen</b><p class="muted" style="font-size:12px; margin-top:2px;">Only people you chat with can see it. If you turn it off, you also cannot see theirs.</p></div>
+      <input type="checkbox" aria-label="Show my last seen" ${showSeen ? 'checked' : ''} onchange="setShowLastSeen(this)" style="width:22px; height:22px;"></div>`}
     <div class="card" style="padding:0; overflow:hidden;">
       <div style="padding:14px 16px; cursor:pointer;" onclick="clearChat('${currentChatWith}')">🧹 Clear chat</div>
       <div style="padding:14px 16px; cursor:pointer; color:#c62828; border-top:1px solid var(--border);" onclick="setBlocked('${currentChatWith}', ${!st.iBlocked})">${st.iBlocked ? '✅ Unblock ' : '🚫 Block '}${other ? esc((other.name || '').split(' ')[0]) : ''}</div>
@@ -2912,7 +3267,12 @@ async function insertMessage(row){
   const user = getCurrentUser();
   const base = { sender_id: user.id, receiver_id: currentChatWith, text: '' };
   if(currentChatJob) base.job_id = currentChatJob;
-  let { data, error } = await sb.from('sp_messages').insert(Object.assign(base, row)).select().single();
+  if(REPLY_TO && !('reply_to' in row)) row = Object.assign({}, row, { reply_to: REPLY_TO.id });
+  let { data, error } = await sb.from('sp_messages').insert(Object.assign({}, base, row)).select().single();
+  if(error && row.reply_to && /reply_to|column|schema cache/i.test(error.message || '')){
+    const r2 = Object.assign({}, row); delete r2.reply_to;   // database without replies yet (034): send as a normal message
+    ({ data, error } = await sb.from('sp_messages').insert(Object.assign({}, base, r2)).select().single());
+  }
   if(error && base.job_id && /job_id|column|schema cache/i.test(error.message || '')){
     delete base.job_id;   // database not updated yet (009)
     ({ data, error } = await sb.from('sp_messages').insert(Object.assign(base, row)).select().single());
@@ -2937,13 +3297,19 @@ async function insertMessage(row){
   return data;
 }
 
+let SENDING = false;
 async function sendMsg(){
-  const input = document.getElementById('chatInput');
+  const input = document.getElementById('chatInput'); if(!input) return;
   const text = input.value.trim();
-  if(!text) return;
-  input.value = '';
-  const ok = await insertMessage({ text });
-  if(!ok) input.value = text;
+  if(!text || SENDING) return;                       // repeated taps never send twice
+  SENDING = true; const btn = document.getElementById('sendBtn'); if(btn) btn.disabled = true;
+  try {
+    const ok = await insertMessage({ text });
+    if(ok){ input.value = ''; clearReply(); }        // clear only after it was really sent
+  } finally {
+    SENDING = false; if(btn) btn.disabled = false;
+    try { input.focus({ preventScroll: true }); } catch(e) { input.focus(); }   // keyboard stays open
+  }
 }
 
 async function uploadChatFile(blobOrFile, ext, type){
@@ -3173,6 +3539,7 @@ SCREENS.profile = async () => {
     ${user.baseRole==='editor' ? menuItem(user.verified ? 'check' : 'clock', 'Verification status', "nav('verificationStatus')", { sub: verifySubline(user) }) : ''}
     ${menuItem('jobs', isClientRole(user) ? 'My Projects' : 'My Jobs', "nav('jobs')", isClientRole(user) ? { sub: 'Active projects and history' } : undefined)}
     ${menuItem('bell', 'Notifications', "nav('notifications')")}
+    ${menuItem('bell', 'Message alerts & sounds', "nav('msgAlerts')")}
     ${menuItem('help', 'Help, Support & Policies', "nav('support')")}
     ${installAppItem()}
     ${user.baseRole==='admin' && user.role==='editor' ? menuItem('user', 'Editor details', "nav('editorDetails')", { sub: 'Your categories and languages' }) : ''}
@@ -5538,11 +5905,12 @@ async function loadProjectFiles(jobId){
 }
 
 // ---- upload with a progress bar (falls back to the normal upload)
-async function uploadWithProgress(path, blob, onProgress){
+async function uploadWithProgress(path, blob, onProgress, bucket){
+  bucket = bucket || PROJECT_BUCKET;
   const { data } = await sb.auth.getSession();
   const token = data && data.session && data.session.access_token;
   if(!token) throw new Error('Please log in again.');
-  const url = SUPABASE_URL + '/storage/v1/object/' + PROJECT_BUCKET + '/' + path.split('/').map(encodeURIComponent).join('/');
+  const url = SUPABASE_URL + '/storage/v1/object/' + bucket + '/' + path.split('/').map(encodeURIComponent).join('/');
   try {
     await new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
@@ -5558,7 +5926,7 @@ async function uploadWithProgress(path, blob, onProgress){
     });
   } catch(e) {
     if(!e.network) throw new Error(((() => { try { return JSON.parse(e.body).message; } catch(x) { return ''; } })()) || e.message);
-    const { error } = await sb.storage.from(PROJECT_BUCKET).upload(path, blob, { contentType: blob.type || 'application/octet-stream', upsert: false });
+    const { error } = await sb.storage.from(bucket).upload(path, blob, { contentType: blob.type || 'application/octet-stream', upsert: false });
     if(error) throw error;
     if(onProgress) onProgress(1);
   }

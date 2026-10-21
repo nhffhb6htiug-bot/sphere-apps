@@ -51,10 +51,17 @@ self.addEventListener('fetch', (event) => {
 // Tapping a message notification opens (or focuses) Sphere
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const d = event.notification.data || {};
+  const chatWith = /^[0-9a-f-]{36}$/i.test(String(d.chatWith || '')) ? String(d.chatWith) : '';
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-      for (const c of list) { if ('focus' in c) return c.focus(); }
-      return self.clients.openWindow('/');
+      for (const c of list) {
+        if ('focus' in c) {
+          if (chatWith) c.postMessage({ type: 'sphere-open-chat', chatWith });   // the open app jumps to that chat
+          return c.focus();
+        }
+      }
+      return self.clients.openWindow(chatWith ? '/?chat=' + chatWith : '/');    // a new window opens that chat after login
     })
   );
 });
