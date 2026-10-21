@@ -37,10 +37,7 @@ with sync_playwright() as p:
     pg.fill('#chatInput', 'shift enter'); pg.press('#chatInput', 'Shift+Enter'); pg.wait_for_timeout(300); a = n()
     pg.press('#chatInput', 'Enter'); pg.wait_for_timeout(500)
     ok('K4 Enter sends, Shift+Enter does not', a == 2 and n() == 3, f'after shift={a} after enter={n()}')
-    # E1 emoji panel inserts at the cursor and keeps focus
-    pg.fill('#chatInput', 'ab'); pg.evaluate("() => { const i = document.getElementById('chatInput'); i.focus(); i.setSelectionRange(1,1); }")
-    pg.tap('button[aria-label="Emoji"]'); pg.wait_for_timeout(200); pg.tap('#emojiPanel button[aria-label="🔥"]'); pg.wait_for_timeout(200)
-    ok('E1 emoji picker inserts at the cursor', pg.input_value('#chatInput') == 'a🔥b' and pg.evaluate("() => document.activeElement.id") == 'chatInput', pg.input_value('#chatInput'))
+    ok('E1 the emoji button was removed (the phone keyboard has emoji)', not pg.query_selector('button[aria-label="Emoji"]'))
     pg.fill('#chatInput', '')
     # R1 swipe right on a message → reply bar; send → reply saved and quoted; tap quote → jumps to original
     def swipe(sel, dx, dy):
@@ -63,7 +60,7 @@ with sync_playwright() as p:
     ok('R4 tapping the quote jumps to and highlights the original', pg.evaluate("() => document.querySelector('#chatBox .chat-bubble[data-id=\"m-a\"]').classList.contains('flash')"))
     pg.tap('button[aria-label="Attach a photo or video"]'); pg.wait_for_timeout(150); o1 = vis('#attachSheet') and not vis('#emojiPanel')
     pg.evaluate("() => document.getElementById('chatBox').click()"); pg.wait_for_timeout(150); o2 = vis('#attachSheet')
-    ok('P2 📎 shows Camera/Gallery (and hides emoji); tapping elsewhere closes it', o1 and not o2, f'open={o1} after outside tap={o2}')
+    ok('P2 📎 shows Camera/Gallery; tapping elsewhere closes it', o1 and not o2, f'open={o1} after outside tap={o2}')
     ok('P3 after sending, the reply bar is really hidden', not vis('#replyBar'))
     # I1 wrong file type refused
     pg.set_input_files('#chatFile', DOC); pg.wait_for_timeout(300)
@@ -94,7 +91,7 @@ with sync_playwright() as p:
     ok('T2 offline → "last seen today at …"', 'last seen today at' in seen, seen)
     # L1 layout: nothing wider than the screen, controls ≥ 36 px tall
     over = pg.evaluate("() => document.documentElement.scrollWidth > window.innerWidth + 1")
-    sizes = pg.evaluate("() => ['#sendBtn', 'button[aria-label=\"Emoji\"]', 'button[aria-label=\"Attach a photo or video\"]'].map(s => Math.round(document.querySelector(s).getBoundingClientRect().height))")
+    sizes = pg.evaluate("() => ['#sendBtn', 'button[aria-label=\"Attach a photo or video\"]'].map(s => Math.round(document.querySelector(s).getBoundingClientRect().height))")
     pg.screenshot(path=os.path.join(SHOTS, 'chat.png'))
     ok('L1 no sideways scrolling at 360 px; buttons easy to tap', not over and all(h >= 36 for h in sizes), str(sizes))
     ok('X1 no JavaScript errors', not errs, str(errs[:2]))

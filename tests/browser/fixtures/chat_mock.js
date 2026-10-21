@@ -2,8 +2,9 @@
 window.__msgs = []; window.__inserts = []; window.__uploads = 0; window.__failUpload = 0; window.__failInsert = 0; window.__bc = [];
 const ME = 'me-111', OTHER = 'other-222';
 currentUser = { id: ME, name: 'Hh Client', role: 'CLIENT', baseRole: 'CLIENT' };
+window.__q = []; window.__hidden = [];
 function qb(table){
-  const st = { table, op: 'select', payload: null, single: false };
+  const st = { table, op: 'select', payload: null, single: false, calls: [] }; window.__q.push(st);
   const run = () => {
     if(table === 'sp_messages'){
       if(st.op === 'insert'){
@@ -14,6 +15,14 @@ function qb(table){
       if(st.op === 'update') return { data: null, error: null };
       return { data: st.single ? (window.__msgs[0] || null) : window.__msgs.slice(), error: null };
     }
+    if(table === 'sp_msg_hidden'){
+      if(st.op === 'insert'){ window.__hidden.push(st.payload.message_id); return { data: null, error: null }; }
+      return { data: window.__hidden.map(id => ({ message_id: id })), error: null };
+    }
+    if(table === 'sp_notifications'){
+      if(st.op === 'update') return { data: null, error: null };
+      return { data: (window.__notifs || []).slice(), error: null, count: (window.__notifs || []).filter(n => !n.is_read).length };
+    }
     if(table === 'profiles') return { data: st.single ? { id: OTHER, full_name: 'Yhiyhi 681', role: 'CLIENT' } : [{ id: OTHER, full_name: 'Yhiyhi 681', role: 'CLIENT' }], error: null };
     return { data: st.single ? null : [], error: null };
   };
@@ -22,12 +31,14 @@ function qb(table){
     if(prop === 'insert') return (v) => { st.op = 'insert'; st.payload = v; return p; };
     if(prop === 'update') return (v) => { st.op = 'update'; st.payload = v; return p; };
     if(prop === 'single' || prop === 'maybeSingle') return () => { st.single = true; return p; };
-    return () => p;
+    return (...a) => { st.calls.push([prop, JSON.stringify(a)]); return p; };
   } });
   return p;
 }
 sb.from = qb;
+window.__rpcs = [];
 sb.rpc = async (fn, args) => {
+  window.__rpcs.push(fn);
   if(fn === 'sp_last_seen') return { data: { visible: true, last_seen_at: new Date(Date.now() - 5 * 60000).toISOString() }, error: null };
   if(fn === 'sp_my_show_last_seen') return { data: true, error: null };
   if(fn === 'sp_profiles_public' || fn === 'sp_public_profiles_by_ids') return { data: [{ id: OTHER, full_name: 'Yhiyhi 681', name: 'Yhiyhi 681', role: 'CLIENT' }], error: null };

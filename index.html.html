@@ -170,6 +170,19 @@ h1,h2,h3{color:var(--text);}
 .mp-bar{display:flex; gap:8px; padding:10px 12px calc(10px + env(safe-area-inset-bottom, 0px));} .mp-bar input{flex:1; border-radius:20px; border:none; padding:12px 14px;} .mp-bar button{width:48px; height:48px; border-radius:50%; border:none; background:#22c55e; color:#fff; font-size:20px;}
 .img-viewer{align-items:center; justify-content:center;} .img-viewer > button{position:absolute; top:calc(12px + env(safe-area-inset-top, 0px)); right:12px;} .img-viewer img{max-width:100%; max-height:100%; object-fit:contain;}
 .ch-seen{opacity:.9;}
+.chat-input-bar{box-sizing:border-box; align-items:center; padding:8px 10px calc(8px + env(safe-area-inset-bottom, 0px));}
+.chat-input-bar input{min-width:0; flex:1 1 auto; height:42px; box-sizing:border-box;}
+.chat-input-bar #sendBtn{flex:0 0 46px; width:46px; height:46px; padding:0; display:inline-flex; align-items:center; justify-content:center; font-size:18px; box-shadow:0 4px 12px rgba(37,99,235,.35);}
+.chat-input-bar #sendBtn:disabled{opacity:.6;}
+.chat-input-bar .chat-tool{flex:0 0 38px; height:42px !important;}
+.msg-menu{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(70px + env(safe-area-inset-bottom, 0px)); z-index:9300; width:calc(100% - 24px); max-width:456px; background:#fff; border-radius:16px; box-shadow:0 12px 34px rgba(15,23,42,.25); overflow:hidden;}
+.msg-menu button{display:block; width:100%; text-align:left; padding:14px 18px; border:none; background:#fff; font-size:15px; border-top:1px solid var(--border);}
+.msg-menu button:first-child{border-top:none;} .msg-menu .danger{color:#dc2626; font-weight:600;}
+.msg-menu-back{position:fixed; inset:0; z-index:9299; background:rgba(15,23,42,.25);}
+.ask-notif{position:fixed; inset:0; z-index:9600; background:rgba(15,23,42,.45); display:flex; align-items:flex-end; justify-content:center;}
+.ask-notif .box{width:100%; max-width:480px; background:#fff; border-radius:22px 22px 0 0; padding:22px 20px calc(18px + env(safe-area-inset-bottom, 0px)); text-align:center;}
+.ask-notif .ic{font-size:40px;} .ask-notif h3{margin:8px 0 4px;} .ask-notif p{color:var(--muted); font-size:14px; margin:0 0 16px;}
+.ask-notif .btn{width:100%; margin-top:8px;}
 .tone-row{display:flex; align-items:center; gap:10px; padding:10px 16px; border-top:1px solid var(--border);} .tone-row.on{background:#eef4ff;}
 .tone-play{width:40px; height:40px; border-radius:50%; border:1px solid var(--border); background:#fff; color:var(--blue); font-size:14px;}
 .msg-banner{position:fixed; left:50%; transform:translateX(-50%); top:calc(10px + env(safe-area-inset-top, 0px)); z-index:9400; width:calc(100% - 24px); max-width:456px; text-align:left; border:none; border-radius:16px; padding:10px 14px; background:rgba(15,23,42,.92); color:#fff; box-shadow:0 10px 30px rgba(0,0,0,.25); display:flex; flex-direction:column; gap:2px;}
@@ -599,7 +612,7 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.9',
+  appVersion: '2.22.10',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -1349,6 +1362,7 @@ function stopChatPresence(){
   chatPresence = null; chatPresenceOther = null; setOnlineLabel(false);
 }
 function startChatPresence(otherId){
+  seenPing(); setTimeout(() => { const o = document.getElementById('chOnline'); if(!o || o.hidden) loadLastSeen(otherId); }, 1200);
   if(PENDING_CHAT && PENDING_CHAT === otherId) setTimeout(() => { if(currentScreenName === 'chatThread' && currentChatWith === otherId) PENDING_CHAT = null; }, 1500);   // the linked chat stayed open → done
   const me = getCurrentUser();
   if(!me || !otherId || !sb.channel) return;
@@ -1673,6 +1687,84 @@ function renderMsgAlerts(){   // registered as SCREENS.msgAlerts after SCREENS e
   </div>`;
 }
 function pickTone(id){ setMsgPrefs({ tone: id }); document.querySelectorAll('.tone-row').forEach(r => r.classList.toggle('on', r.querySelector('input').value === id)); if(id !== 'silent') playTone(id, { preview: true }); }
+// ---- v2.22.10: delete for me, long-press menu, notification permission prompt ----
+let HIDDEN_MSGS = new Set(), HIDDEN_FOR = null, LAST_PING_AT = 0, ASKED_NOTIF_THIS_SESSION = false;
+async function loadHiddenMsgs(){
+  const u = getCurrentUser(); if(!u || HIDDEN_FOR === u.id) return;
+  try {
+    const { data, error } = await sb.from('sp_msg_hidden').select('message_id').eq('user_id', u.id).limit(5000);
+    if(!error){ HIDDEN_MSGS = new Set((data || []).map(r => String(r.message_id))); HIDDEN_FOR = u.id; }
+  } catch(e) {}
+}
+function closeMsgMenu(){ ['msgMenu', 'msgMenuBack'].forEach(id => { const e = document.getElementById(id); if(e) e.remove(); }); }
+function openMsgMenu(id){
+  closeMsgMenu(); const x = MSG_INDEX.get(String(id)); if(!x) return;
+  if(navigator.vibrate) try { navigator.vibrate(15); } catch(e) {}
+  const back = document.createElement('div'); back.id = 'msgMenuBack'; back.className = 'msg-menu-back'; back.onclick = closeMsgMenu;
+  const m = document.createElement('div'); m.id = 'msgMenu'; m.className = 'msg-menu'; m.setAttribute('role', 'menu');
+  m.innerHTML = `<button role="menuitem" onclick="closeMsgMenu(); startReply('${esc(String(id))}')">↩️ Reply</button>
+    ${x.text ? `<button role="menuitem" onclick="copyMsg('${esc(String(id))}')">📋 Copy</button>` : ''}
+    <button role="menuitem" class="danger" onclick="askDeleteForMe('${esc(String(id))}')">🗑️ Delete for me</button>`;
+  document.body.appendChild(back); document.body.appendChild(m);
+}
+async function copyMsg(id){
+  const x = MSG_INDEX.get(String(id)); closeMsgMenu(); if(!x || !x.text) return;
+  try { await navigator.clipboard.writeText(x.text); } catch(e) {}
+}
+function askDeleteForMe(id){
+  const m = document.getElementById('msgMenu'); if(!m) return;
+  m.innerHTML = `<div style="padding:14px 18px; font-size:14px; color:var(--muted);">Delete this message only from your screen? The other person and the Sphere team still see it.</div>
+    <button role="menuitem" class="danger" onclick="deleteForMe('${esc(String(id))}')">🗑️ Yes, delete for me</button>
+    <button role="menuitem" onclick="closeMsgMenu()">Cancel</button>`;
+}
+async function deleteForMe(id){
+  const u = getCurrentUser(); closeMsgMenu(); if(!u) return;
+  const { error } = await sb.from('sp_msg_hidden').insert({ user_id: u.id, message_id: String(id) });
+  if(error && !/duplicate|23505/i.test((error.message || '') + (error.code || ''))){ alert('Could not delete this message. Please try again.'); return; }
+  HIDDEN_MSGS.add(String(id));
+  const el = document.querySelector(`#chatBox .chat-bubble[data-id="${CSS.escape(String(id))}"]`);
+  if(el){ const row = el.closest('.chat-row') || el; row.remove(); }
+  if(REPLY_TO && REPLY_TO.id === String(id)) clearReply();
+}
+// long-press (phone) or right-click (computer) on a message → menu
+(function(){
+  let t = null, sx = 0, sy = 0, target = null;
+  const cancel = () => { if(t){ clearTimeout(t); t = null; } };
+  document.addEventListener('touchstart', (e) => {
+    const b = e.target.closest && e.target.closest('#chatBox .chat-bubble'); cancel();
+    if(!b || e.touches.length !== 1 || e.target.closest('.msg-quote, .chat-img, video, a, audio')) return;
+    target = b; sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+    t = setTimeout(() => { t = null; openMsgMenu(target.dataset.id); }, 550);
+  }, { passive: true });
+  document.addEventListener('touchmove', (e) => { if(t && (Math.abs(e.touches[0].clientX - sx) > 10 || Math.abs(e.touches[0].clientY - sy) > 10)) cancel(); }, { passive: true });
+  document.addEventListener('touchend', cancel, { passive: true });
+  document.addEventListener('contextmenu', (e) => { const b = e.target.closest && e.target.closest('#chatBox .chat-bubble'); if(b){ e.preventDefault(); openMsgMenu(b.dataset.id); } });
+})();
+// "Allow notifications?" — shown on Home / Chats when the browser has not been asked yet; "Not now" waits 3 days
+function maybeAskNotifications(){
+  if(ASKED_NOTIF_THIS_SESSION || !getCurrentUser() || !canNotify() || Notification.permission !== 'default') return;
+  if(currentScreenName !== 'home' && currentScreenName !== 'chatList') return;
+  let until = 0; try { until = Number(localStorage.getItem('sp_notif_ask_until:' + getCurrentUser().id) || 0); } catch(e) {}
+  if(Date.now() < until || document.getElementById('askNotif')) return;
+  ASKED_NOTIF_THIS_SESSION = true;
+  const d = document.createElement('div'); d.id = 'askNotif'; d.className = 'ask-notif'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-label', 'Allow notifications');
+  d.innerHTML = `<div class="box"><div class="ic">🔔</div><h3>Get chat notifications?</h3>
+    <p>Know right away when a client or editor messages you — with a Sphere sound while the app is open.</p>
+    <button class="btn btn-primary" onclick="allowNotifications()">Allow</button>
+    <button class="btn btn-outline" onclick="notNowNotifications()">Not now</button></div>`;
+  document.body.appendChild(d);
+}
+async function allowNotifications(){
+  const d = document.getElementById('askNotif'); if(d) d.remove();
+  unlockAudio();
+  let res = 'default'; try { res = await Notification.requestPermission(); } catch(e) {}
+  if(res === 'granted'){ setMsgPrefs({ enabled: true }); playTone(getMsgPrefs().tone, { preview: true }); }
+  else if(res === 'denied') alert('Notifications are blocked. You can allow them later: browser menu → Site settings → Notifications.');
+}
+function notNowNotifications(){
+  const d = document.getElementById('askNotif'); if(d) d.remove();
+  try { localStorage.setItem('sp_notif_ask_until:' + getCurrentUser().id, String(Date.now() + 3 * 86400000)); } catch(e) {}
+}
 function jsq(v){ return esc(JSON.stringify(String(v == null ? '' : v))); }
 function safeOpen(u){ if(/^https:\/\//i.test(String(u || ''))) window.open(u, '_blank', 'noopener,noreferrer'); }
 function linkOrText(v){
@@ -1802,6 +1894,8 @@ function renderBottomNav(){
 
 let NAV_SEQ = 0;     // Part 19.1: only the newest navigation may change the screen
 async function nav(screen, data){
+  if(getCurrentUser() && Date.now() - LAST_PING_AT > 45000){ LAST_PING_AT = Date.now(); seenPing(); }
+  if(getCurrentUser() && (screen === 'home' || screen === 'chatList')) setTimeout(maybeAskNotifications, 1500);
   // a chat opened from a notification link waits until the user can really see it (e.g. after adding a phone number)
   if(PENDING_CHAT && screen === 'home' && getCurrentUser()){ if(++PENDING_TRIES > 3) PENDING_CHAT = null; else { const id = PENDING_CHAT; setTimeout(() => startChat(id), 0); } }
   if(screen !== 'chatThread' && chatPresence) stopChatPresence();   // left the chat: stop sharing online status
@@ -2960,6 +3054,7 @@ function bubbleHtml(m, meId){
 }
 let lastChatDay = '';
 function withDay(m, meId){
+  if(m && HIDDEN_MSGS.has(String(m.id))) return '';          // "Delete for me"
   const k = dayKey(m.created_at);
   const sep = k !== lastChatDay ? `<div class="chat-day"><span>${dayLabel(m.created_at)}</span></div>` : '';
   lastChatDay = k;
@@ -3128,6 +3223,7 @@ SCREENS.chatList = async () => {
 };
 
 SCREENS.chatThread = async () => {
+  await loadHiddenMsgs();
   const user = getCurrentUser();
   if(!currentChatWith){ setTimeout(() => nav('chatList'), 0); return ''; }
   const other = (await getProfilesByIds([currentChatWith]))[currentChatWith];
@@ -3176,7 +3272,6 @@ SCREENS.chatThread = async () => {
   </div>
   <div class="chat-input-bar">
     <button class="chat-tool" aria-label="Attach a photo or video" title="Photo or video" onpointerdown="event.preventDefault()" onclick="togglePanel('attachSheet', event)">📎</button>
-    <button class="chat-tool" aria-label="Emoji" title="Emoji" onpointerdown="event.preventDefault()" onclick="togglePanel('emojiPanel', event)">😊</button>
     <input id="chatInput" placeholder="Type a message..." maxlength="2000" enterkeyhint="send" autocomplete="off" aria-label="Message"
       onkeydown="if(event.key==='Enter' && !event.shiftKey && !event.isComposing){ event.preventDefault(); sendMsg(); }" oninput="chatTyping()">
     <div class="rec-bar" id="recBar"><span class="rec-dot"></span><span id="recTime">0:00</span><span class="muted" style="font-weight:400;">Recording…</span>
@@ -7510,12 +7605,10 @@ async function refreshBell(){
   if(!currentUser) return;
   let n = 0;
   try {
-    const { data, error } = await sb.rpc('sp_notif_unread');
-    if(!error && data) n = Number(data.unread) || 0;
-    else {
-      const r = await sb.from('sp_notifications').select('id', { count: 'exact', head: true }).eq('user_id', currentUser.id).eq('is_read', false);
-      n = r.count || 0;
-    }
+    let r = await sb.from('sp_notifications').select('id', { count: 'exact', head: true }).eq('user_id', currentUser.id).eq('is_read', false)
+      .or('category.is.null,category.neq.messages');                       // chat messages are not counted on the bell
+    if(r.error) r = await sb.from('sp_notifications').select('id', { count: 'exact', head: true }).eq('user_id', currentUser.id).eq('is_read', false);
+    n = r.count || 0;
   } catch(e) {}
   document.querySelectorAll('.bell-n').forEach(el => { el.hidden = !n; el.textContent = n > 99 ? '99+' : String(n); });
 }
@@ -7574,7 +7667,8 @@ SCREENS.notifications = async (data) => {
   if(data && data.tab) notifTab = data.tab;
   if(data && data.more) notifLimit += 30; else if(!data || !data.keep) notifLimit = 30;
   const isAdmin = isAdminUser(user);
-  let q = sb.from('sp_notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(notifLimit);
+  let q = sb.from('sp_notifications').select('*').eq('user_id', user.id).or('category.is.null,category.neq.messages')
+    .order('created_at', { ascending: false }).limit(notifLimit);                // chat messages are not listed here
   if(notifTab === 'unread') q = q.eq('is_read', false);
   if(notifTab === 'admin') q = q.eq('audience', 'admin');
   if(notifTab === 'projects') q = q.not('job_id', 'is', null);
@@ -7586,6 +7680,7 @@ SCREENS.notifications = async (data) => {
   list = list || [];
   const v2 = list.length === 0 || 'category' in list[0];
   const unread = list.filter(n => !n.is_read).length;
+  if(unread) sb.rpc('sp_notif_mark_read', { p_ids: null }).then(r => r.error ? sb.from('sp_notifications').update({ is_read: true }).eq('user_id', user.id).eq('is_read', false) : r, () => {}).then(() => refreshBell(), () => {});
   const tab = (k, l) => `<button class="${notifTab === k ? 'on' : ''}" onclick="nav('notifications', { tab: '${k}' })">${l}</button>`;
   setTimeout(refreshBell, 0);
   return `
