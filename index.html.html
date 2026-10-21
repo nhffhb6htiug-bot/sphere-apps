@@ -614,7 +614,7 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.12',
+  appVersion: '2.22.13',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -1684,8 +1684,8 @@ function renderMsgAlerts(){   // registered as SCREENS.msgAlerts after SCREENS e
     </div>
     ${pushSupported() ? `<div class="card"><b>📲 When Sphere is closed</b>
       <p class="muted" style="font-size:12px; margin:4px 0 8px;">${PUSH_ON ? '✅ On for this phone — messages, bids, jobs, payments and Sphere updates arrive as phone notifications.' : perm === 'granted' ? 'Not on yet for this phone.' : 'Allow notifications first.'}</p>
-      ${PUSH_ON ? '<button class="btn btn-outline" onclick="sendTestPush(this)">Send a test notification</button>' : perm !== 'denied' ? '<button class="btn btn-outline" onclick="turnOnPush(this)">Turn on for this phone</button>' : ''}
-      <p class="muted" style="font-size:11px; margin-top:8px;">Choose which kinds arrive in Settings → Notifications. Samsung: if they stop when the phone sleeps, set Chrome's battery to "Unrestricted".</p></div>` : ''}
+      ${PUSH_ON ? '<button class="btn btn-outline" onclick="sendTestPush(this)">Send a test notification</button><button class="btn-sm" style="margin-top:8px; color:#c62828; border-color:#c62828;" onclick="turnOffPush(this)">Turn off for this phone</button>' : perm !== 'denied' ? '<button class="btn btn-outline" onclick="turnOnPush(this)">Turn on for this phone</button>' : ''}
+      <p class="muted" style="font-size:11px; margin-top:8px;">Choose which kinds arrive in Settings → Notifications.</p></div>` : ''}
     <div class="card" style="padding:6px 0;">
       <b style="display:block; padding:8px 16px;">Tone (inside Sphere)</b>
       ${row('silent', '🔇 Silent')}${Object.keys(SPHERE_TONES).map(id => row(id, SPHERE_TONES[id].label)).join('')}
@@ -1770,7 +1770,7 @@ async function allowNotifications(){
 }
 function notNowNotifications(){
   const d = document.getElementById('askNotif'); if(d) d.remove();
-  try { localStorage.setItem('sp_notif_ask_until:' + getCurrentUser().id, String(Date.now() + 3 * 86400000)); } catch(e) {}
+  try { localStorage.setItem('sp_notif_ask_until:' + getCurrentUser().id, '9999999999999'); } catch(e) {}   // asked once — not again (Settings can turn it on)
 }
 // ---- v2.22.11: admin — who verified / rejected each editor, private admin note, unverify ----
 function reviewHistoryHtml(r){
@@ -1831,20 +1831,24 @@ function pushB64uToBytes(s){ const t = String(s).replace(/-/g, '+').replace(/_/g
 function pushBytesToB64u(buf){ let s = ''; new Uint8Array(buf).forEach(x => { s += String.fromCharCode(x); }); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
 async function ensurePush(){
   if(!pushSupported() || Notification.permission !== 'granted' || !getCurrentUser()) return false;
+  try { if(localStorage.getItem('sp_push_off:' + getCurrentUser().id) === '1') return false; } catch(e) {}
   try {
     const reg = await navigator.serviceWorker.ready;
     let key = null;
     const r = await sb.rpc('sp_push_public_key'); if(!r.error) key = r.data;
     if(!key){ const f = await sb.functions.invoke('sphere-push', { body: { action: 'init' } }); key = f && f.data && f.data.publicKey; }
-    if(!key) return false;
+    if(!key){ reportCrash('Push: no server key'); return false; }
     let sub = await reg.pushManager.getSubscription();
     if(sub && sub.options && sub.options.applicationServerKey && pushBytesToB64u(sub.options.applicationServerKey) !== key){ try { await sub.unsubscribe(); } catch(e) {} sub = null; }
-    if(!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: pushB64uToBytes(key) });
+    if(!sub){
+      try { sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: pushB64uToBytes(key) }); }
+      catch(e){ reportCrash('Push: subscribe failed: ' + String(e && e.message || e).slice(0, 120)); return false; }
+    }
     const j = sub.toJSON();
     const { error } = await sb.rpc('sp_push_subscribe', { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_ua: navigator.userAgent.slice(0, 200) });
-    if(error) return false;
+    if(error){ reportCrash('Push: save failed: ' + String(error.message || '').slice(0, 120)); return false; }
     PUSH_ON = true; return true;
-  } catch(e){ return false; }
+  } catch(e){ reportCrash('Push: ' + String(e && e.message || e).slice(0, 120)); return false; }
 }
 async function stopPushForThisPhone(){
   try {
@@ -1865,7 +1869,15 @@ async function sendTestPush(btn){
     alert('Test sent ✅ — it arrives as a phone notification in a few seconds.');
   } finally { if(btn) btn.disabled = false; }
 }
+async function turnOffPush(btn){
+  if(btn) btn.disabled = true;
+  await stopPushForThisPhone();
+  PUSH_TRIED_FOR = getCurrentUser() ? getCurrentUser().id : null;   // do not switch it back on by itself this session
+  try { localStorage.setItem('sp_push_off:' + getCurrentUser().id, '1'); } catch(e) {}
+  nav('msgAlerts');
+}
 async function turnOnPush(btn){
+  try { localStorage.removeItem('sp_push_off:' + getCurrentUser().id); } catch(e) {}
   if(btn) btn.disabled = true;
   if(Notification.permission === 'default'){ try { await Notification.requestPermission(); } catch(e) {} }
   const ok = await ensurePush();

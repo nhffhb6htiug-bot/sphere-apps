@@ -66,7 +66,7 @@ with sync_playwright() as p:
     b, pg, errs = page(p); pg.evaluate(FAKE_N, 'default'); pg.evaluate("() => nav('home')"); pg.wait_for_timeout(2300)
     pg.click('#askNotif .btn-outline'); pg.wait_for_timeout(200)
     pg.evaluate("() => { ASKED_NOTIF_THIS_SESSION = false; nav('chatList'); }"); pg.wait_for_timeout(2300)
-    ok('P2 "Not now" → the prompt does not come back (3 days), browser never asked', not pg.query_selector('#askNotif') and pg.evaluate("() => window.__reqs") == 0)
+    ok('P2 "Not now" → the prompt never comes back by itself (asked once); the browser was never asked', not pg.query_selector('#askNotif') and pg.evaluate("() => window.__reqs") == 0 and pg.evaluate("() => Number(localStorage.getItem('sp_notif_ask_until:me-111')) > Date.now() + 50 * 365 * 86400000"))
     b.close()
 for r in R: print(f'{r[0]:5} {r[1]} {("— " + r[2]) if r[2] else ""}'[:230])
 print('TOTAL', sum(1 for r in R if r[0]=='PASS'), '/', len(R))
