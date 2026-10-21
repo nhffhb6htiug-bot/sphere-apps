@@ -3,11 +3,12 @@ import { readFileSync } from 'node:fs';
 const src = readFileSync(new URL('../../sw.js', import.meta.url), 'utf8');
 let pass = 0, fail = 0; const check = (n, ok, d = '') => { ok ? pass++ : fail++; console.log((ok ? 'PASS ' : 'FAIL ') + n + (d ? ' — ' + d : '')); };
 function env(windows){
-  const h = {}; const log = { shown: [], posted: [], opened: [], focused: 0 };
+  const h = {}; const log = { shown: [], posted: [], opened: [], focused: 0, fetched: [] };
   const clients = { matchAll: async () => windows.map(v => ({ visibilityState: v, focus: async () => { log.focused++; }, postMessage: (m) => log.posted.push(m) })), openWindow: async (u) => log.opened.push(u), claim: async () => {} };
-  const self = { addEventListener: (t, f) => { h[t] = f; }, clients, skipWaiting: () => {}, registration: { showNotification: async (t, o) => log.shown.push({ t, o }) } };
+  const self = { addEventListener: (t, f) => { h[t] = f; }, clients, skipWaiting: () => {}, location: { hostname: 'sphere-live.onrender.com', origin: 'https://sphere-live.onrender.com' }, registration: { showNotification: async (t, o) => log.shown.push({ t, o }) } };
   const caches = { open: async () => ({ addAll: async () => {}, put: async () => {}, match: async () => null }), keys: async () => [], delete: async () => true, match: async () => null };
-  new Function('self', 'caches', 'fetch', 'location', src)(self, caches, async () => ({ ok: true, clone(){ return this; } }), { origin: 'http://sphere.test' });
+  log.fetched = log.fetched || [];
+  new Function('self', 'caches', 'fetch', 'location', src)(self, caches, async (u, i) => { (log.fetched || []).push({ u, i }); return { ok: true, clone(){ return this; } }; }, { origin: 'https://sphere-live.onrender.com' });
   return { h, log };
 }
 async function push(windows, data, raw){
@@ -34,4 +35,11 @@ l = await click(['hidden'], { open: 'notifications' });
 check('C2 …with Sphere open in the background it switches to Notifications', l.posted[0] && l.posted[0].type === 'sphere-open-notifications' && l.focused === 1);
 l = await click([], { chatWith: S });
 check('C3 tapping a chat notification still opens that chat', l.opened[0] === '/?chat=' + S);
+l = await push([], { id: 'n9', title: 'Yhiyhi', body: 'hi', category: 'messages', sender_id: S, tag: 'chat-' + S, ack: 'a'.repeat(64) });
+const f = l.fetched[0]; const fb = f && JSON.parse(f.i.body);
+check('R1 a chat push tells the server "delivered" (✓✓) with its receipt token', l.shown.length === 1 && f && f.u === 'https://sphere-live.onrender.com/sb/functions/v1/sphere-push' && fb.action === 'delivered' && fb.id === 'n9' && fb.token === 'a'.repeat(64));
+l = await push(['visible'], { id: 'n10', title: 'x', category: 'messages', sender_id: S, ack: 'b'.repeat(64) });
+check('R2 …also when Sphere is on screen', l.fetched.length === 1 && l.shown.length === 0);
+l = await push([], { id: 'n11', title: 'New bid', category: 'bids' });
+check('R3 other pushes send no receipt', l.fetched.length === 0);
 console.log(`TOTAL ${pass}/${pass + fail}`); process.exit(fail ? 1 : 0);

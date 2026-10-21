@@ -50,15 +50,22 @@ self.addEventListener('fetch', (event) => {
 
 // Tapping a message notification opens (or focuses) Sphere
 // Phone push (sent by the sphere-push function). If Sphere is on screen it shows the message itself.
+const SPHERE_API = self.location.hostname === 'sphere-live.onrender.com' ? self.location.origin + '/sb' : 'https://sphere-api.niteshkumarmatho37.workers.dev';
+function sphereAck(d) {          // tells the sender's chat "delivered" (✓✓) — only with the receipt token from the server
+  if (!d || !d.ack || !d.id) return Promise.resolve();
+  return fetch(SPHERE_API + '/functions/v1/sphere-push', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'delivered', id: d.id, token: d.ack }) }).catch(() => {});
+}
 self.addEventListener('push', (event) => {
   let d = {};
   try { d = event.data ? event.data.json() : {}; } catch (e) { d = {}; }
   event.waitUntil((async () => {
+    const ack = sphereAck(d);
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const isTest = d.title === '🔔 Sphere test';
     if (!isTest && wins.some((c) => c.visibilityState === 'visible')) {
       wins.forEach((c) => c.postMessage({ type: 'sphere-push', data: { id: d.id, category: d.category } }));
-      return;
+      await ack; return;
     }
     const chatWith = d.category === 'messages' && /^[0-9a-f-]{36}$/i.test(String(d.sender_id || '')) ? String(d.sender_id) : '';
     await self.registration.showNotification(String(d.title || 'Sphere').slice(0, 80), {
@@ -66,6 +73,7 @@ self.addEventListener('push', (event) => {
       tag: String(d.tag || ('n-' + (d.id || Date.now()))), renotify: true, vibrate: [120, 60, 120],
       data: { chatWith, open: chatWith ? '' : 'notifications', id: d.id || null }
     });
+    await ack;
   })());
 });
 

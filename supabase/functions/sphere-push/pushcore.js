@@ -4,6 +4,21 @@ import { encryptPayload, generateVapidKeys, vapidHeader } from './webpush.js';
 const te = new TextEncoder();
 function sameText(a, b){ a = String(a || ''); b = String(b || ''); if (!a || a.length !== b.length) return false; let r = 0; for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i); return r === 0; }
 const URGENT = new Set(['messages', 'payment', 'refund', 'dispute', 'security']);
+// receipt token for "delivered" (✓✓): only the phone that got this push can confirm it
+export async function ackToken(secret, id){
+  const key = await crypto.subtle.importKey('raw', te.encode(String(secret)), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, te.encode('ack:' + id)));
+  return Array.from(sig).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+export async function markDelivered(db, cfg, id, token){
+  if (!id || !token || !sameText(await ackToken(cfg.trigger_secret, String(id)), String(token))) return { status: 401, body: { ok: false } };
+  const { data: n } = await db.from('sp_notifications').select('id,user_id,sender_id,category,created_at').eq('id', String(id)).maybeSingle();
+  if (!n || n.category !== 'messages' || !n.sender_id) return { status: 200, body: { ok: true, marked: false } };
+  const upTo = new Date(new Date(n.created_at).getTime() + 10000).toISOString();
+  await db.from('sp_messages').update({ delivered_at: new Date().toISOString() })
+    .eq('receiver_id', n.user_id).eq('sender_id', n.sender_id).is('delivered_at', null).lte('created_at', upTo);
+  return { status: 200, body: { ok: true, marked: true } };
+}
 export async function ensureKeys(db, cfg){
   if (cfg && cfg.vapid_public && cfg.vapid_private) return cfg;
   const k = await generateVapidKeys();
@@ -19,7 +34,8 @@ export async function deliver(db, cfg, id, doFetch){
   if (!subs || !subs.length){ await db.from('sp_notifications').update({ push_status: 'no_device' }).eq('id', n.id); return { id, status: 'no_device' }; }
   const isChat = n.category === 'messages' && !!n.sender_id;
   const payload = te.encode(JSON.stringify({ id: n.id, title: (n.title || 'Sphere').slice(0, 80), body: (n.body || '').slice(0, 300),
-    category: n.category || 'general', sender_id: isChat ? n.sender_id : null, tag: isChat ? 'chat-' + n.sender_id : 'n-' + n.id }));
+    category: n.category || 'general', sender_id: isChat ? n.sender_id : null, tag: isChat ? 'chat-' + n.sender_id : 'n-' + n.id,
+    ack: isChat ? await ackToken(cfg.trigger_secret, n.id) : null }));
   let sent = 0, gone = 0, failed = 0;
   for (const s of subs){
     try {
@@ -45,6 +61,7 @@ export async function handle(req, db, doFetch){
   let input = {}; try { input = await req.json(); } catch (_e) {}
   const { data: cfg0, error } = await db.rpc('sp_push_internal_config');
   if (error || !cfg0) return { status: 500, body: { ok: false, error: 'not configured' } };
+  if (input.action === 'delivered') return await markDelivered(db, cfg0, input.id, input.token);   // from the phone's service worker
   if (input.action === 'init'){ const cfg = await ensureKeys(db, cfg0); return { status: 200, body: { ok: true, publicKey: cfg.vapid_public } }; }   // public key only
   if (!sameText(req.headers.get('x-sphere-push'), cfg0.trigger_secret)) return { status: 401, body: { ok: false } };
   const cfg = await ensureKeys(db, cfg0);

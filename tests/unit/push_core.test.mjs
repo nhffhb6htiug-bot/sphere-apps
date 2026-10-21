@@ -4,13 +4,13 @@ const FN = new URL('../../supabase/functions/sphere-push/', import.meta.url);
 const TMP = mkdtempSync(join(tmpdir(), 'sphere-push-'));
 writeFileSync(join(TMP, 'webpush.mjs'), readFileSync(new URL('webpush.js', FN), 'utf8'));
 writeFileSync(join(TMP, 'pushcore.mjs'), readFileSync(new URL('pushcore.js', FN), 'utf8').replace("from './webpush.js'", "from './webpush.mjs'"));
-const { handle } = await import(join(TMP, 'pushcore.mjs'));
+const { handle, ackToken } = await import(join(TMP, 'pushcore.mjs'));
 const { b64u, ub64u } = await import(join(TMP, 'webpush.mjs'));
 import { createECDH, hkdfSync, createDecipheriv } from 'node:crypto';
 let pass = 0, fail = 0; const check = (n, ok, d = '') => { ok ? pass++ : fail++; console.log((ok ? 'PASS ' : 'FAIL ') + n + (d ? ' — ' + d : '')); };
 // ---- tiny in-memory database with the query shapes the function uses ----
 function makeDb(){
-  const T = { sp_notifications: [], sp_push_subs: [] }; const cfg = { vapid_public: null, vapid_private: null, trigger_secret: 'a'.repeat(64), subject: 'https://sphere-live.onrender.com' };
+  const T = { sp_notifications: [], sp_push_subs: [], sp_messages: [] }; const cfg = { vapid_public: null, vapid_private: null, trigger_secret: 'a'.repeat(64), subject: 'https://sphere-live.onrender.com' };
   let keyCalls = 0;
   const db = {
     T, cfg, get keyCalls(){ return keyCalls; },
@@ -21,7 +21,7 @@ function makeDb(){
     },
     from(t){
       const q = { t, op: 'select', patch: null, f: [] };
-      const rows = () => T[t].filter(r => q.f.every(([k, op, v]) => op === 'eq' ? r[k] === v : op === 'lt' ? r[k] < v : r[k] > v));
+      const rows = () => T[t].filter(r => q.f.every(([k, op, v]) => op === 'eq' ? r[k] === v : op === 'is' ? (r[k] ?? null) === v : op === 'lt' ? r[k] < v : op === 'lte' ? r[k] <= v : r[k] > v));
       const run = () => {
         if (q.op === 'update'){ const rs = rows(); rs.forEach(r => Object.assign(r, q.patch)); return { data: rs, error: null }; }
         if (q.op === 'delete'){ const rs = rows(); T[t] = T[t].filter(r => !rs.includes(r)); return { data: rs, error: null }; }
@@ -29,7 +29,7 @@ function makeDb(){
       };
       const p = {
         update(x){ q.op = 'update'; q.patch = x; return p; }, delete(){ q.op = 'delete'; return p; }, select(){ return p; },
-        eq(k, v){ q.f.push([k, 'eq', v]); return p; }, lt(k, v){ q.f.push([k, 'lt', v]); return p; }, gt(k, v){ q.f.push([k, 'gt', v]); return p; }, limit(){ return p; },
+        eq(k, v){ q.f.push([k, 'eq', v]); return p; }, is(k, v){ q.f.push([k, 'is', v]); return p; }, lte(k, v){ q.f.push([k, 'lte', v]); return p; }, lt(k, v){ q.f.push([k, 'lt', v]); return p; }, gt(k, v){ q.f.push([k, 'gt', v]); return p; }, limit(){ return p; },
         async maybeSingle(){ const r = run(); return { data: r.data[0] || null, error: null }; },
         then(res, rej){ return Promise.resolve(run()).then(res, rej); },
       };
@@ -96,4 +96,19 @@ throwFor = {}; db.T.sp_notifications.push({ id: 'n5', user_id: U, title: 'Old', 
                                           { id: 'n6', user_id: U, title: 'Fresh', body: '', category: 'general', push_status: 'pending', created_at: new Date().toISOString() });
 r = await handle(req({ sweep: true }, SECRET), db, fakeFetch);
 check('F11 the sweep resends only notifications stuck for over a minute', db.T.sp_notifications.find(x => x.id === 'n5').push_status === 'sent' && db.T.sp_notifications.find(x => x.id === 'n6').push_status === 'pending');
+// ---- delivery receipts (✓✓) ----
+const ackN1 = decrypt(p2, sent[1].init.body).ack;
+check('D1 a chat push carries a receipt token; other pushes do not', ackN1 === await ackToken(SECRET, 'n1') && !decrypt(p2, sent[sent.length - 1].init.body).ack);
+const t0 = new Date(Date.now() - 60000).toISOString(), tLater = new Date(Date.now() + 120000).toISOString();
+db.T.sp_notifications.find(x => x.id === 'n1').created_at = new Date().toISOString();
+db.T.sp_messages.push({ id: 'm1', sender_id: S, receiver_id: U, created_at: t0, delivered_at: null },
+                      { id: 'm2', sender_id: 'someone-else', receiver_id: U, created_at: t0, delivered_at: null },
+                      { id: 'm3', sender_id: S, receiver_id: U, created_at: tLater, delivered_at: null });
+r = await handle(req({ action: 'delivered', id: 'n1', token: 'f'.repeat(64) }), db, fakeFetch);
+check('D2 a wrong receipt token is refused and changes nothing', r.status === 401 && db.T.sp_messages.every(m => !m.delivered_at));
+r = await handle(req({ action: 'delivered', id: 'n1', token: ackN1 }), db, fakeFetch);
+const dm = Object.fromEntries(db.T.sp_messages.map(m => [m.id, !!m.delivered_at]));
+check('D3 the right token marks ✓✓ only for that sender’s messages to this person (not others, not later ones)', r.status === 200 && dm.m1 && !dm.m2 && !dm.m3, JSON.stringify(dm));
+r = await handle(req({ action: 'delivered', id: 'n2', token: await ackToken(SECRET, 'n2') }), db, fakeFetch);
+check('D4 a non-chat notification never marks messages', r.body.marked === false);
 console.log(`TOTAL ${pass}/${pass + fail}`); process.exit(fail ? 1 : 0);

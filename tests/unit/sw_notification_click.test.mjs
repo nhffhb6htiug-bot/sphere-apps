@@ -5,9 +5,10 @@ let pass = 0, fail = 0; const check = (n, ok, d = '') => { ok ? pass++ : fail++;
 async function run(data, windows){
   const handlers = {}; const log = { posted: [], focused: 0, opened: [] };
   const clients = { matchAll: async () => windows.map(() => ({ focus: async () => { log.focused++; }, postMessage: (m) => log.posted.push(m) })), openWindow: async (u) => { log.opened.push(u); }, claim: async () => {} };
-  const self = { addEventListener: (t, f) => { handlers[t] = f; }, clients, skipWaiting: () => {}, registration: {} };
+  const self = { addEventListener: (t, f) => { handlers[t] = f; }, clients, skipWaiting: () => {}, registration: {}, location: { hostname: 'sphere-live.onrender.com', origin: 'https://sphere-live.onrender.com' } };
   const caches = { open: async () => ({ addAll: async () => {}, put: async () => {}, match: async () => null }), keys: async () => [], delete: async () => true, match: async () => null };
-  new Function('self', 'caches', 'fetch', 'location', src)(self, caches, async () => ({ ok: true, clone(){ return this; } }), { origin: 'http://sphere.test' });
+  log.fetched = log.fetched || [];
+  new Function('self', 'caches', 'fetch', 'location', src)(self, caches, async (u, i) => { (log.fetched || []).push({ u, i }); return { ok: true, clone(){ return this; } }; }, { origin: 'https://sphere-live.onrender.com' });
   let done; const ev = { notification: { data, close(){} }, waitUntil: (p) => { done = p; } };
   handlers.notificationclick(ev); await done; return log;
 }

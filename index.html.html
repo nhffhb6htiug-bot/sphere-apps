@@ -614,7 +614,7 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.15',
+  appVersion: '2.22.16',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -760,8 +760,9 @@ function toAppUser(profile){
   const baseRole = (profile.role||'').toLowerCase();
   // Editor chahe toh Client mode me bhi app use kar sakta hai (editors hire karna, job post karna)
   const mode = getMode(profile.id);
-  const role = (baseRole === 'editor' && mode === 'client') ? 'client'
-    : (baseRole === 'admin' && mode === 'editor') ? 'editor' : baseRole;
+  // one role per account: editors are always editors, clients always clients (only an admin can change it);
+  // the admin can still look at Sphere as an editor
+  const role = (baseRole === 'admin' && mode === 'editor') ? 'editor' : baseRole;
   return {
     id: profile.id,
     role,
@@ -1056,15 +1057,10 @@ function modeSwitchCard(user){
       ? menuItem('swap', 'Switch to Admin mode', "switchMode('client')", { cls: 'highlight', sub: 'Back to hiring and the Admin Panel' })
       : menuItem('swap', 'Switch to Editor', "switchMode('editor')", { cls: 'highlight', sub: 'See available work and place bids' });
   }
-  if(user.baseRole === 'editor'){
-    return user.role === 'editor'
-      ? menuItem('swap', 'Switch to Client', "switchMode('client')", { cls: 'highlight', sub: 'Hire editors and post jobs' })
-      : menuItem('swap', 'Switch to Editor', "switchMode('editor')", { cls: 'highlight', sub: 'Find work and place bids' });
-  }
-  return menuItem('star', 'Become an Editor', 'becomeEditor()', { cls: 'highlight', sub: 'Earn by editing videos on Sphere' });
+  return '';   // switching between Client and Editor is done only by the Sphere team (Admin Panel → user → Change role)
 }
 function modeChip(user){
-  if(!user || (user.baseRole !== 'editor' && user.baseRole !== 'admin')) return '';
+  if(!user || user.baseRole !== 'admin') return '';
   if(user.baseRole === 'admin') return `<div class="mode-chip">${UI_ICONS.swap}${user.role === 'editor' ? 'Editor mode' : 'Admin mode'}</div>`;
   return `<div class="mode-chip">${UI_ICONS.swap}${user.role === 'editor' ? 'Editor mode' : 'Client mode'}</div>`;
 }
@@ -1072,6 +1068,15 @@ async function switchMode(mode){
   setMode(currentUser.id, mode);
   await fetchAndSetCurrentUser();
   nav('home');
+}
+async function adminChangeRole(id, role){
+  if(needPin()) return;
+  const label = role === 'EDITOR' ? 'Editor' : 'Client';
+  if(!confirm(`Change this account to ${label}? They will see the ${label} screens the next time they open Sphere.`)) return;
+  const { error } = await sb.rpc('sp_admin_set_role', { p_user: id, p_role: role, p_pin: ADMIN_PIN });
+  if(error){ alert(adminErr(error)); return; }
+  alert(`Done — the account is now ${label}. The person has been notified.`);
+  nav('adminUser', { userId: id });
 }
 async function becomeEditor(){
   if(!confirm('Create your Editor profile? You will stay a Client too — switch anytime from Profile.')) return;
@@ -7357,6 +7362,7 @@ SCREENS.adminUser = async (data) => {
       ${p.id !== me ? `<div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;">
         ${f.is_suspended ? `<button class="btn-sm" onclick="adminUserAction('${id}', 'reactivate')">✅ Reactivate</button>` : `<button class="btn-sm" style="color:#c62828;" onclick="adminUserAction('${id}', 'suspend')">⛔ Suspend</button>`}
         <button class="btn-sm" onclick="adminUserAction('${id}', 'warn')">⚠️ Warn</button>
+        ${p.role === 'CLIENT' || p.role === 'EDITOR' ? `<button class="btn-sm" onclick="adminChangeRole('${id}', '${p.role === 'EDITOR' ? 'CLIENT' : 'EDITOR'}')">🔁 Make ${p.role === 'EDITOR' ? 'Client' : 'Editor'}</button>` : ''}
         ${f.strike_count ? `<button class="btn-sm" onclick="adminUserAction('${id}', 'clear_strikes')">🧹 Clear strikes</button>` : ''}</div>` : ''}</div>
     ${p.role === 'EDITOR' ? `<div class="ad-sec">Earnings (internal)</div><div class="card">${row('Settled projects', ea.projects)}${row('Base', rupees(ea.base))}${row('Bonus', rupees(ea.bonus))}${row('Late deductions', rupees(ea.deductions))}</div>` : `<div class="ad-sec">Spent</div><div class="card">${row('Paid through Sphere', rupees(d.spent))}</div>`}
     <div class="ad-sec">Projects (${(d.projects || []).length})</div>
