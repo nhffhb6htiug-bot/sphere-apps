@@ -32,6 +32,8 @@ echo "== 3e. database: phone push devices, delivery trigger, retry (migration 03
 db37=sphere_t_push_$$; createdb "$db37" || exit 2
 out=$( { cat tests/db/fixture_037.sql; sed '/create extension if not exists pg_net;/d' supabase/migrations/037_web_push.sql; cat tests/db/test_037_push.sql; } | psql -X -q -v ON_ERROR_STOP=1 -d "$db37" -f - 2>&1 || echo "ERROR in 037 group")
 check_out push037 "$out"; dropdb "$db37" >/dev/null 2>&1
+echo "== 3f. database: open bidding (migration 038)"
+run_sql_group bids038 tests/db/fixture_038.sql supabase/migrations/038_open_bidding.sql tests/db/test_038_open_bidding.sql
 echo "== 4. unit: payment signature checks (real code from supabase/functions)"
 out=$(node tests/unit/payment_signature.test.mjs 2>&1); rc=$?; check_out unit "$out"; [ $rc -eq 0 ] || FAILED=1
 echo "== 4b. unit: service worker notification click"
@@ -62,4 +64,6 @@ echo "== 12. browser: phone push in the app (register, no doubles, logout, test 
 out=$(python3 tests/browser/push_app_test.py 2>&1); rc=$?; check_out pushapp "$out"; [ $rc -eq 0 ] || FAILED=1
 echo "== 13. browser: Home recent projects without expired jobs"
 out=$(python3 tests/browser/home_recent_test.py 2>&1); rc=$?; check_out home "$out"; [ $rc -eq 0 ] || FAILED=1
+echo "== 14. browser: open bidding — verified / not verified on bids"
+out=$(python3 tests/browser/open_bidding_test.py 2>&1); rc=$?; check_out openbid "$out"; [ $rc -eq 0 ] || FAILED=1
 [ $FAILED -eq 0 ] && echo "ALL TEST GROUPS PASSED" || { echo "SOME TESTS FAILED"; exit 1; }

@@ -1,0 +1,22 @@
+do $$ declare J uuid := '10000000-0000-0000-0000-000000000001'; v jsonb;
+  e text;
+begin
+  v := public.sp_bid_eligibility('00000000-0000-0000-0000-000000000001', J); if not (v->>'ok')::boolean or v->>'code' <> 'unverified' then raise exception 'B1 FAIL %', v; end if;
+  raise notice 'PASS B1 an editor who never filled the application can bid (marked unverified)';
+  v := public.sp_bid_eligibility('00000000-0000-0000-0000-000000000002', J); if not (v->>'ok')::boolean then raise exception 'B2 FAIL %', v; end if;
+  raise notice 'PASS B2 an editor whose verification was rejected can bid';
+  v := public.sp_bid_eligibility('00000000-0000-0000-0000-000000000003', J); if not (v->>'ok')::boolean then raise exception 'B3 FAIL %', v; end if;
+  raise notice 'PASS B3 no limit: an unverified editor with 5 paid works can still bid';
+  v := public.sp_bid_eligibility('00000000-0000-0000-0000-000000000004', J); if v->>'code' <> 'verified' or not (v->>'verified')::boolean then raise exception 'B4 FAIL %', v; end if;
+  raise notice 'PASS B4 verified editors are marked verified';
+  v := public.sp_bid_eligibility('00000000-0000-0000-0000-000000000005', J); if (v->>'ok')::boolean or v->>'code' <> 'away' then raise exception 'K1 FAIL %', v; end if;
+  v := public.sp_bid_eligibility('00000000-0000-0000-0000-000000000006', J); if (v->>'ok')::boolean or v->>'code' <> 'suspended' then raise exception 'K1 FAIL %', v; end if;
+  v := public.sp_bid_eligibility('00000000-0000-0000-0000-0000000000c1', J); if (v->>'ok')::boolean or v->>'code' <> 'not_editor' then raise exception 'K1 FAIL %', v; end if;
+  v := public.sp_bid_eligibility('00000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002'); if (v->>'ok')::boolean or v->>'code' <> 'expired' then raise exception 'K1 FAIL %', v; end if;
+  v := public.sp_bid_eligibility('00000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000003'); if (v->>'ok')::boolean or v->>'code' <> 'own_job' then raise exception 'K1 FAIL %', v; end if;
+  raise notice 'PASS K1 still blocked: Away, suspended, clients, expired jobs, own jobs';
+  insert into public.sp_settings values ('bids_verified_only', '1');
+  v := public.sp_bid_eligibility('00000000-0000-0000-0000-000000000001', J); if (v->>'ok')::boolean or v->>'code' <> 'verified_only' then raise exception 'K2 FAIL %', v; end if;
+  v := public.sp_bid_eligibility('00000000-0000-0000-0000-000000000004', J); if not (v->>'ok')::boolean then raise exception 'K2 FAIL verified blocked'; end if;
+  raise notice 'PASS K2 the admin switch "verified only" still works if ever turned on';
+end $$;

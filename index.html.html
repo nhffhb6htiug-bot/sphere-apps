@@ -614,7 +614,7 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.14',
+  appVersion: '2.22.15',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -4576,7 +4576,7 @@ function editorVerifyCard(user){
   const line = v ? ('Editor code: ' + esc(user.code))
     : st === 'rejected' ? ('Reason: ' + esc(user.verificationNote || 'see details') + ' — tap to apply again')
     : user.feeStatus === 'submitted' ? 'Fee submitted — Sphere is checking your payment'
-    : ('Not verified yet — you can do ' + FREE_WORKS + ' paid works, then get the ✔ tick (₹' + VERIFY_FEE + ')');
+    : ('Not verified yet — you can bid on any job. Get the ✔ tick (₹' + VERIFY_FEE + ') so clients trust you more');
   const red = st === 'rejected' && !v;
   return `<div class="card" onclick="nav('verificationStatus')" style="cursor:pointer; display:flex; align-items:center; gap:12px; ${v ? 'background:linear-gradient(135deg,#0f3fcc,#1657ff); color:#fff;' : (red ? 'border:1.5px solid #c62828;' : 'border:1.5px solid var(--blue);')}">
       <div class="mi-icon" style="${v ? 'background:rgba(255,255,255,.2); color:#fff;' : ''}">${v ? UI_ICONS.check : UI_ICONS.clock}</div>
@@ -5418,8 +5418,7 @@ async function bidEligibility(user, jobId){
     const { data, error } = await sb.rpc('sp_bid_eligibility', { p_editor: user.id, p_job: jobId });
     if(!error && data) return data;
   } catch(e) {}
-  if(needsFreeBids(user) && await paidWorks(user.id) >= FREE_WORKS) return { ok: false, code: 'need_verification', message: VERIFY_MSG };
-  return { ok: true, code: user.verified ? 'verified' : 'free_works' };
+  return { ok: true, code: user.verified ? 'verified' : 'unverified' };   // every editor can bid; clients see who is verified
 }
 
 // ---- Editor: job details + bid form (new bid, or edit a pending one)
@@ -5455,7 +5454,7 @@ SCREENS.jobBidScreen = async () => {
     action = `<div class="card" style="border:1.5px solid #c62828;"><b>🔒 You can't bid on this job</b><p class="muted" style="font-size:13px; margin:4px 0 10px;">${esc(elig.message || 'Not allowed')}</p>${fix}</div>
       ${elig.code === 'need_verification' ? verifyFeeCard(bu) : ''}`;
   } else {
-    action = `${elig.code === 'free_works' ? `<div class="card"><b>Paid works before verification: ${Number(elig.works_used) || 0} of ${Number(elig.free_works) || FREE_WORKS}</b><p class="muted" style="font-size:12px; margin-top:4px;">After that, get the ✔ tick (₹${VERIFY_FEE}) to keep getting work.</p></div>` : ''}
+    action = `${elig.code === 'unverified' || elig.code === 'free_works' ? `<div class="card"><b>You are not verified yet</b><p class="muted" style="font-size:12px; margin-top:4px;">You can bid on any job. Clients see <b>Not verified</b> next to your name — get the ✔ tick (₹${VERIFY_FEE}) so clients trust you more.</p></div>` : ''}
       <div class="pj-sec">Your bid</div>${bidForm(job, null)}`;
   }
   return `
@@ -5583,7 +5582,7 @@ function bidCard(x, best, open, nPending){
   return `<div class="card ${x.status === 'selected' ? 'bid-sel' : ''}" style="${x.status === 'rejected' ? 'opacity:.65;' : ''}">
     <div style="display:flex; gap:10px; align-items:center;">
       ${avatarHtml(ed, 'margin:0; width:44px; height:44px; font-size:18px;')}
-      <div style="flex:1; min-width:0;"><b>${esc(ed.name || 'Editor')}</b> ${ed.verified ? '<span class="badge">✔ Verified</span>' : ''}
+      <div style="flex:1; min-width:0;"><b>${esc(ed.name || 'Editor')}</b> ${ed.verified ? '<span class="badge">✔ Verified</span>' : '<span class="bid-chip warn" title="This editor has not been verified by Sphere yet">⚠️ Not verified</span>'}
         <p class="muted" style="font-size:12px;">${x.reviews ? '⭐ ' + x.rating + ' (' + x.reviews + ')' : 'New on Sphere'} · ${x.done} done${x.avail ? ' · ' + (AVAILABILITY[x.avail] || {}).label : ''}</p></div>
       <div style="text-align:right;"><div class="bid-price">${rupees(x.price)}</div><p class="muted" style="font-size:12px;">${x.days ? x.days + ' day' + (x.days === 1 ? '' : 's') : ''}</p></div>
     </div>
