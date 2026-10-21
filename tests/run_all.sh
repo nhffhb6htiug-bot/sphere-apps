@@ -60,4 +60,6 @@ echo "== 11. browser: admin verification — who verified, notes, unverify"
 out=$(python3 tests/browser/admin_editor_review_test.py 2>&1); rc=$?; check_out admin2211 "$out"; [ $rc -eq 0 ] || FAILED=1
 echo "== 12. browser: phone push in the app (register, no doubles, logout, test button)"
 out=$(python3 tests/browser/push_app_test.py 2>&1); rc=$?; check_out pushapp "$out"; [ $rc -eq 0 ] || FAILED=1
+echo "== 13. browser: Home recent projects without expired jobs"
+out=$(python3 tests/browser/home_recent_test.py 2>&1); rc=$?; check_out home "$out"; [ $rc -eq 0 ] || FAILED=1
 [ $FAILED -eq 0 ] && echo "ALL TEST GROUPS PASSED" || { echo "SOME TESTS FAILED"; exit 1; }

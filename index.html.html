@@ -614,7 +614,7 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.13',
+  appVersion: '2.22.14',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -4400,7 +4400,7 @@ async function renderClientDashboard(){
     return;
   }
   const needs = res.items.filter(x => x.action).slice(0, 3);
-  const recent = res.items.filter(x => !x.action).slice(0, 3);
+  const recent = res.items.filter(x => !x.action && x.key !== 'expired').slice(0, 3);   // expired jobs are not shown on Home (still in Projects)
   el.innerHTML = CLIENT_DASH_CACHE.html = `
     <div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first}${premiumBadgeSlot(user.id)} 👋</b><span>${st.active ? 'Here is how your projects are going' : 'All your projects are finished'}</span></div>${premiumPill()}</div>
     <div class="cl-stats">
