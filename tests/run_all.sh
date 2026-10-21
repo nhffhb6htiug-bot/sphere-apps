@@ -28,10 +28,20 @@ echo "== 3c. database: delete for me (migration 035)"
 run_sql_group chat035 tests/db/fixture_034.sql supabase/migrations/034_chat_reply_last_seen.sql supabase/migrations/035_chat_delete_for_me.sql tests/db/test_035_delete_for_me.sql
 echo "== 3d. database: admin editor review + private note (migration 036)"
 run_sql_group admin036 tests/db/fixture_036.sql supabase/migrations/036_admin_editor_review.sql tests/db/test_036_admin_review.sql
+echo "== 3e. database: phone push devices, delivery trigger, retry (migration 037; pg_net replaced by a stub)"
+db37=sphere_t_push_$$; createdb "$db37" || exit 2
+out=$( { cat tests/db/fixture_037.sql; sed '/create extension if not exists pg_net;/d' supabase/migrations/037_web_push.sql; cat tests/db/test_037_push.sql; } | psql -X -q -v ON_ERROR_STOP=1 -d "$db37" -f - 2>&1 || echo "ERROR in 037 group")
+check_out push037 "$out"; dropdb "$db37" >/dev/null 2>&1
 echo "== 4. unit: payment signature checks (real code from supabase/functions)"
 out=$(node tests/unit/payment_signature.test.mjs 2>&1); rc=$?; check_out unit "$out"; [ $rc -eq 0 ] || FAILED=1
 echo "== 4b. unit: service worker notification click"
 out=$(node tests/unit/sw_notification_click.test.mjs 2>&1); rc=$?; check_out sw "$out"; [ $rc -eq 0 ] || FAILED=1
+echo "== 4c. unit: Web Push encryption (RFC 8291 test vector) + VAPID"
+out=$(node tests/unit/webpush_rfc.test.mjs 2>&1); rc=$?; check_out webpush "$out"; [ $rc -eq 0 ] || FAILED=1
+echo "== 4d. unit: sphere-push delivery core (fake database + fake push service)"
+out=$(node tests/unit/push_core.test.mjs 2>&1); rc=$?; check_out pushcore "$out"; [ $rc -eq 0 ] || FAILED=1
+echo "== 4e. unit: service worker push handler"
+out=$(node tests/unit/sw_push.test.mjs 2>&1); rc=$?; check_out swpush "$out"; [ $rc -eq 0 ] || FAILED=1
 echo "== 5. browser: Premium badge"
 out=$(python3 tests/browser/premium_badge_test.py 2>&1); rc=$?; check_out badge "$out"; [ $rc -eq 0 ] || FAILED=1
 if [ -f tests/browser/chat_online_test.py ]; then
@@ -48,4 +58,6 @@ echo "== 10. browser: v2.22.10 (Send button, delete for me, bell, auto-read, per
 out=$(python3 tests/browser/chat_fixes_2210_test.py 2>&1); rc=$?; check_out fixes2210 "$out"; [ $rc -eq 0 ] || FAILED=1
 echo "== 11. browser: admin verification — who verified, notes, unverify"
 out=$(python3 tests/browser/admin_editor_review_test.py 2>&1); rc=$?; check_out admin2211 "$out"; [ $rc -eq 0 ] || FAILED=1
+echo "== 12. browser: phone push in the app (register, no doubles, logout, test button)"
+out=$(python3 tests/browser/push_app_test.py 2>&1); rc=$?; check_out pushapp "$out"; [ $rc -eq 0 ] || FAILED=1
 [ $FAILED -eq 0 ] && echo "ALL TEST GROUPS PASSED" || { echo "SOME TESTS FAILED"; exit 1; }

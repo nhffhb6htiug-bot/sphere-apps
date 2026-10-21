@@ -49,19 +49,41 @@ self.addEventListener('fetch', (event) => {
 });
 
 // Tapping a message notification opens (or focuses) Sphere
+// Phone push (sent by the sphere-push function). If Sphere is on screen it shows the message itself.
+self.addEventListener('push', (event) => {
+  let d = {};
+  try { d = event.data ? event.data.json() : {}; } catch (e) { d = {}; }
+  event.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const isTest = d.title === '🔔 Sphere test';
+    if (!isTest && wins.some((c) => c.visibilityState === 'visible')) {
+      wins.forEach((c) => c.postMessage({ type: 'sphere-push', data: { id: d.id, category: d.category } }));
+      return;
+    }
+    const chatWith = d.category === 'messages' && /^[0-9a-f-]{36}$/i.test(String(d.sender_id || '')) ? String(d.sender_id) : '';
+    await self.registration.showNotification(String(d.title || 'Sphere').slice(0, 80), {
+      body: String(d.body || '').slice(0, 300), icon: '/icon-192.png', badge: '/favicon.png',
+      tag: String(d.tag || ('n-' + (d.id || Date.now()))), renotify: true, vibrate: [120, 60, 120],
+      data: { chatWith, open: chatWith ? '' : 'notifications', id: d.id || null }
+    });
+  })());
+});
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const d = event.notification.data || {};
   const chatWith = /^[0-9a-f-]{36}$/i.test(String(d.chatWith || '')) ? String(d.chatWith) : '';
+  const openList = !chatWith && d.open === 'notifications';
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const c of list) {
         if ('focus' in c) {
           if (chatWith) c.postMessage({ type: 'sphere-open-chat', chatWith });   // the open app jumps to that chat
+          else if (openList) c.postMessage({ type: 'sphere-open-notifications' });
           return c.focus();
         }
       }
-      return self.clients.openWindow(chatWith ? '/?chat=' + chatWith : '/');    // a new window opens that chat after login
+      return self.clients.openWindow(chatWith ? '/?chat=' + chatWith : openList ? '/?open=notifications' : '/');    // a new window opens it after login
     })
   );
 });
