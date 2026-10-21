@@ -36,6 +36,8 @@ echo "== 3f. database: open bidding (migration 038)"
 run_sql_group bids038 tests/db/fixture_038.sql supabase/migrations/038_open_bidding.sql tests/db/test_038_open_bidding.sql
 echo "== 3g. database: one role per account, admin-only switch (migration 039)"
 run_sql_group roles039 tests/db/fixture_039.sql supabase/migrations/039_admin_only_roles.sql tests/db/test_039_roles.sql
+echo "== 3h. database: client cancels before paying (migration 040)"
+run_sql_group cancel040 tests/db/fixture_040.sql supabase/migrations/040_client_cancel_job.sql tests/db/test_040_cancel.sql
 echo "== 4. unit: payment signature checks (real code from supabase/functions)"
 out=$(node tests/unit/payment_signature.test.mjs 2>&1); rc=$?; check_out unit "$out"; [ $rc -eq 0 ] || FAILED=1
 echo "== 4b. unit: service worker notification click"
@@ -70,4 +72,6 @@ echo "== 14. browser: open bidding — verified / not verified on bids"
 out=$(python3 tests/browser/open_bidding_test.py 2>&1); rc=$?; check_out openbid "$out"; [ $rc -eq 0 ] || FAILED=1
 echo "== 15. browser: roles — no self switching, admin Make Client / Editor"
 out=$(python3 tests/browser/roles_test.py 2>&1); rc=$?; check_out roles "$out"; [ $rc -eq 0 ] || FAILED=1
+echo "== 16. browser: Help & Support, cancel before paying, minimise, Premium / Verified pills"
+out=$(python3 tests/browser/home_cancel_badges_test.py 2>&1); rc=$?; check_out home2217 "$out"; [ $rc -eq 0 ] || FAILED=1
 [ $FAILED -eq 0 ] && echo "ALL TEST GROUPS PASSED" || { echo "SOME TESTS FAILED"; exit 1; }

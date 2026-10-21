@@ -1,0 +1,20 @@
+create or replace function pg_temp.as_user(u uuid) returns void language plpgsql as $$ begin perform set_config('request.jwt.claim.sub', u::text, false); execute 'set role authenticated'; end $$;
+create or replace function pg_temp.reset_user() returns void language plpgsql as $$ begin execute 'reset role'; perform set_config('request.jwt.claim.sub', '', false); end $$;
+do $$ declare C uuid := '00000000-0000-0000-0000-0000000000c1'; X uuid := '00000000-0000-0000-0000-0000000000c9'; ok boolean; n int;
+begin
+  ok := false; perform pg_temp.as_user(X); begin perform public.sp_client_cancel_job('10000000-0000-0000-0000-000000000001'); exception when others then ok := sqlerrm ilike '%not your project%'; end; perform pg_temp.reset_user();
+  if not ok then raise exception 'K1 FAIL'; end if; raise notice 'PASS K1 nobody can cancel someone else''s project';
+  perform pg_temp.as_user(C); perform public.sp_client_cancel_job('10000000-0000-0000-0000-000000000002'); perform pg_temp.reset_user();
+  select count(*) into n from public.sp_notifications where job_id = '10000000-0000-0000-0000-000000000002';
+  if (select status from public.sp_jobs where id = '10000000-0000-0000-0000-000000000002') <> 'cancelled' or n <> 2 then raise exception 'K2 FAIL n=%', n; end if;
+  raise notice 'PASS K2 the client cancels a project before paying; the chosen editor and every bidder are told (once each)';
+  ok := false; perform pg_temp.as_user(C); begin perform public.sp_client_cancel_job('10000000-0000-0000-0000-000000000003'); exception when others then ok := sqlerrm ilike '%no longer be cancelled%'; end; perform pg_temp.reset_user();
+  if not ok then raise exception 'K3 FAIL'; end if;
+  ok := false; perform pg_temp.as_user(C); begin perform public.sp_client_cancel_job('10000000-0000-0000-0000-000000000004'); exception when others then ok := sqlerrm ilike '%no longer be cancelled%'; end; perform pg_temp.reset_user();
+  if not ok then raise exception 'K3 FAIL paid'; end if;
+  raise notice 'PASS K3 work in progress, or anything already paid, cannot be cancelled (dispute instead)';
+  perform pg_temp.as_user(C); perform public.sp_client_cancel_job('10000000-0000-0000-0000-000000000002'); perform pg_temp.reset_user();
+  if (select count(*) from public.sp_notifications where job_id = '10000000-0000-0000-0000-000000000002') <> 2 then raise exception 'K4 FAIL'; end if;
+  raise notice 'PASS K4 cancelling twice changes nothing (no extra notifications)';
+  if has_function_privilege('anon', 'public.sp_client_cancel_job(uuid)', 'execute') then raise exception 'P1 FAIL'; end if; raise notice 'PASS P1 visitors cannot cancel anything';
+end $$;
