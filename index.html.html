@@ -635,7 +635,7 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.25',
+  appVersion: '2.22.26',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -7466,6 +7466,7 @@ SCREENS.adminProject = async (data) => {
   let d;
   try { d = await adminRpc('sp_admin_project_detail', { p_job: id }); }
   catch(e) { return `<div class="header">${back}<h1>Project</h1></div><div class="screen"><p style="color:#c62828;">${esc(e.message)}</p></div>`; }
+  if(!d) return `<div class="header">${back}<h1>Project</h1></div><div class="screen"><div class="card cl-empty"><div class="cl-empty-ic">📁</div><b>Project not found</b><p class="muted">It may have been removed, or the connection dropped. Go back and try again.</p></div></div>`;
   currentJobId = id;
   const c = d.case || {}, j = c.job || {}, w = c.work || {}, job = d.job || {}, people = d.people || {}, h = HEALTH[(d.health || {}).kind] || HEALTH.normal;
   const name = uid => esc(((people || {})[uid] || {}).name || '-');
@@ -7634,6 +7635,7 @@ SCREENS.adminUser = async (data) => {
   let d;
   try { d = await adminRpc('sp_admin_user_detail', { p_user: id }); }
   catch(e) { return `<div class="header">${back}<h1>User</h1></div><div class="screen"><p style="color:#c62828;">${esc(e.message)}</p></div>`; }
+  if(!d) return `<div class="header">${back}<h1>User</h1></div><div class="screen"><div class="card cl-empty"><div class="cl-empty-ic">👤</div><b>User not found</b><p class="muted">The account may have been deleted, or the connection dropped. Go back and try again.</p></div></div>`;
   const p = d.profile || {}, f = d.flags || {}, ea = d.earnings || {};
   const row = (k, v) => (v !== undefined && v !== null && v !== '') ? `<div class="kv"><span>${k}</span><b style="text-align:right; max-width:62%;">${v}</b></div>` : '';
   const me = (getCurrentUser() || {}).id;

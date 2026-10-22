@@ -94,4 +94,6 @@ echo "== 23. browser: checked details locked, ₹29 update request, admin edits 
 out=$(python3 tests/browser/details_lock_test.py 2>&1); rc=$?; check_out detlock "$out"; [ $rc -eq 0 ] || FAILED=1
 echo "== 24. browser: unread notification cards readable"
 out=$(python3 tests/browser/notif_unread_style_test.py 2>&1); rc=$?; check_out ntstyle "$out"; [ $rc -eq 0 ] || FAILED=1
+echo "== 25. browser: every screen opens without errors (client / editor / admin)"
+out=$(timeout 900 python3 tests/browser/all_screens_smoke_test.py 2>&1); rc=$?; check_out smoke "$out"; [ $rc -eq 0 ] || FAILED=1
 [ $FAILED -eq 0 ] && echo "ALL TEST GROUPS PASSED" || { echo "SOME TESTS FAILED"; exit 1; }

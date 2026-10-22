@@ -12,8 +12,6 @@ No secrets are stored here — every key is read at runtime with `Deno.env.get(.
 | razorpay-webhook | 5 | **OFF** | Signed by Razorpay (`RAZORPAY_WEBHOOK_SECRET`), duplicate-safe |
 | sphere-health | 5 | **OFF** | Uptime check, no personal data |
 | sphere-moderate | 4 | ON | AI check of held chat messages |
-| sphere-otp | 1 | **OFF** | Supabase Auth "Send SMS" hook: login OTP by WhatsApp, SMS fallback (MSG91); checks the hook signature |
-| sphere-push | 2 | **OFF** | Web Push delivery; called only by the database with a secret header (VAPID keys stored privately in the database) |
 | sphere-extra-payment | 7 | ON | ₹29 / ₹199 / ₹5 / ₹50 payments; constant-time signature check (Part 24.5) |
 
 Secrets used: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `GEMINI_API_KEY`
