@@ -76,4 +76,6 @@ echo "== 16. browser: Help & Support, cancel before paying, minimise, Premium / 
 out=$(python3 tests/browser/home_cancel_badges_test.py 2>&1); rc=$?; check_out home2217 "$out"; [ $rc -eq 0 ] || FAILED=1
 echo "== 17. browser: phone's own permission prompt + real notification icons"
 out=$(python3 tests/browser/native_prompt_test.py 2>&1 | grep -v DeprecationWarning); rc=${PIPESTATUS[0]}; check_out native "$out"; [ $rc -eq 0 ] || FAILED=1
+echo "== 18. browser: editor Home without the status card"
+out=$(python3 tests/browser/editor_home_test.py 2>&1); rc=$?; check_out edhome "$out"; [ $rc -eq 0 ] || FAILED=1
 [ $FAILED -eq 0 ] && echo "ALL TEST GROUPS PASSED" || { echo "SOME TESTS FAILED"; exit 1; }
