@@ -635,7 +635,7 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.23',
+  appVersion: '2.22.24',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -796,6 +796,7 @@ function toAppUser(profile){
     languages: Array.isArray(profile.languages) ? profile.languages : [],
     skills: (profile.skills||[]).join(', '),
     editDevice: profile.edit_device || '',
+    detailsLocked: !!profile.details_locked_at,
     experience: profile.experience_years || '',
     price: profile.price_range || '',
     sample: profile.sample_video_url || '',
@@ -1820,6 +1821,7 @@ function verifiedEditorsSection(list){
       ${editorNoteHtml(r)}
       <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
         <button class="btn-sm" onclick="nav('adminUser', { userId: '${esc(r.id)}' })">👤 Full profile</button>
+        <button class="btn-sm" onclick="nav('adminEditDetails', { userId: '${esc(r.id)}' })">✏️ Edit details</button>
         <button class="btn-sm" style="color:#c62828; border-color:#c62828;" onclick="toggleUnverify('${esc(r.id)}')">🚫 Unverify</button></div>
       <div id="unvBox_${esc(r.id)}" hidden style="margin-top:8px;">
         <input id="unvR_${esc(r.id)}" maxlength="300" placeholder="Reason (the editor will see it)" aria-label="Reason for removing the verified badge" style="width:100%; box-sizing:border-box;">
@@ -2058,6 +2060,88 @@ async function refreshAccountStatus(){
 }
 document.addEventListener('visibilitychange', () => { if(!document.hidden) refreshAccountStatus(); });
 if(!STATUS_TIMER) STATUS_TIMER = setInterval(refreshAccountStatus, 60000);
+// ---- v2.22.24: details checked on the verification call; editors change them only via a ₹29 update request ----
+function detailsAreLocked(u){ return !!u && u.baseRole === 'editor' && (u.verified || (u.detailsLocked && u.verificationStatus === 'pending')); }
+const DEVICE_LABEL = { mobile: '📱 Mobile', pc: '💻 PC / Laptop', both: '📱 + 💻 Both' };
+function editorDetailsLockedHtml(u){
+  const arr = v => (Array.isArray(v) ? v.join(', ') : (v || '')) || '—';
+  setTimeout(loadMyDetailRequest, 0);
+  return `<div class="screen">
+    <h2>Editor details</h2>
+    <div class="card" style="border:1.5px solid #15803d;"><b>✔ Checked by Sphere</b>
+      <p class="muted" style="font-size:12px; margin-top:4px;">These details were checked on your verification call, so they can't be changed here.</p></div>
+    <div class="card">
+      <div class="kv"><span>Experience</span><b>${u.experience != null && u.experience !== '' ? esc(String(u.experience)) + ' yrs' : '—'}</b></div>
+      <div class="kv"><span>Price</span><b>${esc(u.price || '—')}</b></div>
+      <div class="kv"><span>Categories</span><b>${esc(arr(u.categories))}</b></div>
+      <div class="kv"><span>Languages</span><b>${esc(arr(u.languages))}</b></div>
+      <div class="kv"><span>Skills</span><b>${esc(arr(u.skills))}</b></div>
+      <div class="kv"><span>Where you edit</span><b>${u.editDevice ? DEVICE_LABEL[u.editDevice] || esc(u.editDevice) : '—'}</b></div>
+    </div>
+    ${u.editDevice ? '' : `<div class="card"><b>Where do you edit?</b><p class="muted" style="font-size:12px; margin:2px 0 8px;">Choose once — clients use it to find PC editors.</p>
+      <select id="lkDevice"><option value="">Choose…</option><option value="mobile">📱 Mobile</option><option value="pc">💻 PC / Laptop</option><option value="both">📱 + 💻 Both</option></select>
+      <button class="btn btn-primary" style="margin-top:8px;" onclick="saveFirstDevice()">Save</button></div>`}
+    <div class="card" id="detReqBox"><b>Need to change something?</b>
+      <p class="muted" style="font-size:12px; margin:4px 0 8px;">Send an update request (₹${VERIFY_FEE}). The Sphere team will call you, check it and update your details.</p>
+      <button class="btn btn-outline" id="feePayBtn" onclick="askDetailsUpdate()">✏️ Request an update (₹${VERIFY_FEE})</button></div>
+  </div>`;
+}
+async function loadMyDetailRequest(){
+  const u = getCurrentUser(); if(!u) return;
+  const { data } = await sb.from('sp_detail_requests').select('id,status,note,created_at').eq('editor_id', u.id).eq('status', 'open').limit(1);
+  const box = document.getElementById('detReqBox');
+  if(box && data && data.length) box.innerHTML = `<b>⏳ Update request sent</b><p class="muted" style="font-size:12px; margin-top:4px;">“${esc(data[0].note || '')}” — the Sphere team will call you.</p>`;
+}
+async function saveFirstDevice(){
+  const v = (document.getElementById('lkDevice') || {}).value || '';
+  if(!v){ alert('Choose Mobile, PC or Both'); return; }
+  const { error } = await profileUpdate({ edit_device: v });
+  if(error){ alert(error.message); return; }
+  await fetchAndSetCurrentUser(); nav('editorDetails');
+}
+async function askDetailsUpdate(){
+  const note = prompt('What do you want to change? (for example: experience is now 3 years, price 800–1500)');
+  if(note === null) return;
+  if(note.trim().length < 5){ alert('Please write what you want to change.'); return; }
+  const { error } = await sb.rpc('sp_detail_request_draft', { p_note: note.trim() });
+  if(error){ alert(error.message); return; }
+  await payFee('details_update', 'editorDetails');
+}
+// admin: edit the details checked on the call
+async function adminEditDetailsScreen(d){
+  d = d || {};
+  if(!isAdminUser(getCurrentUser())) return '<div class="screen"><p class="muted">Admins only.</p></div>';
+  const { data: p } = await sb.from('profiles').select('id,full_name,experience_years,price_range,categories,languages,skills,edit_device').eq('id', d.userId).maybeSingle();
+  if(!p) return '<div class="screen"><p class="muted">Editor not found.</p></div>';
+  window.__aeTarget = { id: p.id, request: d.requestId || null };
+  return `<div class="header"><button class="back-btn" onclick="nav('admin', { tab: 'verification' })">‹</button><h1>Edit details</h1><p>${esc(p.full_name || 'Editor')} — what you checked on the call</p></div>
+  <div class="screen">
+    <div class="field"><label>Experience (years)</label><input id="aeExp" type="number" min="0" max="50" inputmode="numeric" value="${p.experience_years != null ? esc(String(p.experience_years)) : ''}"></div>
+    <div class="field"><label>Price</label><input id="aePrice" maxlength="40" value="${esc(p.price_range || '')}" placeholder="e.g. ₹500 – ₹1,500 per video"></div>
+    <div class="field"><label>Categories</label>${pickChips('aeCats', CATEGORIES, p.categories || [])}</div>
+    <div class="field"><label>Languages</label>${pickChips('aeLangs', LANGUAGES, p.languages || [])}</div>
+    <div class="field"><label>Skills / software</label><input id="aeSkills" value="${esc((p.skills || []).join(', '))}" placeholder="Premiere Pro, CapCut…"></div>
+    <div class="field"><label>Where they edit</label><select id="aeDevice"><option value="">—</option>${['mobile', 'pc', 'both'].map(v => `<option value="${v}" ${p.edit_device === v ? 'selected' : ''}>${DEVICE_LABEL[v]}</option>`).join('')}</select></div>
+    ${d.requestId ? '<p class="muted" style="font-size:12px;">Saving also closes this update request.</p>' : ''}
+    <button class="btn btn-primary" onclick="adminSaveDetails()">Save checked details</button>
+    <p class="muted" style="font-size:11px; margin-top:8px;">The editor cannot change these afterwards (only through a ₹${VERIFY_FEE} update request). Saved in the audit log.</p>
+  </div>`;
+}
+async function adminSaveDetails(){
+  if(needPin()) return;
+  const t = window.__aeTarget || {};
+  const details = {
+    experience_years: (document.getElementById('aeExp').value || '').trim(),
+    price_range: document.getElementById('aePrice').value || '',
+    categories: pickedValues('aeCats'), languages: pickedValues('aeLangs'),
+    skills: (document.getElementById('aeSkills').value || '').split(',').map(x => x.trim()).filter(Boolean),
+    edit_device: document.getElementById('aeDevice').value || ''
+  };
+  const { error } = await sb.rpc('sp_admin_set_editor_details', { p_user: t.id, p_details: details, p_pin: ADMIN_PIN, p_request: t.request });
+  if(error){ alert(adminErr(error)); return; }
+  alert('Saved ✅ The editor has been told and can no longer change these.');
+  nav('admin', { tab: 'verification' });
+}
 function jsq(v){ return esc(JSON.stringify(String(v == null ? '' : v))); }
 function safeOpen(u){ if(/^https:\/\//i.test(String(u || ''))) window.open(u, '_blank', 'noopener,noreferrer'); }
 function linkOrText(v){
@@ -2247,6 +2331,7 @@ async function nav(screen, data){
 
 const SCREENS = {};
 SCREENS.msgAlerts = () => renderMsgAlerts();
+SCREENS.adminEditDetails = (d) => adminEditDetailsScreen(d);
 SCREENS.suspended = () => suspendedScreen();
 SCREENS.otpLogin = () => otpLoginScreen();
 // Screens that may show their last copy first. Never payments, chats threads or forms.
@@ -2495,6 +2580,7 @@ async function doSignup(){
 
 SCREENS.editorDetails = () => {
   const u = getCurrentUser() || {};
+  if(detailsAreLocked(u)) return editorDetailsLockedHtml(u);
   return `
   <div class="screen">
     <h2>Editor Application</h2>
@@ -4074,6 +4160,7 @@ SCREENS.adminClassic = async () => {
         <div class="kv"><span>Price</span><b>${e.price_range ? '₹' + esc(e.price_range) : '-'}</b></div>
         <div class="kv"><span>Sample</span><b>${linkOrText(e.sample_video_url)}</b></div>
         <div class="kv"><span>Portfolio</span><b>${linkOrText(e.portfolio_url)}</b></div>
+        <button class="btn btn-outline" style="margin-bottom:8px;" onclick="nav('adminEditDetails', { userId: '${e.id}' })">✏️ Edit details (from the call)</button>
         <button class="btn btn-primary" onclick="verifyEditor('${e.id}')">✔ Verify after call</button>
         ${adminVerifyActions(e)}
         </div>
@@ -7479,7 +7566,12 @@ async function adminVerificationTab(){
   const verified = await adminRpc('sp_admin_editor_review', { p_ids: null }).catch(() => null);
   const pendingRev = ids.length ? await adminRpc('sp_admin_editor_review', { p_ids: ids }).catch(() => []) : [];
   const revOf = id => (pendingRev || []).find(r => r.id === id);
-  return `<p class="muted" style="font-size:12px; margin-bottom:10px;">Paying ₹${VERIFY_FEE} does <b>not</b> approve anyone — verify only after the call / work check.</p>
+  const reqs = await adminRpc('sp_admin_detail_requests').catch(() => []);
+  return `${(reqs || []).length ? `<div class="card" style="border:1.5px solid #1657ff;"><b>✏️ Update requests (${reqs.length})</b>
+      <p class="muted" style="font-size:12px; margin:2px 0 8px;">Paid ₹${VERIFY_FEE}. Call the editor, check, then edit their details.</p>
+      ${reqs.map(q => `<div style="border-top:1px solid var(--border); padding:8px 0;"><b>${esc(q.name || 'Editor')}</b> <span class="muted" style="font-size:11px;">${esc(fmtDate(q.at))}</span>
+        <p style="font-size:13px; margin:4px 0;">“${esc(q.note || '')}”</p>
+        <button class="btn-sm" onclick="nav('adminEditDetails', { userId: '${esc(q.editor_id)}', requestId: '${esc(q.id)}' })">✏️ Edit details</button></div>`).join('')}</div>` : ''}<p class="muted" style="font-size:12px; margin-bottom:10px;">Paying ₹${VERIFY_FEE} does <b>not</b> approve anyone — verify only after the call / work check.</p>
     ${(list || []).length === 0 ? '<p class="muted">No pending verification requests. 👍</p>' : ''}
     ${(list || []).map(e => `<div class="card">
       <b>${esc(e.name || 'Editor')}</b> ${verifyStateChip(e.status)}
@@ -7493,7 +7585,8 @@ async function adminVerificationTab(){
       <div class="kv"><span>Paid works so far</span><b>${e.works}</b></div>
       ${e.bio ? `<p style="font-size:12px; margin:6px 0;">${esc(e.bio)}</p>` : ''}
       ${e.sample ? `<p style="font-size:12px;">🎬 Sample: ${linkOrText(e.sample)}</p>` : ''}${e.portfolio ? `<p style="font-size:12px;">📁 Portfolio: ${linkOrText(e.portfolio)}</p>` : ''}
-      <button class="btn btn-primary" style="margin-top:10px;" onclick="verifyEditor('${e.id}')">✔ Verify after call</button>
+      <button class="btn btn-outline" style="margin-top:10px;" onclick="nav('adminEditDetails', { userId: '${e.id}' })">✏️ Edit details (from the call)</button>
+      <button class="btn btn-primary" style="margin-top:8px;" onclick="verifyEditor('${e.id}')">✔ Verify after call</button>
       ${adminVerifyActions({ id: e.id, verification_status: e.status, verification_fee_status: e.fee_status })}
       <button class="btn-sm" style="margin-top:6px;" onclick="nav('adminUser', { userId: '${e.id}' })">👤 Full profile</button>
     </div>`).join('')}
@@ -7684,7 +7777,7 @@ async function payFee(kind, after, preFee){
   const user = getCurrentUser();
   const rzp = spRazorpay({
     key: order.key_id || RAZORPAY_KEY_ID, amount: order.amount, currency: order.currency, order_id: order.order_id,
-    name: 'Sphere — Syahi Films', description: kind === 'pro' ? 'Editor Pro — 1 month' : kind === 'client_premium' ? 'Sphere Premium — 1 month' : kind === 'contact_unlock' ? 'Chat & Phone Number Access' : 'Editor verification fee (one-time)',
+    name: 'Sphere — Syahi Films', description: kind === 'details_update' ? 'Details update request' : kind === 'pro' ? 'Editor Pro — 1 month' : kind === 'client_premium' ? 'Sphere Premium — 1 month' : kind === 'contact_unlock' ? 'Chat & Phone Number Access' : 'Editor verification fee (one-time)',
     prefill: { name: user.name, email: user.email, contact: user.phone || '' }, theme: { color: '#1657ff' },
     handler: async function(r){
       const { data: v, error: ve } = await sb.functions.invoke('sphere-extra-payment', { body: { action: 'verify', feeId: f.id, order_id: r.razorpay_order_id, payment_id: r.razorpay_payment_id, signature: r.razorpay_signature } });
