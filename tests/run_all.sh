@@ -88,4 +88,6 @@ echo "== 20. browser: phone OTP login (off / on)"
 out=$(python3 tests/browser/otp_login_test.py 2>&1); rc=$?; check_out otplogin "$out"; [ $rc -eq 0 ] || FAILED=1
 echo "== 21. browser: Admin Panel keeps its place, centred tabs, word wrapping"
 out=$(python3 tests/browser/admin_scroll_test.py 2>&1); rc=$?; check_out adminscroll "$out"; [ $rc -eq 0 ] || FAILED=1
+echo "== 22. browser: suspended account page + live status check"
+out=$(python3 tests/browser/suspended_test.py 2>&1); rc=$?; check_out suspended "$out"; [ $rc -eq 0 ] || FAILED=1
 [ $FAILED -eq 0 ] && echo "ALL TEST GROUPS PASSED" || { echo "SOME TESTS FAILED"; exit 1; }

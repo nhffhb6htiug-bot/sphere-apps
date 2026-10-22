@@ -635,7 +635,7 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.22',
+  appVersion: '2.22.23',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -2036,6 +2036,28 @@ function adminAfterRender(keep){
   const top = strip ? strip.getBoundingClientRect().top + window.scrollY - 80 : 0;   // keep the tab bar in view
   window.scrollTo(0, Math.max(0, Math.min(keep.y, top)));
 }
+// ---- v2.22.23: suspension shows at once (checked when Sphere opens / comes back and every minute) ----
+function suspendedScreen(){
+  return `<div class="screen" style="padding-top:48px;">
+    <div class="card center-text" style="border:1.5px solid #c62828;">
+      <div style="font-size:44px;">⛔</div>
+      <h2 style="margin:6px 0;">Your account is suspended</h2>
+      <p class="muted" style="font-size:13px;">You can't use Sphere right now — no messages, bids, jobs or Premium. If you think this is a mistake, contact Sphere support.</p>
+    </div>
+    ${supportCard()}
+    <button class="btn btn-outline" style="margin-top:12px;" onclick="logout()">Log out</button>
+  </div>`;
+}
+let STATUS_TIMER = null;
+async function refreshAccountStatus(){
+  const u = getCurrentUser(); if(!u || document.hidden) return;
+  const was = !!u.suspended;
+  await loadAccountStatus(u);
+  if(u.suspended && !was){ PREMIUM_CACHE.clear(); SCREEN_CACHE.clear(); nav('suspended'); }
+  else if(!u.suspended && was){ PREMIUM_CACHE.clear(); SCREEN_CACHE.clear(); nav('home'); }
+}
+document.addEventListener('visibilitychange', () => { if(!document.hidden) refreshAccountStatus(); });
+if(!STATUS_TIMER) STATUS_TIMER = setInterval(refreshAccountStatus, 60000);
 function jsq(v){ return esc(JSON.stringify(String(v == null ? '' : v))); }
 function safeOpen(u){ if(/^https:\/\//i.test(String(u || ''))) window.open(u, '_blank', 'noopener,noreferrer'); }
 function linkOrText(v){
@@ -2165,7 +2187,9 @@ function renderBottomNav(){
 
 let NAV_SEQ = 0;     // Part 19.1: only the newest navigation may change the screen
 let NAV_LAST_DATA = '';
+const SUSPENDED_OK = ['suspended', 'support', 'authLanding', 'login', 'signup', 'onboard1', 'splash'];
 async function nav(screen, data){
+  if(currentUser && currentUser.suspended && !SUSPENDED_OK.includes(screen)) screen = 'suspended';
   if(getCurrentUser() && PUSH_TRIED_FOR !== getCurrentUser().id && pushSupported() && Notification.permission === 'granted'){ PUSH_TRIED_FOR = getCurrentUser().id; setTimeout(ensurePush, 500); }
   if(PENDING_OPEN && screen === 'home' && getCurrentUser()){ const to = PENDING_OPEN; PENDING_OPEN = null; setTimeout(() => nav(to), 0); }
   if(getCurrentUser() && Date.now() - LAST_PING_AT > 45000){ LAST_PING_AT = Date.now(); seenPing(); }
@@ -2223,6 +2247,7 @@ async function nav(screen, data){
 
 const SCREENS = {};
 SCREENS.msgAlerts = () => renderMsgAlerts();
+SCREENS.suspended = () => suspendedScreen();
 SCREENS.otpLogin = () => otpLoginScreen();
 // Screens that may show their last copy first. Never payments, chats threads or forms.
 const SWR_SCREENS = new Set(['home', 'chatList', 'jobs', 'notifications', 'profile', 'portfolio', 'allEditors']);
