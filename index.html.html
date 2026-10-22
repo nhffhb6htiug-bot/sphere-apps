@@ -262,7 +262,7 @@ h1,h2,h3{color:var(--text);}
 .vs-steps li.done .vs-dot{background:#2e7d32; color:#fff;} .vs-steps li.now .vs-dot{background:var(--blue); color:#fff; box-shadow:0 0 0 5px rgba(22,87,255,.15);}
 .vs-steps b{font-size:14px;} .vs-steps small{display:block; color:var(--muted); font-size:12px; margin-top:2px;}
 .kv{display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px;}
-.kv:last-child{border-bottom:none;} .kv span{color:var(--muted);} .kv b{text-align:right; word-break:break-all;}
+.kv:last-child{border-bottom:none;} .kv span{color:var(--muted);} .kv b{text-align:right; word-break:normal; overflow-wrap:anywhere;}
 .btn-row{display:flex; gap:8px; flex-wrap:wrap;} .btn-row a, .btn-row button{flex:1; min-width:120px; text-align:center; text-decoration:none;}
 .pill-btn{display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:10px 14px; border-radius:24px; font-size:13px; font-weight:700; border:1px solid var(--border); background:#fff; color:#111; cursor:pointer;}
 .pill-btn.primary{background:var(--blue); border-color:var(--blue); color:#fff;} .pill-btn.wa{background:#25D366; border-color:#25D366; color:#fff;}
@@ -635,7 +635,7 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.21',
+  appVersion: '2.22.22',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -2020,6 +2020,22 @@ async function otpVerify(){
     if(authUser){ pendingAuthUser = authUser; nav('chooseRole'); }
   } finally { OTP.busy = false; }
 }
+// Admin Panel: same tab → same scroll position; new tab → stay at the tab bar; the open tab is centred in the bar
+function adminAfterRender(keep){
+  const strip = document.querySelector('.ad-tabs');
+  if(strip){
+    if(keep) strip.scrollLeft = keep.x;
+    const on = strip.querySelector('.on');
+    if(on){
+      const sr = strip.getBoundingClientRect(), r = on.getBoundingClientRect();
+      strip.scrollLeft += (r.left - sr.left) - (strip.clientWidth - r.width) / 2;
+    }
+  }
+  if(!keep) return;
+  if(keep.sameTab){ window.scrollTo(0, keep.y); return; }
+  const top = strip ? strip.getBoundingClientRect().top + window.scrollY - 80 : 0;   // keep the tab bar in view
+  window.scrollTo(0, Math.max(0, Math.min(keep.y, top)));
+}
 function jsq(v){ return esc(JSON.stringify(String(v == null ? '' : v))); }
 function safeOpen(u){ if(/^https:\/\//i.test(String(u || ''))) window.open(u, '_blank', 'noopener,noreferrer'); }
 function linkOrText(v){
@@ -2148,6 +2164,7 @@ function renderBottomNav(){
 }
 
 let NAV_SEQ = 0;     // Part 19.1: only the newest navigation may change the screen
+let NAV_LAST_DATA = '';
 async function nav(screen, data){
   if(getCurrentUser() && PUSH_TRIED_FOR !== getCurrentUser().id && pushSupported() && Notification.permission === 'granted'){ PUSH_TRIED_FOR = getCurrentUser().id; setTimeout(ensurePush, 500); }
   if(PENDING_OPEN && screen === 'home' && getCurrentUser()){ const to = PENDING_OPEN; PENDING_OPEN = null; setTimeout(() => nav(to), 0); }
@@ -2165,8 +2182,14 @@ async function nav(screen, data){
     if(gate.to && gate.to !== screen) return nav(gate.to);
     return;
   }
-  currentScreenName = screen;
-  window.scrollTo(0,0);
+  // v2.22.22: the Admin Panel keeps its place when it refreshes after an action or changes tab
+  const dataKey = JSON.stringify(data || {});
+  const adminSub = /^admin./.test(screen) && screen === currentScreenName && dataKey === NAV_LAST_DATA;   // e.g. a user's admin page reopened after Warn / Suspend
+  const adminStay = (screen === 'admin' && currentScreenName === 'admin') || adminSub;
+  const adminSameTab = adminSub || (adminStay && !(data && data.tab && data.tab !== adminTab));
+  const adminKeep = adminStay ? { y: window.scrollY, x: ((document.querySelector('.ad-tabs') || {}).scrollLeft) || 0, sameTab: adminSameTab } : null;
+  currentScreenName = screen; NAV_LAST_DATA = dataKey;
+  if(!adminStay) window.scrollTo(0,0);
   const visibleScreens = ['home','chatList','jobs','portfolio','profile'];
   bottomNav.classList.toggle('hidden', !visibleScreens.includes(screen));
   renderBottomNav();
@@ -2181,13 +2204,15 @@ async function nav(screen, data){
       const cached = key ? SCREEN_CACHE.get(key) : null;
       if(cached){ hideLoadOverlay(); app.innerHTML = cached; }
       // Part C: show the loading screen only if the screen is slow (no flash on fast screens)
-      const loaderTimer = cached ? null : setTimeout(() => { if(mySeq === NAV_SEQ) showLoadOverlay(); }, 180);
+      const loaderTimer = (cached || adminStay) ? null : setTimeout(() => { if(mySeq === NAV_SEQ) showLoadOverlay(); }, 180);   // admin refresh: keep showing the old page until the new one is ready
       const html = await result;
       if(loaderTimer) clearTimeout(loaderTimer);
       if(mySeq !== NAV_SEQ) return;            // a newer screen was opened while this one was loading
       hideLoadOverlay();
       if(key) SCREEN_CACHE.set(key, html);
       if(html !== cached){ const y = cached ? window.scrollY : 0; app.innerHTML = html; if(cached) window.scrollTo(0, y); }
+      if(screen === 'admin') adminAfterRender(adminKeep);
+      else if(adminSub && adminKeep) window.scrollTo(0, adminKeep.y);
       if(netIsDown()) netNotice();
     } else {
       hideLoadOverlay();
