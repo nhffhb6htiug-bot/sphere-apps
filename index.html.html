@@ -370,9 +370,9 @@ h1,h2,h3{color:var(--text);}
 .bell-btn{position:relative;}
 .bell-n{position:absolute; top:-4px; right:-4px; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:#e11d48; color:#fff; font-size:10px; font-weight:800; line-height:18px; text-align:center; border:2px solid #fff;}
 .nt-item{display:flex; gap:10px; padding:12px 14px; border-radius:14px; background:var(--card); border:1px solid var(--border); margin-bottom:8px; cursor:pointer;}
-.nt-item.unread{border-color:#bfd0ff; background:#f4f7ff;}
+.nt-item.nt-new{border-color:#bfd0ff; background:#f4f7ff;}
 .nt-ic{font-size:20px; width:28px; text-align:center; flex:none; padding-top:2px;}
-.nt-main{flex:1; min-width:0;} .nt-main b{font-size:14px; display:block;} .nt-item:not(.unread) .nt-main b{font-weight:600;}
+.nt-main{flex:1; min-width:0;} .nt-main b{font-size:14px; display:block;} .nt-item:not(.nt-new) .nt-main b{font-weight:600;}
 .nt-main p{font-size:12px; color:var(--muted); margin-top:2px; word-break:break-word;}
 .nt-meta{font-size:11px; color:var(--muted); margin-top:4px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;}
 .nt-tag{font-size:10px; font-weight:800; padding:1px 6px; border-radius:8px; background:#eef2f7; color:#334155;}
@@ -635,7 +635,7 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.24',
+  appVersion: '2.22.25',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -8118,7 +8118,7 @@ SCREENS.notifications = async (data) => {
       const c = NOTIF_CATS[n.category] || NOTIF_CATS.general;
       const link = n.link ? esc(JSON.stringify(n.link)) : '';
       const canDelete = n.is_read || !n.important;
-      return `<div class="nt-item ${n.is_read ? '' : 'unread'}" onclick='openNotif(${Number(n.id)}, ${n.link ? JSON.stringify(n.link).replace(/'/g, "&#39;") : 'null'}, ${n.job_id ? "\"" + esc(n.job_id) + "\"" : 'null'})'>
+      return `<div class="nt-item ${n.is_read ? '' : 'nt-new'}" onclick='openNotif(${Number(n.id)}, ${n.link ? JSON.stringify(n.link).replace(/'/g, "&#39;") : 'null'}, ${n.job_id ? "\"" + esc(n.job_id) + "\"" : 'null'})'>
         <div class="nt-ic">${c[0]}</div>
         <div class="nt-main"><b>${esc(n.title || '')}</b>${n.body ? `<p>${esc(n.body)}</p>` : ''}
           <div class="nt-meta">${fmtDT(n.created_at)}${n.job_id ? `<span class="nt-tag">📁 SPH-${esc(String(n.job_id).replace(/-/g, '').slice(0, 6).toUpperCase())}</span>` : ''}${n.important ? '<span class="nt-tag imp">Important</span>' : ''}${n.audience === 'admin' ? '<span class="nt-tag">Admin</span>' : ''}</div></div>
