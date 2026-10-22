@@ -58,8 +58,8 @@ with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_page(viewport={'width':360,'height':720}); errs=[]
     pg.on('pageerror', lambda e: errs.append(str(e)[:200])); pg.route('**/*', rt); pg.goto('http://sphere.test/'); pg.wait_for_timeout(2500); pg.add_style_tag(content='#netBanner{display:none !important}')
     pg.evaluate(mock); pg.evaluate(SETUP, [KEY, 'default']); pg.evaluate("() => nav('home')"); pg.wait_for_timeout(2400)
-    before = pg.evaluate("() => window.__subs"); pg.click('#askNotif .btn-primary'); pg.wait_for_timeout(1200)
-    ok('A5 nothing is registered until the person taps Allow; then the phone registers', before == 0 and pg.evaluate("() => window.__subs") == 1 and pg.evaluate("() => PUSH_ON"))
+    before = pg.evaluate("() => window.__subs"); pg.mouse.click(180, 300); pg.wait_for_timeout(1200)
+    ok('A5 nothing is registered until the person allows it in the phone prompt (first tap); then the phone registers', before == 0 and pg.evaluate("() => window.__subs") == 1 and pg.evaluate("() => PUSH_ON"))
     ok('X2 no JavaScript errors', not errs, str(errs[:2]))
     # A8 if the server key cannot be fetched, the reason is reported (so it can be fixed without screenshots)
     pg.evaluate("() => { window.__sub = null; PUSH_ON = false; const r = sb.rpc; sb.rpc = async (fn, a) => fn === 'sp_push_public_key' ? { data: null, error: null } : r(fn, a); sb.functions.invoke = async () => ({ data: null, error: { message: 'down' } }); window.__q.length = 0; }")

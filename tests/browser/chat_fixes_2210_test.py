@@ -54,19 +54,24 @@ with sync_playwright() as p:
     listq = pg.evaluate("() => window.__q.filter(q => q.table === 'sp_notifications' && q.op === 'select').map(q => q.calls.map(c => c.join(':')).join(' '))")
     ok('B2 the notifications list leaves out chat messages', any('category.neq.messages' in x for x in listq), str(listq)[:160])
     ok('B3 opening the bell marks everything as read (no button needed)', 'sp_notif_mark_read' in pg.evaluate("() => window.__rpcs"), str(pg.evaluate("() => window.__rpcs")))
-    # P1 permission prompt on Home → Allow asks the browser once; not shown again this session
-    pg.evaluate(FAKE_N, 'default'); pg.evaluate("() => { ASKED_NOTIF_THIS_SESSION = false; nav('home'); }"); pg.wait_for_timeout(2300)
-    shown = bool(pg.query_selector('#askNotif'))
-    pg.click('#askNotif .btn-primary'); pg.wait_for_timeout(400)
-    pg.evaluate("() => nav('chatList')"); pg.wait_for_timeout(2300)
-    ok('P1 Home shows "Get chat notifications?"; Allow asks the browser exactly once', shown and pg.evaluate("() => window.__reqs") == 1 and not pg.query_selector('#askNotif'), f"shown={shown} asks={pg.evaluate('() => window.__reqs')}")
+    # P1 the phone's own permission prompt opens on the first tap after login — exactly once
+    pg.evaluate(FAKE_N, 'default'); pg.evaluate("() => { NOTIF_ARMED = false; nav('home'); }"); pg.wait_for_timeout(1500)
+    before_tap = pg.evaluate("() => window.__reqs")
+    pg.mouse.click(180, 300); pg.wait_for_timeout(400); pg.mouse.click(180, 300); pg.wait_for_timeout(300)
+    pg.evaluate("() => nav('chatList')"); pg.wait_for_timeout(800); pg.mouse.click(180, 300); pg.wait_for_timeout(300)
+    ok('P1 no prompt before a tap; the first tap opens the phone\'s real "Allow notifications?" prompt — only once', before_tap == 0 and pg.evaluate("() => window.__reqs") == 1 and not pg.query_selector('#askNotif'), f"before={before_tap} asks={pg.evaluate('() => window.__reqs')}")
     ok('X1 no JavaScript errors', not errs, str(errs[:2]))
     b.close()
-    # P2 Not now → not shown again (next session too) for 3 days
-    b, pg, errs = page(p); pg.evaluate(FAKE_N, 'default'); pg.evaluate("() => nav('home')"); pg.wait_for_timeout(2300)
-    pg.click('#askNotif .btn-outline'); pg.wait_for_timeout(200)
-    pg.evaluate("() => { ASKED_NOTIF_THIS_SESSION = false; nav('chatList'); }"); pg.wait_for_timeout(2300)
-    ok('P2 "Not now" → the prompt never comes back by itself (asked once); the browser was never asked', not pg.query_selector('#askNotif') and pg.evaluate("() => window.__reqs") == 0 and pg.evaluate("() => Number(localStorage.getItem('sp_notif_ask_until:me-111')) > Date.now() + 50 * 365 * 86400000"))
+    # P2 permission already decided (allowed or blocked) → the phone is never asked again
+    b, pg, errs = page(p)
+    for perm in ('granted', 'denied'):
+        pg.evaluate(FAKE_N, perm); pg.evaluate("() => { NOTIF_ARMED = false; nav('home'); }"); pg.wait_for_timeout(900); pg.mouse.click(180, 300); pg.wait_for_timeout(300)
+    ok('P2 if notifications are already allowed or blocked, Sphere never asks again', pg.evaluate("() => window.__reqs") == 0)
+    # P3 iPhone in Safari (not added to the Home Screen) → one-time tip, closable, not shown again
+    pg.evaluate("""() => { Object.defineProperty(navigator, 'userAgent', { configurable: true, get: () => 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Version/17.5 Mobile/15E148 Safari/604.1' }); localStorage.removeItem('sp_ios_tip_done'); nav('home'); }"""); pg.wait_for_timeout(1800)
+    tip = pg.evaluate("() => (document.getElementById('iosTip') || {}).innerText || ''")
+    pg.click('#iosTip button'); pg.evaluate("() => nav('home')"); pg.wait_for_timeout(1800)
+    ok('P3 iPhone (Safari) gets a one-time "Add to Home Screen" tip; closing it keeps it away', 'Add to Home Screen' in tip and not pg.query_selector('#iosTip'), tip[:80])
     b.close()
 for r in R: print(f'{r[0]:5} {r[1]} {("— " + r[2]) if r[2] else ""}'[:230])
 print('TOTAL', sum(1 for r in R if r[0]=='PASS'), '/', len(R))

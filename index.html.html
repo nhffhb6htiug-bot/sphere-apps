@@ -170,6 +170,9 @@ h1,h2,h3{color:var(--text);}
 .mp-bar{display:flex; gap:8px; padding:10px 12px calc(10px + env(safe-area-inset-bottom, 0px));} .mp-bar input{flex:1; border-radius:20px; border:none; padding:12px 14px;} .mp-bar button{width:48px; height:48px; border-radius:50%; border:none; background:#22c55e; color:#fff; font-size:20px;}
 .img-viewer{align-items:center; justify-content:center;} .img-viewer > button{position:absolute; top:calc(12px + env(safe-area-inset-top, 0px)); right:12px;} .img-viewer img{max-width:100%; max-height:100%; object-fit:contain;}
 .ch-seen{opacity:.9;}
+.ios-tip{display:flex; align-items:flex-start; gap:10px; margin:10px 0; padding:12px 14px; border-radius:16px; background:#eef4ff; border:1px solid #c7d7ff;}
+.ios-tip div{flex:1;} .ios-tip b{font-size:13px;} .ios-tip span{display:block; font-size:12px; color:var(--muted); margin-top:3px;} .ios-tip span b{font-size:12px; color:var(--text);}
+.ios-tip button{border:none; background:transparent; font-size:16px; width:32px; height:32px;}
 .sp-pill{position:relative; display:inline-flex; align-items:center; gap:3px; overflow:hidden; vertical-align:2px; margin-left:6px; padding:3px 9px; border-radius:999px;
   font-size:10.5px; font-weight:800; letter-spacing:.2px; color:#fff; white-space:nowrap; line-height:1.3; box-shadow:0 2px 8px rgba(22,87,255,.28);}
 .sp-pill.prem{background:linear-gradient(90deg, #1146e8, #1aa8f0);}
@@ -626,7 +629,7 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.17',
+  appVersion: '2.22.18',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -1920,6 +1923,29 @@ async function askCancelJob(id){
   CLIENT_DASH_CACHE = { uid: null, html: '' }; if(typeof SCREEN_CACHE !== 'undefined') SCREEN_CACHE.clear();
   renderClientDashboard();
 }
+// ---- v2.22.18: the phone's own notification permission prompt; iPhone install tip ----
+let NOTIF_ARMED = false;
+function armNativeNotifPrompt(){
+  // Browsers show their real "Allow notifications?" prompt only right after a tap, so the first tap after login opens it
+  if(NOTIF_ARMED || !getCurrentUser() || IN_ANDROID_APP || !('Notification' in window) || Notification.permission !== 'default') return;
+  NOTIF_ARMED = true;
+  const ask = async () => {
+    document.removeEventListener('pointerup', ask, true);
+    let res = 'default';
+    try { res = await Notification.requestPermission(); } catch(e) {}
+    if(res === 'granted'){ setMsgPrefs({ enabled: true }); unlockAudio(); ensurePush(); }
+  };
+  document.addEventListener('pointerup', ask, true);
+}
+function isIOS(){ return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+function isStandalone(){ return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
+function iosTipHtml(){
+  // iPhone: notifications work only when Sphere is opened from the Home Screen icon (iOS 16.4+)
+  if(!isIOS() || isStandalone()) return '';
+  try { if(localStorage.getItem('sp_ios_tip_done') === '1') return ''; } catch(e) {}
+  return `<div class="ios-tip" id="iosTip" role="note"><div><b>📲 Get notifications on iPhone</b><span>Tap <b>Share</b> → <b>Add to Home Screen</b>, then open Sphere from the new icon.</span></div><button aria-label="Close" onclick="closeIosTip()">✕</button></div>`;
+}
+function closeIosTip(){ try { localStorage.setItem('sp_ios_tip_done', '1'); } catch(e) {} const d = document.getElementById('iosTip'); if(d) d.remove(); }
 function jsq(v){ return esc(JSON.stringify(String(v == null ? '' : v))); }
 function safeOpen(u){ if(/^https:\/\//i.test(String(u || ''))) window.open(u, '_blank', 'noopener,noreferrer'); }
 function linkOrText(v){
@@ -2052,7 +2078,7 @@ async function nav(screen, data){
   if(getCurrentUser() && PUSH_TRIED_FOR !== getCurrentUser().id && pushSupported() && Notification.permission === 'granted'){ PUSH_TRIED_FOR = getCurrentUser().id; setTimeout(ensurePush, 500); }
   if(PENDING_OPEN && screen === 'home' && getCurrentUser()){ const to = PENDING_OPEN; PENDING_OPEN = null; setTimeout(() => nav(to), 0); }
   if(getCurrentUser() && Date.now() - LAST_PING_AT > 45000){ LAST_PING_AT = Date.now(); seenPing(); }
-  if(getCurrentUser() && (screen === 'home' || screen === 'chatList')) setTimeout(maybeAskNotifications, 1500);
+  if(getCurrentUser()) armNativeNotifPrompt();
   // a chat opened from a notification link waits until the user can really see it (e.g. after adding a phone number)
   if(PENDING_CHAT && screen === 'home' && getCurrentUser()){ if(++PENDING_TRIES > 3) PENDING_CHAT = null; else { const id = PENDING_CHAT; setTimeout(() => startChat(id), 0); } }
   if(screen !== 'chatThread' && chatPresence) stopChatPresence();   // left the chat: stop sharing online status
@@ -2391,7 +2417,7 @@ SCREENS.home = () => {
   if(!user){ nav('authLanding'); return ''; }
   if(user.role !== 'admin' && !cleanIndianPhone(user.phone)){ setTimeout(() => nav('addPhone'), 0); return ''; }
   const page = user.role==='editor' ? editorHomeScreen(user) : clientHomeScreen(user);
-  const top = installBanner() + accountStatusBanner(user);
+  const top = iosTipHtml() + installBanner() + accountStatusBanner(user);
   return page instanceof Promise ? page.then(h => top + h) : top + page;
 };
 
@@ -3294,7 +3320,7 @@ async function showMsgNotification(m, prefs){
   prefs = prefs || getMsgPrefs();
   const people = await getProfilesByIds([m.sender_id]);
   const title = people[m.sender_id] ? people[m.sender_id].name : 'New message';
-  const opts = { body: prefs.preview ? msgPreview(m) : 'New message', icon: '/icon-192.png', badge: '/favicon.png',
+  const opts = { body: prefs.preview ? msgPreview(m) : 'New message', icon: '/icon-192-v2.png', badge: '/notif-badge-96.png',
                  tag: 'chat-' + m.sender_id, renotify: true, data: { url: '/?chat=' + encodeURIComponent(m.sender_id), chatWith: m.sender_id } };
   try {
     const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
@@ -3803,7 +3829,7 @@ SCREENS.profile = async () => {
 };
 async function logout(){
   await stopPushForThisPhone();
-  VERIFIED_CACHE = null; CLIENT_DASH_CACHE = { uid: null, html: '' }; PREMIUM_CACHE.clear(); SCREEN_CACHE.clear(); stopChatPresence();   // Part C: forget cached screens on logout
+  VERIFIED_CACHE = null; CLIENT_DASH_CACHE = { uid: null, html: '' }; PREMIUM_CACHE.clear(); SCREEN_CACHE.clear(); stopChatPresence(); NOTIF_ARMED = false;   // Part C: forget cached screens on logout
   loggingOut = true;
   clearSessionState();
   await sb.auth.signOut();
