@@ -38,6 +38,8 @@ echo "== 3g. database: one role per account, admin-only switch (migration 039)"
 run_sql_group roles039 tests/db/fixture_039.sql supabase/migrations/039_admin_only_roles.sql tests/db/test_039_roles.sql
 echo "== 3h. database: client cancels before paying (migration 040)"
 run_sql_group cancel040 tests/db/fixture_040.sql supabase/migrations/040_client_cancel_job.sql tests/db/test_040_cancel.sql
+echo "== 3i. database: phone OTP prepared (migration 042)"
+run_sql_group otp042 tests/db/fixture_042.sql supabase/migrations/042_otp_login.sql tests/db/test_042_otp.sql
 echo "== 4. unit: payment signature checks (real code from supabase/functions)"
 out=$(node tests/unit/payment_signature.test.mjs 2>&1); rc=$?; check_out unit "$out"; [ $rc -eq 0 ] || FAILED=1
 echo "== 4b. unit: service worker notification click"
@@ -48,6 +50,8 @@ echo "== 4d. unit: sphere-push delivery core (fake database + fake push service)
 out=$(node tests/unit/push_core.test.mjs 2>&1); rc=$?; check_out pushcore "$out"; [ $rc -eq 0 ] || FAILED=1
 echo "== 4e. unit: service worker push handler"
 out=$(node tests/unit/sw_push.test.mjs 2>&1); rc=$?; check_out swpush "$out"; [ $rc -eq 0 ] || FAILED=1
+echo "== 4f. unit: sphere-otp hook (signature, WhatsApp → SMS, limits, no OTP in logs)"
+out=$(node tests/unit/otp_core.test.mjs 2>&1); rc=$?; check_out otpcore "$out"; [ $rc -eq 0 ] || FAILED=1
 echo "== 5. browser: Premium badge"
 out=$(python3 tests/browser/premium_badge_test.py 2>&1); rc=$?; check_out badge "$out"; [ $rc -eq 0 ] || FAILED=1
 if [ -f tests/browser/chat_online_test.py ]; then
@@ -80,4 +84,6 @@ echo "== 18. browser: editor Home without the status card"
 out=$(python3 tests/browser/editor_home_test.py 2>&1); rc=$?; check_out edhome "$out"; [ $rc -eq 0 ] || FAILED=1
 echo "== 19. browser: Get Premium position, minimise empty card, Verified PC, Mobile/PC, ₹29 first"
 out=$(python3 tests/browser/premium_pc_verify_test.py 2>&1); rc=$?; check_out v2220 "$out"; [ $rc -eq 0 ] || FAILED=1
+echo "== 20. browser: phone OTP login (off / on)"
+out=$(python3 tests/browser/otp_login_test.py 2>&1); rc=$?; check_out otplogin "$out"; [ $rc -eq 0 ] || FAILED=1
 [ $FAILED -eq 0 ] && echo "ALL TEST GROUPS PASSED" || { echo "SOME TESTS FAILED"; exit 1; }

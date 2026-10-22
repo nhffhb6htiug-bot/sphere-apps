@@ -1,0 +1,21 @@
+do $$ declare ok boolean; v jsonb; i int;
+begin
+  if (select value from public.sp_settings where key = 'otp_login') <> '0' then raise exception 'O1 FAIL'; end if; raise notice 'PASS O1 OTP login is prepared but OFF';
+  ok := false; execute 'set role anon'; begin perform public.sp_otp_prefer('12345', 'sms'); exception when others then ok := sqlerrm ilike '%valid 10-digit%'; end; execute 'reset role';
+  if not ok then raise exception 'P1 FAIL'; end if;
+  execute 'set role anon'; perform public.sp_otp_prefer('+91 98123 45678', 'sms'); execute 'reset role';
+  raise notice 'PASS P1 before login, a person can ask for SMS (only for a valid Indian mobile)';
+  v := public.sp_otp_hook_check('919812345678'); if v->>'channel' <> 'sms' or not (v->>'allowed')::boolean then raise exception 'C1 FAIL %', v; end if;
+  v := public.sp_otp_hook_check('9812345670'); if v->>'channel' <> 'whatsapp' then raise exception 'C1 FAIL default %', v; end if;
+  raise notice 'PASS C1 the hook sends by SMS when asked, WhatsApp otherwise';
+  update sphere_private.otp_prefs set until = now() - interval '1 second';
+  v := public.sp_otp_hook_check('919812345678'); if v->>'channel' <> 'whatsapp' then raise exception 'C2 FAIL'; end if; raise notice 'PASS C2 the SMS choice expires after 3 minutes';
+  for i in 1..5 loop perform public.sp_otp_hook_log('+919812345678', 'whatsapp', true); end loop;
+  v := public.sp_otp_hook_check('9812345678'); if (v->>'allowed')::boolean then raise exception 'R1 FAIL'; end if;
+  v := public.sp_otp_hook_check('9812345679'); if not (v->>'allowed')::boolean then raise exception 'R1 FAIL other'; end if;
+  raise notice 'PASS R1 max 5 OTPs per number per hour (other numbers unaffected)';
+  if exists (select 1 from sphere_private.otp_log where phone_hash ~ '9812345678') or (select length(phone_hash) from sphere_private.otp_log limit 1) <> 64 then raise exception 'H1 FAIL'; end if;
+  raise notice 'PASS H1 numbers are stored only as hashes';
+  if has_function_privilege('anon', 'public.sp_otp_hook_check(text)', 'execute') or has_function_privilege('authenticated', 'public.sp_otp_hook_log(text,text,boolean)', 'execute') or not has_function_privilege('service_role', 'public.sp_otp_hook_check(text)', 'execute') then raise exception 'S1 FAIL'; end if;
+  raise notice 'PASS S1 only the server function can check / log OTPs';
+end $$;

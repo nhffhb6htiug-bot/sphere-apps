@@ -1,0 +1,42 @@
+import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs'; import { tmpdir } from 'node:os'; import { join } from 'node:path';
+import { createHmac } from 'node:crypto';
+const SRC = new URL('../../supabase/functions/sphere-otp/otpcore.js', import.meta.url).pathname;
+const T = mkdtempSync(join(tmpdir(), 'otp-')); writeFileSync(join(T, 'otpcore.mjs'), readFileSync(SRC, 'utf8'));
+const { handleHook, verifyHook } = await import(join(T, 'otpcore.mjs'));
+let pass = 0, fail = 0; const check = (n, ok, d = '') => { ok ? pass++ : fail++; console.log((ok ? 'PASS ' : 'FAIL ') + n + (d ? ' — ' + d : '')); };
+const keyB64 = Buffer.from('test-hook-secret-0123456789abcdef').toString('base64'); const SECRET = 'v1,whsec_' + keyB64;
+const sign = (id, ts, body) => 'v1,' + createHmac('sha256', Buffer.from(keyB64, 'base64')).update(`${id}.${ts}.${body}`).digest('base64');
+function req(payload, opts = {}){ const body = JSON.stringify(payload); const ts = String(opts.ts ?? Math.floor(Date.now() / 1000)); const id = 'msg_1';
+  const h = { 'webhook-id': id, 'webhook-timestamp': ts, 'webhook-signature': opts.sig ?? sign(id, ts, body) }; return { text: async () => body, headers: { get: (k) => h[k] ?? null } }; }
+const P = (otp = '482915', phone = '919812345678') => ({ user: { phone }, sms: { otp } });
+const logs = []; const origLog = console.log; console.log = (...a) => { logs.push(a.join(' ')); };
+function mk({ allowed = true, channel = 'whatsapp', waOk = true, smsOk = true } = {}){
+  const calls = { rpc: [], fetch: [] };
+  const db = { rpc: async (fn, a) => { calls.rpc.push([fn, a]); return fn === 'sp_otp_hook_check' ? { data: allowed ? { allowed: true, channel } : { allowed: false, reason: 'Too many OTP requests for this number. Please try again in an hour.' }, error: null } : { data: null, error: null }; } };
+  const doFetch = async (url, init) => { calls.fetch.push({ url, init }); const wa = url.includes('whatsapp'); const ok = wa ? waOk : smsOk; return { ok, json: async () => (ok ? { type: 'success', hasError: false } : { type: 'error', hasError: true }) }; };
+  return { db, doFetch, calls };
+}
+const ENV = { SEND_SMS_HOOK_SECRET: SECRET, MSG91_AUTHKEY: 'k', MSG91_SMS_TEMPLATE_ID: 'tpl', MSG91_WA_NUMBER: '911111111111', MSG91_WA_TEMPLATE: 'sphere_otp' };
+let m = mk(), r;
+r = await handleHook(req(P(), { sig: 'v1,AAAA' }), ENV, m.db, m.doFetch); check('K1 a request without Supabase\u2019s signature is refused (nothing sent)', r.status === 401 && m.calls.fetch.length === 0);
+r = await handleHook(req(P(), { ts: Math.floor(Date.now() / 1000) - 3600 }), ENV, m.db, m.doFetch); check('K2 an old (replayed) request is refused', r.status === 401 && m.calls.fetch.length === 0);
+m = mk(); r = await handleHook(req(P()), ENV, m.db, m.doFetch);
+const wa = m.calls.fetch[0]; const wb = wa && JSON.parse(wa.init.body);
+check('W1 by default the OTP goes by WhatsApp (template with the code)', r.status === 200 && m.calls.fetch.length === 1 && wa.url.includes('whatsapp') && wb.payload.template.name === 'sphere_otp' && wb.payload.template.to_and_components[0].to[0] === '919812345678' && wb.payload.template.to_and_components[0].components.body_1.value === '482915');
+m = mk({ waOk: false }); r = await handleHook(req(P()), ENV, m.db, m.doFetch);
+check('W2 if WhatsApp fails, the same OTP goes by SMS automatically', r.status === 200 && m.calls.fetch.length === 2 && m.calls.fetch[1].url.includes('/api/v5/otp') && m.calls.fetch[1].url.includes('otp=482915') && m.calls.rpc.some(c => c[0] === 'sp_otp_hook_log' && c[1].p_channel === 'sms' && c[1].p_ok === true));
+m = mk({ channel: 'sms' }); r = await handleHook(req(P()), ENV, m.db, m.doFetch);
+check('S1 "Send by SMS" → SMS only (no WhatsApp)', r.status === 200 && m.calls.fetch.length === 1 && m.calls.fetch[0].url.includes('/api/v5/otp'));
+m = mk(); r = await handleHook(req(P()), { ...ENV, MSG91_WA_NUMBER: '', MSG91_WA_TEMPLATE: '' }, m.db, m.doFetch);
+check('S2 while WhatsApp is not set up, SMS is used', r.status === 200 && m.calls.fetch.length === 1 && m.calls.fetch[0].url.includes('/api/v5/otp'));
+m = mk({ allowed: false }); r = await handleHook(req(P()), ENV, m.db, m.doFetch);
+check('L1 more than 5 OTPs an hour for a number → refused with a clear message, nothing sent', r.status === 429 && r.body.error.http_code === 429 && /Too many/.test(r.body.error.message) && m.calls.fetch.length === 0);
+m = mk(); r = await handleHook(req(P('482915', '14155550100')), ENV, m.db, m.doFetch);
+check('L2 only Indian mobile numbers', r.status === 400 && m.calls.fetch.length === 0);
+m = mk({ waOk: false, smsOk: false }); r = await handleHook(req(P()), ENV, m.db, m.doFetch);
+check('F1 if both fail, a clear error goes back to the app (and the try is logged as failed)', r.status === 500 && m.calls.rpc.some(c => c[0] === 'sp_otp_hook_log' && c[1].p_ok === false));
+m = mk(); r = await handleHook(req(P()), { SEND_SMS_HOOK_SECRET: SECRET }, m.db, m.doFetch);
+check('F2 before the provider keys are added: "OTP sending is not set up yet" (nothing sent)', r.status === 500 && /not set up/.test(r.body.error.message) && m.calls.fetch.length === 0);
+console.log = origLog;
+check('P1 the OTP is never written to the logs', !logs.join('\n').includes('482915'));
+console.log(`TOTAL ${pass}/${pass + fail}`); process.exit(fail ? 1 : 0);

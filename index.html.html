@@ -170,6 +170,10 @@ h1,h2,h3{color:var(--text);}
 .mp-bar{display:flex; gap:8px; padding:10px 12px calc(10px + env(safe-area-inset-bottom, 0px));} .mp-bar input{flex:1; border-radius:20px; border:none; padding:12px 14px;} .mp-bar button{width:48px; height:48px; border-radius:50%; border:none; background:#22c55e; color:#fff; font-size:20px;}
 .img-viewer{align-items:center; justify-content:center;} .img-viewer > button{position:absolute; top:calc(12px + env(safe-area-inset-top, 0px)); right:12px;} .img-viewer img{max-width:100%; max-height:100%; object-fit:contain;}
 .ch-seen{opacity:.9;}
+.otp-phone{display:flex; align-items:center; border:1.5px solid var(--border); border-radius:14px; background:#fff; overflow:hidden;}
+.otp-phone span{padding:0 12px; font-weight:700; color:var(--muted); border-right:1px solid var(--border);}
+.otp-phone input{flex:1; border:none; outline:none; padding:14px 12px; font-size:18px; letter-spacing:1px; min-width:0;}
+.otp-code{width:100%; box-sizing:border-box; text-align:center; font-size:26px; letter-spacing:10px; padding:14px; border:1.5px solid var(--border); border-radius:14px;}
 .prem-row{display:flex; justify-content:flex-end; margin:-6px 0 6px;}
 .sp-pill::after{background:linear-gradient(100deg, transparent, rgba(255,255,255,.45), transparent);}
 .ios-tip{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(96px + env(safe-area-inset-bottom, 0px)); z-index:9450; width:calc(100% - 24px); max-width:456px; display:flex; flex-direction:column; gap:3px;
@@ -631,7 +635,7 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.20',
+  appVersion: '2.22.21',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -1955,6 +1959,67 @@ function showIOSInstallTip(){
 }
 function emptyMin(){ try { return localStorage.getItem('sp_empty_min') === '1'; } catch(e) { return false; } }
 function toggleEmptyMin(){ try { localStorage.setItem('sp_empty_min', emptyMin() ? '0' : '1'); } catch(e) {} CLIENT_DASH_CACHE = { uid: null, html: '' }; renderClientDashboard(); }
+// ---- v2.22.21: phone OTP login (WhatsApp first, SMS if asked). Used only when Settings → otp_login = 1 ----
+function otpOn(){ return Number(SETTINGS.otp_login) === 1; }
+let OTP = { phone: '', sent: false, wait: 0, timer: null, busy: false };
+function otpLoginScreen(){ return `
+  <div class="splash-wrap" style="min-height:80vh;">
+    ${img('/img/15ff7b3e628d1cb7.webp','🔷')}
+    <h1>Sphere</h1>
+    <div style="width:100%; padding:0 20px; margin-top:24px; display:flex; flex-direction:column; gap:12px;" id="otpBox">${otpBoxHtml()}</div>
+    <div style="padding:0 20px;">${POLICY_LINKS}</div>
+  </div>`; }
+function otpBoxHtml(){
+  if(!OTP.sent) return `
+    <label class="muted" style="font-size:13px;">Your mobile number</label>
+    <div class="otp-phone"><span>+91</span><input id="otpPhone" type="tel" inputmode="numeric" maxlength="10" autocomplete="tel-national" placeholder="98765 43210" value="${esc(OTP.phone)}"></div>
+    <button class="btn btn-primary" id="otpSendBtn" onclick="otpSend('whatsapp')">Get OTP on WhatsApp</button>
+    <p class="muted center-text" style="font-size:12px;">One mobile number = one Sphere account.</p>`;
+  return `
+    <p class="muted" style="font-size:13px;">Enter the 6-digit code sent to <b>+91 ${esc(OTP.phone)}</b> <a class="link" onclick="otpChange()">Change</a></p>
+    <input id="otpCode" class="otp-code" type="tel" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="••••••" oninput="if(this.value.replace(/\\D/g,'').length === 6) otpVerify()">
+    <button class="btn btn-primary" id="otpVerifyBtn" onclick="otpVerify()">Verify &amp; continue</button>
+    <div id="otpResend" class="muted center-text" style="font-size:13px;">${otpResendHtml()}</div>`;
+}
+function otpResendHtml(){
+  return OTP.wait > 0 ? `You can ask again in ${OTP.wait}s`
+    : `Didn't get it? <a class="link" onclick="otpSend('sms')">Send by SMS</a> · <a class="link" onclick="otpSend('whatsapp')">WhatsApp again</a>`;
+}
+function otpTick(){
+  clearInterval(OTP.timer); OTP.wait = 30;
+  OTP.timer = setInterval(() => { OTP.wait = Math.max(0, OTP.wait - 1); const r = document.getElementById('otpResend'); if(r) r.innerHTML = otpResendHtml(); if(!OTP.wait) clearInterval(OTP.timer); }, 1000);
+}
+function otpChange(){ OTP.sent = false; clearInterval(OTP.timer); const b = document.getElementById('otpBox'); if(b) b.innerHTML = otpBoxHtml(); }
+async function otpSend(channel){
+  if(OTP.busy) return;
+  const el = document.getElementById('otpPhone');
+  const d = (el ? el.value : OTP.phone).replace(/\D/g, '').slice(-10);
+  if(!/^[6-9]\d{9}$/.test(d)){ alert('Enter your 10-digit mobile number'); return; }
+  OTP.busy = true; OTP.phone = d;
+  try {
+    try { await sb.rpc('sp_otp_prefer', { p_phone: d, p_channel: channel }); } catch(e) {}   // tells the server: WhatsApp or SMS
+    const { error } = await sb.auth.signInWithOtp({ phone: '+91' + d });
+    if(error){ alert(error.message || 'Could not send the OTP. Please try again.'); return; }
+    OTP.sent = true; otpTick();                       // start the 30 s wait before showing the code screen
+    const b = document.getElementById('otpBox'); if(b) b.innerHTML = otpBoxHtml();
+    const c = document.getElementById('otpCode'); if(c) c.focus();
+  } finally { OTP.busy = false; }
+}
+async function otpVerify(){
+  if(OTP.busy) return;
+  const code = ((document.getElementById('otpCode') || {}).value || '').replace(/\D/g, '');
+  if(code.length !== 6){ alert('Enter the 6-digit code'); return; }
+  OTP.busy = true;
+  try {
+    const { error } = await sb.auth.verifyOtp({ phone: '+91' + OTP.phone, token: code, type: 'sms' });
+    if(error){ alert(/expired|invalid/i.test(error.message || '') ? 'Wrong or expired code. Please check and try again.' : error.message); return; }
+    clearInterval(OTP.timer); OTP = { phone: '', sent: false, wait: 0, timer: null, busy: false };
+    const user = await fetchAndSetCurrentUser();
+    if(user){ nav(user.role === 'admin' ? 'admin' : 'home'); return; }
+    const { data: { user: authUser } } = await sb.auth.getUser();
+    if(authUser){ pendingAuthUser = authUser; nav('chooseRole'); }
+  } finally { OTP.busy = false; }
+}
 function jsq(v){ return esc(JSON.stringify(String(v == null ? '' : v))); }
 function safeOpen(u){ if(/^https:\/\//i.test(String(u || ''))) window.open(u, '_blank', 'noopener,noreferrer'); }
 function linkOrText(v){
@@ -2133,6 +2198,7 @@ async function nav(screen, data){
 
 const SCREENS = {};
 SCREENS.msgAlerts = () => renderMsgAlerts();
+SCREENS.otpLogin = () => otpLoginScreen();
 // Screens that may show their last copy first. Never payments, chats threads or forms.
 const SWR_SCREENS = new Set(['home', 'chatList', 'jobs', 'notifications', 'profile', 'portfolio', 'allEditors']);
 const SCREEN_CACHE = new Map();
@@ -2186,7 +2252,7 @@ SCREENS.onboard1 = ()=> onboardScreen(0);
 SCREENS.onboard2 = ()=> onboardScreen(1);
 SCREENS.onboard3 = ()=> onboardScreen(2);
 
-SCREENS.authLanding = () => { setTimeout(setupGoogleButton, 0); return `
+SCREENS.authLanding = () => { if(otpOn()) return otpLoginScreen(); setTimeout(setupGoogleButton, 0); return `
   <div class="splash-wrap" style="height:80vh;">
     ${img('/img/15ff7b3e628d1cb7.webp','🔷')}
     <h1>Sphere</h1>
@@ -2211,7 +2277,10 @@ SCREENS.chooseRole = () => `
       <span class="pill active" id="grClient" onclick="selectGoogleRole('client')">Client</span>
       <span class="pill" id="grEditor" onclick="selectGoogleRole('editor')">Editor</span>
     </div>
-    ${phoneField('grPhone')}
+    ${pendingAuthUser && pendingAuthUser.phone && !pendingAuthUser.email
+      ? `<div class="field"><label>Your name</label><input id="grName" maxlength="60" autocomplete="name" placeholder="Full name"></div>
+         <p class="muted" style="font-size:12px; margin:-4px 0 12px;">📱 +91 ${esc(String(pendingAuthUser.phone).slice(-10))} · verified by OTP</p>`
+      : phoneField('grPhone')}
     <button class="btn btn-primary" onclick="confirmGoogleRole()">Continue</button>
   </div>`;
 let googleSelectedRole = 'client';
@@ -2222,11 +2291,13 @@ function selectGoogleRole(r){
 }
 async function confirmGoogleRole(){
   const u = pendingAuthUser;
-  const phone = readPhone('grPhone');
+  const otpUser = !!(u.phone && !u.email);
+  const phone = otpUser ? '+91' + String(u.phone).replace(/\D/g, '').slice(-10) : readPhone('grPhone');
   if(!phone) return;
-  const name = (u.user_metadata && (u.user_metadata.full_name || u.user_metadata.name)) || u.email.split('@')[0];
+  let name = (u.user_metadata && (u.user_metadata.full_name || u.user_metadata.name)) || (u.email ? u.email.split('@')[0] : '');
+  if(otpUser){ name = ((document.getElementById('grName') || {}).value || '').trim(); if(name.length < 2){ alert('Please enter your name'); return; } }
   const { error } = await saveOwnProfile({
-    id: u.id, role: googleSelectedRole.toUpperCase(), full_name: name, email: u.email, phone
+    id: u.id, role: googleSelectedRole.toUpperCase(), full_name: name, email: u.email || null, phone
   });
   if(error){ alert(error.message); return; }
   await fetchAndSetCurrentUser();
