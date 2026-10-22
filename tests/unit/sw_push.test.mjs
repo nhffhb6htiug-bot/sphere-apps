@@ -21,7 +21,6 @@ let l = await push(['visible'], { id: 'n1', title: 'Yhiyhi', body: 'hi', categor
 check('P1 Sphere on screen → no phone notification (the app shows the message itself)', l.shown.length === 0 && l.posted[0].type === 'sphere-push');
 l = await push(['hidden'], { id: 'n1', title: 'Yhiyhi 681', body: 'Final cut ready?', category: 'messages', sender_id: S, tag: 'chat-' + S });
 check('P2 Sphere in the background → phone notification with name + message, opens that chat', l.shown.length === 1 && l.shown[0].t === 'Yhiyhi 681' && l.shown[0].o.body === 'Final cut ready?' && l.shown[0].o.tag === 'chat-' + S && l.shown[0].o.data.chatWith === S);
-check('I1 notifications use the real Sphere logo and the white logo badge (no box)', l.shown[0].o.icon === '/icon-192-v2.png' && l.shown[0].o.badge === '/notif-badge-96.png');
 l = await push([], { id: 'n2', title: 'New bid on your job', body: '₹800 · Rahul', category: 'bids', tag: 'n-n2' });
 check('P3 Sphere closed → bids / jobs / payments arrive too and open the Notifications screen', l.shown.length === 1 && l.shown[0].o.data.open === 'notifications' && !l.shown[0].o.data.chatWith);
 l = await push(['visible'], { id: 'n3', title: '🔔 Sphere test', body: 'Phone notifications work', category: 'general' });

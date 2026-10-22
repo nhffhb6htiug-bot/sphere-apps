@@ -2,7 +2,7 @@
 // Pages: network first (always newest version), falls back to the saved copy when offline.
 // Supabase / Razorpay / other sites are never cached.
 const CACHE = 'sphere-v2';
-const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/favicon.png', '/icon-192-v2.png', '/notif-badge-96.png'];
+const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/favicon.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
@@ -69,7 +69,7 @@ self.addEventListener('push', (event) => {
     }
     const chatWith = d.category === 'messages' && /^[0-9a-f-]{36}$/i.test(String(d.sender_id || '')) ? String(d.sender_id) : '';
     await self.registration.showNotification(String(d.title || 'Sphere').slice(0, 80), {
-      body: String(d.body || '').slice(0, 300), icon: '/icon-192-v2.png', badge: '/notif-badge-96.png',
+      body: String(d.body || '').slice(0, 300), icon: '/notif-icon.png', badge: '/notif-badge.png',
       tag: String(d.tag || ('n-' + (d.id || Date.now()))), renotify: true, vibrate: [120, 60, 120],
       data: { chatWith, open: chatWith ? '' : 'notifications', id: d.id || null }
     });
