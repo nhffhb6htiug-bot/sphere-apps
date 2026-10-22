@@ -170,6 +170,8 @@ h1,h2,h3{color:var(--text);}
 .mp-bar{display:flex; gap:8px; padding:10px 12px calc(10px + env(safe-area-inset-bottom, 0px));} .mp-bar input{flex:1; border-radius:20px; border:none; padding:12px 14px;} .mp-bar button{width:48px; height:48px; border-radius:50%; border:none; background:#22c55e; color:#fff; font-size:20px;}
 .img-viewer{align-items:center; justify-content:center;} .img-viewer > button{position:absolute; top:calc(12px + env(safe-area-inset-top, 0px)); right:12px;} .img-viewer img{max-width:100%; max-height:100%; object-fit:contain;}
 .ch-seen{opacity:.9;}
+.prem-row{display:flex; justify-content:flex-end; margin:-6px 0 6px;}
+.sp-pill::after{background:linear-gradient(100deg, transparent, rgba(255,255,255,.45), transparent);}
 .ios-tip{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(96px + env(safe-area-inset-bottom, 0px)); z-index:9450; width:calc(100% - 24px); max-width:456px; display:flex; flex-direction:column; gap:3px;
   background:#0f172a; color:#fff; border-radius:16px; padding:12px 40px 12px 14px; box-shadow:0 10px 30px rgba(0,0,0,.3); font-size:13px;}
 .ios-tip button{position:absolute; top:6px; right:6px; width:32px; height:32px; border:none; border-radius:50%; background:rgba(255,255,255,.15); color:#fff;}
@@ -629,7 +631,7 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.19',
+  appVersion: '2.22.20',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -789,6 +791,7 @@ function toAppUser(profile){
     categories: Array.isArray(profile.categories) ? profile.categories : [],
     languages: Array.isArray(profile.languages) ? profile.languages : [],
     skills: (profile.skills||[]).join(', '),
+    editDevice: profile.edit_device || '',
     experience: profile.experience_years || '',
     price: profile.price_range || '',
     sample: profile.sample_video_url || '',
@@ -1950,6 +1953,8 @@ function showIOSInstallTip(){
   d.innerHTML = `<b>🔔 Get notifications on iPhone</b><span>Tap <b>Share</b> → <b>Add to Home Screen</b>, then open Sphere from your Home Screen.</span><button aria-label="Close" onclick="this.parentNode.remove()">✕</button>`;
   document.body.appendChild(d);
 }
+function emptyMin(){ try { return localStorage.getItem('sp_empty_min') === '1'; } catch(e) { return false; } }
+function toggleEmptyMin(){ try { localStorage.setItem('sp_empty_min', emptyMin() ? '0' : '1'); } catch(e) {} CLIENT_DASH_CACHE = { uid: null, html: '' }; renderClientDashboard(); }
 function jsq(v){ return esc(JSON.stringify(String(v == null ? '' : v))); }
 function safeOpen(u){ if(/^https:\/\//i.test(String(u || ''))) window.open(u, '_blank', 'noopener,noreferrer'); }
 function linkOrText(v){
@@ -2378,6 +2383,11 @@ SCREENS.editorDetails = () => {
       ${pickChips('edCats', CATEGORIES, u.categories || [])}</div>
     <div class="field"><label>Languages you edit in (choose one or more)</label>
       ${pickChips('edLangs', LANGUAGES, u.languages || [])}</div>
+    <div class="field"><label>Where do you edit?</label><select id="edDevice" aria-label="Where do you edit">
+      <option value="">Choose…</option>
+      <option value="mobile" ${u.editDevice === 'mobile' ? 'selected' : ''}>📱 Mobile</option>
+      <option value="pc" ${u.editDevice === 'pc' ? 'selected' : ''}>💻 PC / Laptop</option>
+      <option value="both" ${u.editDevice === 'both' ? 'selected' : ''}>📱 + 💻 Both</option></select></div>
     <div class="field"><label>Skills / Software</label><input id="edSkills" value="${esc(u.skills)}" placeholder="Premiere Pro, After Effects..."></div>
     <div class="field"><label>Experience (Years)</label><input id="edExp" type="number" value="${esc(u.experience)}" placeholder="5"></div>
     <div class="field"><label>Starting Price (₹ per video)</label><input id="edPrice" type="number" value="${esc(u.price)}" placeholder="500"></div>
@@ -2393,6 +2403,8 @@ async function saveEditorDetails(){
   const langs = pickedValues('edLangs');
   if(!cats.length){ alert('Choose at least one category'); return; }
   if(!langs.length){ alert('Choose at least one language'); return; }
+  const device = (document.getElementById('edDevice') || {}).value || '';
+  if(!device){ alert('Choose where you edit: Mobile, PC or Both'); return; }
   const skills = document.getElementById('edSkills').value;
   const exp = document.getElementById('edExp').value;
   const price = document.getElementById('edPrice').value;
@@ -2401,6 +2413,7 @@ async function saveEditorDetails(){
     categories: cats,
     languages: langs,
     skills: skills.split(',').map(s=>s.trim()).filter(Boolean),
+    edit_device: device,
     experience_years: exp ? parseInt(exp) : null,
     price_range: price,
     sample_video_url: sample,
@@ -2689,8 +2702,11 @@ async function toggleSaveEditor(editorId){
 }
 
 SCREENS.verifiedEditorsScreen = async () => `
-  <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Verified PC</h1><p>Only verified professional editors</p></div>
-  <div class="screen" style="padding-top:0;"><div class="grid2">${renderEditorCards(await getVerifiedEditors())}</div></div>`;
+  <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Verified PC</h1><p>Verified editors who edit on a PC / laptop</p></div>
+  <div class="screen" style="padding-top:0;">${await (async () => {
+    const pc = (await getVerifiedEditors()).filter(u => u.editDevice === 'pc' || u.editDevice === 'both');
+    return pc.length ? `<div class="grid2">${renderEditorCards(pc)}</div>` : '<div class="card cl-empty"><div class="cl-empty-ic">💻</div><b>No PC editors yet</b><p class="muted">Verified editors who edit on a PC will show here.</p></div>';
+  })()}</div>`;
 
 SCREENS.vaultScreen = async () => {
   const user = getCurrentUser();
@@ -4432,7 +4448,8 @@ function clientEmptyState(kind){
   if(kind === 'active') return `<div class="card cl-empty"><div class="cl-empty-ic">🎬</div><b>No active projects</b>
     <p>Post a job and verified editors will send you bids.</p>
     <div class="cl-row"><button class="btn btn-primary" onclick="nav('postJob')">Post a job</button><button class="btn btn-outline" onclick="nav('allEditors')">Browse editors</button></div></div>`;
-  return `<div class="card cl-empty"><div class="cl-empty-ic">🎬</div><b>No projects yet</b>
+  if(emptyMin()) return `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Get started</h3><button class="sec-min" aria-label="Show get started" onclick="toggleEmptyMin()">➕</button></div>`;
+  return `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Get started</h3><button class="sec-min" aria-label="Hide get started" onclick="toggleEmptyMin()">➖</button></div><div class="card cl-empty"><div class="cl-empty-ic">🎬</div><b>No projects yet</b>
     <p>Your first project is one step away. Post a job, or find an editor you like and hire them directly.</p>
     <div class="cl-row"><button class="btn btn-primary" onclick="nav('postJob')">Post a job</button><button class="btn btn-outline" onclick="nav('allEditors')">Browse editors</button></div></div>`;
 }
@@ -4454,17 +4471,17 @@ async function renderClientDashboard(){
   const st = res.stats;
   CLIENT_DASH_CACHE.uid = user.id;
   if(!res.ok){
-    el.innerHTML = CLIENT_DASH_CACHE.html = `<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first}${premiumBadgeSlot(user.id)} 👋</b><span>Couldn't load your projects. Pull down to refresh.</span></div>${premiumPill()}</div>`;
+    el.innerHTML = CLIENT_DASH_CACHE.html = `${premiumRow()}<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first}${premiumBadgeSlot(user.id)} 👋</b><span>Couldn't load your projects. Pull down to refresh.</span></div></div>`;
     return;
   }
   if(st.total === 0){
-    el.innerHTML = CLIENT_DASH_CACHE.html = `<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first}${premiumBadgeSlot(user.id)} 👋</b><span>Welcome to Sphere</span></div>${premiumPill()}</div>${clientEmptyState('all')}`;
+    el.innerHTML = CLIENT_DASH_CACHE.html = `${premiumRow()}<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first}${premiumBadgeSlot(user.id)} 👋</b><span>Welcome to Sphere</span></div></div>${clientEmptyState('all')}`;
     return;
   }
   const needs = res.items.filter(x => x.action).slice(0, 3);
   const recent = res.items.filter(x => !x.action && x.key !== 'expired' && x.key !== 'cancelled').slice(0, 3);   // expired / cancelled stay in Projects only   // expired jobs are not shown on Home (still in Projects)
-  el.innerHTML = CLIENT_DASH_CACHE.html = `
-    <div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first}${premiumBadgeSlot(user.id)} 👋</b><span>${st.active ? 'Here is how your projects are going' : 'All your projects are finished'}</span></div>${premiumPill()}</div>
+  el.innerHTML = CLIENT_DASH_CACHE.html = `${premiumRow()}
+    <div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first}${premiumBadgeSlot(user.id)} 👋</b><span>${st.active ? 'Here is how your projects are going' : 'All your projects are finished'}</span></div></div>
     <div class="cl-stats">
       <div class="cl-stat" onclick="nav('jobs', { tab: 'active' })"><b>${st.active}</b><span>Active</span></div>
       <div class="cl-stat ${st.needYou ? 'warn' : ''}" onclick="nav('jobs', { tab: 'active' })"><b>${st.needYou}</b><span>Need you</span></div>
@@ -4900,11 +4917,12 @@ function verificationNotAppliedScreen(u){
   <div class="screen">
     <div class="card"><b>How it works</b>
       <ol class="muted" style="font-size:13px; margin:8px 0 0 18px; line-height:1.7;">
-        <li>Fill your editor application (categories, languages, sample video)</li>
-        <li>Pay the ₹${VERIFY_FEE} verification fee</li>
+        <li>Pay the ₹${VERIFY_FEE} verification fee (or skip and pay at the end)</li>
+        <li>Fill your editor application (categories, languages, Mobile / PC, sample video)</li>
         <li>Our team calls you and gives your ✔ tick + editor code</li>
       </ol></div>
-    <button class="btn btn-primary" onclick="nav('editorDetails')">Fill editor application</button>
+    <button class="btn btn-primary" id="feePayBtn" onclick="payFee('verification', 'editorDetails')">🔒 Pay ₹${VERIFY_FEE} first</button>
+    <button class="btn btn-outline" style="margin-top:8px;" onclick="nav('editorDetails')">Skip — fill the form, pay later</button>
   </div>`;
 }
 async function reapplyVerification(){
@@ -8093,6 +8111,10 @@ SCREENS.searchAll = async (data) => {
 };
 // small "💎 Premium" button on the client home greeting (opens the Premium screen; the server checks everything)
 function premiumPill(){ return `<button class="prem-pill" onclick="nav('premiumScreen')">💎 Premium</button>`; }
+function premiumRow(){                     // under the Sphere logo: "Get Premium", or "Premium" once the client has it
+  const u = getCurrentUser(); if(u) setTimeout(async () => { const b = document.getElementById('premRowBtn'); if(b && await isPremiumClient(u.id)) b.textContent = '💎 Premium'; }, 0);
+  return `<div class="prem-row"><button class="prem-pill" id="premRowBtn" onclick="nav('premiumScreen')">💎 Get Premium</button></div>`;
+}
 async function fillPremiumHomeCard(tries){
   const el = document.getElementById('premiumHomeCard');
   if(!el){

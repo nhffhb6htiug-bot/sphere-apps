@@ -78,4 +78,6 @@ echo "== 17. browser: phone's own permission prompt + real notification icons"
 out=$(python3 tests/browser/native_prompt_test.py 2>&1 | grep -v DeprecationWarning); rc=${PIPESTATUS[0]}; check_out native "$out"; [ $rc -eq 0 ] || FAILED=1
 echo "== 18. browser: editor Home without the status card"
 out=$(python3 tests/browser/editor_home_test.py 2>&1); rc=$?; check_out edhome "$out"; [ $rc -eq 0 ] || FAILED=1
+echo "== 19. browser: Get Premium position, minimise empty card, Verified PC, Mobile/PC, ₹29 first"
+out=$(python3 tests/browser/premium_pc_verify_test.py 2>&1); rc=$?; check_out v2220 "$out"; [ $rc -eq 0 ] || FAILED=1
 [ $FAILED -eq 0 ] && echo "ALL TEST GROUPS PASSED" || { echo "SOME TESTS FAILED"; exit 1; }
