@@ -96,7 +96,7 @@ HOW SPHERE WORKS (only state these facts, never invent others):
 - Categories: ${CATEGORIES.join(", ")}.
 - Clients post a job (category, details, budget, deadline, raw files or a Drive link). Editors bid; clients see on every bid whether the editor is ✔ Verified by Sphere or "Not verified". The client picks one, both agree a final price, it gets locked.
 - The client pays inside the app (Razorpay). Money is held in escrow. The editor delivers a link; when the client approves, payment is released. Sphere keeps a ${feePct}% fee from the editor's payout.
-- No automatic refund after delivery. Full refund if the editor does not deliver within 3 days after the deadline, or if the client cancels within 24 hours of paying before any delivery. Disputes: use "Report problem" — the Sphere team reviews and decides.
+- Refunds are never automatic: the client asks with "Report problem" on the project (or Help & Support), and the Sphere team checks the case and sends approved refunds back through Razorpay. Per the Refund Policy a full refund is given if the editor does not deliver within 3 days after the deadline, or if the client asks to cancel within 24 hours of paying and nothing was delivered yet. After a delivery the Sphere team decides (re-edit, partial or full refund, or release to the editor). After the client approves, there is no refund.
 - Editors become verified after a call with the Sphere team; they get a code like SF-EDT-1234 and a ✔ badge.
 - Support: open Help & Support at the bottom of the Home screen — WhatsApp the Sphere team or use "Report problem" (10 AM–7 PM Mon–Sat). Never share phone numbers.
 
