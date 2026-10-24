@@ -705,7 +705,7 @@ html.os-android .cl-proj:active{transform:none; box-shadow:0 0 0 2px rgba(22,87,
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.35',
+  appVersion: '2.22.36',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -1228,6 +1228,7 @@ const SUPPORT = {
   name: 'Sphere by Syahi Films',
   phones: ['7739363798', '8708712986'],          // 9468289750 is WhatsApp-only — not shown for calls
   whatsapp: '917739363798',
+  whatsapp2: '919468289750',                     // v2.22.36: second support WhatsApp
   email: 'niteshkumarmatho37@gmail.com',
   hours: '10 AM – 7 PM (Mon–Sat)'
 };
@@ -1239,7 +1240,8 @@ function supportCard(){
     <b>🆘 Sphere Support</b>
     <p class="muted" style="font-size:12px; margin-top:4px;">Problem with a payment, a delivery or another user? WhatsApp us or report it — we will sort it out. (${SUPPORT.hours})</p>
     <div class="support-actions">
-      <a class="wa" href="${wa}" target="_blank" rel="noopener">💬 WhatsApp</a>
+      <a class="wa" href="${wa}" target="_blank" rel="noopener">💬 WhatsApp 1</a>
+      <a class="wa" href="https://wa.me/${SUPPORT.whatsapp2}?text=${encodeURIComponent('Hi Sphere Support, I need help with:')}" target="_blank" rel="noopener">💬 WhatsApp 2</a>
       <button onclick="openReport(null)">🚩 Report problem</button>
       <button onclick="nav('myReports')">📋 My reports</button>
     </div>
@@ -2710,7 +2712,9 @@ SCREENS.editorDetails = () => {
   return `
   <div class="screen">
     <h2>Editor Application</h2>
-    <p class="muted" style="margin-bottom:16px;">Tell us about your work. Our team will call you to verify your profile.</p>
+    <p class="muted" style="margin-bottom:12px;">Tell us about your work. Our team will call you to verify your profile.</p>
+    <div class="card" style="border:1.5px solid var(--blue); margin-bottom:16px;"><b>🎬 To get verified you must make a Sphere promo video</b>
+      <p class="muted" style="font-size:12px; margin-top:4px;">After this form, make a 20–60 second promo video for the Sphere app in your own style and send its link. Only real editors can do this — it keeps middlemen out. No promo video = no verified badge.</p></div>
     ${phoneField('edPhone', u.phone, 'Mobile number (our team will call you on this)')}
     <div class="field"><label>Categories you work in (choose one or more)</label>
       ${pickChips('edCats', CATEGORIES, u.categories || [])}</div>
@@ -3419,7 +3423,7 @@ function proofVideoCard(u){
     <p class="muted" style="font-size:12px; margin-top:4px;">Sent ${fmtDT(u.proofVideoAt)}. On the verification call, keep your editing app open — we may ask you to show this video's timeline on your screen.</p>
     <p style="margin-top:6px;"><span class="link" style="font-size:13px;" onclick="document.getElementById('pfBox').style.display='block'">Send a different link</span></p>
     <div id="pfBox" style="display:none; margin-top:8px;">${proofVideoForm()}</div></div>`;
-  return `<div class="card" style="border:1.5px solid var(--blue);"><b>🎬 Make a Sphere promo video</b>
+  return `<div class="card" style="border:1.5px solid var(--blue);"><b>🎬 Required: make a Sphere promo video</b>
     <p class="muted" style="font-size:13px; margin:6px 0 8px;">Show us you really edit: make a <b>20–60 second promo video for the Sphere app</b> in your own style. This keeps middlemen out — only real editors get verified.</p>
     <ul style="font-size:13px; margin:0 0 10px 18px; line-height:1.6;">
       <li>Theme: <i>"Sphere — hire verified video editors, pay safely"</i></li>
@@ -5054,6 +5058,7 @@ function editorVerifyCard(user){
   const title = v ? 'Verified Editor' : (st === 'rejected' ? 'Verification not approved' : (st === 'not_applied' ? 'Get verified' : 'Verification pending'));
   const line = v ? ('Editor code: ' + esc(user.code))
     : st === 'rejected' ? ('Reason: ' + esc(user.verificationNote || 'see details') + ' — tap to apply again')
+    : !user.proofVideo ? '🎬 Make a short Sphere promo video — it is required to get verified. Tap here'
     : user.feeStatus === 'submitted' ? 'Fee submitted — Sphere is checking your payment'
     : ('Not verified yet — you can bid on any job. Get the ✔ tick (₹' + VERIFY_FEE + ') so clients trust you more');
   const red = st === 'rejected' && !v;
