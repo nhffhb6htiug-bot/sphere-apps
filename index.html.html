@@ -262,6 +262,7 @@ h1,h2,h3{color:var(--text);}
 .vs-hero{background:linear-gradient(135deg,#0f3fcc,#1657ff); color:#fff; padding:34px 22px 28px; text-align:center; border-radius:0 0 28px 28px;}
 .vs-hero .vs-ic{width:64px; height:64px; border-radius:50%; background:rgba(255,255,255,.18); display:flex; align-items:center; justify-content:center; margin:0 auto 12px;}
 .vs-hero .vs-ic svg{width:34px; height:34px;}
+.vs-hero h1, .vs-hero p{color:#fff;}
 .vs-hero h1{font-size:22px; font-weight:800;} .vs-hero p{font-size:13px; opacity:.9; margin-top:6px;}
 .vs-call{text-align:center;}
 .vs-call .num{font-size:24px; font-weight:800; letter-spacing:.5px; margin:6px 0 2px;}
@@ -704,7 +705,7 @@ html.os-android .cl-proj:active{transform:none; box-shadow:0 0 0 2px rgba(22,87,
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.33',
+  appVersion: '2.22.34',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -876,6 +877,7 @@ function toAppUser(profile){
     createdAt: profile.created_at || '',
     verified: !!profile.is_verified,
     verificationNote: profile.verification_note || '',
+    proofVideo: profile.proof_video_url || '', proofVideoAt: profile.proof_video_at || null,
     bio: profile.bio || '',
     availability: profile.availability || 'available',
     verificationStatus: profile.verification_status || (profile.is_verified ? 'approved' : ((profile.categories && profile.categories.length) ? 'pending' : 'not_applied')),
@@ -3411,6 +3413,37 @@ function openJob(id){ currentJobId = id; nav('projectStatus'); }
 /* Client bids screen + selectEditor(): see PART 6 below */
 
 /* ============ EDITOR VERIFICATION STATUS ============ */
+// v2.22.34: proof that the editor really edits (stops middlemen) — a short promo video for Sphere
+function proofVideoCard(u){
+  if(u.proofVideo) return `<div class="card" style="border:1.5px solid #15803d;"><b>✅ Promo video received</b>
+    <p class="muted" style="font-size:12px; margin-top:4px;">Sent ${fmtDT(u.proofVideoAt)}. On the verification call, keep your editing app open — we may ask you to show this video's timeline on your screen.</p>
+    <p style="margin-top:6px;"><span class="link" style="font-size:13px;" onclick="document.getElementById('pfBox').style.display='block'">Send a different link</span></p>
+    <div id="pfBox" style="display:none; margin-top:8px;">${proofVideoForm()}</div></div>`;
+  return `<div class="card" style="border:1.5px solid var(--blue);"><b>🎬 Make a Sphere promo video</b>
+    <p class="muted" style="font-size:13px; margin:6px 0 8px;">Show us you really edit: make a <b>20–60 second promo video for the Sphere app</b> in your own style. This keeps middlemen out — only real editors get verified.</p>
+    <ul style="font-size:13px; margin:0 0 10px 18px; line-height:1.6;">
+      <li>Theme: <i>"Sphere — hire verified video editors, pay safely"</i></li>
+      <li>Use your own footage, stock clips or screen recordings of the app</li>
+      <li>Upload to YouTube (Unlisted) or Google Drive (anyone with the link) and paste it below</li>
+      <li>Keep the project file — on the call we may ask you to show its timeline</li>
+    </ul>
+    ${proofVideoForm()}</div>`;
+}
+function proofVideoForm(){
+  return `<div class="field"><input id="pfLink" type="url" placeholder="https://youtu.be/… or https://drive.google.com/…"></div>
+    <button class="btn btn-primary" id="pfBtn" onclick="sendProofVideo()">Send promo video</button>`;
+}
+async function sendProofVideo(){
+  const url = ((document.getElementById('pfLink') || {}).value || '').trim();
+  if(!/^https:\/\/\S+$/i.test(url)){ alert('Paste the full link (it starts with https://)'); return; }
+  const btn = document.getElementById('pfBtn'); if(btn){ btn.disabled = true; btn.textContent = 'Sending…'; }
+  const { error } = await sb.rpc('sp_submit_proof_video', { p_url: url });
+  if(btn){ btn.disabled = false; btn.textContent = 'Send promo video'; }
+  if(error){ alert(/function|schema cache/i.test(error.message || '') ? 'Please try again in a minute.' : error.message); return; }
+  const u = getCurrentUser(); if(u){ u.proofVideo = url; u.proofVideoAt = new Date().toISOString(); }
+  alert('Promo video sent 🎬 The Sphere team will watch it before your verification call.');
+  nav('verificationStatus');
+}
 SCREENS.verificationStatus = () => {
   const u = getCurrentUser();
   if(!u) return '';
@@ -3445,6 +3478,7 @@ SCREENS.verificationStatus = () => {
       <p style="margin-top:10px;"><span class="link" style="font-size:13px;" onclick="nav('addPhone')">Not your number? Update it</span></p>
     </div>
 
+    ${proofVideoCard(u)}
     ${verifyFeeSection(u)}
     <div class="card">
       <b>Verification progress</b>
@@ -4292,6 +4326,11 @@ SCREENS.adminClassic = async () => {
           <a class="pill-btn primary" href="tel:+91${ph}">${UI_ICONS.phone} Call editor</a>
           <a class="pill-btn wa" href="${wa}" target="_blank" rel="noopener">WhatsApp</a></div>` : ''}
         ${e.verification_note ? `<p style="font-size:12px; color:#c62828; margin-bottom:6px;">Badge removed earlier: ${esc(e.verification_note)}</p>` : ''}
+        <div class="card" style="margin:0 0 10px; padding:10px 12px; border:1.5px solid ${e.proof_video_url ? '#15803d' : '#e67e22'};">
+          <b style="font-size:13px;">🎬 Sphere promo video</b>
+          ${e.proof_video_url ? `<p style="font-size:12px; margin-top:4px;">Sent ${fmtDT(e.proof_video_at)} · ${linkOrText(e.proof_video_url)}</p><p class="muted" style="font-size:11px; margin-top:4px;">On the call, ask them to show the project/timeline of this video on their screen — a middleman cannot.</p>`
+            : `<p class="muted" style="font-size:12px; margin-top:4px;">Not sent yet — verify only after they send it.</p>`}
+        </div>
         ${adminVerifyBlock(e)}
         <div class="kv"><span>Categories</span><b>${esc((e.categories||[]).join(', ') || '-')}</b></div>
         <div class="kv"><span>Languages</span><b>${esc((e.languages||[]).join(', ') || '-')}</b></div>
@@ -6735,7 +6774,22 @@ async function startPreviewUpload(jobId, input){
   try {
     setUpStatus('pvStatus', 'Opening your video…', 0);
     const label = 'SPHERE PREVIEW · ' + projectCode(job) + ' · ' + new Date().toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short' });
-    const out = await watermarkVideo(file, label, p => setUpStatus('pvStatus', 'Adding the SPHERE watermark… ' + Math.round(p * 100) + '%', p), prep);
+    // v2.22.34: if this phone cannot add the watermark (often iPhone), the video is sent as it is and Sphere
+    // shows its moving watermark on top while the client watches (download stays off)
+    let out, started = false;
+    try {
+      out = await Promise.race([
+        watermarkVideo(file, label, p => { started = true; setUpStatus('pvStatus', 'Adding the SPHERE watermark… ' + Math.round(p * 100) + '%', p); }, prep),
+        new Promise((_, rej) => setTimeout(() => { if(!started) rej(new Error('stuck')); }, 25000))
+      ]);
+    } catch(we) {
+      freeWatermarkMedia(prep);
+      if(started && we && we.message !== 'stuck') throw we;
+      if(file.size > 52428800) throw new Error('This phone could not add the watermark, and the video is bigger than 50 MB. Share it as a link below instead (YouTube unlisted or Google Drive) — Sphere still shows its watermark on top.');
+      setUpStatus('pvStatus', 'Sending with Sphere\'s on-screen watermark…', 0);
+      const ext = ((file.name || '').match(/\.([a-z0-9]{2,4})$/i) || [, 'mp4'])[1].toLowerCase();
+      out = { blob: file.type ? file : new Blob([file], { type: ext === 'mov' ? 'video/quicktime' : 'video/' + ext }), ext, duration: await quickVideoDuration(file) };
+    }
     setUpStatus('pvStatus', 'Uploading the preview… 0%', 0);
     const { data: b, error: bErr } = await sb.rpc('sp_files_begin', { p_job: jobId, p_kind: 'preview', p_name: 'preview.' + out.ext, p_mime: out.blob.type, p_size: out.blob.size });
     if(bErr) throw new Error(filesRpcError(bErr));
@@ -6752,6 +6806,16 @@ async function startPreviewUpload(jobId, input){
     setUpStatus('pvStatus', '⚠️ ' + (e.message || e), null);
     alert(e.message || 'Could not send the preview');
   }
+}
+function quickVideoDuration(file){
+  return new Promise(res => {
+    try {
+      const v = document.createElement('video'), u = URL.createObjectURL(file); v.preload = 'metadata'; v.muted = true; v.playsInline = true;
+      const done = d => { try { URL.revokeObjectURL(u); } catch(e) {} res(d); };
+      v.onloadedmetadata = () => done(isFinite(v.duration) ? Math.round(v.duration) : null); v.onerror = () => done(null);
+      setTimeout(() => done(null), 6000); v.src = u;
+    } catch(e) { res(null); }
+  });
 }
 async function sendPreviewLink(jobId){
   const url = ((document.getElementById('pvLink') || {}).value || '').trim();
@@ -7892,8 +7956,9 @@ async function adminPaymentsTab(){
     </div>
     ${extrasQueueSection(xq)}
     <h3 style="margin:16px 0 10px;">💸 Payouts & deductions (${pend.length + (d.manual_payouts || []).length})</h3>
-    ${(d.manual_payouts || []).map(x => `<div class="card" style="border-left:4px solid #e67e22;"><p style="font-size:13px;"><b>${rupees(x.amount)}</b> to ${esc(x.editor || 'Editor')} · ${esc(x.title || '')}</p><p class="muted" style="font-size:12px;">Project payout ${esc(x.payout_status)} — handle it in Classic tools → Manual payouts.</p>
-      <button class="btn-sm" style="margin-top:6px;" onclick="nav('adminClassic')">Open classic tools</button></div>`).join('')}
+    ${(d.manual_payouts || []).map(x => `<div class="card" style="border-left:4px solid #e67e22;"><p style="font-size:13px;"><b>${rupees(x.amount)}</b> to ${esc(x.editor || 'Editor')} · ${esc(x.title || '')}</p><p class="muted" style="font-size:12px;">Client approved — send this to the editor by UPI / bank${x.payout_status === 'failed' ? ' (the automatic transfer failed)' : ''}, then tap Mark as paid. The editor gets a notification.</p>
+      <button class="btn-sm" style="margin-top:6px;" onclick="markPaidManually('${x.job_id}')">✅ Mark as paid</button>
+      <button class="btn-sm" style="margin:6px 0 0 6px; background:#f3f4f6; color:#111;" onclick="nav('adminProject', { jobId: '${x.job_id}' })">Open project</button></div>`).join('')}
     ${pend.map(p => `<div class="card" style="${p.kind === 'deduction' ? 'border-left:4px solid #c62828;' : ''}"><p style="font-size:13px;"><b>${p.kind === 'deduction' ? '−' : ''}${rupees(p.amount)}</b> · ${esc(p.editor || 'Editor')}</p>
       <p class="muted" style="font-size:12px;">${p.kind === 'bonus' ? '🏆 Performance bonus' : p.kind === 'deduction' ? '⏰ Late deduction to recover' : '➕ Paid revisions / changes'} — ${esc(p.note || '')}</p>
       <button class="btn-sm" style="margin-top:6px;" onclick="markPayoutPaid('${p.id}')">✅ ${p.kind === 'deduction' ? 'Mark recovered' : 'Mark paid'}</button></div>`).join('') || ((d.manual_payouts || []).length ? '' : '<p class="muted">Nothing to pay. 👍</p>')}
