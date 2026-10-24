@@ -704,7 +704,7 @@ html.os-android .cl-proj:active{transform:none; box-shadow:0 0 0 2px rgba(22,87,
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.32',
+  appVersion: '2.22.33',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -852,7 +852,8 @@ function toAppUser(profile){
   const mode = getMode(profile.id);
   // one role per account: editors are always editors, clients always clients (only an admin can change it);
   // the admin can still look at Sphere as an editor
-  const role = (baseRole === 'admin' && mode === 'editor') ? 'editor' : baseRole;
+  // v2.22.33: role switcher back — editors can use Client mode, admins can use Editor mode
+  const role = (baseRole === 'editor' && mode === 'client') ? 'client' : (baseRole === 'admin' && mode === 'editor') ? 'editor' : baseRole;
   return {
     id: profile.id,
     role,
@@ -1186,10 +1187,15 @@ function modeSwitchCard(user){
       ? menuItem('swap', 'Switch to Admin mode', "switchMode('client')", { cls: 'highlight', sub: 'Back to hiring and the Admin Panel' })
       : menuItem('swap', 'Switch to Editor', "switchMode('editor')", { cls: 'highlight', sub: 'See available work and place bids' });
   }
-  return '';   // switching between Client and Editor is done only by the Sphere team (Admin Panel → user → Change role)
+  if(user.baseRole === 'editor'){
+    return user.role === 'editor'
+      ? menuItem('swap', 'Switch to Client', "switchMode('client')", { cls: 'highlight', sub: 'Hire editors and post jobs' })
+      : menuItem('swap', 'Switch to Editor', "switchMode('editor')", { cls: 'highlight', sub: 'Find work and place bids' });
+  }
+  return menuItem('swap', 'Become an Editor', 'becomeEditor()', { cls: 'highlight', sub: 'Earn by editing videos on Sphere — you stay a Client too' });
 }
 function modeChip(user){
-  if(!user || user.baseRole !== 'admin') return '';
+  if(!user || (user.baseRole !== 'editor' && user.baseRole !== 'admin')) return '';
   if(user.baseRole === 'admin') return `<div class="mode-chip">${UI_ICONS.swap}${user.role === 'editor' ? 'Editor mode' : 'Admin mode'}</div>`;
   return `<div class="mode-chip">${UI_ICONS.swap}${user.role === 'editor' ? 'Editor mode' : 'Client mode'}</div>`;
 }
@@ -4639,12 +4645,12 @@ async function routeGate(screen){
     if(level === 'admin') return { ok: false, to: 'home', msg: 'This page is for admins only.' };
     if(level === 'editor' || level === 'editorAccount'){
       return { ok: false, to: 'home', msg: isEditorAccount(u) || isAdminUser(u)
-        ? 'This is part of Editor mode. Switch to Editor from Settings.'
-        : 'This page is for editors. You can become an editor from Settings.' };
+        ? 'This is part of Editor mode. Switch to Editor from Profile.'
+        : 'This page is for editors. You can become an editor from Profile.' };
     }
     if(level === 'client') return { ok: false, to: 'home', msg: isAdminUser(u)
-      ? 'This is part of Admin mode. Switch back to Admin mode from Settings.'
-      : 'This is part of Client mode. Switch to Client from Settings to hire editors.' };
+      ? 'This is part of Admin mode. Switch back to Admin mode from Profile.'
+      : 'This is part of Client mode. Switch to Client from Profile to hire editors.' };
     return { ok: false, to: 'home' };
   }
   const rule = JOB_SCREENS[screen];
