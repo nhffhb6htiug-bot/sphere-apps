@@ -6,6 +6,9 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
 <title>Sphere</title>
+<script>/* v2.22.31: iPhone gets the iPhone look, Android gets the Android look */
+(function(){ var u = navigator.userAgent || '', ios = /iphone|ipad|ipod/i.test(u) || (/Macintosh/.test(u) && navigator.maxTouchPoints > 1), and = /android/i.test(u);
+  document.documentElement.classList.add(ios ? 'os-ios' : and ? 'os-android' : 'os-other'); })();</script>
 <meta name="theme-color" content="#dfe6fb">
 <meta name="description" content="Hire verified video editors or find editing work — Sphere by Syahi Films.">
 <link rel="manifest" href="/manifest.json">
@@ -27,17 +30,18 @@
   --radius:16px;
 }
 *{box-sizing:border-box; margin:0; padding:0;}
-html{color-scheme:light;}
+html{color-scheme:light; background:var(--bg); overscroll-behavior:none;}
 html,body{width:100%; overflow-x:hidden; color-scheme:light;}
 body{
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  background:linear-gradient(180deg,#dfe6fb 0%,#eef1fb 220px,var(--bg) 220px);
+  background:var(--bg) linear-gradient(180deg,#dfe6fb 0%,#eaeefb 160px,var(--bg) 340px) no-repeat;
   color:var(--text);
   max-width:480px;
   margin:0 auto;
   min-height:100vh;
   position:relative;
-  padding-bottom:92px;
+  padding-bottom:calc(120px + env(safe-area-inset-bottom, 0px));
+  overscroll-behavior:none;
 }
 img{max-width:100%; display:block;}
 .hidden{display:none !important;}
@@ -77,7 +81,7 @@ img{max-width:100%; display:block;}
 .explore-item{text-align:center; cursor:pointer;}
 .explore-circle{
   width:100%; aspect-ratio:1/1; border-radius:50%; overflow:hidden;
-  background:#111; margin-bottom:6px; border:1px solid var(--border);
+  background:#eef1f8; margin-bottom:6px; border:1px solid var(--border);
 }
 .explore-circle img{width:100%; height:100%; object-fit:cover;}
 .explore-circle.ic-zoom img{transform:scale(1.42);}
@@ -107,11 +111,16 @@ img{max-width:100%; display:block;}
 
 /* ===== GENERIC (other screens) ===== */
 .header{
-  background:#a7a7a7; color:#fff; padding:20px 20px 24px; margin:-16px -16px 20px -16px;
-  border-radius:0 0 24px 24px;
+  position:relative; background:transparent; color:#000; padding:14px 16px 6px; margin:0 0 10px 0;
+  border-radius:0;
 }
-.header h1{font-size:22px; font-weight:800;}
-.header p{font-size:13px; opacity:.9; margin-top:4px;}
+.header h1{font-size:32px; font-weight:700; letter-spacing:-.6px; line-height:1.15; color:#000;}
+.header p{font-size:15px; color:#6e6e73; opacity:1; margin-top:4px;}
+.header .back-btn{color:#007aff; background:none; border:none; width:auto; height:36px; padding:0 8px 0 2px; margin:0 0 2px -6px; border-radius:10px; justify-content:flex-start; gap:4px;}
+.header .back-btn::before{width:11px; height:11px; border-left-width:2.6px; border-bottom-width:2.6px;}
+.header .back-btn::after{content:'Back'; font-size:17px; font-weight:400; letter-spacing:-.2px;}
+.header .back-btn:active{transform:none; background:none; opacity:.4;}
+.header .ch-more{position:absolute; top:14px; right:10px; color:#007aff !important; background:none; border:none; font-size:22px; width:40px; height:36px; display:flex; align-items:center; justify-content:center; cursor:pointer;}
 .back-btn{color:#fff; font-size:0; width:44px; height:44px; border-radius:50%; background:rgba(255,255,255,.2); border:1.5px solid rgba(255,255,255,.45); cursor:pointer; margin-bottom:10px; display:inline-flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent; transition:transform .12s, background .12s;}
 .back-btn::before{content:''; width:12px; height:12px; border-left:3px solid currentColor; border-bottom:3px solid currentColor; border-radius:2px; transform:translateX(2px) rotate(45deg);}
 .back-btn:active{transform:scale(.92); background:rgba(255,255,255,.32);}
@@ -302,6 +311,10 @@ h1,h2,h3{color:var(--text);}
 .ai-typing{display:inline-flex; gap:4px;} .ai-typing i{width:6px; height:6px; border-radius:50%; background:#9aa0a6; animation:aiDot 1s infinite;}
 .ai-typing i:nth-child(2){animation-delay:.15s;} .ai-typing i:nth-child(3){animation-delay:.3s;}
 @keyframes aiDot{0%,80%,100%{opacity:.3; transform:translateY(0);} 40%{opacity:1; transform:translateY(-3px);}}
+.ai-fail{text-align:right; font-size:12px; color:#ff3b30; margin:-4px 6px 12px; cursor:pointer; -webkit-tap-highlight-color:transparent;}
+.ai-fail b{font-weight:600;} .ai-fail small{display:block; color:#8e8e93; font-size:11px; margin-top:2px;}
+.ai-fail-ic{display:inline-flex; width:16px; height:16px; border-radius:50%; background:#ff3b30; color:#fff; font-weight:800; font-size:11px; align-items:center; justify-content:center; vertical-align:-3px; margin-right:2px;}
+.chat-bubble.me.ai-failed{opacity:.7;}
 .ai-note{font-size:11px; color:var(--muted); text-align:center; margin:4px 0 10px;}
 .pick-chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:6px;}
 .pick-chip{padding:8px 12px; border-radius:18px; border:1.5px solid var(--border); background:#fff; font-size:13px; font-weight:600; cursor:pointer; user-select:none;}
@@ -369,16 +382,29 @@ h1,h2,h3{color:var(--text);}
 /* PART 16: notifications */
 .bell-btn{position:relative;}
 .bell-n{position:absolute; top:-4px; right:-4px; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:#e11d48; color:#fff; font-size:10px; font-weight:800; line-height:18px; text-align:center; border:2px solid #fff;}
-.nt-item{display:flex; gap:10px; padding:12px 14px; border-radius:14px; background:var(--card); border:1px solid var(--border); margin-bottom:8px; cursor:pointer;}
-.nt-item.nt-new{border-color:#bfd0ff; background:#f4f7ff;}
-.nt-ic{font-size:20px; width:28px; text-align:center; flex:none; padding-top:2px;}
-.nt-main{flex:1; min-width:0;} .nt-main b{font-size:14px; display:block;} .nt-item:not(.nt-new) .nt-main b{font-weight:600;}
-.nt-main p{font-size:12px; color:var(--muted); margin-top:2px; word-break:break-word;}
-.nt-meta{font-size:11px; color:var(--muted); margin-top:4px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;}
-.nt-tag{font-size:10px; font-weight:800; padding:1px 6px; border-radius:8px; background:#eef2f7; color:#334155;}
-.nt-tag.imp{background:#fff1f2; color:#be123c;}
-.nt-del{flex:none; background:none; border:none; color:var(--muted); font-size:16px; cursor:pointer; padding:0 2px; align-self:flex-start;}
-.nt-dot{width:8px; height:8px; border-radius:50%; background:#1657ff; flex:none; margin-top:8px;}
+.nt-seg{display:flex; background:rgba(118,118,128,.12); border-radius:10px; padding:2px; margin:6px 0 4px;}
+.nt-seg button{flex:1; border:none; background:transparent; padding:7px 4px; font-size:13px; font-weight:600; color:#000; border-radius:8px; cursor:pointer; font-family:inherit;}
+.nt-seg button.on{background:#fff; box-shadow:0 3px 8px rgba(0,0,0,.12), 0 3px 1px rgba(0,0,0,.04);}
+.nt-sec{display:flex; justify-content:space-between; align-items:center; margin:16px 4px 8px;}
+.nt-sec h3{font-size:20px; font-weight:700; color:#000; letter-spacing:-.4px;}
+.nt-sec button{background:none; border:none; color:#007aff; font-size:15px; cursor:pointer; padding:4px 0; font-family:inherit;}
+.nt-wrap{position:relative; margin-bottom:8px; border-radius:20px; overflow:hidden;}
+.nt-clear{position:absolute; z-index:0; top:0; right:0; bottom:0; width:84px; border:none; background:#ff3b30; color:#fff; font-size:15px; font-weight:600; cursor:pointer; border-radius:20px; font-family:inherit;}
+.nt-item{position:relative; display:flex; gap:10px; align-items:flex-start; padding:12px 14px; border-radius:20px; background:#f9f9fb; z-index:1; box-shadow:0 1px 2px rgba(0,0,0,.05), 0 6px 18px rgba(30,40,90,.06); cursor:pointer; text-align:left; color:#000; transition:transform .25s ease; touch-action:pan-y; -webkit-user-select:none; user-select:none;}
+.nt-item.nt-new{background:#fff;}
+.nt-item:active{filter:brightness(.97);}
+.nt-ic{width:38px; height:38px; border-radius:9px; flex:none; display:flex; align-items:center; justify-content:center; font-size:20px; background:linear-gradient(180deg,#ffffff,#eef1f7); box-shadow:inset 0 0 0 .5px rgba(0,0,0,.1);}
+.nt-main{flex:1; min-width:0;}
+.nt-top{display:flex; align-items:center; gap:6px;}
+.nt-top b{flex:1; min-width:0; font-size:15px; font-weight:600; color:#000; line-height:1.25; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.nt-time{flex:none; font-size:13px; color:#8e8e93;}
+.nt-main p{font-size:15px; color:#1c1c1e; line-height:1.3; margin-top:1px; word-break:break-word;}
+.nt-item:not(.nt-new) .nt-main p{color:#3c3c43;}
+.nt-meta{margin-top:6px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;}
+.nt-tag{font-size:11px; font-weight:600; padding:2px 8px; border-radius:10px; background:rgba(118,118,128,.12); color:#3c3c43;}
+.nt-tag.imp{background:rgba(255,59,48,.12); color:#d70015;}
+.nt-dot{width:9px; height:9px; border-radius:50%; background:#007aff; flex:none;}
+.nt-hint{text-align:center; font-size:12px; color:#8e8e93; margin:10px 0 4px;}
 .nt-toast{position:fixed; left:12px; right:12px; top:calc(12px + env(safe-area-inset-top, 0px)); z-index:9999; background:#111827; color:#fff; border-radius:14px; padding:12px 14px; box-shadow:0 10px 30px rgba(0,0,0,.25); font-size:13px; cursor:pointer; max-width:460px; margin:0 auto;}
 .nt-toast b{display:block; font-size:14px; margin-bottom:2px;}
 /* PART 15: monetization */
@@ -522,7 +548,9 @@ textarea.ed-text{width:100%; min-height:84px; padding:12px 14px; border-radius:1
 .cl-stat b{display:block; font-size:22px; line-height:1.2;} .cl-stat span{font-size:11px; color:var(--muted);}
 .cl-stat.warn b{color:#b45309;}
 .cl-status{display:inline-block; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; white-space:nowrap;}
-.cl-proj{cursor:pointer;}
+.cl-proj{cursor:pointer; -webkit-tap-highlight-color:transparent; transition:transform .12s ease, box-shadow .12s ease;}
+.cl-proj:active{transform:scale(.985); box-shadow:0 0 0 2px rgba(0,122,255,.25);}
+.cl-proj *{pointer-events:none;} .cl-proj button, .cl-proj a{pointer-events:auto;}
 .cl-proj-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
 .cl-proj-top b{font-size:15px;}
 .cl-proj p{font-size:13px; margin:6px 0 0;}
@@ -575,7 +603,7 @@ textarea.ed-text{width:100%; min-height:84px; padding:12px 14px; border-radius:1
 .muted{color:var(--muted); font-size:13px;}
 .link{color:var(--blue); font-weight:600; cursor:pointer; text-decoration:underline;}
 .big-price{font-size:32px; font-weight:900; color:var(--blue);}
-.portfolio-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.portfolio-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px;}
 .card a{word-break:break-all;}
 a.portfolio-item{color:#fff; text-decoration:none; text-shadow:0 1px 3px rgba(0,0,0,.6);}
 .portfolio-item{position:relative; overflow:hidden;}
@@ -587,7 +615,7 @@ a.portfolio-item{color:#fff; text-decoration:none; text-shadow:0 1px 3px rgba(0,
 .support-actions .wa{background:#25D366; color:#fff; border-color:#25D366;}
 .policy-links{text-align:center; font-size:12px; margin-top:14px;}
 .policy-links a{color:var(--muted); margin:0 6px; text-decoration:underline;}
-.header .help-btn{float:right; margin-top:-30px; background:rgba(255,255,255,.2); color:#fff; border:none; border-radius:16px; padding:6px 12px; font-size:12px; font-weight:700; cursor:pointer;}
+.header .help-btn{float:right; margin-top:-30px; background:rgba(0,122,255,.1); color:#007aff; border:none; border-radius:16px; padding:6px 12px; font-size:12px; font-weight:700; cursor:pointer;}
 .avatar-edit{display:inline-block; margin-top:6px; font-size:12px; color:var(--blue); cursor:pointer; font-weight:600;}
 details.card summary{cursor:pointer; list-style:none;}
 details.card summary::-webkit-details-marker{display:none;}
@@ -597,6 +625,46 @@ details.card[open] summary::after{content:'－';}
 .portfolio-item .play-ic{width:32px; height:32px; border-radius:50%; background:rgba(255,255,255,.28); display:flex; align-items:center; justify-content:center; font-size:12px;}
 .cat-icon-box{width:50px; height:50px; border-radius:14px; overflow:hidden; flex-shrink:0; background:var(--card); display:flex; align-items:center; justify-content:center;}
 .cat-icon-box img{width:100%; height:100%; object-fit:cover;}
+
+/* ===== v2.22.31: ANDROID LOOK (Material You) — iPhone and computers keep the iPhone look ===== */
+html.os-android body{font-family:Roboto, 'Google Sans', 'Segoe UI', sans-serif;}
+html.os-android .header{padding:10px 12px 4px;}
+html.os-android .header h1{font-size:26px; font-weight:500; letter-spacing:0;}
+html.os-android .header p{font-size:14px; color:#49454f;}
+html.os-android .header .back-btn{width:44px; height:44px; padding:0; margin:0 0 2px -6px; border-radius:50%; justify-content:center; color:#1d1b20;}
+html.os-android .header .back-btn::after{content:none;}
+html.os-android .header .back-btn::before{width:12px; height:12px; border-left-width:2.4px; border-bottom-width:2.4px;}
+html.os-android .header .back-btn:active{opacity:1; background:rgba(29,27,32,.1);}
+html.os-android .header .ch-more{color:#1d1b20 !important; border-radius:50%; width:44px; height:44px; top:10px;}
+html.os-android .header .ch-more:active{background:rgba(29,27,32,.1);}
+html.os-android .nt-seg{background:none; padding:0; gap:8px; overflow-x:auto; scrollbar-width:none;}
+html.os-android .nt-seg button{flex:none; border:1px solid #79747e; border-radius:8px; padding:6px 16px; font-weight:500; color:#1d1b20; background:transparent;}
+html.os-android .nt-seg button.on{background:#dbe4ff; border-color:#dbe4ff; box-shadow:none; color:#0b1d4f;}
+html.os-android .nt-sec h3{font-size:14px; font-weight:500; color:#49454f; letter-spacing:.1px;}
+html.os-android .nt-sec button{color:var(--blue); font-weight:500; font-size:14px;}
+html.os-android .nt-wrap, html.os-android .nt-item, html.os-android .nt-clear{border-radius:12px;}
+html.os-android .nt-item{box-shadow:0 1px 2px rgba(0,0,0,.08); background:#f7f8fc;}
+html.os-android .nt-item.nt-new{background:#fff;}
+html.os-android .nt-clear{background:#b3261e;}
+html.os-android .nt-dot{background:var(--blue);}
+html.os-android .ai-fail{color:#b3261e;} html.os-android .ai-fail-ic{background:#b3261e;}
+html.os-android .card{border-radius:12px;}
+html.os-android .btn{border-radius:20px; font-weight:500; letter-spacing:.1px;}
+html.os-android .cl-proj:active{transform:none; box-shadow:0 0 0 2px rgba(22,87,255,.18);}
+
+/* ===== Get the app page ===== */
+.ga-card{background:var(--card); border:1px solid var(--border); border-radius:20px; padding:18px; margin-bottom:14px;}
+.ga-card.mine{border:1.5px solid var(--blue);}
+.ga-top{display:flex; align-items:center; gap:12px; margin-bottom:10px;}
+.ga-logo{width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex:none;}
+.ga-logo svg{width:28px; height:28px;}
+.ga-top b{font-size:17px; display:block;} .ga-top small{color:var(--muted); font-size:13px;}
+.ga-steps{list-style:none; counter-reset:s; margin:10px 0 4px; padding:0;}
+.ga-steps li{counter-increment:s; display:flex; gap:10px; align-items:flex-start; font-size:14px; padding:7px 0;}
+.ga-steps li::before{content:counter(s); flex:none; width:22px; height:22px; border-radius:50%; background:#eef2ff; color:var(--blue); font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center;}
+.ga-soon{display:flex; align-items:center; gap:8px; margin-top:10px; padding:10px 12px; border-radius:12px; background:#f4f5f9; color:#6e6e73; font-size:13px;}
+.ga-soon b{color:#111;}
+.ga-done{text-align:center; padding:22px 12px;}
 </style>
 </head>
 <body>
@@ -635,7 +703,7 @@ details.card[open] summary::after{content:'－';}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.26',
+  appVersion: '2.22.31',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -956,9 +1024,19 @@ window.sphereBack = function(){
 };
 /* ============ INSTALL AS APP (PWA) ============ */
 let installPrompt = null;
+// v2.22.30: opened as a file (e.g. from WhatsApp)? Pictures, Google login and payments only work on the real address
+if(!/^https?:$/.test(location.protocol)) window.addEventListener('load', () => {
+  const d = document.createElement('div');
+  d.style.cssText = 'position:fixed; left:12px; right:12px; bottom:calc(100px + env(safe-area-inset-bottom, 0px)); z-index:9998; background:#111827; color:#fff; border-radius:16px; padding:14px 16px; font:14px -apple-system, sans-serif; box-shadow:0 10px 30px rgba(0,0,0,.3);';
+  d.innerHTML = '<b style="display:block; margin-bottom:4px;">This is a downloaded copy of Sphere</b>Pictures, Google login and payments do not work here. <a href="https://sphere-live.onrender.com" style="color:#7cb3ff; font-weight:700;">Open the real app →</a>';
+  document.body.appendChild(d);
+});
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; });
 window.addEventListener('appinstalled', () => { installPrompt = null; });
 if('serviceWorker' in navigator){
+  // v2.22.30: keep the app's pictures decoded in memory so Home never flashes empty/black circles
+const SP_KEEP_IMGS = [];
+window.addEventListener('load', () => { if(location.protocol.startsWith('http')) ["/img/04408a990d1eb1c9.webp", "/img/082a0646075c735b.webp", "/img/0c44b6ca325deac2.webp", "/img/0cbdc280b5c44e61.webp", "/img/0e28649c7a12b946.webp", "/img/1209c4be37fa92f3.webp", "/img/15ff7b3e628d1cb7.webp", "/img/19d5e15bfdf38106.webp", "/img/1aec53f4a5840a80.webp", "/img/2061cbf3489f11d0.webp", "/img/7255ffd977185e21.webp", "/img/7f7f499015ca28f7.webp", "/img/9823ae8fa53bb565.webp", "/img/aaa791fe5be7f1c3.webp", "/img/b061764dc1a2fb70.webp", "/img/c055b24fc823715f.webp", "/img/c087adc7bc2ad7f4.webp", "/img/c3db169904bada66.webp", "/img/fc638f281ea4473e.webp"].forEach(u => { const im = new Image(); im.decoding = 'async'; im.src = u; SP_KEEP_IMGS.push(im); }); });
   window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW', err)); });
 }
 function isStandalone(){
@@ -966,15 +1044,42 @@ function isStandalone(){
 }
 function installAppItem(){
   if(isStandalone()) return '';
-  return menuItem('mobile', 'Install the Sphere app', 'installApp()', { sub: 'Open Sphere from your home screen, full screen' });
+  return menuItem('mobile', 'Get the Sphere app', "nav('getApp')", { sub: 'iPhone and Android — opens full screen from your home screen' });
 }
+function deviceOS(){ const h = document.documentElement.classList; return h.contains('os-ios') ? 'ios' : h.contains('os-android') ? 'android' : 'other'; }
+const GA_APPLE = '<svg viewBox="0 0 24 24" fill="#fff"><path d="M16.4 12.7c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.2 1-4 2.4-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.2.8 1.3 0 2.1-1.2 2.9-2.4.9-1.4 1.3-2.7 1.3-2.8 0 0-2.4-.9-2.4-3.9zM14 5.5c.7-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 2.9 1 .1 2.1-.6 2.8-1.4z"/></svg>';
+const GA_ANDROID = '<svg viewBox="0 0 24 24" fill="#fff"><path d="M17.6 9.48l1.84-3.18a.38.38 0 0 0-.66-.38l-1.86 3.22a11.5 11.5 0 0 0-9.84 0L5.22 5.92a.38.38 0 0 0-.66.38L6.4 9.48A10.8 10.8 0 0 0 1 18h22a10.8 10.8 0 0 0-5.4-8.52zM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5z"/></svg>';
+const GA_SHARE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#007aff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M12 3v13"/><path d="m7 8 5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
+function gaIphoneCard(mine){
+  return `<div class="ga-card ${mine ? 'mine' : ''}"><div class="ga-top"><div class="ga-logo" style="background:#111;">${GA_APPLE}</div><div><b>iPhone</b><small>Add Sphere to your Home Screen</small></div></div>
+    <ol class="ga-steps"><li><span>Open <b>sphere-live.onrender.com</b> in <b>Safari</b></span></li>
+      <li><span>Tap the Share button ${GA_SHARE} at the bottom</span></li>
+      <li><span>Scroll and tap <b>Add to Home Screen</b>, then <b>Add</b></span></li></ol>
+    <div class="ga-soon">${GA_APPLE.replace('fill="#fff"', 'fill="#111" width="18" height="18"')}<span><b>App Store</b> — coming soon</span></div></div>`;
+}
+function gaAndroidCard(mine){
+  return `<div class="ga-card ${mine ? 'mine' : ''}"><div class="ga-top"><div class="ga-logo" style="background:#3ddc84;">${GA_ANDROID}</div><div><b>Android</b><small>Install Sphere in one tap</small></div></div>
+    ${mine ? `<button class="btn btn-primary" style="margin:4px 0 8px;" onclick="installApp()">Install Sphere</button>` : ''}
+    <ol class="ga-steps"><li><span>Open <b>sphere-live.onrender.com</b> in <b>Chrome</b></span></li>
+      <li><span>Tap <b>Install</b>${mine ? ' above' : ''} — or menu ⋮ → <b>Install app</b></span></li>
+      <li><span>Sphere opens from your home screen, full screen</span></li></ol>
+    <div class="ga-soon">${GA_ANDROID.replace('fill="#fff"', 'fill="#3ddc84" width="18" height="18"')}<span><b>Google Play</b> — coming soon</span></div></div>`;
+}
+function getAppScreen(){
+  const os = deviceOS();
+  const back = `<button class="back-btn" onclick="nav(getCurrentUser() ? 'profile' : 'authLanding')">‹</button>`;
+  const head = `<div class="header">${back}<h1>Get the app</h1><p>Sphere works on iPhone and Android — always the newest version</p></div>`;
+  if(isStandalone()) return head + `<div class="screen" style="padding-top:0;"><div class="ga-card ga-done"><div style="font-size:40px;">✅</div><b style="font-size:17px;">You are using the Sphere app</b><p class="muted" style="font-size:13px; margin-top:4px;">It updates by itself — nothing to download.</p></div></div>`;
+  const cards = os === 'android' ? gaAndroidCard(true) + gaIphoneCard(false) : os === 'ios' ? gaIphoneCard(true) + gaAndroidCard(false) : gaIphoneCard(false) + gaAndroidCard(false);
+  return head + `<div class="screen" style="padding-top:0;">${cards}<p class="muted" style="font-size:12px; text-align:center;">No download size, no updates to install — new features arrive by themselves.</p></div>`;
+};
 function installBanner(){
   if(isStandalone()) return '';
   try { if(localStorage.getItem('sphere_install_hide') === '1') return ''; } catch(e){}
   return `<div class="install-banner" id="installBanner">
     <img src="/icon-192.png" alt="">
     <div class="ib-text"><b>Get the Sphere app</b>Full screen, opens from your home screen</div>
-    <button class="ib-btn" onclick="installApp()">Install</button>
+    <button class="ib-btn" onclick="nav('getApp')">Install</button>
     <button class="ib-x" title="Hide" onclick="hideInstallBanner()">✕</button></div>`;
 }
 function hideInstallBanner(){
@@ -1118,7 +1223,7 @@ const SUPPORT = {
   hours: '10 AM – 7 PM (Mon–Sat)'
 };
 const POLICY_LINKS = `<div class="policy-links">
-  <a href="/terms.html" target="_blank">Terms</a>•<a href="/privacy.html" target="_blank">Privacy</a>•<a href="/refund.html" target="_blank">Refund</a>•<a href="/contact.html" target="_blank">Contact</a></div>`;
+  <a href="/terms.html" target="_blank">Terms</a>•<a href="/privacy.html" target="_blank">Privacy</a>•<a href="/refund.html" target="_blank">Refund</a>•<a href="/contact.html" target="_blank">Contact</a>•<a href="#" onclick="nav('getApp'); return false;">Get the app</a></div>`;
 function supportCard(){
   const wa = `https://wa.me/${SUPPORT.whatsapp}?text=${encodeURIComponent('Hi Sphere Support, I need help with:')}`;
   return `<div class="card support-card">
@@ -1308,7 +1413,8 @@ function spFriendly(msg){
   if(/failed to fetch|networkerror|load failed|network request failed/i.test(m)) return { tone: 'err', title: "Can't reach Sphere", text: 'Please check your internet and try again.', raw: m };
   if(/column .* does not exist|function .* does not exist|relation .* does not exist|syntax error|PGRST\d+|violates .* constraint|duplicate key|JWT|42501|23505|22P02|\bnull value\b/i.test(m))
     return { tone: 'err', title: 'Something went wrong', text: 'This did not work because of a problem on our side. Please try again in a moment. If it keeps happening, tell Sphere Support.', raw: m };
-  if(/permission denied|not allowed|row-level security/i.test(m)) return { tone: 'err', title: 'Not allowed', text: "You don't have access to do this.", raw: m };
+  if(/permission denied|row-level security/i.test(m)) return { tone: 'err', title: 'Not allowed', text: "You don't have access to do this.", raw: m };
+  if(/not allowed/i.test(m)) return { tone: 'err', title: 'Not allowed', text: m.length < 260 ? m : "This is not allowed on Sphere.", raw: m };   // Sphere's own rule messages are shown as written
   const lines = m.split('\n').map(x => x.trim()).filter(Boolean);
   const ok = /✅|🎉|success|done|saved|sent|thank you|posted|unlocked|active/i.test(m) && !/fail|error|could not|couldn't|wrong|invalid|not /i.test(m);
   const err = /fail|error|could not|couldn't|wrong|invalid|refused|too many|cannot|can't|not available/i.test(m);
@@ -2272,7 +2378,17 @@ function renderBottomNav(){
 let NAV_SEQ = 0;     // Part 19.1: only the newest navigation may change the screen
 let NAV_LAST_DATA = '';
 const SUSPENDED_OK = ['suspended', 'support', 'authLanding', 'login', 'signup', 'onboard1', 'splash'];
+// v2.22.28: tapping the same thing again while it is still opening no longer restarts it (that made people tap 3-4 times)
+let NAV_PENDING = null;
 async function nav(screen, data){
+  let k = screen; try { k += '|' + JSON.stringify(data || null); } catch(e) {}
+  if(NAV_PENDING === k) return;
+  NAV_PENDING = k;
+  const early = setTimeout(() => { if(NAV_PENDING !== k) return; const ck = swrKey(screen, data); if(!(ck && SCREEN_CACHE.has(ck)) && !(screen === 'admin' && currentScreenName === 'admin')) showLoadOverlay(); }, 180);
+  try { return await navInner(screen, data); }
+  finally { clearTimeout(early); if(NAV_PENDING === k){ NAV_PENDING = null; hideLoadOverlay(); } }
+}
+async function navInner(screen, data){
   if(currentUser && currentUser.suspended && !SUSPENDED_OK.includes(screen)) screen = 'suspended';
   if(getCurrentUser() && PUSH_TRIED_FOR !== getCurrentUser().id && pushSupported() && Notification.permission === 'granted'){ PUSH_TRIED_FOR = getCurrentUser().id; setTimeout(ensurePush, 500); }
   if(PENDING_OPEN && screen === 'home' && getCurrentUser()){ const to = PENDING_OPEN; PENDING_OPEN = null; setTimeout(() => nav(to), 0); }
@@ -2330,6 +2446,7 @@ async function nav(screen, data){
 }
 
 const SCREENS = {};
+SCREENS.getApp = () => getAppScreen();
 SCREENS.msgAlerts = () => renderMsgAlerts();
 SCREENS.adminEditDetails = (d) => adminEditDetailsScreen(d);
 SCREENS.suspended = () => suspendedScreen();
@@ -2782,13 +2899,13 @@ function renderAIMessages(){
   const hello = `<div class="chat-bubble them ai-bubble">Hi ${esc((u && u.name || '').split(' ')[0] || 'there')}! 👋 I'm <b>Sphere AI</b>. ${u && u.role === 'editor'
     ? 'I can help you write bids, improve your profile and grow on Sphere.'
     : 'Tell me about your video — I can write your job post and suggest the right verified editor.'}</div>`;
-  box.innerHTML = hello + aiHistory.map(m => m.role === 'user'
-    ? `<div class="chat-bubble me">${esc(m.text)}</div>`
+  box.innerHTML = hello + aiHistory.map((m, i) => m.role === 'user'
+    ? `<div class="chat-bubble me${m.failed ? ' ai-failed' : ''}">${esc(m.text)}</div>${m.failed ? `<div class="ai-fail" role="button" onclick="sendAI(null, ${i})"><span class="ai-fail-ic">!</span> Not delivered · <b>Try again</b><small>${esc(m.err || '')}</small></div>` : ''}`
     : `<div class="chat-bubble them ai-bubble">${aiFormat(m.text)}</div>`).join('')
     + (aiBusy ? '<div class="chat-bubble them"><span class="ai-typing"><i></i><i></i><i></i></span></div>' : '');
   const u2 = getCurrentUser();
   const draftBtn = document.getElementById('aiDraftBtn');
-  if(draftBtn) draftBtn.style.display = (isClientRole(u2) && aiHistory.some(m => m.role === 'user') && !aiBusy) ? 'block' : 'none';
+  if(draftBtn) draftBtn.style.display = (isClientRole(u2) && aiHistory.some(m => m.role === 'user' && !m.failed) && !aiBusy) ? 'block' : 'none';
   setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 30);
 }
 SCREENS.sphereAI = () => {
@@ -2814,23 +2931,34 @@ SCREENS.sphereAI = () => {
     <button onclick="sendAI()">➤</button>
   </div>`;
 };
-async function sendAI(preset){
+// v2.22.28: one quiet retry if the phone briefly loses the connection; a failed message shows "Not delivered · Try again" like iMessage
+async function aiInvoke(body){
+  let r = await sb.functions.invoke('sphere-ai', { body });
+  const netErr = e => e && /Failed to send a request|FunctionsFetchError|Load failed|NetworkError|fetch/i.test((e.name || '') + ' ' + (e.message || ''));
+  if(netErr(r.error)){ await new Promise(z => setTimeout(z, 1200)); r = await sb.functions.invoke('sphere-ai', { body }); }
+  return r;
+}
+function aiContext(){ return aiHistory.filter(m => !m.failed).slice(-12).map(m => ({ role: m.role, text: m.text })); }
+async function sendAI(preset, retryIdx){
   if(aiBusy) return;
-  const input = document.getElementById('aiInput');
-  const text = String(preset || (input && input.value) || '').trim();
-  if(!text) return;
-  if(input) input.value = '';
+  let text = '';
+  if(retryIdx != null){ const m = aiHistory[retryIdx]; if(!m) return; text = m.text; aiHistory.splice(retryIdx, 1); }
+  else {
+    const input = document.getElementById('aiInput');
+    text = String(preset || (input && input.value) || '').trim();
+    if(!text) return;
+    if(input) input.value = '';
+  }
   aiHistory.push({ role: 'user', text });
   aiBusy = true; renderAIMessages();
-  const { data, error } = await sb.functions.invoke('sphere-ai', { body: { messages: aiHistory.slice(-12) } });
+  const { data, error } = await aiInvoke({ messages: aiContext() });
   aiBusy = false;
   if(error || !data || !data.reply){
-    const msg = error ? await functionError(error) : 'Sphere AI could not answer. Please try again.';
-    aiHistory.push({ role: 'model', text: '⚠️ ' + msg });
+    const last = aiHistory[aiHistory.length - 1];
+    let msg = error ? await functionError(error) : '';
+    if(!msg || /Failed to send a request|Load failed|NetworkError|fetch/i.test(msg)) msg = 'Sphere AI could not be reached. Check your internet and try again.';
+    last.failed = true; last.err = msg;
     renderAIMessages();
-    aiHistory.pop(); aiHistory.pop();   // failed turn is not sent again as context
-    const db = document.getElementById('aiDraftBtn');
-    if(db && !aiHistory.some(m => m.role === 'user')) db.style.display = 'none';
     return;
   }
   aiHistory.push({ role: 'model', text: data.reply });
@@ -2841,7 +2969,7 @@ async function aiDraftJob(){
   if(aiBusy) return;
   const btn = document.getElementById('aiDraftBtn');
   if(btn){ btn.disabled = true; btn.textContent = 'Writing your job post…'; }
-  const { data, error } = await sb.functions.invoke('sphere-ai', { body: { action: 'draft_job', messages: aiHistory.slice(-12) } });
+  const { data, error } = await aiInvoke({ action: 'draft_job', messages: aiContext() });
   if(btn){ btn.disabled = false; btn.textContent = '📝 Turn this chat into a job post'; }
   if(error || !data || !data.draft){ alert(error ? await functionError(error) : 'Could not create the job post. Please try again.'); return; }
   nav('postJob', { prefill: data.draft });
@@ -2975,7 +3103,7 @@ function renderPortfolio(e, items, editable){
   });
   const head = `<div class="section-title" style="padding:0; margin-top:16px;"><h3>Portfolio</h3></div>`;
   if(tiles.length === 0) return head + `<p class="muted">No portfolio items yet.</p>`;
-  return head + `<div class="portfolio-grid">${tiles.join('')}</div>`;
+  return head + `<div class="portfolio-grid" style="margin-bottom:18px;">${tiles.join('')}</div>`;
 }
 function renderEditorCards(list){
   if(list.length===0) return `<p class="muted">No editors yet.</p>`;
@@ -3620,7 +3748,7 @@ SCREENS.chatList = async () => {
     ${others.length===0?'<p class="muted">No conversations yet.</p>':''}
     ${others.map(oid=>{
       const other = people[oid]; const m = latest[oid]; const mine = m.sender_id === user.id;
-      return `<div class="card" style="display:flex; align-items:center; gap:12px;" onclick="currentChatWith='${oid}'; nav('chatThread')">
+      return `<div class="card" style="display:flex; align-items:center; gap:12px;" onclick="currentChatWith='${oid}'; currentChatJob = null; nav('chatThread')">
         ${avatarHtml(other, 'margin:0; width:46px; height:46px; flex:0 0 46px;')}
         <div style="flex:1; min-width:0;">
           <div style="display:flex; align-items:center; gap:6px;"><b style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${other?esc(other.name):'User'}</b>
@@ -3646,6 +3774,7 @@ SCREENS.chatThread = async () => {
   let { data, error } = await q.order('created_at', { ascending: true }).limit(500);
   if(error && currentChatJob && /job_id|column|schema cache/i.test(error.message || '')){ currentChatJob = null; return SCREENS.chatThread(); }
   const chatJob = currentChatJob ? await getJob(currentChatJob) : null;
+  if(chatJob && ![chatJob.clientId, chatJob.assignedEditor].includes(currentChatWith)){ currentChatJob = null; return SCREENS.chatThread(); }   // project tag does not belong to this chat
   if(error) console.error(error);
   listenForMessages();
   markRead(currentChatWith);
@@ -3747,7 +3876,7 @@ async function clearChat(otherId){
   if(!confirm('Clear this chat? Messages are removed only for you.')) return;
   const { error } = await sb.from('sp_chat_clears').upsert({ user_id: getCurrentUser().id, other_id: otherId, cleared_at: new Date().toISOString() }, { onConflict: 'user_id,other_id' });
   if(dbErr(error)) return;
-  currentChatWith = otherId; nav('chatThread');
+  currentChatWith = otherId; currentChatJob = null; nav('chatThread');
 }
 async function setBlocked(otherId, block){
   const me = getCurrentUser().id;
@@ -3778,6 +3907,10 @@ async function insertMessage(row){
   if(error && row.reply_to && /reply_to|column|schema cache/i.test(error.message || '')){
     const r2 = Object.assign({}, row); delete r2.reply_to;   // database without replies yet (034): send as a normal message
     ({ data, error } = await sb.from('sp_messages').insert(Object.assign({}, base, r2)).select().single());
+  }
+  if(error && base.job_id && /belongs to another project/i.test(error.message || '')){
+    delete base.job_id; currentChatJob = null;   // wrong project tag: send as a normal message instead of failing
+    ({ data, error } = await sb.from('sp_messages').insert(Object.assign({}, base, row)).select().single());
   }
   if(error && base.job_id && /job_id|column|schema cache/i.test(error.message || '')){
     delete base.job_id;   // database not updated yet (009)
@@ -4466,7 +4599,7 @@ async function setAdminPin(changing){
      admin        — Admin accounts only
    This protects the screens. The database (RLS + triggers) protects the data. */
 const ROUTE_ACCESS = Object.freeze({
-  splash: 'public', onboard1: 'public', onboard2: 'public', onboard3: 'public',
+  splash: 'public', getApp: 'public', onboard1: 'public', onboard2: 'public', onboard3: 'public',
   authLanding: 'public', login: 'public', signup: 'public', resetPassword: 'public',
   chooseRole: 'auth', addPhone: 'auth',
   home: 'user', profile: 'user', settingsScreen: 'user', notifications: 'user',
@@ -4856,8 +4989,24 @@ function verifySubline(u){
   if(u.verificationStatus === 'not_applied') return 'Apply to get the ✔ tick';
   return 'Our team will call you to verify';
 }
+// v2.22.29: the blue "Verified Editor" card is not permanent — it shows for 3 days after verification, or until closed with ✕
+function verifyCardHidden(user){
+  try {
+    const k = 'sp-vcard-' + user.id, raw = localStorage.getItem(k);
+    if(raw === 'x') return true;
+    if(!raw){ localStorage.setItem(k, String(Date.now())); return false; }
+    return Date.now() - Number(raw) > 3 * 86400000;
+  } catch(e) { return false; }
+}
+function closeVerifyCard(ev, id){
+  ev.stopPropagation();
+  try { localStorage.setItem('sp-vcard-' + id, 'x'); } catch(e) {}
+  const c = ev.target.closest('.card'); if(c) c.remove();
+  if(typeof SCREEN_CACHE !== 'undefined') SCREEN_CACHE.clear();
+}
 function editorVerifyCard(user){
   const v = user.verified;
+  if(v && verifyCardHidden(user)) return '';
   const st = v ? 'approved' : user.verificationStatus;
   const title = v ? 'Verified Editor' : (st === 'rejected' ? 'Verification not approved' : (st === 'not_applied' ? 'Get verified' : 'Verification pending'));
   const line = v ? ('Editor code: ' + esc(user.code))
@@ -4871,7 +5020,7 @@ function editorVerifyCard(user){
         <b style="${red ? 'color:#c62828;' : ''}">${title}</b>
         <p style="font-size:12px; opacity:.9; margin-top:2px;">${line}</p>
       </div>
-      <span class="mi-chev" style="${v ? 'color:#fff;' : ''}">${UI_ICONS.chevron}</span>
+      ${v ? `<button aria-label="Close" onclick="closeVerifyCard(event, '${esc(user.id)}')" style="background:rgba(255,255,255,.2); border:none; color:#fff; width:28px; height:28px; border-radius:50%; font-size:14px; cursor:pointer; flex:none;">✕</button>` : `<span class="mi-chev">${UI_ICONS.chevron}</span>`}
     </div>`;
 }
 
@@ -6237,6 +6386,7 @@ async function projectWorkSection(job, user, isClient, isEditor){
   html = (await finalSection(job, w, files, isClient, isEditor)) + html;
   if(['in-progress', 'delivered', 'approved', 'closed'].includes(job.status)){
     html += previewVersionsCard(job, w, files, isClient, isEditor);
+    if(job.status === 'in-progress' && w && w.phase === 'preview') html += previewApproveCard(job, w, isClient, isEditor);
     html += await revisionsSection(job, w, files, isClient, isEditor);
     if(isEditor && job.status === 'in-progress' && w && w.phase === 'preview') html += finalSubmitPanel(job, files);
     if(isClient && job.status === 'in-progress' && w && w.phase === 'active' && w.is_late && !w.preview_at) html += notDeliveredCard(job);
@@ -6445,15 +6595,41 @@ function setUpStatus(boxId, text, pct){
 }
 
 // ---- burn a big moving SPHERE watermark into a video (on this device)
-async function watermarkVideo(file, label, onProgress){
+// v2.22.28 (iPhone): the video element and sound are prepared in the tap itself, attached to the page,
+// so Safari actually opens the file and lets it play with sound later
+function prepWatermarkMedia(file){
+  const prep = { src: URL.createObjectURL(file), v: document.createElement('video'), actx: null };
+  const v = prep.v;
+  v.setAttribute('playsinline', ''); v.playsInline = true; v.preload = 'auto'; v.crossOrigin = 'anonymous';
+  v.style.cssText = 'position:fixed; left:0; top:0; width:2px; height:2px; opacity:0.01; pointer-events:none; z-index:-1;';
+  v.src = prep.src; document.body.appendChild(v);
+  try { v.load(); } catch(e) {}
+  try { prep.actx = new (window.AudioContext || window.webkitAudioContext)(); if(prep.actx.state === 'suspended') prep.actx.resume().catch(() => {}); } catch(e) { prep.actx = null; }
+  try { v.muted = true; const pp = v.play(); const back = () => { if(prep.started) return; v.pause(); v.muted = false; try { v.currentTime = 0; } catch(e) {} }; if(pp && pp.then) pp.then(back, () => { v.muted = false; }); else back(); } catch(e) { v.muted = false; }
+  return prep;
+}
+function freeWatermarkMedia(prep){
+  if(!prep) return;
+  try { prep.v.pause(); prep.v.removeAttribute('src'); prep.v.load(); prep.v.remove(); } catch(e) {}
+  try { URL.revokeObjectURL(prep.src); } catch(e) {}
+  if(prep.actx) prep.actx.close().catch(() => {});
+}
+async function watermarkVideo(file, label, onProgress, prep){
   if(!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) throw new Error('This browser cannot add the watermark. Use Chrome on a computer or Android — or share a link below.');
   const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'].find(t => MediaRecorder.isTypeSupported(t));
   if(!mime) throw new Error('This browser cannot record video. Use Chrome on a computer or Android — or share a link below.');
-  const src = URL.createObjectURL(file);
-  const v = document.createElement('video');
-  v.src = src; v.playsInline = true; v.preload = 'auto';
+  if(!prep) prep = prepWatermarkMedia(file);
+  const v = prep.v;
+  let wake = null;
+  try { if(navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch(e) {}   // keep the screen on while it works
   try {
-    await new Promise((res, rej) => { v.onloadedmetadata = res; v.onerror = () => rej(new Error('This video cannot be read here. Try exporting it as MP4 (H.264) or WebM.')); setTimeout(() => rej(new Error('The video took too long to open.')), 30000); });
+    if(!(v.readyState >= 1 && isFinite(v.duration) && v.duration > 0)) await new Promise((res, rej) => {
+      const ok = () => { if(v.readyState >= 1) res(); };
+      v.addEventListener('loadedmetadata', ok); v.addEventListener('loadeddata', ok); v.addEventListener('canplay', ok);
+      v.onerror = () => rej(new Error('This video cannot be read here. Try exporting it as MP4 (H.264) — or share a link below.'));
+      setTimeout(() => rej(new Error('Your phone could not open this video here. Share it as a link below instead (YouTube unlisted or Google Drive).')), 20000);
+    });
+    if(v.currentTime > 0){ v.pause(); v.currentTime = 0; await new Promise(r => { v.onseeked = r; setTimeout(r, 1500); }); }
     const dur = v.duration;
     if(!isFinite(dur) || dur <= 0) throw new Error('Could not read the video length.');
     if(dur > previewMaxMin() * 60) throw new Error(`The preview is longer than ${previewMaxMin()} minutes. Share it as a link instead (add the SPHERE watermark in your editing app).`);
@@ -6462,9 +6638,9 @@ async function watermarkVideo(file, label, onProgress){
     const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext('2d');
     const stream = canvas.captureStream(25);
-    let actx = null;
+    let actx = prep.actx;
     try {
-      actx = new (window.AudioContext || window.webkitAudioContext)();
+      if(!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
       const node = actx.createMediaElementSource(v), dest = actx.createMediaStreamDestination();
       node.connect(dest);                       // record the sound without playing it aloud
       dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
@@ -6504,20 +6680,22 @@ async function watermarkVideo(file, label, onProgress){
     if(actx && actx.state === 'suspended') await actx.resume();
     draw();
     rec.start(1000);
-    await v.play();
+    prep.started = true; v.muted = false;
+    try { await v.play(); }
+    catch(e){ try { rec.stop(); } catch(x) {} throw new Error('The video could not start playing here. Tap “Choose video” again, or share a link below.'); }
     if(v.requestVideoFrameCallback){ const f = () => { loop(); if(!done) v.requestVideoFrameCallback(f); }; v.requestVideoFrameCallback(f); }
     timer = setInterval(loop, 40);   // also keeps drawing if the frame callback pauses
     const guard = setTimeout(() => { if(!done){ done = true; try { rec.stop(); } catch(e) {} } }, (dur * 1.6 + 20) * 1000);
     await stopped;
     clearInterval(timer); clearTimeout(guard);
-    if(actx) actx.close().catch(() => {});
     const type = mime.split(';')[0];
     const blob = new Blob(chunks, { type });
     if(blob.size < 1000) throw new Error('The watermark could not be added. Keep this screen open while it works, or share a link instead.');
     if(blob.size > fileMaxMB() * 1048576) throw new Error(`The watermarked preview is bigger than ${fileMaxMB()} MB. Make a shorter or smaller preview, or share a link.`);
     return { blob, ext: type.includes('mp4') ? 'mp4' : 'webm', duration: dur, width: W, height: H };
   } finally {
-    URL.revokeObjectURL(src);
+    if(wake) wake.release().catch(() => {});
+    freeWatermarkMedia(prep);
   }
 }
 
@@ -6542,14 +6720,15 @@ async function startPreviewUpload(jobId, input){
   const file = input.files && input.files[0];
   input.value = '';
   if(!file) return;
-  if(!/^video\//.test(file.type || '')){ alert('Please choose a video file.'); return; }
+  if(!/^video\//.test(file.type || '') && !/\.(mov|mp4|m4v|webm)$/i.test(file.name || '')){ alert('Please choose a video file.'); return; }
+  const prep = (window.MediaRecorder && HTMLCanvasElement.prototype.captureStream) ? prepWatermarkMedia(file) : null;   // must happen inside the tap (iPhone)
   const job = await getJob(jobId);
   const note = ((document.getElementById('pvNote') || {}).value || '').trim();
   let begun = null;
   try {
     setUpStatus('pvStatus', 'Opening your video…', 0);
     const label = 'SPHERE PREVIEW · ' + projectCode(job) + ' · ' + new Date().toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short' });
-    const out = await watermarkVideo(file, label, p => setUpStatus('pvStatus', 'Adding the SPHERE watermark… ' + Math.round(p * 100) + '%', p));
+    const out = await watermarkVideo(file, label, p => setUpStatus('pvStatus', 'Adding the SPHERE watermark… ' + Math.round(p * 100) + '%', p), prep);
     setUpStatus('pvStatus', 'Uploading the preview… 0%', 0);
     const { data: b, error: bErr } = await sb.rpc('sp_files_begin', { p_job: jobId, p_kind: 'preview', p_name: 'preview.' + out.ext, p_mime: out.blob.type, p_size: out.blob.size });
     if(bErr) throw new Error(filesRpcError(bErr));
@@ -6561,6 +6740,7 @@ async function startPreviewUpload(jobId, input){
     alert('Preview v' + b.version + ' sent 👀' + (fin && fin.on_time === false ? ' (after the deadline)' : '') + '\nThe client can watch it inside Sphere.');
     currentJobId = jobId; nav('projectStatus');
   } catch(e) {
+    freeWatermarkMedia(prep);
     if(begun) sb.rpc('sp_files_finish', { p_id: begun.id, p_ok: false, p_duration: null, p_note: null }).then(() => {}, () => {});
     setUpStatus('pvStatus', '⚠️ ' + (e.message || e), null);
     alert(e.message || 'Could not send the preview');
@@ -6579,6 +6759,24 @@ async function sendPreviewLink(jobId){
 }
 
 // ---- Both sides: preview versions
+// client approves the preview → the editor is told to send the clean final video (migration 047)
+function previewApproved(w){ return !!(w && w.preview_approved_at && w.preview_at && new Date(w.preview_approved_at) >= new Date(w.preview_at)); }
+function previewApproveCard(job, w, isClient, isEditor){
+  const ok = previewApproved(w);
+  if(isClient) return ok
+    ? `<div class="card" style="border:1.5px solid #15803d;"><b>✅ You approved the preview</b><p class="muted" style="font-size:12px; margin-top:4px;">The editor has been told to send the clean final video. Then you can release the payment.</p></div>`
+    : `<div class="card"><b>Happy with the preview?</b><p class="muted" style="font-size:12px; margin:4px 0 10px;">Approve it and the editor sends the clean final video. Not happy? Ask for a revision below.</p>
+        <button class="btn btn-primary" id="pvApproveBtn" onclick="approvePreview('${job.id}')">✅ Approve preview</button></div>`;
+  if(isEditor && ok) return `<div class="card" style="border:1.5px solid #15803d;"><b>👍 The client approved your preview</b><p class="muted" style="font-size:12px; margin-top:4px;">Send the clean final video now (below) so the client can release your payment.</p></div>`;
+  return '';
+}
+async function approvePreview(jobId){
+  if(!confirm('Approve this preview? The editor will be asked to send the clean final video.')) return;
+  const btn = document.getElementById('pvApproveBtn'); if(btn){ btn.disabled = true; btn.textContent = 'Approving…'; }
+  const { error } = await sb.rpc('sp_approve_preview', { p_job: jobId });
+  if(error){ if(btn){ btn.disabled = false; btn.textContent = '✅ Approve preview'; } alert(/function|schema cache/i.test(error.message || '') ? 'Please try again in a minute.' : error.message); return; }
+  currentJobId = jobId; nav('projectStatus');
+}
 function previewVersionsCard(job, w, files, isClient, isEditor){
   const pv = files.filter(f => f.kind === 'preview' && f.status === 'ready').sort((a, b) => (b.version || 0) - (a.version || 0));
   const legacy = w && w.preview_link && !String(w.preview_link).startsWith('sphere-file:') && !pv.some(f => f.external_url === w.preview_link) ? w.preview_link : '';
@@ -6599,7 +6797,7 @@ function openPreview(jobId, fileId){ currentJobId = jobId; nav('previewPlayer', 
 // ---- In-app preview player (moving watermark on top, no download button)
 function embedUrl(u){
   let m = String(u).match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([A-Za-z0-9_-]{6,})/);
-  if(m) return 'https://www.youtube-nocookie.com/embed/' + m[1] + '?rel=0&modestbranding=1';
+  if(m) return 'https://www.youtube-nocookie.com/embed/' + m[1] + '?rel=0&modestbranding=1&playsinline=1&origin=' + encodeURIComponent(location.origin);
   m = String(u).match(/drive\.google\.com\/file\/d\/([A-Za-z0-9_-]+)/);
   if(m) return 'https://drive.google.com/file/d/' + m[1] + '/preview';
   return '';
@@ -6620,7 +6818,7 @@ SCREENS.previewPlayer = async (data) => {
       : `<video src="${esc(su.signedUrl)}" controls controlsList="nodownload nofullscreen noremoteplayback noplaybackrate" disablePictureInPicture disableRemotePlayback playsinline preload="metadata" oncontextmenu="return false"></video>`;
   } else {
     const emb = embedUrl(f.external_url);
-    player = emb ? `<iframe src="${esc(emb)}" allow="autoplay; encrypted-media" referrerpolicy="no-referrer"></iframe>`
+    player = emb ? `<iframe src="${esc(emb)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`
       : `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px; padding:16px; text-align:center; color:#fff;">
           <p style="font-size:13px;">This link cannot be played inside Sphere.</p>${linkOrText(f.external_url)}</div>`;
   }
@@ -8110,26 +8308,72 @@ SCREENS.notifications = async (data) => {
   if(unread) sb.rpc('sp_notif_mark_read', { p_ids: null }).then(r => r.error ? sb.from('sp_notifications').update({ is_read: true }).eq('user_id', user.id).eq('is_read', false) : r, () => {}).then(() => refreshBell(), () => {});
   const tab = (k, l) => `<button class="${notifTab === k ? 'on' : ''}" onclick="nav('notifications', { tab: '${k}' })">${l}</button>`;
   setTimeout(refreshBell, 0);
-  return `
-  <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Notifications</h1>${v2 ? `<button class="ch-more" style="color:#fff; font-size:20px;" title="Settings" onclick="nav('notifSettings')">⚙️</button>` : ''}</div>
-  <div class="screen" style="padding-top:0;">
-    ${v2 ? `<div class="ad-tabs">${tab('all', 'All')}${tab('unread', 'Unread')}${tab('projects', 'Projects')}${isAdmin ? tab('admin', '🛠 Admin') : ''}</div>` : ''}
-    ${list.some(n => !n.is_read) ? `<button class="btn btn-outline" style="margin-bottom:10px;" onclick="markAllNotifs()">✓ Mark all as read${unread ? ' (' + unread + ')' : ''}</button>` : ''}
-    ${list.length === 0 ? `<div class="card cl-empty"><div class="cl-empty-ic">🔔</div><b>${notifTab === 'unread' ? 'All caught up' : 'No notifications yet'}</b><p>Project updates, payments and messages show up here.</p></div>` : ''}
-    ${list.map(n => {
-      const c = NOTIF_CATS[n.category] || NOTIF_CATS.general;
-      const link = n.link ? esc(JSON.stringify(n.link)) : '';
-      const canDelete = n.is_read || !n.important;
-      return `<div class="nt-item ${n.is_read ? '' : 'nt-new'}" onclick='openNotif(${Number(n.id)}, ${n.link ? JSON.stringify(n.link).replace(/'/g, "&#39;") : 'null'}, ${n.job_id ? "\"" + esc(n.job_id) + "\"" : 'null'})'>
+  const card = n => {
+    const c = NOTIF_CATS[n.category] || NOTIF_CATS.general;
+    const canDelete = n.is_read || !n.important;
+    const open = `openNotif(${Number(n.id)}, ${n.link ? JSON.stringify(n.link).replace(/'/g, "&#39;") : 'null'}, ${n.job_id ? "\"" + esc(n.job_id) + "\"" : 'null'})`;
+    return `<div class="nt-wrap">${canDelete ? `<button class="nt-clear" onclick="deleteNotif(event, ${Number(n.id)})">Clear</button>` : ''}
+      <div class="nt-item ${n.is_read ? '' : 'nt-new'}" ${canDelete ? 'ontouchstart="ntTS(event,this)" ontouchmove="ntTM(event,this)" ontouchend="ntTE(this)"' : ''} onclick='if(ntWasOpen(this)) return; ${open}'>
         <div class="nt-ic">${c[0]}</div>
-        <div class="nt-main"><b>${esc(n.title || '')}</b>${n.body ? `<p>${esc(n.body)}</p>` : ''}
-          <div class="nt-meta">${fmtDT(n.created_at)}${n.job_id ? `<span class="nt-tag">📁 SPH-${esc(String(n.job_id).replace(/-/g, '').slice(0, 6).toUpperCase())}</span>` : ''}${n.important ? '<span class="nt-tag imp">Important</span>' : ''}${n.audience === 'admin' ? '<span class="nt-tag">Admin</span>' : ''}</div></div>
-        ${n.is_read ? '' : '<span class="nt-dot"></span>'}
-        ${canDelete ? `<button class="nt-del" title="Delete" onclick="deleteNotif(event, ${Number(n.id)})">✕</button>` : ''}
-      </div>`; }).join('')}
+        <div class="nt-main"><div class="nt-top"><b>${esc(n.title || '')}</b><span class="nt-time">${ntTime(n.created_at)}</span>${n.is_read ? '' : '<span class="nt-dot"></span>'}</div>${n.body ? `<p>${esc(n.body)}</p>` : ''}
+          ${n.job_id || n.important || n.audience === 'admin' ? `<div class="nt-meta">${n.job_id ? `<span class="nt-tag">📁 SPH-${esc(String(n.job_id).replace(/-/g, '').slice(0, 6).toUpperCase())}</span>` : ''}${n.important ? '<span class="nt-tag imp">Important</span>' : ''}${n.audience === 'admin' ? '<span class="nt-tag">Admin</span>' : ''}</div>` : ''}</div>
+      </div></div>`; };
+  const groups = [['Today', []], ['Yesterday', []], ['Earlier', []]];
+  list.forEach(n => groups[ntDayGroup(n.created_at)][1].push(n));
+  let first = true;
+  const body = groups.filter(g => g[1].length).map(([name, items]) => {
+    const head = `<div class="nt-sec"><h3>${name}</h3>${first && list.some(n => !n.is_read) ? `<button onclick="markAllNotifs()">Mark all as read</button>` : ''}</div>`;
+    first = false;
+    return head + items.map(card).join(''); }).join('');
+  return `
+  <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Notifications</h1>${v2 ? `<button class="ch-more" title="Settings" onclick="nav('notifSettings')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>` : ''}</div>
+  <div class="screen" style="padding-top:0;">
+    ${v2 ? `<div class="nt-seg">${tab('all', 'All')}${tab('unread', 'Unread')}${tab('projects', 'Projects')}${isAdmin ? tab('admin', 'Admin') : ''}</div>` : ''}
+    ${list.length === 0 ? `<div class="card cl-empty"><div class="cl-empty-ic">🔔</div><b>${notifTab === 'unread' ? 'All caught up' : 'No notifications yet'}</b><p>Project updates, payments and messages show up here.</p></div>` : body}
+    ${list.length ? '<p class="nt-hint">Swipe left on a notification to clear it</p>' : ''}
     ${list.length >= notifLimit ? `<button class="btn btn-outline" onclick="nav('notifications', { more: true, keep: true })">Load more</button>` : ''}
   </div>`;
 };
+// iOS-style helpers for the Notifications screen
+function ntIST(ts){ return new Date(new Date(ts).toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })); }
+function ntDayGroup(ts){
+  const d = ntIST(ts), now = ntIST(Date.now());
+  const day = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(now) - day(d)) / 86400000);
+  return diff <= 0 ? 0 : diff === 1 ? 1 : 2;
+}
+function ntTime(ts){
+  if(!ts) return '';
+  const mins = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
+  const g = ntDayGroup(ts);
+  if(mins < 1) return 'now';
+  if(mins < 60) return mins + 'm ago';
+  if(g === 0) return Math.floor(mins / 60) + 'h ago';
+  if(g === 1) return 'Yesterday';
+  return new Date(ts).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short' });
+}
+let ntSw = null;
+function ntClose(except){ document.querySelectorAll('.nt-item[data-open]').forEach(el => { if(el !== except){ el.style.transform = ''; delete el.dataset.open; } }); }
+function ntTS(e, el){ const t = e.touches[0]; ntSw = { el, x: t.clientX, y: t.clientY, dx: 0, base: el.dataset.open ? -84 : 0, h: null }; el.style.transition = 'none'; }
+function ntTM(e, el){
+  if(!ntSw || ntSw.el !== el) return;
+  const t = e.touches[0], dx = t.clientX - ntSw.x, dy = t.clientY - ntSw.y;
+  if(ntSw.h === null && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) ntSw.h = Math.abs(dx) > Math.abs(dy);
+  if(!ntSw.h) return;
+  ntSw.dx = dx; el.style.transform = `translateX(${Math.min(0, Math.max(-110, ntSw.base + dx))}px)`;
+}
+function ntTE(el){
+  if(!ntSw || ntSw.el !== el) return;
+  el.style.transition = '';
+  if(ntSw.h){ const pos = ntSw.base + ntSw.dx; if(pos < -40){ ntClose(el); el.style.transform = 'translateX(-84px)'; el.dataset.open = '1'; el.dataset.swiped = '1'; } else { el.style.transform = ''; delete el.dataset.open; el.dataset.swiped = '1'; } setTimeout(() => { delete el.dataset.swiped; }, 400); }
+  ntSw = null;
+}
+function ntWasOpen(el){
+  if(el.dataset.swiped){ delete el.dataset.swiped; return true; }
+  if(el.dataset.open){ el.style.transform = ''; delete el.dataset.open; return true; }
+  if(document.querySelector('.nt-item[data-open]')){ ntClose(); return true; }
+  return false;
+}
 SCREENS.notifSettings = async () => {
   const user = getCurrentUser();
   let d = null;
