@@ -705,7 +705,7 @@ html.os-android .cl-proj:active{transform:none; box-shadow:0 0 0 2px rgba(22,87,
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.34',
+  appVersion: '2.22.35',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -2393,7 +2393,7 @@ async function nav(screen, data){
   let k = screen; try { k += '|' + JSON.stringify(data || null); } catch(e) {}
   if(NAV_PENDING === k) return;
   NAV_PENDING = k;
-  const early = setTimeout(() => { if(NAV_PENDING !== k) return; const ck = swrKey(screen, data); if(!(ck && SCREEN_CACHE.has(ck)) && !(screen === 'admin' && currentScreenName === 'admin')) showLoadOverlay(); }, 180);
+  const early = setTimeout(() => { if(NAV_PENDING !== k) return; const ck = swrKey(screen, data); if(!(ck && SCREEN_CACHE.has(ck)) && !(screen === 'admin' && currentScreenName === 'admin' && !(data && data.tab === 'classic'))) showLoadOverlay(); }, 180);
   try { return await navInner(screen, data); }
   finally { clearTimeout(early); if(NAV_PENDING === k){ NAV_PENDING = null; hideLoadOverlay(); } }
 }
@@ -4245,30 +4245,27 @@ SCREENS.adminClassic = async () => {
     return `<div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Access Denied</h1></div>
     <div class="screen center-text" style="padding-top:60px;"><p class="muted">🚫 This page is for admins only.</p></div>`;
   }
-  const pendingData = await adminProfiles('EDITOR', false);
-  const verifiedData = await adminProfiles('EDITOR', true);
+  // v2.22.35: everything loads at the same time (it used to load one by one — about 15 seconds)
+  const safe = pr => Promise.resolve(pr).catch(() => null);
+  const [pendingData, verifiedData, pinRes, , adminRows, payRes, repRes, sus, sys, modq, extrasq, casesq] = await Promise.all([
+    safe(adminProfiles('EDITOR', false)), safe(adminProfiles('EDITOR', true)), safe(sb.rpc('sp_admin_pin_status')), safe(loadPlatformFee()),
+    safe(adminProfiles('ADMIN', null)),
+    safe(sb.from('sp_jobs').select('*').or('status.eq.delivered,payout_status.eq.manual,payout_status.eq.failed').order('created_at', { ascending: false })),
+    safe(sb.from('sp_reports').select('*').eq('status', 'open').order('created_at', { ascending: true })),
+    safe(loadSuspicious()), safe(loadSystemStatus()), safe(loadModQueue()), safe(loadExtrasQueue()), safe(loadCasesQueue())
+  ]);
   const pending = pendingData || []; const verified = verifiedData || [];
-  const { data: pinSet } = await sb.rpc('sp_admin_pin_status');
-  await loadPlatformFee();
-  const adminRows = await adminProfiles('ADMIN', null);
+  const pinSet = pinRes ? pinRes.data : true;
   const meId = (getCurrentUser() || {}).id;
-  const { data: payJobs } = await sb.from('sp_jobs').select('*')
-    .or('status.eq.delivered,payout_status.eq.manual,payout_status.eq.failed')
-    .order('created_at', { ascending: false });
+  const payJobs = payRes && payRes.data;
   const jobsList = (payJobs || []).map(mapJob);
   const deliveredJobs = jobsList.filter(j => j.status === 'delivered');
   const manualJobs = jobsList.filter(j => ['approved','closed'].includes(j.status) && ['manual','failed'].includes(j.payoutStatus));
-  const { data: repData } = await sb.from('sp_reports').select('*').eq('status', 'open').order('created_at', { ascending: true });
-  const reports = repData || [];
+  const reports = (repRes && repRes.data) || [];
   const repJobIds = [...new Set(reports.map(r => r.job_id).filter(Boolean))];
   const { data: repJobsData } = repJobIds.length ? await sb.from('sp_jobs').select('*').in('id', repJobIds) : { data: [] };
   const repJobs = {}; (repJobsData || []).map(mapJob).forEach(j => { repJobs[j.id] = j; });
   const nameMap = await getProfilesByIds([...jobsList.map(j => j.assignedEditor), ...reports.map(r => r.reporter_id), ...reports.map(r => r.against_id || r.chat_user_id)]);
-  const sus = await loadSuspicious();
-  const sys = await loadSystemStatus();
-  const modq = await loadModQueue();
-  const extrasq = await loadExtrasQueue();
-  const casesq = await loadCasesQueue();
   const who = id => { const u = nameMap[id]; return u ? `${esc(u.name)} (${esc(u.role)}) ${u.phone ? `<a href="tel:${esc(u.phone)}">${esc(u.phone)}</a>` : ''}` : '-'; };
   return `
   <div class="header"><button class="back-btn" onclick="nav('admin')">‹</button><h1>Classic tools</h1><p>Settings, admins, reports, payouts</p></div>
@@ -7677,7 +7674,7 @@ SCREENS.admin = async (data) => {
   <div class="header"><button class="back-btn" onclick="nav('profile')">‹</button><h1>Admin Panel</h1><p>Sphere by Syahi Films</p></div>
   <div class="screen" style="padding-top:0;">
     ${adminPinCard(pinSet)}
-    <div class="ad-tabs">${ADMIN_TABS.map(([k, l]) => `<button class="${adminTab === k ? 'on' : ''}" onclick="nav('admin', { tab: '${k}' })">${l}${counts[k] ? `<span class="n">${counts[k]}</span>` : ''}</button>`).join('')}</div>
+    <div class="ad-tabs">${ADMIN_TABS.map(([k, l]) => `<button class="${adminTab === k ? 'on' : ''}" onclick="${k === 'classic' ? "nav('adminClassic')" : `nav('admin', { tab: '${k}' })`}">${l}${counts[k] ? `<span class="n">${counts[k]}</span>` : ''}</button>`).join('')}</div>
     ${body}
   </div>`;
 };
