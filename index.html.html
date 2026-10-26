@@ -705,7 +705,7 @@ html.os-android .cl-proj:active{transform:none; box-shadow:0 0 0 2px rgba(22,87,
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.37',
+  appVersion: '2.22.38',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -3093,6 +3093,7 @@ SCREENS.settingsScreen = () => `
     ${menuItem('help', 'Help, Support & Policies', "nav('support')")}
     ${modeSwitchCard(getCurrentUser())}
     ${menuItem('logout', 'Logout', 'logout()', { cls: 'danger' })}
+    ${getCurrentUser() && getCurrentUser().baseRole !== 'admin' ? `<p style="text-align:center; margin:14px 0 4px;"><span class="link" style="color:#b91c1c; font-size:13px;" onclick="nav('deleteAccount')">Delete my account</span></p>` : ''}
     <p class="muted center-text" style="font-size:11px; margin-top:16px;">Sphere v${esc(SPHERE_CONFIG.appVersion)}</p>
   </div>`;
 
@@ -4236,8 +4237,48 @@ SCREENS.profile = async () => {
     ${user.baseRole==='admin' ? menuItem('shield', 'Admin Panel', "nav('admin')", { sub: 'Verify editors, reports, payouts' }) : ''}
     ${modeSwitchCard(user)}
     ${menuItem('logout', 'Logout', 'logout()', { cls: 'danger' })}
+    ${getCurrentUser() && getCurrentUser().baseRole !== 'admin' ? `<p style="text-align:center; margin:14px 0 4px;"><span class="link" style="color:#b91c1c; font-size:13px;" onclick="nav('deleteAccount')">Delete my account</span></p>` : ''}
   </div>`;
 };
+// v2.22.38: delete my account (Google Play / App Store rule) — migration 054
+SCREENS.deleteAccount = () => `
+  <div class="header"><button class="back-btn" onclick="nav('profile')">‹</button><h1>Delete account</h1><p>This cannot be undone</p></div>
+  <div class="screen" style="padding-top:0;">
+    <div class="card" style="border:1.5px solid #b91c1c;">
+      <b>What gets deleted</b>
+      <ul style="font-size:13px; margin:8px 0 0 18px; line-height:1.7;">
+        <li>Your login, profile, photo and portfolio</li>
+        <li>Your chats, bids, saved editors and notifications</li>
+        <li>Your past projects and reviews</li>
+      </ul>
+      <p class="muted" style="font-size:12px; margin-top:8px;">You can't delete while a project is still running or Sphere still has to pay you — finish those first. Payment records may be kept by Razorpay as the law requires.</p>
+    </div>
+    <div class="card">
+      <div class="field"><label>Type <b>DELETE</b> to confirm</label><input id="delConfirm" autocomplete="off" autocapitalize="characters" placeholder="DELETE"></div>
+      <button class="btn" id="delBtn" style="background:#b91c1c; color:#fff;" onclick="deleteMyAccount()">Delete my account forever</button>
+      <button class="btn btn-outline" style="margin-top:8px;" onclick="nav('profile')">Keep my account</button>
+    </div>
+  </div>`;
+async function deleteMyAccount(){
+  const v = ((document.getElementById('delConfirm') || {}).value || '').trim();
+  if(v.toUpperCase() !== 'DELETE'){ alert('Type DELETE in the box to confirm.'); return; }
+  if(!confirm('Delete your Sphere account forever? This cannot be undone.')) return;
+  const btn = document.getElementById('delBtn'); if(btn){ btn.disabled = true; btn.textContent = 'Deleting…'; }
+  const u = getCurrentUser();
+  try {   // your pictures (profile photo, portfolio) first
+    const { data: files } = await sb.storage.from(MEDIA_BUCKET).list(u.id, { limit: 1000 });
+    if(files && files.length) await sb.storage.from(MEDIA_BUCKET).remove(files.map(f => u.id + '/' + f.name));
+  } catch(e) {}
+  const { error } = await sb.rpc('sp_delete_my_account', { p_confirm: 'DELETE' });
+  if(error){ if(btn){ btn.disabled = false; btn.textContent = 'Delete my account forever'; } alert(/function|schema cache/i.test(error.message || '') ? 'Please try again in a minute.' : error.message); return; }
+  try { await stopPushForThisPhone(); } catch(e) {}
+  VERIFIED_CACHE = null; CLIENT_DASH_CACHE = { uid: null, html: '' }; PREMIUM_CACHE.clear(); SCREEN_CACHE.clear(); stopChatPresence();
+  loggingOut = true; clearSessionState();
+  try { await sb.auth.signOut(); } catch(e) {}
+  loggingOut = false;
+  alert('Your Sphere account has been deleted.');
+  nav('authLanding');
+}
 async function logout(){
   await stopPushForThisPhone();
   VERIFIED_CACHE = null; CLIENT_DASH_CACHE = { uid: null, html: '' }; PREMIUM_CACHE.clear(); SCREEN_CACHE.clear(); stopChatPresence();   // Part C: forget cached screens on logout
@@ -4660,7 +4701,7 @@ const ROUTE_ACCESS = Object.freeze({
   support: 'user', report: 'user', myReports: 'user', sphereAI: 'user',
   categories: 'user', categoryDetail: 'user', allEditors: 'user', verifiedEditorsScreen: 'user',
   editorProfile: 'user', jobs: 'user', projectStatus: 'user', portfolio: 'user',
-  escrowScreen: 'user', vaultScreen: 'user', editProfile: 'user', previewPlayer: 'user', notifSettings: 'user', premiumScreen: 'client',
+  escrowScreen: 'user', vaultScreen: 'user', editProfile: 'user', previewPlayer: 'user', notifSettings: 'user', deleteAccount: 'user', premiumScreen: 'client',
   postJob: 'client', applications: 'client', payment: 'client', savedList: 'client', ratings: 'client',
   jobBidScreen: 'editor',
   editorDetails: 'editorAccount', verificationStatus: 'editorAccount', editorProfileEdit: 'editorAccount', proScreen: 'editorAccount',
