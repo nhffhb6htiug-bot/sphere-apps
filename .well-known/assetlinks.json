@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.syahifilms.sphere",
+        "sha256_cert_fingerprints": ["D0:64:EF:B9:F4:BF:DB:FF:0A:2E:BF:1A:36:D8:F7:38:D6:30:F4:09:B1:85:B4:C3:5E:A4:03:56:65:55:1D:01"]
+      }
+    }]
