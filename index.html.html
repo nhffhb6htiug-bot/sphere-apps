@@ -705,7 +705,7 @@ html.os-android .cl-proj:active{transform:none; box-shadow:0 0 0 2px rgba(22,87,
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.36',
+  appVersion: '2.22.37',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -2057,6 +2057,9 @@ function nativeAskedKey(){ return 'sp_native_notif_asked:' + (getCurrentUser() ?
 function armNativeNotifPrompt(){
   if(NATIVE_ARMED || !getCurrentUser()) return;
   if(isIOS() && !isStandalone()){ showIOSInstallTip(); return; }             // iPhone: notifications only for the Home Screen app
+  // v2.22.37: on iPhone the system prompt fired from a random tap could freeze the screen (taps stopped working,
+  // only scrolling moved) — iPhone users now allow notifications with the "Allow" button instead
+  if(isIOS()) return;
   if(!canNotify() || Notification.permission !== 'default') return;
   try { if(localStorage.getItem(nativeAskedKey()) === '1') return; } catch(e) {}
   NATIVE_ARMED = true;
@@ -2922,6 +2925,7 @@ function renderAIMessages(){
   setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 30);
 }
 SCREENS.sphereAI = () => {
+  if(aiBusy && Date.now() - aiBusySince > 60000) aiBusy = false;
   setTimeout(renderAIMessages, 0);
   return `
   <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Sphere AI ✨</h1><p>Your assistant for editing & hiring</p></div>
@@ -2952,8 +2956,10 @@ async function aiInvoke(body){
   return r;
 }
 function aiContext(){ return aiHistory.filter(m => !m.failed).slice(-12).map(m => ({ role: m.role, text: m.text })); }
+let aiBusySince = 0;
 async function sendAI(preset, retryIdx){
-  if(aiBusy) return;
+  if(aiBusy && Date.now() - aiBusySince < 60000) return;     // a stuck request never blocks Sphere AI for good
+  aiBusySince = Date.now();
   let text = '';
   if(retryIdx != null){ const m = aiHistory[retryIdx]; if(!m) return; text = m.text; aiHistory.splice(retryIdx, 1); }
   else {
