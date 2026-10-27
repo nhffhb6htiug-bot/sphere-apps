@@ -1,0 +1,50 @@
+# Sphere — nightly encrypted database backup (free).
+# Needs two repository secrets (Settings → Secrets and variables → Actions):
+#   SUPABASE_DB_URL     Supabase → Connect → "Session pooler" URI (with the database password)
+#   BACKUP_PASSPHRASE   a long password (16+ characters) — keep it safe: without it the backup cannot be opened
+# The backup is AES-256 encrypted before it is stored, and nothing secret is printed to the (public) logs.
+name: Nightly database backup
+on:
+  schedule:
+    - cron: '30 21 * * *'      # 03:00 India time, every night
+  workflow_dispatch: {}        # "Run workflow" button for a backup right now
+permissions:
+  contents: read
+concurrency: { group: db-backup, cancel-in-progress: false }
+jobs:
+  backup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the secrets are set
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PASS: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          if [ -z "$DB_URL" ] || [ -z "$PASS" ]; then echo "::error::Add SUPABASE_DB_URL and BACKUP_PASSPHRASE in Settings → Secrets and variables → Actions"; exit 1; fi
+          if [ ${#PASS} -lt 16 ]; then echo "::error::BACKUP_PASSPHRASE must be at least 16 characters"; exit 1; fi
+      - name: Install pg_dump 17 (same as the Supabase database)
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17 > /dev/null
+      - name: Back up, check and encrypt
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PASS: ${{ secrets.BACKUP_PASSPHRASE }}
+          PGDUMP: /usr/lib/postgresql/17/bin/pg_dump
+          PGRESTORE: /usr/lib/postgresql/17/bin/pg_restore
+        run: |
+          echo "STAMP=$(date -u +%Y-%m-%d)" >> "$GITHUB_ENV"
+          STAMP=$(date -u +%Y-%m-%d) bash scripts/backup.sh
+      - name: Keep the encrypted backup for 30 days
+        uses: actions/upload-artifact@v4
+        with:
+          name: sphere-db-${{ env.STAMP }}
+          path: |
+            sphere-db-*.dump.gpg
+            sphere-db-*.sha256
+          retention-days: 30
+          if-no-files-found: error
