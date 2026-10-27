@@ -1,0 +1,39 @@
+# Keeps the free Supabase project active so it never auto-pauses.
+# Every day: one tiny read request to the database.
+# On the 1st of every month: a tiny commit, so GitHub never switches this schedule off.
+name: Keep Supabase awake
+
+on:
+  schedule:
+    - cron: "17 3 * * *"   # every day at 08:47 IST
+  workflow_dispatch:        # "Run workflow" button for a manual test
+
+permissions:
+  contents: write
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase database
+        env:
+          SUPABASE_URL: https://pwcchgjsgkwrsvbzqspp.supabase.co
+          SUPABASE_KEY: sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$SUPABASE_URL/rest/v1/profiles?select=id&limit=1" -H "apikey: $SUPABASE_KEY")
+          echo "Supabase replied: $code"
+          if [ "$code" -ge 500 ] || [ "$code" = "000" ]; then exit 1; fi
+
+      - name: Monthly heartbeat commit (keeps this schedule enabled)
+        if: github.event_name == 'schedule'
+        uses: actions/checkout@v4
+      - name: Commit heartbeat
+        if: github.event_name == 'schedule'
+        run: |
+          if [ "$(date -u +%d)" = "01" ]; then
+            date -u > .keepalive
+            git config user.name "sphere-bot"
+            git config user.email "actions@users.noreply.github.com"
+            git add .keepalive
+            git commit -m "keepalive $(date -u +%Y-%m)" && git push || echo "nothing to commit"
+          fi
