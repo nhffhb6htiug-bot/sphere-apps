@@ -667,6 +667,56 @@ html.os-android .cl-proj:active{transform:none; box-shadow:0 0 0 2px rgba(22,87,
 .ga-soon{display:flex; align-items:center; gap:8px; margin-top:10px; padding:10px 12px; border-radius:12px; background:#f4f5f9; color:#6e6e73; font-size:13px;}
 .ga-soon b{color:#111;}
 .ga-done{text-align:center; padding:22px 12px;}
+
+/* v2.22.39: PC admin panel */
+body.pc-admin{max-width:none; padding-bottom:0; background:#eef1f8;}
+.pca{display:grid; grid-template-columns:236px minmax(0,1fr); min-height:100vh;}
+.pca-side{position:sticky; top:0; height:100vh; overflow:auto; background:#0f172a; color:#cbd5e1; padding:18px 12px; display:flex; flex-direction:column; gap:2px;}
+.pca-brand{display:flex; gap:10px; align-items:center; padding:2px 8px 16px;}
+.pca-brand img{width:36px; height:36px; border-radius:9px; background:#fff;}
+.pca-brand b{display:block; color:#fff; font-size:17px;} .pca-brand small{font-size:11px; color:#94a3b8;}
+.pca-side button{display:flex; justify-content:space-between; align-items:center; width:100%; text-align:left; border:0; background:none; color:inherit; font:inherit; font-size:14px; padding:9px 12px; border-radius:10px; cursor:pointer;}
+.pca-side button:hover{background:#1e293b; color:#fff;}
+.pca-side button.on{background:#1657ff; color:#fff; font-weight:600;}
+.pca-side .n{background:#ef4444; color:#fff; border-radius:10px; padding:1px 7px; font-size:11px; font-weight:700;}
+.pca-foot{margin-top:auto; padding-top:14px; border-top:1px solid #1e293b; display:flex; flex-direction:column; gap:2px;}
+.pca-lock{font-size:12px; padding:6px 12px; color:#fbbf24;} .pca-lock.ok{color:#4ade80;}
+.pca-main{padding:22px 32px 60px; min-width:0;}
+.pca-top{display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:14px;}
+.pca-top h1{font-size:28px; margin:0;} .pca-top .muted{font-size:13px;}
+.pca-body{max-width:1240px;}
+.pca-body:not(.tab-verification):not(.tab-overview){max-width:920px;}
+.pca-body.tab-overview{display:grid; grid-template-columns:1fr 1fr; gap:0 16px; align-items:start;}
+.pca-body.tab-overview > .ad-grid{grid-column:1/-1; grid-template-columns:repeat(4,1fr);}
+.pca-body.sub .header{background:none; padding-left:0;}
+.pca .card{margin-bottom:14px;}
+.pcv-chips{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;}
+.pcv-chips button{border:1px solid var(--border); background:#fff; border-radius:20px; padding:7px 14px; font:inherit; font-size:13px; cursor:pointer;}
+.pcv-chips button span{color:#64748b; font-weight:700; margin-left:4px;}
+.pcv-chips button.on{background:#1657ff; border-color:#1657ff; color:#fff;} .pcv-chips button.on span{color:#dbeafe;}
+.pcv{display:grid; grid-template-columns:330px minmax(0,1fr); gap:16px; align-items:start;}
+.pcv-list,.pcv-detail{background:#fff; border:1px solid var(--border); border-radius:14px; max-height:calc(100vh - 170px); overflow:auto;}
+.pcv-search{position:sticky; top:0; background:#fff; padding:10px; border-bottom:1px solid var(--border); z-index:1;}
+.pcv-search input{width:100%; box-sizing:border-box;}
+.pcv-item{display:flex; gap:10px; align-items:center; padding:10px 12px; border-bottom:1px solid var(--border); cursor:pointer; border-left:3px solid transparent;}
+.pcv-item:hover{background:#f8fafc;} .pcv-item.on{background:#eef3ff; border-left-color:#1657ff;}
+.pcv-item b{display:block; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.pcv-item small{display:block; font-size:12px; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.pcv-tags{display:flex; gap:4px; margin-top:4px;} .pcv-tags i{font-style:normal; font-size:10.5px; padding:1px 6px; border-radius:6px; background:#f1f5f9; color:#64748b;}
+.pcv-tags i.ok{background:#dcfce7; color:#15803d;} .pcv-tags i.warn{background:#fef3c7; color:#b45309;}
+.pcv-keys{font-size:11px; padding:10px 12px;}
+.pcv-detail{padding:20px 22px;}
+.pcv-head{display:flex; gap:14px; align-items:center; margin-bottom:16px;} .pcv-head h2{margin:0 0 2px; font-size:21px;}
+.pcv-grid{display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,1fr); gap:16px; align-items:start;}
+.pcv-box{border:1px solid var(--border); border-radius:12px; padding:12px 14px; margin-bottom:12px; background:#fff;}
+.pcv-video{margin-top:8px;} .pcv-video iframe{width:100%; aspect-ratio:16/9; border:0; border-radius:10px; background:#000; display:block;}
+.pcv-call .num{font-size:22px; font-weight:700; margin-bottom:8px; letter-spacing:.3px;}
+.pcv-call .btn-sm{text-decoration:none;}
+.pcv-ck{display:flex; gap:8px; align-items:flex-start; font-size:13px; margin-top:8px; cursor:pointer;}
+.pcv-ck input{width:auto; margin-top:2px;}
+.pcv-actions{display:grid; gap:8px;}
+.pcv-empty{text-align:center; padding:60px 20px;}
+.pcv-verified{display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:0 14px;} .pcv-verified h3{grid-column:1/-1;}
 </style>
 </head>
 <body>
@@ -705,7 +755,7 @@ html.os-android .cl-proj:active{transform:none; box-shadow:0 0 0 2px rgba(22,87,
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.38',
+  appVersion: '2.22.39',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -2427,6 +2477,8 @@ async function navInner(screen, data){
   const adminSameTab = adminSub || (adminStay && !(data && data.tab && data.tab !== adminTab));
   const adminKeep = adminStay ? { y: window.scrollY, x: ((document.querySelector('.ad-tabs') || {}).scrollLeft) || 0, sameTab: adminSameTab } : null;
   currentScreenName = screen; NAV_LAST_DATA = dataKey;
+  const pcAdmin = pcAdminScreen(screen) && pcAdminOn();
+  document.body.classList.toggle('pc-admin', pcAdmin); PC_ADMIN_WAS = pcAdminOn();
   if(!adminStay) window.scrollTo(0,0);
   const visibleScreens = ['home','chatList','jobs','portfolio','profile'];
   bottomNav.classList.toggle('hidden', !visibleScreens.includes(screen));
@@ -2435,7 +2487,8 @@ async function navInner(screen, data){
   if(visibleScreens.includes(screen)) refreshChatBadge();
   const renderer = SCREENS[screen];
   if(renderer){
-    const result = renderer(data);
+    let result = renderer(data);
+    if(pcAdmin && screen !== 'admin') result = Promise.resolve(result).then(h => pcAdminWrapSub(screen, h));
     if(result instanceof Promise){
       // Main tabs open at once from the last copy (no loader), then the fresh copy replaces it quietly.
       const key = swrKey(screen, data);
@@ -7709,6 +7762,199 @@ function adminPinCard(pinSet){
       <button class="btn btn-primary" onclick="unlockAdmin()">Unlock</button></div>`;
 }
 
+/* ============ v2.22.39: PC ADMIN PANEL ============
+   On a computer (window 1000px or wider) the Admin Panel opens full-width: a left sidebar with every section,
+   and a two-pane Verification desk (list on the left, everything about one editor on the right, videos play inline).
+   "Phone view" in the sidebar switches back to the normal layout. */
+function pcAdminScreen(s){ return ['admin', 'adminUser', 'adminProject', 'adminEditDetails', 'adminClassic'].includes(s); }
+var PC_SUB_TAB = { adminUser: 'users', adminProject: 'projects', adminEditDetails: 'verification', adminClassic: 'classic' };
+var PC_ADMIN_COUNTS = {}, PCV_LIST = [], PCV_REV = [], PCV_SEL = null, PCV_FILTER = 'waiting', PCV_Q = '', PCV_CHECK = {};
+function pcAdminOn(){
+  let phone = false; try { phone = localStorage.getItem('sp_admin_phone_view') === '1'; } catch(e) {}
+  return window.innerWidth >= 1000 && !phone && isAdminUser(getCurrentUser());
+}
+function pcAdminSetPhoneView(on){
+  try { on ? localStorage.setItem('sp_admin_phone_view', '1') : localStorage.removeItem('sp_admin_phone_view'); } catch(e) {}
+  pcAdminRerender();
+}
+function pcAdminRerender(){
+  SCREEN_CACHE.clear();
+  nav(currentScreenName && pcAdminScreen(currentScreenName) ? currentScreenName : 'admin', (() => { try { return JSON.parse(NAV_LAST_DATA || 'null'); } catch(e) { return null; } })());
+}
+function pcAdminShell(tab, inner, opts){
+  opts = opts || {};
+  const label = (ADMIN_TABS.find(t => t[0] === tab) || [tab, 'Admin'])[1];
+  const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
+  return `<div class="pca">
+    <aside class="pca-side">
+      <div class="pca-brand"><img src="icon-192-v2.png" alt=""><div><b>Sphere</b><small>Admin · ${esc((getCurrentUser() || {}).name || '')}</small></div></div>
+      ${ADMIN_TABS.map(([k, l]) => `<button class="${tab === k ? 'on' : ''}" onclick="${k === 'classic' ? "nav('adminClassic')" : `nav('admin', { tab: '${k}' })`}"><span>${l}</span>${PC_ADMIN_COUNTS[k] ? `<span class="n">${PC_ADMIN_COUNTS[k]}</span>` : ''}</button>`).join('')}
+      <div class="pca-foot">
+        ${ADMIN_PIN ? `<button class="pca-lock ok" title="Lock the admin actions" onclick="ADMIN_PIN=''; nav('admin')">🔓 Unlocked · Lock</button>` : `<div class="pca-lock">🔐 Locked — enter PIN</div>`}
+        <button onclick="pcAdminSetPhoneView(true)">📱 Phone view</button>
+        <button onclick="nav('profile')">← Back to app</button>
+      </div>
+    </aside>
+    <main class="pca-main">
+      ${opts.sub ? '' : `<div class="pca-top"><div><h1>${label}</h1><span class="muted">${esc(today)}</span></div>
+        <button class="btn-sm" onclick="SCREEN_CACHE.clear(); nav('admin', { tab: '${tab}' })">⟳ Refresh</button></div>`}
+      ${opts.pin || ''}
+      <div class="pca-body tab-${esc(tab)}${opts.sub ? ' sub' : ''}">${inner}</div>
+    </main>
+  </div>`;
+}
+function pcAdminWrapSub(screen, html){ return pcAdminShell(PC_SUB_TAB[screen] || 'overview', html, { sub: true }); }
+
+// ---- Verification desk (PC)
+async function pcVerificationTab(){
+  const list = await adminRpc('sp_admin_verifications').catch(() => null);
+  if(!list) return adminVerificationTab();
+  const ids = list.map(e => e.id);
+  const [verified, pendingRev, reqs] = await Promise.all([
+    adminRpc('sp_admin_editor_review', { p_ids: null }).catch(() => null),
+    ids.length ? adminRpc('sp_admin_editor_review', { p_ids: ids }).catch(() => []) : Promise.resolve([]),
+    adminRpc('sp_admin_detail_requests').catch(() => [])]);
+  PCV_LIST = list; PCV_REV = pendingRev || [];
+  const n = {
+    waiting: list.filter(e => e.status !== 'rejected').length,
+    paid: list.filter(e => e.fee_status === 'submitted' || e.fee_status === 'confirmed').length,
+    video: list.filter(e => e.proof_video).length,
+    rejected: list.filter(e => e.status === 'rejected').length,
+    verified: (verified || []).length };
+  const chip = (k, l) => `<button class="${PCV_FILTER === k ? 'on' : ''}" onclick="PCV_FILTER='${k}'; nav('admin', { tab: 'verification' })">${l} <span>${n[k]}</span></button>`;
+  const chips = `<div class="pcv-chips">${chip('waiting', 'Waiting')}${chip('paid', '₹29 paid')}${chip('video', 'Promo video sent')}${chip('rejected', 'Rejected')}${chip('verified', '✔ Verified')}</div>`;
+  const reqBox = (reqs || []).length ? `<div class="card" style="border:1.5px solid #1657ff;"><b>✏️ Update requests (${reqs.length})</b>
+      <p class="muted" style="font-size:12px; margin:2px 0 6px;">Paid ₹${VERIFY_FEE}. Call the editor, check, then edit their details.</p>
+      ${reqs.map(q => `<div style="border-top:1px solid var(--border); padding:8px 0; display:flex; gap:10px; align-items:center;"><div style="flex:1;"><b>${esc(q.name || 'Editor')}</b> <span class="muted" style="font-size:11px;">${esc(fmtDate(q.at))}</span>
+        <p style="font-size:13px; margin:2px 0 0;">“${esc(q.note || '')}”</p></div>
+        <button class="btn-sm" onclick="nav('adminEditDetails', { userId: '${esc(q.editor_id)}', requestId: '${esc(q.id)}' })">✏️ Edit details</button></div>`).join('')}</div>` : '';
+  if(PCV_FILTER === 'verified') return chips + reqBox + `<div class="pcv-verified">${verifiedEditorsSection(verified)}</div>`;
+  const shown = pcvFiltered();
+  if(!shown.find(e => e.id === PCV_SEL)) PCV_SEL = shown.length ? shown[0].id : null;
+  const sel = shown.find(e => e.id === PCV_SEL);
+  return chips + reqBox + `<div class="pcv">
+    <div class="pcv-list">
+      <div class="pcv-search"><input id="pcvSearch" placeholder="Search name, phone, email  ( / )" value="${esc(PCV_Q)}" oninput="PCV_Q=this.value; pcvRenderList()"></div>
+      <div id="pcvItems">${pcvItemsHtml()}</div>
+      <p class="muted pcv-keys">Keys: <b>J</b>/<b>↓</b> next · <b>K</b>/<b>↑</b> previous · <b>/</b> search</p>
+    </div>
+    <div class="pcv-detail" id="pcvDetail">${sel ? pcvDetailHtml(sel) : `<div class="pcv-empty"><b>Nothing here 👍</b><p class="muted">No editors in this list.</p></div>`}</div>
+  </div>`;
+}
+function pcvFiltered(){
+  const q = String(PCV_Q || '').trim().toLowerCase();
+  return (PCV_LIST || []).filter(e => {
+    if(PCV_FILTER === 'waiting' && e.status === 'rejected') return false;
+    if(PCV_FILTER === 'paid' && !(e.fee_status === 'submitted' || e.fee_status === 'confirmed')) return false;
+    if(PCV_FILTER === 'video' && !e.proof_video) return false;
+    if(PCV_FILTER === 'rejected' && e.status !== 'rejected') return false;
+    return !q || [e.name, e.phone, e.email, (e.categories || []).join(' ')].join(' ').toLowerCase().includes(q);
+  });
+}
+function pcvItemsHtml(){
+  const rows = pcvFiltered();
+  if(!rows.length) return '<p class="muted" style="padding:14px;">No editors match.</p>';
+  return rows.map(e => {
+    const tags = [e.fee_status === 'confirmed' ? '<i class="ok">₹29 ✓</i>' : e.fee_status === 'submitted' ? '<i class="warn">₹29 check</i>' : '<i>unpaid</i>',
+      e.proof_video ? '<i class="ok">🎬 video</i>' : '<i>no video</i>'].join('');
+    return `<div class="pcv-item ${e.id === PCV_SEL ? 'on' : ''}" data-id="${esc(e.id)}" onclick="pcvSelect('${esc(e.id)}')">
+      ${avatarHtml({ avatar: e.avatar }, 'margin:0; width:38px; height:38px; flex:none;')}
+      <div style="min-width:0; flex:1;"><b>${esc(e.name || 'Editor')}</b><small>${esc((e.categories || []).slice(0, 2).join(', ') || e.email || '')}</small><div class="pcv-tags">${tags}</div></div>
+      ${e.status === 'rejected' ? '<span title="Rejected">✖</span>' : ''}</div>`; }).join('');
+}
+function pcvRenderList(){ const box = document.getElementById('pcvItems'); if(box) box.innerHTML = pcvItemsHtml(); }
+function pcvSelect(id){
+  const e = (PCV_LIST || []).find(x => x.id === id); if(!e) return;
+  PCV_SEL = id;
+  document.querySelectorAll('.pcv-item').forEach(el => el.classList.toggle('on', el.dataset.id === id));
+  const d = document.getElementById('pcvDetail'); if(d){ d.innerHTML = pcvDetailHtml(e); d.scrollTop = 0; }
+  const it = document.querySelector('.pcv-item.on'); if(it && it.scrollIntoView) it.scrollIntoView({ block: 'nearest' });
+}
+function pcvMove(step){
+  const rows = pcvFiltered(); if(!rows.length) return;
+  const i = Math.max(0, rows.findIndex(e => e.id === PCV_SEL));
+  pcvSelect(rows[Math.min(rows.length - 1, Math.max(0, i + step))].id);
+}
+function pcvVideo(url, title){
+  if(!url) return '';
+  const emb = embedUrl(url);
+  return emb ? `<div class="pcv-video"><iframe src="${esc(emb)}" title="${esc(title)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen loading="lazy"></iframe></div>
+      <p style="font-size:12px; margin-top:4px;"><a href="${esc(url)}" target="_blank" rel="noopener">Open in a new tab ↗</a></p>`
+    : `<p style="font-size:13px;">${linkOrText(url)}</p>`;
+}
+function pcvDetailHtml(e){
+  const ph = String(e.phone || '').replace(/\D/g, '').slice(-10);
+  const wa = `https://wa.me/91${ph}?text=${encodeURIComponent('Hi ' + (e.name || '') + ', this is the Sphere team (Syahi Films) about your editor verification.')}`;
+  const arr = v => Array.isArray(v) ? v.join(', ') : (v || '');
+  const c = PCV_CHECK[e.id] || {};
+  const ck = (k, l) => `<label class="pcv-ck"><input type="checkbox" ${c[k] ? 'checked' : ''} onchange="pcvTick('${esc(e.id)}','${k}',this.checked)"> ${l}</label>`;
+  const rev = (PCV_REV || []).find(r => r.id === e.id);
+  return `
+    <div class="pcv-head">
+      ${avatarHtml({ avatar: e.avatar }, 'margin:0; width:64px; height:64px; flex:none;')}
+      <div style="flex:1; min-width:0;"><h2>${esc(e.name || 'Editor')} ${verifyStateChip(e.status)}</h2>
+        <p class="muted" style="font-size:13px;">${esc(e.email || '')}${e.joined ? ' · joined ' + esc(fmtDate(e.joined)) : ''} · ${e.works} paid work${e.works === 1 ? '' : 's'}</p></div>
+      <button class="btn-sm" onclick="nav('adminUser', { userId: '${esc(e.id)}' })">👤 Full profile</button>
+    </div>
+    <div class="pcv-grid">
+      <div>
+        <div class="pcv-box"><b>🎬 Sphere promo video</b> ${e.proof_video ? `<span class="muted" style="font-size:12px;">sent ${esc(fmtDT(e.proof_at))}</span>` : ''}
+          ${e.proof_video ? pcvVideo(e.proof_video, 'Promo video') + `<p class="muted" style="font-size:12px; margin-top:6px;">On the call, ask them to share their screen and show this video's project/timeline — a middleman can't do that.</p>`
+            : `<p style="color:#b45309; font-size:13px; margin-top:6px;">Not sent yet — verify only after they send it.</p>`}</div>
+        ${e.sample ? `<div class="pcv-box"><b>🎞 Sample work</b>${pcvVideo(e.sample, 'Sample')}</div>` : ''}
+        ${e.portfolio ? `<div class="pcv-box"><b>📁 Portfolio</b><p style="font-size:13px; margin-top:4px;">${linkOrText(e.portfolio)}</p></div>` : ''}
+        ${e.bio ? `<div class="pcv-box"><b>📝 About</b><p style="font-size:13px; margin-top:4px; white-space:pre-wrap;">${esc(e.bio)}</p></div>` : ''}
+      </div>
+      <div>
+        <div class="pcv-box pcv-call"><div class="num">${ph ? '+91 ' + ph.replace(/(\d{5})(\d{5})/, '$1 $2') : 'No number'}</div>
+          ${ph ? `<div class="btn-row" style="flex-wrap:wrap;"><button class="btn-sm" onclick="navigator.clipboard && navigator.clipboard.writeText('+91${ph}').then(() => alert('Number copied'))">📋 Copy</button>
+            <a class="btn-sm" href="${wa}" target="_blank" rel="noopener">💬 WhatsApp</a><a class="btn-sm" href="tel:+91${ph}">📞 Call</a></div>` : ''}</div>
+        <div class="pcv-box"><b>💳 Verification fee</b><div style="margin-top:6px;">${adminVerifyBlock({ verification_status: e.status, verification_fee_status: e.fee_status, verification_fee_ref: e.fee_ref, verification_fee_at: e.fee_at, verification_note: e.note })}</div>
+          ${e.fee_status === 'submitted' ? `<div class="btn-row"><button class="btn-sm" onclick="edReview('${esc(e.id)}','confirm_fee')">✅ Fee received</button><button class="btn-sm" onclick="edReview('${esc(e.id)}','reject_fee')">❌ Fee not found</button></div>` : ''}</div>
+        <div class="pcv-box"><b>🧾 Details</b>
+          <div class="kv"><span>Categories</span><b>${esc(arr(e.categories)) || '-'}</b></div>
+          <div class="kv"><span>Languages</span><b>${esc(arr(e.languages)) || '-'}</b></div>
+          <div class="kv"><span>Skills</span><b>${esc(arr(e.skills)) || '-'}</b></div>
+          <div class="kv"><span>Experience</span><b>${e.experience ? esc(e.experience) + ' yrs' : '-'}</b></div>
+          <div class="kv"><span>Price</span><b>${e.price ? '₹' + esc(e.price) : '-'}</b></div></div>
+        ${reviewHistoryHtml(rev)}
+        <div class="pcv-box"><b>✅ Call checklist</b>
+          ${ck('call', 'Called and spoke to the editor')}${ck('timeline', 'They showed the promo video project / timeline on screen')}
+          ${ck('fee', '₹' + VERIFY_FEE + ' fee received')}${ck('details', 'Details are correct (edit if not)')}</div>
+        <div class="pcv-actions">
+          <button class="btn btn-outline" onclick="nav('adminEditDetails', { userId: '${esc(e.id)}' })">✏️ Edit details</button>
+          <button class="btn btn-primary" onclick="pcvVerify('${esc(e.id)}')">✔ Verify editor</button>
+          ${e.status === 'rejected' ? `<button class="btn btn-outline" onclick="edReview('${esc(e.id)}','reopen')">↩️ Re-open</button>`
+            : `<button class="btn btn-outline" style="color:#c62828; border-color:#c62828;" onclick="edReview('${esc(e.id)}','reject')">✖ Reject</button>`}
+        </div>
+      </div>
+    </div>`;
+}
+function pcvTick(id, k, on){ PCV_CHECK[id] = Object.assign({}, PCV_CHECK[id], { [k]: on }); }
+function pcvVerify(id){
+  const c = PCV_CHECK[id] || {};
+  const missing = ['call', 'timeline', 'fee', 'details'].filter(k => !c[k]).length;
+  if(missing && !confirm(missing + ' check(s) are not ticked yet. Verify anyway?')) return;
+  verifyEditor(id);
+}
+document.addEventListener('keydown', ev => {
+  if(!document.querySelector('.pcv')) return;
+  const t = ev.target, tag = (t && t.tagName) || '';
+  if(/INPUT|TEXTAREA|SELECT/.test(tag) || (t && t.isContentEditable) || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  if(ev.key === 'j' || ev.key === 'ArrowDown'){ ev.preventDefault(); pcvMove(1); }
+  else if(ev.key === 'k' || ev.key === 'ArrowUp'){ ev.preventDefault(); pcvMove(-1); }
+  else if(ev.key === '/'){ ev.preventDefault(); const s = document.getElementById('pcvSearch'); if(s) s.focus(); }
+});
+var PC_ADMIN_WAS = null;
+window.addEventListener('resize', () => {
+  clearTimeout(window.__pcaT);
+  window.__pcaT = setTimeout(() => {
+    const on = pcAdminOn();
+    if(PC_ADMIN_WAS !== null && on !== PC_ADMIN_WAS && pcAdminScreen(currentScreenName))pcAdminRerender();
+    PC_ADMIN_WAS = on;
+  }, 250);
+});
+
 SCREENS.admin = async (data) => {
   const u = getCurrentUser();
   if(!isAdminUser(u)) return `<div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Access Denied</h1></div><div class="screen center-text" style="padding-top:60px;"><p class="muted">🚫 This page is for admins only.</p></div>`;
@@ -7719,11 +7965,14 @@ SCREENS.admin = async (data) => {
   const counts = { disputes: p.disputes, verification: p.verifications, moderation: (p.held_messages || 0) + (p.suspicious_users || 0), payments: (p.payouts || 0) + (p.upi_extras || 0) + (p.refunds || 0), money: p.fees };
   let body = '';
   try {
-    body = await ({ overview: adminOverviewTab, projects: adminProjectsTab, disputes: adminDisputesTab, verification: adminVerificationTab, moderation: adminModerationTab,
+    body = await ({ overview: adminOverviewTab, projects: adminProjectsTab, disputes: adminDisputesTab, verification: pcAdminOn() ? pcVerificationTab : adminVerificationTab, moderation: adminModerationTab,
                     users: adminUsersTab, payments: adminPaymentsTab, money: adminMonetizationTab, audit: adminAuditTab }[adminTab] || adminOverviewTab)(ov);
   } catch(e) { body = `<div class="card"><p style="color:#c62828;">${esc(e.message || e)}</p></div>`; }
+  PC_ADMIN_COUNTS = counts;
+  if(pcAdminOn()) return pcAdminShell(adminTab, body, { pin: ADMIN_PIN ? '' : adminPinCard(pinSet) });
+  const wide = window.innerWidth >= 1000 ? `<button class="btn-sm" style="float:right; margin-top:-34px;" onclick="pcAdminSetPhoneView(false)">🖥 PC view</button>` : '';
   return `
-  <div class="header"><button class="back-btn" onclick="nav('profile')">‹</button><h1>Admin Panel</h1><p>Sphere by Syahi Films</p></div>
+  <div class="header"><button class="back-btn" onclick="nav('profile')">‹</button><h1>Admin Panel</h1><p>Sphere by Syahi Films</p>${wide}</div>
   <div class="screen" style="padding-top:0;">
     ${adminPinCard(pinSet)}
     <div class="ad-tabs">${ADMIN_TABS.map(([k, l]) => `<button class="${adminTab === k ? 'on' : ''}" onclick="${k === 'classic' ? "nav('adminClassic')" : `nav('admin', { tab: '${k}' })`}">${l}${counts[k] ? `<span class="n">${counts[k]}</span>` : ''}</button>`).join('')}</div>
