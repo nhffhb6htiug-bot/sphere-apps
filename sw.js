@@ -1,8 +1,11 @@
-// Sphere service worker — makes the app installable and opens fast.
-// Pages: network first (always newest version), falls back to the saved copy when offline.
-// Supabase / Razorpay / other sites are never cached.
-const CACHE = 'sphere-v3-editor-icons';
+// Sphere PWA service worker v4 — no visual changes.
+// Only static public assets may enter Cache Storage. In particular, Supabase
+// responses and account data are never cached, even if proxied by this origin.
+const CACHE = 'sphere-static-v4';
 const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/favicon.png'];
+const STATIC_ASSETS = /^\/(?:img\/[^?#]+|(?:icon|apple-touch-icon|notif-icon|notif-badge|favicon)[^/]*\.(?:png|webp|svg|ico)|sphere-(?:dark-theme|desktop)\.css|manifest\.json)$/i;
+const CACHE_FIRST = /^\/img\/[^?#]+\.(?:webp|png|jpe?g|svg)$/i;
+const PRIVATE_PREFIX = /^\/(?:sb(?:\/|$)|api(?:\/|$)|rest\/v1(?:\/|$)|auth\/v1(?:\/|$)|functions\/v1(?:\/|$)|storage\/v1(?:\/|$))/i;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
@@ -20,32 +23,45 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  if (url.origin !== self.location.origin) return;
+  if (url.origin !== self.location.origin || PRIVATE_PREFIX.test(url.pathname)) return;
 
+  // Navigations: fresh-first, cached offline shell fallback.
+  // Only "/" is cached: never cache account-specific or OTP query parameters.
   if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(req)
-        .then((res) => {
-          if (url.pathname === '/' || url.pathname === '/index.html') {
-            const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put('/', copy));
-          }
-          return res;
-        })
-        .catch(() => caches.match(req).then((r) => r || caches.match('/')))
+      fetch(req).then((res) => {
+        if (res && res.ok && (url.pathname === '/' || url.pathname === '/index.html')) {
+          event.waitUntil(caches.open(CACHE).then((c) => c.put('/', res.clone())).catch(() => {}));
+        }
+        return res;
+      }).catch(() => caches.match('/').then((r) => r || Response.error()))
     );
     return;
   }
 
-  event.respondWith(
-    caches.match(req).then((cached) => {
-      const fresh = fetch(req).then((res) => {
-        if (res && res.ok) caches.open(CACHE).then((c) => c.put(req, res.clone()));
-        return res;
-      }).catch(() => cached);
-      return cached || fresh;
-    })
-  );
+  // Skip ALL dynamic responses: user/financial data, admin endpoints, etc.
+  // Unknown paths go directly to the network, without any Cache Storage write.
+  if (!STATIC_ASSETS.test(url.pathname)) return;
+
+  if (CACHE_FIRST.test(url.pathname)) {
+    // Original image assets are versioned with the service worker on deploy.
+    // Avoid the old unnecessary network request for every cached image.
+    event.respondWith(caches.match(req).then((cached) => cached || fetch(req).then((res) => {
+      if (res && res.ok) {
+        event.waitUntil(caches.open(CACHE).then((c) => c.put(req, res.clone())).catch(() => {}));
+      }
+      return res;
+    })));
+    return;
+  }
+
+  // Unversioned CSS/manifest/icons: network first; cached fallback offline.
+  event.respondWith(fetch(req).then((res) => {
+    if (res && res.ok) {
+      event.waitUntil(caches.open(CACHE).then((c) => c.put(req, res.clone())).catch(() => {}));
+    }
+    return res;
+  }).catch(() => caches.match(req).then((r) => r || Response.error())));
 });
 
 // Tapping a message notification opens (or focuses) Sphere
