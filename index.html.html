@@ -1693,6 +1693,55 @@ body:not(.pc-admin) #bottomNav.bottom-nav button .icon svg{
   }
 }
 
+
+/* SPHERE MOVING LIQUID NAV v2 — animated glass lens; existing tab icons/routes retained */
+body:not(.pc-admin) #bottomNav.bottom-nav{touch-action:pan-y;}
+body:not(.pc-admin) #bottomNav.bottom-nav .sphere-liquid-lens{
+  position:absolute;left:0;top:0;z-index:1;pointer-events:none;
+  width:0;height:0;opacity:0;border-radius:25px;
+  border:1.5px solid rgba(255,255,255,.91);
+  background:
+    radial-gradient(ellipse 82% 35% at 42% 0%,rgba(255,255,255,.90),transparent 80%),
+    radial-gradient(ellipse 75% 55% at 95% 103%,rgba(171,111,244,.32),transparent 93%),
+    linear-gradient(145deg,rgba(255,255,255,.49),rgba(248,229,255,.27) 53%,rgba(197,153,250,.35));
+  -webkit-backdrop-filter:blur(13px) saturate(240%) brightness(1.08);
+  backdrop-filter:blur(13px) saturate(240%) brightness(1.08);
+  box-shadow:
+    inset 0 2px 2px rgba(255,255,255,.95),
+    inset 0 -3px 6px rgba(140,81,206,.21),
+    inset 2px 0 5px rgba(255,255,255,.67),
+    inset -2px 0 7px rgba(179,122,234,.22),
+    0 5px 16px rgba(105,63,160,.20),
+    0 0 0 1px rgba(255,255,255,.21);
+  transform:translate3d(0,0,0);
+  transition:transform .54s cubic-bezier(.17,1.19,.32,1),width .32s ease,height .32s ease,opacity .16s ease;
+  will-change:transform;
+}
+body:not(.pc-admin) #bottomNav.bottom-nav .sphere-liquid-lens.ready{opacity:1;}
+body:not(.pc-admin) #bottomNav.bottom-nav .sphere-liquid-lens::after{
+  content:'';position:absolute;left:13%;right:13%;top:3px;height:5px;
+  border-radius:100%;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.99) 45%,rgba(255,255,255,.85) 65%,transparent);
+  filter:blur(.7px);
+}
+body:not(.pc-admin) #bottomNav.bottom-nav button{z-index:2;}
+body:not(.pc-admin) #bottomNav.bottom-nav button.active{
+  background:transparent !important;border-color:transparent !important;
+  box-shadow:none !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;
+}
+body:not(.pc-admin) #bottomNav.bottom-nav button.active::before{display:none;}
+body:not(.pc-admin) #bottomNav.bottom-nav button .icon{
+  transition:transform .32s cubic-bezier(.2,1.35,.3,1),color .18s ease;
+}
+body:not(.pc-admin) #bottomNav.bottom-nav button.active .icon{transform:translateY(-1px) scale(1.12);}
+body:not(.pc-admin) #bottomNav.bottom-nav button:focus-visible{
+  outline:2px solid #8a57d9;outline-offset:-4px;
+}
+@media(prefers-reduced-motion:reduce){
+  body:not(.pc-admin) #bottomNav.bottom-nav .sphere-liquid-lens,
+  body:not(.pc-admin) #bottomNav.bottom-nav button .icon{transition:none !important;}
+}
+
 </style>
 </head>
 <body>
@@ -3417,11 +3466,39 @@ function renderBottomNav(){
   const items = (user && user.role==='editor')
     ? [['home','Home'],['chatList','Chat'],['portfolio','Portfolio'],['profile','Profile']]
     : [['home','Home'],['chatList','Chat'],['jobs','Projects'],['profile','Profile']];
-  bottomNav.innerHTML = items.map(([key,label])=>{
-    const iconKey = key==='chatList' ? 'chat' : key;
-    return `<button onclick="nav('${key}')" data-nav="${key}"><span class="icon">${NAV_ICONS[iconKey]}</span>${label}${key==='chatList' ? '<span class="nav-badge" id="navChatBadge"></span>' : ''}</button>`;
-  }).join('');
+  // Keep the lens node between screens so it animates instead of resetting.
+  const signature = items.map(([key]) => key).join('|');
+  if(bottomNav.dataset.liquidTabs !== signature || !bottomNav.querySelector('.sphere-liquid-lens')){
+    bottomNav.innerHTML = '<span class="sphere-liquid-lens" aria-hidden="true"></span>' + items.map(([key,label])=>{
+      const iconKey = key==='chatList' ? 'chat' : key;
+      return `<button onclick="nav('${key}')" data-nav="${key}"><span class="icon">${NAV_ICONS[iconKey]}</span>${label}${key==='chatList' ? '<span class="nav-badge" id="navChatBadge"></span>' : ''}</button>`;
+    }).join('');
+    bottomNav.dataset.liquidTabs = signature;
+  }
 }
+function sphereMoveNavLens(button, immediate=false){
+  if(!button || bottomNav.classList.contains('hidden')) return;
+  const lens=bottomNav.querySelector('.sphere-liquid-lens');
+  if(!lens) return;
+  const outer=bottomNav.getBoundingClientRect();
+  const rect=button.getBoundingClientRect();
+  const first=!lens.classList.contains('ready');
+  if(first || immediate) lens.style.transition='none';
+  lens.style.width=rect.width+'px';
+  lens.style.height=rect.height+'px';
+  lens.style.transform=`translate3d(${rect.left-outer.left}px,${rect.top-outer.top}px,0)`;
+  lens.classList.add('ready');
+  if(first || immediate) requestAnimationFrame(()=>{if(lens.isConnected) lens.style.transition='';});
+}
+function sphereSyncNavLens(immediate=false){
+  sphereMoveNavLens(bottomNav.querySelector('button.active[data-nav]'),immediate);
+}
+// Make the lens react on touch-down; tab navigation/permission checks remain unchanged.
+bottomNav.addEventListener('pointerdown',event=>{
+  const button=event.target.closest('button[data-nav]');
+  if(button) sphereMoveNavLens(button);
+},{passive:true});
+window.addEventListener('resize',()=>sphereSyncNavLens(true),{passive:true});
 
 let NAV_SEQ = 0;     // Part 19.1: only the newest navigation may change the screen
 let NAV_LAST_DATA = '';
@@ -3434,7 +3511,7 @@ async function nav(screen, data){
   NAV_PENDING = k;
   const early = setTimeout(() => { if(NAV_PENDING !== k) return; const ck = swrKey(screen, data); if(!(ck && SCREEN_CACHE.has(ck)) && !(screen === 'admin' && currentScreenName === 'admin' && !(data && data.tab === 'classic'))) showLoadOverlay(); }, 180);
   try { return await navInner(screen, data); }
-  finally { clearTimeout(early); if(NAV_PENDING === k){ NAV_PENDING = null; hideLoadOverlay(); } }
+  finally { clearTimeout(early); if(NAV_PENDING === k){ NAV_PENDING = null; hideLoadOverlay(); sphereSyncNavLens(); } }
 }
 async function navInner(screen, data){
   if(currentUser && currentUser.suspended && !SUSPENDED_OK.includes(screen)) screen = 'suspended';
@@ -3475,6 +3552,7 @@ async function navInner(screen, data){
   bottomNav.classList.toggle('hidden', !visibleScreens.includes(screen));
   renderBottomNav();
   document.querySelectorAll('#bottomNav button').forEach(b=>b.classList.toggle('active', b.dataset.nav===screen));
+  sphereSyncNavLens();
   if(visibleScreens.includes(screen)) refreshChatBadge();
   const renderer = SCREENS[screen];
   if(renderer){
