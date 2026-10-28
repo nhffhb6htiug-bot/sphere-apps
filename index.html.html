@@ -14,7 +14,7 @@
 </script>
 <script>/* SPHERE DESKTOP ADAPTER v1 — desktop browser auto-detection, no user setting needed */
 (function(){
-  const mq=window.matchMedia&&window.matchMedia('(min-width:980px) and (pointer:fine)');
+  const mq=window.matchMedia&&window.matchMedia('(min-width:980px)');
   function detect(){
     const pc=document.documentElement.classList.contains('os-other')&&!!mq&&mq.matches;
     document.documentElement.classList.toggle('sphere-desktop',pc);
