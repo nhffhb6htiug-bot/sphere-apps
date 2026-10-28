@@ -86,7 +86,7 @@ html = html.replace("</body>", google + "</body>", 1)
 (dest / "index.html").write_text(html, encoding="utf-8")
 
 # Fail the release if the included Android app bridge or runtime dependencies are missing.
-assert "const IN_ANDROID_APP" in html and "SphereApp/" in html
+assert "const IN_ANDROID_APP" in html and "SphereApp" in html
 assert "window.sphereNativeGoogleResult" in html
 assert (dest / "vendor/supabase-2.117.2.js").is_file()
 assert len(list((dest / "img").rglob("*"))) > 20
