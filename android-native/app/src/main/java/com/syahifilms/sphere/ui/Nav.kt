@@ -20,6 +20,17 @@ fun SphereNav() {
         composable("editorDetails") { EditorDetailsScreen(nav) }
         composable("verification") { VerificationScreen(nav) }
         composable("home") { HomeScreen(nav) }
+        composable("saved") { SavedEditorsScreen(nav) }
+        composable("verifiedPc") { VerifiedPcScreen(nav) }
+        composable("vault") { VaultNativeScreen(nav) }
+        composable("payments") { NativePaymentsScreen(nav) }
+        composable("escrow") { NativeEscrowScreen(nav) }
+        composable("premium") { NativePremiumScreen(nav) }
+        composable("portfolio") { NativePortfolioScreen(nav) }
+        composable("earnings") { NativeEarningsScreen(nav) }
+        composable("settings") { NativeSettingsScreen(nav) }
+        composable("ai") { NativeSphereAIScreen(nav) }
+        composable("search/{q}") { NativeSearchScreen(nav, it.arguments?.getString("q") ?: "") }
         composable("editors?cat={cat}", arguments = listOf(optional("cat"))) { EditorsScreen(nav, it.arguments?.getString("cat")) }
         composable("editor/{id}") { EditorProfileScreen(nav, it.arguments?.getString("id") ?: "") }
         composable("postJob?editor={editor}", arguments = listOf(optional("editor"))) { PostJobScreen(nav, it.arguments?.getString("editor")) }
