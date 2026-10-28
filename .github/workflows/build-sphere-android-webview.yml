@@ -1,0 +1,78 @@
+# Android-only WebView APK. The 800 KB Sphere website frontend, all img assets,
+# local Supabase JS, and Android style are INSIDE the APK, not loaded from Render.
+# GitHub builds using the existing Android Gradle wrapper; no local PC is needed.
+name: Build Sphere Android WebView APK
+on:
+  push:
+    paths:
+      - "webview-android/**"
+      - ".github/workflows/build-sphere-android-webview.yml"
+      - "index.html.html"
+      - "img/**"
+      - "vendor/**"
+      - "sphere-dark-theme.css"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: webview-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Package Android-only website into Kotlin WebView app
+        run: |
+          set -euxo pipefail
+          cp -a android-native webview-android-out
+          rm -rf webview-android-out/app/src/main/java
+          mkdir -p webview-android-out/app/src/main/java/com/syahifilms/sphere/webview
+          mkdir -p webview-android-out/app/src/main/res/xml
+          cp webview-android/MainActivity.kt webview-android-out/app/src/main/java/com/syahifilms/sphere/webview/MainActivity.kt
+          cp webview-android/AndroidManifest.xml webview-android-out/app/src/main/AndroidManifest.xml
+          cp webview-android/file_paths.xml webview-android-out/app/src/main/res/xml/file_paths.xml
+          cp webview-android/app-build.gradle.kts webview-android-out/app/build.gradle.kts
+          python3 webview-android/prepare_assets.py
+          test -s webview-android-out/app/src/main/assets/index.html
+          test -s webview-android-out/app/src/main/assets/vendor/supabase-2.117.2.js
+
+      - name: Build Android APK
+        id: compile
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cd webview-android-out
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --console=plain 2>&1 | tee ../webview-build.log
+
+      - name: Commit versioned APK and build result
+        run: |
+          set -eu
+          mkdir -p builds
+          if [ "${{ steps.compile.outcome }}" = "success" ]; then
+            cp webview-android-out/app/build/outputs/apk/debug/app-debug.apk builds/Sphere-Android-WebView-v3.0.0.apk
+            echo "SUCCESS ${{ github.sha }}" > builds/android-webview-build-status.txt
+          else
+            echo "FAILED ${{ github.sha }}" > builds/android-webview-build-status.txt
+          fi
+          tail -140 webview-build.log > builds/android-webview-build-tail.txt || true
+          git config user.name "sphere-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add builds/Sphere-Android-WebView-v3.0.0.apk builds/android-webview-build-status.txt builds/android-webview-build-tail.txt || true
+          git commit -m "Android WebView build ${{ steps.compile.outcome }} for ${{ github.sha }}" || true
+          git pull --rebase || true
+          git push
+          if [ "${{ steps.compile.outcome }}" != "success" ]; then
+            echo "APK build failed; see builds/android-webview-build-tail.txt" >&2
+            exit 1
+          fi
