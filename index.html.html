@@ -2258,6 +2258,75 @@ body.sphere-editor-refresh #bottomNav.bottom-nav .icon svg{
  body.sphere-editor-refresh[data-sphere-screen="home"] .se-photo-categories{grid-template-columns:repeat(5,minmax(0,1fr));}
 }
 
+
+/* SPHERE EDITOR SWIPE CATEGORIES & ICON FIX v6 */
+/* Editors can swipe/trackpad scroll through the full list. Do not change other categories/screens. */
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-photo-categories{
+  display:grid;
+  grid-auto-flow:column;
+  grid-template-columns:none;
+  grid-auto-columns:clamp(88px,23vw,118px);
+  gap:9px;
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  margin:0 0 17px;
+  padding:2px 2px 12px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scroll-snap-type:x proximity;
+  overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(130,64,215,.55) rgba(235,201,247,.28);
+}
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-photo-category{
+  min-width:0;
+  scroll-snap-align:start;
+  border-radius:16px;
+  box-shadow:0 5px 11px rgba(90,40,125,.17);
+}
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-photo-category-img{
+  aspect-ratio:1 / 1;
+}
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-photo-category b{
+  font-size:10px;
+  min-height:35px;
+}
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-photo-categories::-webkit-scrollbar{
+  height:4px;
+}
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-photo-categories::-webkit-scrollbar-thumb{
+  background:linear-gradient(90deg,#a84bee,#7849e9);
+  border-radius:10px;
+}
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-photo-verify>.mi-icon img,
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-photo-stat img{
+  object-fit:contain;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+}
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-photo-verify>.mi-icon{
+  width:67px;
+  height:67px;
+  flex:0 0 67px;
+}
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-photo-stat,
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-photo-stat img{
+  width:49px;
+  height:49px;
+}
+@media(max-width:365px){
+  body.sphere-editor-refresh[data-sphere-screen="home"] .se-photo-categories{
+    grid-auto-columns:84px;
+    gap:7px;
+  }
+  body.sphere-editor-refresh[data-sphere-screen="home"] .se-photo-category b{
+    font-size:9px;
+  }
+}
+
 </style>
 <link rel="stylesheet" href="/sphere-dark-theme.css?v=2">
 <link rel="stylesheet" href="/sphere-desktop.css?v=3">
@@ -2542,9 +2611,9 @@ function img(src, emoji, cls=''){
   return `<img src="${esc(cachedSrc(src))}" class="${esc(cls)}" alt="${esc(emoji || '')}" loading="lazy" onerror="this.onerror=null;this.style.display='none'">`;
 }
 
-const CATEGORIES = ["Vlog Editing","Cinematic","Gaming Edits","Reels & Shorts","Podcast Editing","Color Grading & VFX","Motion Graphics","Ads & Commercial"];
-const CAT_EMOJI = {"Vlog Editing":"📹","Cinematic":"🎬","Gaming Edits":"🎮","Reels & Shorts":"📱","Podcast Editing":"🎙️","Color Grading & VFX":"🎨","Motion Graphics":"✨","Ads & Commercial":"📢"};
-const CAT_ICON = {"Vlog Editing":"/img/a8099bd51869605d.webp","Cinematic":"/img/4e49d79e9f821891.webp","Gaming Edits":"/img/e25c2f5d050ac5f3.webp","Reels & Shorts":"/img/a349ff10a3d47b1d.webp","Podcast Editing":"/img/bac509a943f335a7.webp","Color Grading & VFX":"/img/7a8769ab29d3c89f.webp","Motion Graphics":"/img/dde39dd6f0016980.webp","Ads & Commercial":"/img/9b679c70149150c9.webp"};
+const CATEGORIES = ["Vlog Editing","Cinematic","Gaming Edits","Reels & Shorts","Podcast Editing","Color Grading & VFX","Motion Graphics","Ads & Commercial","AI Video Editor"];
+const CAT_EMOJI = {"Vlog Editing":"📹","Cinematic":"🎬","Gaming Edits":"🎮","Reels & Shorts":"📱","Podcast Editing":"🎙️","Color Grading & VFX":"🎨","Motion Graphics":"✨","Ads & Commercial":"📢","AI Video Editor":"🤖"};
+const CAT_ICON = {"Vlog Editing":"/img/a8099bd51869605d.webp","Cinematic":"/img/4e49d79e9f821891.webp","Gaming Edits":"/img/e25c2f5d050ac5f3.webp","Reels & Shorts":"/img/a349ff10a3d47b1d.webp","Podcast Editing":"/img/bac509a943f335a7.webp","Color Grading & VFX":"/img/7a8769ab29d3c89f.webp","Motion Graphics":"/img/dde39dd6f0016980.webp","Ads & Commercial":"/img/9b679c70149150c9.webp","AI Video Editor":"/img/editor-v6/ai-video-editor.svg"};
 
 /* ============ DATA HELPERS (Supabase) ============ */
 function getCurrentUser(){ return currentUser; }
@@ -4858,8 +4927,8 @@ async function editorHomeScreen(user){
       <button onclick="nav('editorEarnings')"><span class="se-photo-action-image">${img('/img/0c44b6ca325deac2.webp','💰')}</span><b>Earnings</b><small>View payouts</small></button>
     </div>
     <div class="se-section-head se-categories-head"><h2>Explore Categories</h2><button onclick="nav('jobs', {tab:'available'})">See all ${seIcon('arrow-right')}</button></div>
-    <div class="se-photo-categories">
-      ${CATEGORIES.slice(0,5).map(c=>`<button type="button" class="se-photo-category" data-category="${esc(c)}" onclick="setWorkFilter(this.dataset.category);document.getElementById('workList')?.scrollIntoView({behavior:'smooth',block:'start'})"><span class="se-photo-category-img">${img(CAT_ICON[c],CAT_EMOJI[c])}</span><b>${esc(c)}</b></button>`).join('')}
+    <div class="se-photo-categories" role="region" aria-label="Swipe left or right to explore all editor categories" tabindex="0">
+      ${CATEGORIES.map(c=>`<button type="button" class="se-photo-category" data-category="${esc(c)}" onclick="setWorkFilter(this.dataset.category);document.getElementById('workList')?.scrollIntoView({behavior:'smooth',block:'start'})"><span class="se-photo-category-img">${img(CAT_ICON[c],CAT_EMOJI[c])}</span><b>${esc(c)}</b></button>`).join('')}
     </div>
     <div class="se-section-head"><h2>Available Work</h2><button onclick="nav('jobs', {tab:'available'})">View all ${seIcon('arrow-right')}</button></div>
     <div class="pick-chips se-pick-chips" id="workFilter">${['All','My categories',...CATEGORIES].map(c=>`<button type="button" class="pick-chip ${c===workFilter?'on':''}" data-v="${esc(c)}" onclick="setWorkFilter(this.dataset.v)">${esc(c)}</button>`).join('')}</div>
@@ -7311,7 +7380,7 @@ function editorVerifyCard(user){
     : ('Not verified yet — you can bid on any job. Get the ✔ tick (₹' + VERIFY_FEE + ') so clients trust you more');
   const red = st === 'rejected' && !v;
   return `<div class="card se-photo-verify" onclick="nav('verificationStatus')" style="cursor:pointer; display:flex; align-items:center; gap:12px; ${v ? 'background:linear-gradient(135deg,#0f3fcc,#1657ff); color:#fff;' : (red ? 'border:1.5px solid #c62828;' : 'border:1.5px solid var(--blue);')}">
-      <div class="mi-icon" style="${v ? 'background:rgba(255,255,255,.2); color:#fff;' : ''}">${v ? editorAsset('verified') : img('/img/1aec53f4a5840a80.webp','🎬')}</div>
+      <div class="mi-icon" style="${v ? 'background:rgba(255,255,255,.2); color:#fff;' : ''}">${v ? editorAsset('verified') : img('/img/editor-v6/verification.svg','🎬')}</div>
       <div style="flex:1;">
         <b style="${red ? 'color:#c62828;' : ''}">${title}</b>
         <p style="font-size:12px; opacity:.9; margin-top:2px;">${line}</p>
@@ -7383,9 +7452,9 @@ async function renderEditorDashboard(tries){
   const w=await loadEditorWork(user), el=document.getElementById('edDash'); if(!el) return;
   el.innerHTML=`
     <div class="se-dash-stats">
-      <button onclick="nav('jobs', {tab:'available'})"><span class="se-stat-icon se-photo-stat">${img('/img/7f7f499015ca28f7.webp','💼')}</span><strong>${workJobs.length}</strong><small>Available Jobs</small></button>
-      <button onclick="nav('jobs', {tab:'mine'})"><span class="se-stat-icon se-photo-stat">${img('/img/1209c4be37fa92f3.webp','📂')}</span><strong>${w.active.length}</strong><small>Active Projects</small></button>
-      <button onclick="nav('editorEarnings')"><span class="se-stat-icon se-photo-stat">${img('/img/0c44b6ca325deac2.webp','💰')}</span><strong>${rupees(w.earned)}</strong><small>Earned on Sphere</small></button>
+      <button onclick="nav('jobs', {tab:'available'})"><span class="se-stat-icon se-photo-stat">${img('/img/editor-v6/available-jobs.svg','💼')}</span><strong>${workJobs.length}</strong><small>Available Jobs</small></button>
+      <button onclick="nav('jobs', {tab:'mine'})"><span class="se-stat-icon se-photo-stat">${img('/img/editor-v6/active-projects.svg','📂')}</span><strong>${w.active.length}</strong><small>Active Projects</small></button>
+      <button onclick="nav('editorEarnings')"><span class="se-stat-icon se-photo-stat">${img('/img/editor-v6/earnings.svg','💰')}</span><strong>${rupees(w.earned)}</strong><small>Earned on Sphere</small></button>
     </div>
     <div class="se-home-subrow"><span>${availabilityChip(user.availability)}</span>${w.reviews?`<span>⭐ ${w.rating} · ${w.reviews} reviews</span>`:''}</div>
     <div id="proHomeCard"></div>

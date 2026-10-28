@@ -59,7 +59,7 @@ async function discoverModels(key: string): Promise<string[]> {
 }
 const DAILY_LIMIT = Number(Deno.env.get("AI_DAILY_LIMIT") ?? "30");
 const CATEGORIES = ["Vlog Editing", "Cinematic", "Gaming Edits", "Reels & Shorts", "Podcast Editing",
-  "Color Grading & VFX", "Motion Graphics", "Ads & Commercial"];
+  "Color Grading & VFX", "Motion Graphics", "Ads & Commercial", "AI Video Editor"];
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
