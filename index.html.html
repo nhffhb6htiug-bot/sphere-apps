@@ -2518,6 +2518,54 @@ SCREENS.msgAlerts = () => renderMsgAlerts();
 SCREENS.adminEditDetails = (d) => adminEditDetailsScreen(d);
 SCREENS.suspended = () => suspendedScreen();
 SCREENS.otpLogin = () => otpLoginScreen();
+SCREENS.waVerify = () => {
+  const u = getCurrentUser();
+  if(!u) return '<div class="screen"><p>Please log in first.</p></div>';
+  return `<div class="screen">
+    <button class="back-btn" onclick="nav('profile')">Back</button>
+    <h2>Verify phone via WhatsApp</h2>
+    <p class="muted" style="margin:10px 0 18px">Send a unique code from the WhatsApp number saved in your Sphere profile. No SMS OTP is required for this method.</p>
+    <div class="card">
+      <p><b>Profile number:</b> ${esc(u.phone||'Not added')}</p>
+      <p class="muted" style="font-size:12px; margin-top:8px">You must send the message from this same number. The code expires after 10 minutes.</p>
+      <button class="btn btn-primary" id="waStartBtn" onclick="waStartVerification()" style="margin-top:14px">Generate WhatsApp code</button>
+      <p id="waCode" style="font-size:23px;font-weight:800;text-align:center;letter-spacing:1px;margin:14px 0"></p>
+      <a id="waSendLink" class="btn btn-primary" target="_blank" rel="noopener noreferrer" href="#" style="display:none;text-decoration:none;background:#128c52">Open WhatsApp and send code</a>
+      <p id="waState" class="muted" role="status" style="margin-top:12px;font-size:13px"></p>
+      <button class="btn btn-outline" onclick="waCheckVerification()" style="margin-top:12px">Check verification status</button>
+    </div>
+    <p class="muted" style="font-size:12px">For this method, Sphere must have an active Meta WhatsApp Cloud API webhook. The WhatsApp Business app by itself is not enough.</p>
+  </div>`;
+};
+async function waStartVerification(){
+  const b=document.getElementById('waStartBtn');
+  if(b)b.disabled=true;
+  try{
+    const {data,error}=await sb.functions.invoke('sphere-wa-start',{body:{action:'start'}});
+    if(error||!data||data.error){ alert(data?.error||'WhatsApp verification is not yet available.');return; }
+    if(data.verified){ document.getElementById('waState').textContent='Your phone number is already verified.';return; }
+    const code=document.getElementById('waCode'), link=document.getElementById('waSendLink'), state=document.getElementById('waState');
+    if(code)code.textContent=data.code||'';
+    if(link&&/^https:\/\/wa\.me\/91[6-9][0-9]{9}\?text=/.test(data.whatsapp_url||'')){
+      link.href=data.whatsapp_url;link.style.display='block';
+    }
+    if(state)state.textContent='Tap the green button, send the prepared message in WhatsApp, then return and check your status.';
+  }catch(e){alert('Could not create WhatsApp verification. Please try later.');}
+  finally{if(b)b.disabled=false;}
+}
+async function waCheckVerification(){
+  const state=document.getElementById('waState');
+  try{
+    const {data,error}=await sb.functions.invoke('sphere-wa-start',{body:{action:'status'}});
+    if(error||!data||data.error){if(state)state.textContent='Could not check status; try again later.';return;}
+    if(state)state.textContent=data.verified?'✅ Your phone number is verified.':'Still pending. Make sure you sent the code from the same WhatsApp number.';
+    if(data.verified){
+      const link=document.getElementById('waSendLink'); if(link)link.style.display='none';
+      const b=document.getElementById('waStartBtn');if(b)b.style.display='none';
+    }
+  }catch(e){if(state)state.textContent='Status check unavailable right now.';}
+}
+
 // Screens that may show their last copy first. Never payments, chats threads or forms.
 const SWR_SCREENS = new Set(['home', 'chatList', 'jobs', 'notifications', 'profile', 'portfolio', 'allEditors']);
 const SCREEN_CACHE = new Map();
@@ -3141,6 +3189,7 @@ SCREENS.settingsScreen = () => `
   <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Settings</h1></div>
   <div class="screen" style="padding-top:0;">
     ${menuItem('user', 'Profile', "nav('profile')")}
+    ${user.baseRole!=='admin' ? menuItem('check', 'Verify phone via WhatsApp', "nav('waVerify')", { sub: 'Confirm ownership of your mobile number' }) : ''}
     ${menuItem('bell', 'Notifications', "nav('notifications')")}
     ${menuItem('bell', 'Message alerts & sounds', "nav('msgAlerts')")}
     ${menuItem('help', 'Help, Support & Policies', "nav('support')")}
