@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.SharedPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -65,19 +67,34 @@ object Api {
         e.apply()
     }
 
-    /** Returns a fresh access token (refreshes it if it is about to expire). */
+    // Token rotation must happen once when multiple Compose screens load together.
+    // Supabase refresh tokens are single-use; concurrent refreshes can sign a user out.
+    private val refreshMutex = Mutex()
+
+    /** Returns a valid access token, sharing one refresh across concurrent requests. */
     private suspend fun token(): String? {
-        val s = session() ?: return null
+        val current = session() ?: return null
         val now = System.currentTimeMillis() / 1000
-        if (s.optLong("expires_at", 0) - now > 60) return s.getString("access_token")
-        return try {
-            val o = JSONObject(raw("POST", "/auth/v1/token?grant_type=refresh_token",
-                JSONObject().put("refresh_token", s.getString("refresh_token")).toString(), useUserToken = false))
-            saveSession(o)
-            o.getString("access_token")
-        } catch (e: ApiException) {
-            if (e.status in 400..499) clearSession()   // refresh token no longer valid -> logged out
-            null
+        if (current.optLong("expires_at", 0) - now > 60) return current.getString("access_token")
+        return refreshMutex.withLock {
+            // Recheck after waiting: another coroutine might have refreshed already.
+            val latest = session() ?: throw ApiException(401, "Session expired. Please log in again")
+            if (latest.optLong("expires_at", 0) - System.currentTimeMillis() / 1000 > 60) {
+                return@withLock latest.getString("access_token")
+            }
+            try {
+                val updated = JSONObject(raw("POST", "/auth/v1/token?grant_type=refresh_token",
+                    JSONObject().put("refresh_token", latest.getString("refresh_token")).toString(),
+                    useUserToken = false))
+                saveSession(updated)
+                updated.getString("access_token")
+            } catch (e: ApiException) {
+                if (e.status in 400..499) {
+                    clearSession() // Invalid refresh token: require sign-in, never downgrade to anonymous.
+                    throw ApiException(401, "Session expired. Please log in again")
+                }
+                throw e
+            }
         }
     }
 
@@ -89,6 +106,8 @@ object Api {
         useUserToken: Boolean = true,
         headers: Map<String, String> = emptyMap()
     ): String = withContext(Dispatchers.IO) {
+        // Anonymous requests are allowed before login, never as a silent substitute
+        // for an expired/failed authenticated session.
         val bearer = if (useUserToken) token() ?: Config.SUPABASE_KEY else Config.SUPABASE_KEY
         val b = Request.Builder()
             .url(Config.SUPABASE_URL + path)
