@@ -1,0 +1,325 @@
+/* SPHERE DESKTOP EXPERIENCE v1
+ * Desktop-only progressive layout. Phone/iPad UIs are unchanged.
+ * JS adds html.sphere-desktop only when non-mobile OS + wide fine-pointer viewport.
+ */
+#sphereDesktopNav,#sphereDesktopTop{display:none;}
+@media screen and (min-width:980px){
+html.sphere-desktop{
+ --sphere-rail:250px;
+ --sphere-desktop-ink:#252044;
+ --sphere-desktop-border:rgba(211,189,238,.72);
+ --sphere-desktop-surface:rgba(255,255,255,.76);
+}
+html.sphere-desktop body:not(.pc-admin){
+ max-width:720px!important;width:100%!important;margin:0 auto!important;
+ padding:40px 26px 70px!important;min-height:100vh;
+}
+html.sphere-desktop body.sphere-desktop-shell:not(.pc-admin){
+ width:100%!important;max-width:none!important;margin:0!important;
+ padding:100px clamp(26px,3.6vw,68px) 85px calc(var(--sphere-rail) + clamp(26px,3.6vw,68px))!important;
+}
+html.sphere-desktop body.sphere-desktop-shell #app{
+ max-width:1240px;width:100%;min-width:0;margin:0 auto;
+}
+html.sphere-desktop body:not(.pc-admin):not(.sphere-desktop-shell) #app{
+ max-width:620px;margin:0 auto;min-width:0;
+}
+html.sphere-desktop body:not(.sphere-desktop-shell) .splash-wrap{height:auto;min-height:72vh;}
+html.sphere-desktop body.sphere-desktop-shell #bottomNav{display:none!important;}
+html.sphere-desktop body.sphere-desktop-shell #sphereDesktopNav{
+ position:fixed;inset:0 auto 0 0;z-index:75;
+ display:flex;flex-direction:column;gap:8px;
+ width:var(--sphere-rail);height:100vh;height:100dvh;
+ padding:24px 15px 22px;
+ overflow-y:auto;overscroll-behavior:contain;
+ background:linear-gradient(160deg,rgba(255,252,255,.92),rgba(244,235,255,.91));
+ -webkit-backdrop-filter:blur(24px) saturate(150%);backdrop-filter:blur(24px) saturate(150%);
+ border-right:1px solid var(--sphere-desktop-border);
+ box-shadow:8px 0 35px rgba(80,45,115,.065);
+ scrollbar-width:thin;
+}
+html.sphere-desktop #sphereDesktopNav .sd-brand{
+ display:flex;align-items:center;gap:11px;margin:4px 7px 21px;text-align:left;
+}
+html.sphere-desktop #sphereDesktopNav .sd-brand img{
+ width:43px;height:43px;object-fit:contain;border-radius:12px;flex-shrink:0;
+}
+html.sphere-desktop #sphereDesktopNav .sd-brand strong{
+ display:block;color:var(--text);font-size:23px;line-height:1.05;letter-spacing:-.8px;
+}
+html.sphere-desktop #sphereDesktopNav .sd-brand small{
+ display:block;margin-top:5px;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.13em;
+}
+html.sphere-desktop #sphereDesktopNav .sd-nav-cap{
+ margin:3px 11px 5px;font-size:10px;font-weight:900;color:var(--muted);
+ letter-spacing:.15em;text-transform:uppercase;
+}
+html.sphere-desktop #sphereDesktopNav .sd-links{display:grid;gap:4px;}
+html.sphere-desktop #sphereDesktopNav .sd-link{
+ width:100%;min-height:49px;border:1px solid transparent;
+ border-radius:15px;background:transparent;padding:9px 12px;
+ display:flex;align-items:center;gap:12px;text-align:left;
+ font:700 13px/1.2 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+ cursor:pointer;color:var(--muted);transition:background .18s,color .18s,transform .12s;
+}
+html.sphere-desktop #sphereDesktopNav .sd-link svg{
+ width:21px;height:21px;flex:0 0 21px;display:block;
+}
+html.sphere-desktop #sphereDesktopNav .sd-link .editor-art{
+ width:30px;height:30px;flex:0 0 30px;filter:none;
+}
+html.sphere-desktop #sphereDesktopNav .sd-link.active,
+html.sphere-desktop #sphereDesktopNav .sd-link[aria-current=page]{
+ color:#7237d4;background:linear-gradient(125deg,rgba(236,216,255,.92),rgba(255,247,255,.86));
+ border-color:rgba(211,181,245,.9);
+ box-shadow:0 4px 12px rgba(103,57,150,.09);
+}
+html.sphere-desktop #sphereDesktopNav .sd-link:hover{
+ color:#7137d9;background:rgba(224,207,246,.48);
+}
+html.sphere-desktop #sphereDesktopNav .sd-link:active{transform:scale(.975);}
+html.sphere-desktop #sphereDesktopNav .sd-link:focus-visible,
+html.sphere-desktop #sphereDesktopTop button:focus-visible{
+ outline:2px solid #905bea;outline-offset:2px;
+}
+html.sphere-desktop #sphereDesktopNav .sd-sep{height:1px;background:var(--sphere-desktop-border);margin:9px 8px;}
+html.sphere-desktop #sphereDesktopNav .sd-spacer{flex:1 0 18px;}
+html.sphere-desktop #sphereDesktopNav .sd-user{
+ padding:12px 11px;border:1px solid var(--sphere-desktop-border);
+ border-radius:17px;background:var(--sphere-desktop-surface);
+ display:flex;gap:11px;align-items:center;min-width:0;
+}
+html.sphere-desktop #sphereDesktopNav .sd-avatar{
+ width:36px;height:36px;flex:0 0 36px;display:grid;place-items:center;border-radius:12px;
+ background:linear-gradient(125deg,#773be4,#b354d8);color:#fff;font-weight:900;
+}
+html.sphere-desktop #sphereDesktopNav .sd-user-text{min-width:0;flex:1;}
+html.sphere-desktop #sphereDesktopNav .sd-user-text b{
+ color:var(--text);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;
+}
+html.sphere-desktop #sphereDesktopNav .sd-user-text small{color:var(--muted);font-size:11px;}
+html.sphere-desktop body.sphere-desktop-shell #sphereDesktopTop{
+ display:flex;align-items:center;justify-content:space-between;gap:18px;
+ position:fixed;z-index:74;top:0;right:0;left:var(--sphere-rail);
+ height:76px;padding:12px clamp(26px,3.6vw,68px);
+ background:rgba(255,251,255,.8);
+ border-bottom:1px solid var(--sphere-desktop-border);
+ -webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%);
+}
+html.sphere-desktop #sphereDesktopTop .sd-top-title{min-width:0;display:flex;flex-direction:column;}
+html.sphere-desktop #sphereDesktopTop .sd-top-title b{color:var(--text);font-size:19px;line-height:1.25;}
+html.sphere-desktop #sphereDesktopTop .sd-top-title small{color:var(--muted);font-size:12px;margin-top:2px;}
+html.sphere-desktop #sphereDesktopTop .sd-actions{display:flex;align-items:center;gap:11px;}
+html.sphere-desktop #sphereDesktopTop .sd-action{
+ border-radius:13px;border:1px solid var(--sphere-desktop-border);
+ background:var(--sphere-desktop-surface);color:var(--text);
+ padding:11px 15px;min-height:43px;white-space:nowrap;font-size:13px;font-weight:750;
+ cursor:pointer;display:inline-flex;align-items:center;gap:8px;
+}
+html.sphere-desktop #sphereDesktopTop .sd-action-primary{
+ background:linear-gradient(120deg,#7136df,#a750d5);
+ color:#fff;border-color:#a97bdf;
+ box-shadow:0 5px 15px rgba(116,60,169,.16);
+}
+html.sphere-desktop body.sphere-desktop-shell .screen{padding:16px 6px 28px;}
+html.sphere-desktop body.sphere-desktop-shell .header{
+ max-width:1240px;padding:18px 7px 9px;margin:0 auto 10px;
+}
+html.sphere-desktop body.sphere-desktop-shell .header h1{font-size:28px;letter-spacing:-.5px;}
+html.sphere-desktop body.sphere-desktop-shell .card{
+ margin-bottom:14px;
+}
+html.sphere-desktop body.sphere-desktop-shell .menu-item{
+ min-height:64px;padding:13px 17px;
+}
+html.sphere-desktop body.sphere-desktop-shell .field input,
+html.sphere-desktop body.sphere-desktop-shell .field textarea,
+html.sphere-desktop body.sphere-desktop-shell .field select{
+ font-size:15px;min-height:45px;
+}
+html.sphere-desktop body.sphere-desktop-shell .btn{
+ max-width:500px;min-height:45px;
+}
+html.sphere-desktop body.sphere-desktop-shell .btn-sm{max-width:none;}
+/* Client dashboard: spread tools and services into two desktop columns without changing items. */
+html.sphere-desktop body.sphere-desktop-shell .sphere-client-home{
+ display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+ gap:0 18px;align-items:start;min-width:0;
+}
+html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.topbar,
+html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.cl-dash,
+html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.section-title,
+html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.explore-row,
+html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.home-search-bottom,
+html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.help-mini{
+ grid-column:1/-1;min-width:0;
+}
+html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.topbar{
+ padding:13px 6px 9px;justify-content:flex-start;
+}
+html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.cl-dash{
+ padding:0 3px!important;max-width:100%;
+}
+html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .cl-hello{
+ min-height:90px;max-width:none;
+}
+html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .cl-stats{
+ grid-template-columns:repeat(3,minmax(0,1fr));max-width:790px;gap:15px;
+}
+html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.explore-row{
+ grid-template-columns:repeat(5,minmax(0,110px));justify-content:start;
+ gap:clamp(15px,3vw,45px)!important;padding:8px 6px 14px!important;
+}
+html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .explore-circle{
+ width:80px!important;max-width:100%;margin-inline:auto!important;
+}
+html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.sh-glass-panel{
+ margin:12px 0 18px!important;min-width:0;max-width:100%;height:auto;
+}
+html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .tools-grid,
+html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .services-grid{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+ gap:14px!important;align-items:start;
+}
+html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .tool-card-img{
+ width:min(105px,100%)!important;margin-inline:auto;
+}
+html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .service-card{
+ width:min(116px,100%)!important;margin-inline:auto;
+}
+html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .home-search-bottom{
+ max-width:790px;margin-left:0;margin-right:auto;
+}
+/* Editor dashboard: responsive lists, higher-density actions, preserve My Projects pages. */
+html.sphere-desktop body.sphere-desktop-shell .se-home,
+html.sphere-desktop body.sphere-desktop-shell .se-page-head{
+ max-width:1240px;margin:0 auto;padding:15px 7px 25px;
+}
+html.sphere-desktop body.sphere-desktop-shell .se-home-top{margin-bottom:20px;}
+html.sphere-desktop body.sphere-desktop-shell .se-greeting{padding:23px 26px;min-height:114px;}
+html.sphere-desktop body.sphere-desktop-shell .se-greeting h1{font-size:26px;}
+html.sphere-desktop body.sphere-desktop-shell .se-dash-stats{
+ grid-template-columns:repeat(3,minmax(0,1fr));gap:17px;
+}
+html.sphere-desktop body.sphere-desktop-shell .se-dash-stats button{min-height:115px;padding:18px;}
+html.sphere-desktop body.sphere-desktop-shell .se-shortcuts{
+ grid-template-columns:repeat(4,minmax(0,1fr));gap:17px;
+}
+html.sphere-desktop body.sphere-desktop-shell .se-shortcuts button{
+ min-height:126px;gap:11px;padding:14px;
+}
+html.sphere-desktop body.sphere-desktop-shell .se-shortcuts b{font-size:13px;}
+html.sphere-desktop body.sphere-desktop-shell #workList{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:16px;align-items:stretch;
+}
+html.sphere-desktop body.sphere-desktop-shell #workList>.se-job-card{
+ margin:0;min-width:0;display:flex;flex-direction:column;
+}
+html.sphere-desktop body.sphere-desktop-shell #workList>.se-job-card .se-job-bottom{margin-top:auto;}
+html.sphere-desktop body.sphere-desktop-shell .se-search{max-width:780px;min-height:56px;}
+/* Portfolio: keep cards/fields/data exactly as implemented; simply use wider columns. */
+html.sphere-desktop body.sphere-desktop-shell .se-portfolio-page{
+ display:grid;grid-template-columns:minmax(270px,.9fr) minmax(0,1.35fr);
+ gap:18px;align-items:start;
+}
+html.sphere-desktop body.sphere-desktop-shell .se-portfolio-page>.se-add-panel:first-child{
+ grid-column:1;grid-row:1;
+}
+html.sphere-desktop body.sphere-desktop-shell .se-portfolio-page>.se-details-panel{
+ grid-column:1;grid-row:2;
+}
+/* Chat desktop: retain real existing messaging logic and window-scroll semantics. */
+html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="chatThread"] #app{
+ max-width:940px;
+}
+html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="chatThread"] .chat-head{
+ position:sticky!important;top:76px;left:auto!important;transform:none!important;
+ width:100%;max-width:none;min-height:90px;border-radius:18px 18px 0 0;
+ margin:0 auto;z-index:65;padding:12px 20px;
+}
+html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="chatThread"] #chatBox{
+ max-width:none;width:100%;min-height:calc(100vh - 285px);
+ padding:28px 26px 100px!important;
+}
+html.sphere-desktop body.sphere-desktop-shell .chat-input-bar,
+html.sphere-desktop body.sphere-desktop-shell .reply-bar,
+html.sphere-desktop body.sphere-desktop-shell .emoji-panel,
+html.sphere-desktop body.sphere-desktop-shell .attach-sheet{
+ left:calc(var(--sphere-rail) + (100vw - var(--sphere-rail))/2);
+ transform:translateX(-50%);max-width:940px;
+ width:min(940px,calc(100vw - var(--sphere-rail) - 90px));
+ border:1px solid var(--glass-line);
+ box-shadow:0 8px 25px rgba(0,0,0,.12);
+}
+html.sphere-desktop body.sphere-desktop-shell .chat-input-bar{
+ bottom:16px;border-radius:18px;padding:12px 18px;
+}
+html.sphere-desktop body.sphere-desktop-shell .reply-bar,
+html.sphere-desktop body.sphere-desktop-shell .emoji-panel,
+html.sphere-desktop body.sphere-desktop-shell .attach-sheet{bottom:86px;border-radius:16px 16px 0 0;}
+html.sphere-desktop body.sphere-desktop-shell .chat-menu{
+ right:max(30px,calc((100vw - var(--sphere-rail) - 940px)/2 + 20px));
+ top:176px;left:auto;bottom:auto;transform:none;
+}
+html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="chatList"] .screen{
+ max-width:900px;margin:0 auto;
+}
+html.sphere-desktop body.sphere-desktop-shell .sp-load-ov{z-index:200;}
+/* Settings, notifications and profile: readable desktop panels. */
+html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="settingsScreen"] .screen,
+html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="notifications"] .screen,
+html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="profile"] .screen{
+ max-width:1020px;margin:0 auto;
+}
+html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="profile"] .screen{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px;align-items:start;
+}
+html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="profile"] .screen>.card.center-text,
+html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="profile"] .screen>.se-portfolio-list,
+html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="profile"] .screen>.se-portfolio-page{
+ grid-column:1/-1;
+}
+html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="settingsScreen"] .screen{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px;align-items:start;
+}
+html.sphere-desktop body.sphere-desktop-shell .grid2{gap:18px;}
+html.sphere-desktop body.sphere-desktop-shell .sp-dlg-wrap,
+html.sphere-desktop body.sphere-desktop-shell .media-preview,
+html.sphere-desktop body.sphere-desktop-shell .img-viewer{z-index:300;}
+/* Laptop viewport comfort: sidebar shrinks, editor cards remain two across. */
+@media(max-width:1199px){
+ html.sphere-desktop{--sphere-rail:224px;}
+ html.sphere-desktop body.sphere-desktop-shell:not(.pc-admin){
+  padding-left:calc(var(--sphere-rail) + 24px)!important;padding-right:24px!important;
+ }
+ html.sphere-desktop body.sphere-desktop-shell #sphereDesktopNav{padding-inline:10px;}
+ html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.explore-row{gap:18px!important;}
+}
+}
+/* Dark theme inherited from Sphere preference; only sidebar/header surfaces change. */
+@media screen and (min-width:980px){
+html.sphere-desktop.sphere-dark{
+ --sphere-desktop-ink:#f0eaf8;
+ --sphere-desktop-border:#403449;
+ --sphere-desktop-surface:#211b2b;
+}
+html.sphere-desktop.sphere-dark body.sphere-desktop-shell #sphereDesktopNav{
+ background:linear-gradient(160deg,#17131f,#121018);
+ border-right-color:#45374d;box-shadow:8px 0 25px rgba(0,0,0,.24);
+}
+html.sphere-desktop.sphere-dark body.sphere-desktop-shell #sphereDesktopTop{
+ background:rgba(22,18,30,.94);border-bottom-color:#45374d;
+}
+html.sphere-desktop.sphere-dark #sphereDesktopNav .sd-link{color:#b8aec6;}
+html.sphere-desktop.sphere-dark #sphereDesktopNav .sd-link.active,
+html.sphere-desktop.sphere-dark #sphereDesktopNav .sd-link[aria-current=page]{
+ background:linear-gradient(120deg,#392447,#30213d);
+ color:#e2c8ff;border-color:#634572;
+}
+html.sphere-desktop.sphere-dark #sphereDesktopNav .sd-link:hover{background:#30253c;color:#e9d7ff;}
+html.sphere-desktop.sphere-dark #sphereDesktopNav .sd-user,
+html.sphere-desktop.sphere-dark #sphereDesktopTop .sd-action:not(.sd-action-primary){
+ background:#24202d;border-color:#463851;color:#eee7f8;
+}
+}
