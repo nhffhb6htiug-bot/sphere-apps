@@ -89,7 +89,8 @@ private fun ClientHome(nav: NavHostController, me: Profile) {
             Column(
                 Modifier.weight(1f).clip(RoundedCornerShape(17.dp))
                     .background(Color(0xCCFFFFFF))
-                    .clickable { nav.go(route) }.padding(vertical = 12.dp, horizontal = 2.dp),
+                    .then(if (label == "All Editors" || label == "Saved" || label == "Vault") Modifier.clickable { nav.go(route) } else Modifier)
+                    .padding(vertical = 12.dp, horizontal = 2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(icon, fontSize = 24.sp)
