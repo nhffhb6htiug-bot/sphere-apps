@@ -40,9 +40,9 @@ import coil.compose.AsyncImage
 import com.syahifilms.sphere.data.*
 
 // ---------------- theme ----------------
-val Blue = Color(0xFF1657FF)
-val BlueSoft = Color(0xFFEEF3FF)
-val Bg = Color(0xFFE8EDF9)
+val Blue = Color(0xFF7934E8)
+val BlueSoft = Color(0xFFF8E9FA)
+val Bg = Color(0xFFFFE8F2)
 val Muted = Color(0xFF6B7280)
 val Danger = Color(0xFFC62828)
 val Success = Color(0xFF2E7D32)
