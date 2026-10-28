@@ -74,14 +74,35 @@ fun WelcomeScreen(nav: NavHostController) {
         Text("Sphere", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = Blue)
         Text("Hire verified video editors — or find editing work", color = Muted, textAlign = TextAlign.Center)
         Spacer(Modifier.height(36.dp))
-        PrimaryButton(if (busy) "Please wait…" else "Continue with Google", enabled = !busy) {
-            scope.launch {
-                busy = true
-                try {
-                    if (GoogleAuth.signIn(ctx)) routeAfterLogin(nav)
-                } catch (e: Exception) { toast(ctx, e.message ?: "Google sign-in failed") }
-                busy = false
-            }
+        Button(
+            onClick = {
+                scope.launch {
+                    busy = true
+                    try {
+                        if (GoogleAuth.signIn(ctx)) routeAfterLogin(nav)
+                    } catch (e: Exception) {
+                        toast(ctx, e.message ?: "Google sign-in failed")
+                    } finally {
+                        busy = false
+                    }
+                }
+            },
+            enabled = !busy,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).height(50.dp),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(25.dp)
+        ) {
+            Text(
+                "G",
+                color = Color(0xFF4285F4),
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 19.sp,
+                modifier = Modifier
+                    .padding(end = 10.dp)
+                    .clip(CircleShape)
+                    .background(Color.White)
+                    .padding(horizontal = 9.dp, vertical = 3.dp)
+            )
+            Text(if (busy) "Please wait…" else "Continue with Google", fontWeight = FontWeight.Bold)
         }
         SecondaryButton("Log in with email") { nav.go("login") }
         SecondaryButton("Create an account") { nav.go("signup") }
