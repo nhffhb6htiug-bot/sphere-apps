@@ -1,489 +1,389 @@
-/* SPHERE DESKTOP EXPERIENCE v1
- * Desktop-only progressive layout. Phone/iPad UIs are unchanged.
- * JS adds html.sphere-desktop only when non-mobile OS + wide fine-pointer viewport.
- */
+/* Sphere Desktop v3 — same mobile product, adapted cleanly to PC.
+   No new colour palette, artificial dashboard, decorative glass, or duplicate headers.
+   Only enabled on html.sphere-desktop (Windows / macOS / Linux, width >= 700px).
+   Existing iPhone/Android CSS and UI remain untouched. */
 #sphereDesktopNav,#sphereDesktopTop{display:none;}
-@media screen and (min-width:700px){
-html.sphere-desktop{
- --sphere-rail:250px;
- --sphere-desktop-ink:#252044;
- --sphere-desktop-border:rgba(211,189,238,.72);
- --sphere-desktop-surface:rgba(255,255,255,.76);
-}
-html.sphere-desktop body:not(.pc-admin){
- max-width:720px!important;width:100%!important;margin:0 auto!important;
- padding:40px 26px 70px!important;min-height:100vh;
-}
-html.sphere-desktop body.sphere-desktop-shell:not(.pc-admin){
- width:100%!important;max-width:none!important;margin:0!important;
- padding:100px clamp(26px,3.6vw,68px) 85px calc(var(--sphere-rail) + clamp(26px,3.6vw,68px))!important;
-}
-html.sphere-desktop body.sphere-desktop-shell #app{
- max-width:1240px;width:100%;min-width:0;margin:0 auto;
-}
-html.sphere-desktop body:not(.pc-admin):not(.sphere-desktop-shell) #app{
- max-width:620px;margin:0 auto;min-width:0;
-}
-html.sphere-desktop body:not(.sphere-desktop-shell) .splash-wrap{height:auto;min-height:72vh;}
-html.sphere-desktop body.sphere-desktop-shell #bottomNav{display:none!important;}
-html.sphere-desktop body.sphere-desktop-shell #sphereDesktopNav{
- position:fixed;inset:0 auto 0 0;z-index:75;
- display:flex;flex-direction:column;gap:8px;
- width:var(--sphere-rail);height:100vh;height:100dvh;
- padding:24px 15px 22px;
- overflow-y:auto;overscroll-behavior:contain;
- background:linear-gradient(160deg,rgba(255,252,255,.92),rgba(244,235,255,.91));
- -webkit-backdrop-filter:blur(24px) saturate(150%);backdrop-filter:blur(24px) saturate(150%);
- border-right:1px solid var(--sphere-desktop-border);
- box-shadow:8px 0 35px rgba(80,45,115,.065);
- scrollbar-width:thin;
-}
-html.sphere-desktop #sphereDesktopNav .sd-brand{
- display:flex;align-items:center;gap:11px;margin:4px 7px 21px;text-align:left;
-}
-html.sphere-desktop #sphereDesktopNav .sd-brand img{
- width:43px;height:43px;object-fit:contain;border-radius:12px;flex-shrink:0;
-}
-html.sphere-desktop #sphereDesktopNav .sd-brand strong{
- display:block;color:var(--text);font-size:23px;line-height:1.05;letter-spacing:-.8px;
-}
-html.sphere-desktop #sphereDesktopNav .sd-brand small{
- display:block;margin-top:5px;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.13em;
-}
-html.sphere-desktop #sphereDesktopNav .sd-nav-cap{
- margin:3px 11px 5px;font-size:10px;font-weight:900;color:var(--muted);
- letter-spacing:.15em;text-transform:uppercase;
-}
-html.sphere-desktop #sphereDesktopNav .sd-links{display:grid;gap:4px;}
-html.sphere-desktop #sphereDesktopNav .sd-link{
- width:100%;min-height:49px;border:1px solid transparent;
- border-radius:15px;background:transparent;padding:9px 12px;
- display:flex;align-items:center;gap:12px;text-align:left;
- font:700 13px/1.2 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
- cursor:pointer;color:var(--muted);transition:background .18s,color .18s,transform .12s;
-}
-html.sphere-desktop #sphereDesktopNav .sd-link svg{
- width:21px;height:21px;flex:0 0 21px;display:block;
-}
-html.sphere-desktop #sphereDesktopNav .sd-link .editor-art{
- width:30px;height:30px;flex:0 0 30px;filter:none;
-}
-html.sphere-desktop #sphereDesktopNav .sd-link.active,
-html.sphere-desktop #sphereDesktopNav .sd-link[aria-current=page]{
- color:#7237d4;background:linear-gradient(125deg,rgba(236,216,255,.92),rgba(255,247,255,.86));
- border-color:rgba(211,181,245,.9);
- box-shadow:0 4px 12px rgba(103,57,150,.09);
-}
-html.sphere-desktop #sphereDesktopNav .sd-link:hover{
- color:#7137d9;background:rgba(224,207,246,.48);
-}
-html.sphere-desktop #sphereDesktopNav .sd-link:active{transform:scale(.975);}
-html.sphere-desktop #sphereDesktopNav .sd-link:focus-visible,
-html.sphere-desktop #sphereDesktopTop button:focus-visible{
- outline:2px solid #905bea;outline-offset:2px;
-}
-html.sphere-desktop #sphereDesktopNav .sd-sep{height:1px;background:var(--sphere-desktop-border);margin:9px 8px;}
-html.sphere-desktop #sphereDesktopNav .sd-spacer{flex:1 0 18px;}
-html.sphere-desktop #sphereDesktopNav .sd-user{
- padding:12px 11px;border:1px solid var(--sphere-desktop-border);
- border-radius:17px;background:var(--sphere-desktop-surface);
- display:flex;gap:11px;align-items:center;min-width:0;
-}
-html.sphere-desktop #sphereDesktopNav .sd-avatar{
- width:36px;height:36px;flex:0 0 36px;display:grid;place-items:center;border-radius:12px;
- background:linear-gradient(125deg,#773be4,#b354d8);color:#fff;font-weight:900;
-}
-html.sphere-desktop #sphereDesktopNav .sd-user-text{min-width:0;flex:1;}
-html.sphere-desktop #sphereDesktopNav .sd-user-text b{
- color:var(--text);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;
-}
-html.sphere-desktop #sphereDesktopNav .sd-user-text small{color:var(--muted);font-size:11px;}
-html.sphere-desktop body.sphere-desktop-shell #sphereDesktopTop{
- display:flex;align-items:center;justify-content:space-between;gap:18px;
- position:fixed;z-index:74;top:0;right:0;left:var(--sphere-rail);
- height:76px;padding:12px clamp(26px,3.6vw,68px);
- background:rgba(255,251,255,.8);
- border-bottom:1px solid var(--sphere-desktop-border);
- -webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%);
-}
-html.sphere-desktop #sphereDesktopTop .sd-top-title{min-width:0;display:flex;flex-direction:column;}
-html.sphere-desktop #sphereDesktopTop .sd-top-title b{color:var(--text);font-size:19px;line-height:1.25;}
-html.sphere-desktop #sphereDesktopTop .sd-top-title small{color:var(--muted);font-size:12px;margin-top:2px;}
-html.sphere-desktop #sphereDesktopTop .sd-actions{display:flex;align-items:center;gap:11px;}
-html.sphere-desktop #sphereDesktopTop .sd-action{
- border-radius:13px;border:1px solid var(--sphere-desktop-border);
- background:var(--sphere-desktop-surface);color:var(--text);
- padding:11px 15px;min-height:43px;white-space:nowrap;font-size:13px;font-weight:750;
- cursor:pointer;display:inline-flex;align-items:center;gap:8px;
-}
-html.sphere-desktop #sphereDesktopTop .sd-action-primary{
- background:linear-gradient(120deg,#7136df,#a750d5);
- color:#fff;border-color:#a97bdf;
- box-shadow:0 5px 15px rgba(116,60,169,.16);
-}
-html.sphere-desktop body.sphere-desktop-shell .screen{padding:16px 6px 28px;}
-html.sphere-desktop body.sphere-desktop-shell .header{
- max-width:1240px;padding:18px 7px 9px;margin:0 auto 10px;
-}
-html.sphere-desktop body.sphere-desktop-shell .header h1{font-size:28px;letter-spacing:-.5px;}
-html.sphere-desktop body.sphere-desktop-shell .card{
- margin-bottom:14px;
-}
-html.sphere-desktop body.sphere-desktop-shell .menu-item{
- min-height:64px;padding:13px 17px;
-}
-html.sphere-desktop body.sphere-desktop-shell .field input,
-html.sphere-desktop body.sphere-desktop-shell .field textarea,
-html.sphere-desktop body.sphere-desktop-shell .field select{
- font-size:15px;min-height:45px;
-}
-html.sphere-desktop body.sphere-desktop-shell .btn{
- max-width:500px;min-height:45px;
-}
-html.sphere-desktop body.sphere-desktop-shell .btn-sm{max-width:none;}
-/* Client dashboard: spread tools and services into two desktop columns without changing items. */
-html.sphere-desktop body.sphere-desktop-shell .sphere-client-home{
- display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
- gap:0 18px;align-items:start;min-width:0;
-}
-html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.topbar,
-html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.cl-dash,
-html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.section-title,
-html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.explore-row,
-html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.home-search-bottom,
-html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.help-mini{
- grid-column:1/-1;min-width:0;
-}
-html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.topbar{
- padding:13px 6px 9px;justify-content:flex-start;
-}
-html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.cl-dash{
- padding:0 3px!important;max-width:100%;
-}
-html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .cl-hello{
- min-height:90px;max-width:none;
-}
-html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .cl-stats{
- grid-template-columns:repeat(3,minmax(0,1fr));max-width:790px;gap:15px;
-}
-html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.explore-row{
- grid-template-columns:repeat(5,minmax(0,110px));justify-content:start;
- gap:clamp(15px,3vw,45px)!important;padding:8px 6px 14px!important;
-}
-html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .explore-circle{
- width:80px!important;max-width:100%;margin-inline:auto!important;
-}
-html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.sh-glass-panel{
- margin:12px 0 18px!important;min-width:0;max-width:100%;height:auto;
-}
-html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .tools-grid,
-html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .services-grid{
- display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
- gap:14px!important;align-items:start;
-}
-html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .tool-card-img{
- width:min(105px,100%)!important;margin-inline:auto;
-}
-html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .service-card{
- width:min(116px,100%)!important;margin-inline:auto;
-}
-html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .home-search-bottom{
- max-width:790px;margin-left:0;margin-right:auto;
-}
-/* Editor dashboard: responsive lists, higher-density actions, preserve My Projects pages. */
-html.sphere-desktop body.sphere-desktop-shell .se-home,
-html.sphere-desktop body.sphere-desktop-shell .se-page-head{
- max-width:1240px;margin:0 auto;padding:15px 7px 25px;
-}
-html.sphere-desktop body.sphere-desktop-shell .se-home-top{margin-bottom:20px;}
-html.sphere-desktop body.sphere-desktop-shell .se-greeting{padding:23px 26px;min-height:114px;}
-html.sphere-desktop body.sphere-desktop-shell .se-greeting h1{font-size:26px;}
-html.sphere-desktop body.sphere-desktop-shell .se-dash-stats{
- grid-template-columns:repeat(3,minmax(0,1fr));gap:17px;
-}
-html.sphere-desktop body.sphere-desktop-shell .se-dash-stats button{min-height:115px;padding:18px;}
-html.sphere-desktop body.sphere-desktop-shell .se-shortcuts{
- grid-template-columns:repeat(4,minmax(0,1fr));gap:17px;
-}
-html.sphere-desktop body.sphere-desktop-shell .se-shortcuts button{
- min-height:126px;gap:11px;padding:14px;
-}
-html.sphere-desktop body.sphere-desktop-shell .se-shortcuts b{font-size:13px;}
-html.sphere-desktop body.sphere-desktop-shell #workList{
- display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
- gap:16px;align-items:stretch;
-}
-html.sphere-desktop body.sphere-desktop-shell #workList>.se-job-card{
- margin:0;min-width:0;display:flex;flex-direction:column;
-}
-html.sphere-desktop body.sphere-desktop-shell #workList>.se-job-card .se-job-bottom{margin-top:auto;}
-html.sphere-desktop body.sphere-desktop-shell .se-search{max-width:780px;min-height:56px;}
-/* Portfolio: keep cards/fields/data exactly as implemented; simply use wider columns. */
-html.sphere-desktop body.sphere-desktop-shell .se-portfolio-page{
- display:grid;grid-template-columns:minmax(270px,.9fr) minmax(0,1.35fr);
- gap:18px;align-items:start;
-}
-html.sphere-desktop body.sphere-desktop-shell .se-portfolio-page>.se-add-panel:first-child{
- grid-column:1;grid-row:1;
-}
-html.sphere-desktop body.sphere-desktop-shell .se-portfolio-page>.se-details-panel{
- grid-column:1;grid-row:2;
-}
-/* Chat desktop: retain real existing messaging logic and window-scroll semantics. */
-html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="chatThread"] #app{
- max-width:940px;
-}
-html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="chatThread"] .chat-head{
- position:sticky!important;top:76px;left:auto!important;transform:none!important;
- width:100%;max-width:none;min-height:90px;border-radius:18px 18px 0 0;
- margin:0 auto;z-index:65;padding:12px 20px;
-}
-html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="chatThread"] #chatBox{
- max-width:none;width:100%;min-height:calc(100vh - 285px);
- padding:28px 26px 100px!important;
-}
-html.sphere-desktop body.sphere-desktop-shell .chat-input-bar,
-html.sphere-desktop body.sphere-desktop-shell .reply-bar,
-html.sphere-desktop body.sphere-desktop-shell .emoji-panel,
-html.sphere-desktop body.sphere-desktop-shell .attach-sheet{
- left:calc(var(--sphere-rail) + (100vw - var(--sphere-rail))/2);
- transform:translateX(-50%);max-width:940px;
- width:min(940px,calc(100vw - var(--sphere-rail) - 90px));
- border:1px solid var(--glass-line);
- box-shadow:0 8px 25px rgba(0,0,0,.12);
-}
-html.sphere-desktop body.sphere-desktop-shell .chat-input-bar{
- bottom:16px;border-radius:18px;padding:12px 18px;
-}
-html.sphere-desktop body.sphere-desktop-shell .reply-bar,
-html.sphere-desktop body.sphere-desktop-shell .emoji-panel,
-html.sphere-desktop body.sphere-desktop-shell .attach-sheet{bottom:86px;border-radius:16px 16px 0 0;}
-html.sphere-desktop body.sphere-desktop-shell .chat-menu{
- right:max(30px,calc((100vw - var(--sphere-rail) - 940px)/2 + 20px));
- top:176px;left:auto;bottom:auto;transform:none;
-}
-html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="chatList"] .screen{
- max-width:900px;margin:0 auto;
-}
-html.sphere-desktop body.sphere-desktop-shell .sp-load-ov{z-index:200;}
-/* Settings, notifications and profile: readable desktop panels. */
-html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="settingsScreen"] .screen,
-html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="notifications"] .screen,
-html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="profile"] .screen{
- max-width:1020px;margin:0 auto;
-}
-html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="profile"] .screen{
- display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px;align-items:start;
-}
-html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="profile"] .screen>.card.center-text,
-html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="profile"] .screen>.se-portfolio-list,
-html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="profile"] .screen>.se-portfolio-page{
- grid-column:1/-1;
-}
-html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="settingsScreen"] .screen{
- display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px;align-items:start;
-}
-html.sphere-desktop body.sphere-desktop-shell .grid2{gap:18px;}
-html.sphere-desktop body.sphere-desktop-shell .sp-dlg-wrap,
-html.sphere-desktop body.sphere-desktop-shell .media-preview,
-html.sphere-desktop body.sphere-desktop-shell .img-viewer{z-index:300;}
-/* Laptop viewport comfort: sidebar shrinks, editor cards remain two across. */
-@media(max-width:1199px){
- html.sphere-desktop{--sphere-rail:224px;}
- html.sphere-desktop body.sphere-desktop-shell:not(.pc-admin){
-  padding-left:calc(var(--sphere-rail) + 24px)!important;padding-right:24px!important;
- }
- html.sphere-desktop body.sphere-desktop-shell #sphereDesktopNav{padding-inline:10px;}
- html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.explore-row{gap:18px!important;}
-}
-}
-/* Dark theme inherited from Sphere preference; only sidebar/header surfaces change. */
-@media screen and (min-width:700px){
-html.sphere-desktop.sphere-dark{
- --sphere-desktop-ink:#f0eaf8;
- --sphere-desktop-border:#403449;
- --sphere-desktop-surface:#211b2b;
-}
-html.sphere-desktop.sphere-dark body.sphere-desktop-shell #sphereDesktopNav{
- background:linear-gradient(160deg,#17131f,#121018);
- border-right-color:#45374d;box-shadow:8px 0 25px rgba(0,0,0,.24);
-}
-html.sphere-desktop.sphere-dark body.sphere-desktop-shell #sphereDesktopTop{
- background:rgba(22,18,30,.94);border-bottom-color:#45374d;
-}
-html.sphere-desktop.sphere-dark #sphereDesktopNav .sd-link{color:#b8aec6;}
-html.sphere-desktop.sphere-dark #sphereDesktopNav .sd-link.active,
-html.sphere-desktop.sphere-dark #sphereDesktopNav .sd-link[aria-current=page]{
- background:linear-gradient(120deg,#392447,#30213d);
- color:#e2c8ff;border-color:#634572;
-}
-html.sphere-desktop.sphere-dark #sphereDesktopNav .sd-link:hover{background:#30253c;color:#e9d7ff;}
-html.sphere-desktop.sphere-dark #sphereDesktopNav .sd-user,
-html.sphere-desktop.sphere-dark #sphereDesktopTop .sd-action:not(.sd-action-primary){
- background:#24202d;border-color:#463851;color:#eee7f8;
-}
-}
-
-
-/* ========== SPHERE DESKTOP PWA WINDOW FIX v2 ==========
-   Chrome installed app windows often open around 750-900px.
-   A compact desktop rail replaces the mobile bottom bar at >=700px
-   on Windows/Mac/Linux, but never overrides the iOS/Android experience.
-*/
-@media screen and (min-width:700px) and (max-width:1099px){
-  html.sphere-desktop{--sphere-rail:78px;}
-  html.sphere-desktop body.sphere-desktop-shell:not(.pc-admin){
-    padding:92px clamp(22px,3vw,36px) 64px calc(var(--sphere-rail) + clamp(22px,3vw,36px))!important;
+@media(min-width:700px){
+  html.sphere-desktop{
+    --sd-rail:208px;
+    --sd-gutter:clamp(18px,2.9vw,44px);
+  }
+  html.sphere-desktop body:not(.pc-admin){
+    max-width:none!important;
+    width:100%!important;
+    margin:0!important;
+    padding:25px var(--sd-gutter) 65px calc(var(--sd-rail) + var(--sd-gutter))!important;
+    min-height:100vh;
+  }
+  html.sphere-desktop body:not(.pc-admin):not(.sphere-desktop-shell){
+    padding:28px!important;
+  }
+  html.sphere-desktop body:not(.pc-admin) #app{
+    width:100%;max-width:1000px;min-width:0;
+    margin:0 auto;
+  }
+  html.sphere-desktop body:not(.pc-admin):not(.sphere-desktop-shell) #app{
+    max-width:560px;
+  }
+  html.sphere-desktop body:not(.pc-admin):not(.sphere-desktop-shell) .splash-wrap{
+    height:auto;min-height:calc(100vh - 80px);
+  }
+  html.sphere-desktop body.sphere-desktop-shell #bottomNav{
+    display:none!important;
+  }
+  html.sphere-desktop body.sphere-desktop-shell #sphereDesktopTop{
+    display:none!important;
   }
   html.sphere-desktop body.sphere-desktop-shell #sphereDesktopNav{
-    width:78px!important;padding:20px 8px!important;align-items:stretch;
+    position:fixed;inset:0 auto 0 0;z-index:75;
+    width:var(--sd-rail);height:100vh;height:100dvh;
+    padding:22px 13px 18px;
+    background:var(--card);
+    border-right:1px solid var(--border);
+    display:flex;flex-direction:column;gap:5px;
+    overflow-y:auto;scrollbar-width:thin;
+    box-shadow:none!important;
   }
-  html.sphere-desktop body.sphere-desktop-shell #sphereDesktopNav .sd-brand{
-    margin:5px 0 20px;justify-content:center;
+  html.sphere-desktop #sphereDesktopNav[hidden],
+  html.sphere-desktop #sphereDesktopTop[hidden]{
+    display:none!important;
+  }
+  html.sphere-desktop #sphereDesktopNav .sd-brand{
+    display:flex;align-items:center;gap:10px;
+    padding:4px 8px 16px;margin:0 0 7px;
   }
   html.sphere-desktop #sphereDesktopNav .sd-brand img{
-    width:40px;height:40px;
+    width:35px;height:35px;border-radius:9px;object-fit:contain;
+    flex-shrink:0;
   }
-  html.sphere-desktop #sphereDesktopNav .sd-brand>div,
-  html.sphere-desktop #sphereDesktopNav .sd-nav-cap,
-  html.sphere-desktop #sphereDesktopNav .sd-link>span:last-child,
-  html.sphere-desktop #sphereDesktopNav .sd-user-text{display:none!important;}
-  html.sphere-desktop #sphereDesktopNav .sd-links{gap:5px;}
+  html.sphere-desktop #sphereDesktopNav .sd-brand strong{
+    display:block;color:var(--text);font-size:20px;
+    font-weight:800;line-height:1.1;letter-spacing:-.25px;
+  }
+  html.sphere-desktop #sphereDesktopNav .sd-brand small{
+    display:block;margin-top:3px;color:var(--muted);
+    font-size:11px;font-weight:500;letter-spacing:0;
+  }
+  html.sphere-desktop #sphereDesktopNav .sd-nav-cap{
+    margin:5px 12px 8px;font-size:11px;font-weight:650;
+    letter-spacing:0;color:var(--muted);
+  }
+  html.sphere-desktop #sphereDesktopNav .sd-links{
+    display:grid;gap:3px;
+  }
   html.sphere-desktop #sphereDesktopNav .sd-link{
-    min-height:52px;padding:9px 7px;justify-content:center;
-    border-radius:15px;
+    width:100%;min-height:45px;
+    display:flex;align-items:center;gap:11px;
+    text-align:left;padding:10px 12px;
+    border:0;border-radius:10px;
+    background:transparent;color:var(--text);
+    box-shadow:none!important;
+    cursor:pointer;font:600 13px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    transition:background .12s ease;
   }
   html.sphere-desktop #sphereDesktopNav .sd-link>span:first-child{
-    display:grid;place-items:center;width:32px;flex:0 0 32px;
+    display:flex;align-items:center;justify-content:center;
+    width:23px;flex:0 0 23px;
   }
-  html.sphere-desktop #sphereDesktopNav .sd-link svg{width:23px;height:23px;max-width:100%;}
+  html.sphere-desktop #sphereDesktopNav .sd-link svg{
+    width:21px;height:21px;display:block;
+  }
+  html.sphere-desktop #sphereDesktopNav .sd-link .editor-art{
+    width:24px;height:24px;filter:none;
+  }
+  html.sphere-desktop #sphereDesktopNav .sd-link:hover{
+    background:rgba(128,128,128,.10);color:var(--text);
+  }
+  html.sphere-desktop #sphereDesktopNav .sd-link.active,
+  html.sphere-desktop #sphereDesktopNav .sd-link[aria-current=page]{
+    color:var(--blue);
+    background:color-mix(in srgb,var(--blue) 9%,var(--card));
+    border:0;
+    box-shadow:none!important;
+  }
+  html.sphere-desktop #sphereDesktopNav .sd-link:focus-visible{
+    outline:2px solid var(--blue);outline-offset:2px;
+  }
+  html.sphere-desktop #sphereDesktopNav .sd-sep{
+    height:1px;margin:10px 8px;background:var(--border);
+  }
+  html.sphere-desktop #sphereDesktopNav .sd-spacer{
+    flex:1 0 18px;
+  }
   html.sphere-desktop #sphereDesktopNav .sd-user{
-    padding:8px;justify-content:center;border-radius:15px;
+    padding:10px 8px;display:flex;align-items:center;gap:10px;
+    border-top:1px solid var(--border);
+    background:none!important;border-radius:0;
+    border-right:0;border-bottom:0;border-left:0;
+    box-shadow:none!important;
   }
-  html.sphere-desktop #sphereDesktopNav .sd-avatar{flex:0 0 38px;width:38px;height:38px;}
-  html.sphere-desktop body.sphere-desktop-shell #sphereDesktopTop{
-    left:var(--sphere-rail)!important;
-    padding:10px clamp(22px,3vw,36px);
-    height:70px;
+  html.sphere-desktop #sphereDesktopNav .sd-avatar{
+    width:35px;height:35px;flex:0 0 35px;display:grid;place-items:center;
+    border-radius:50%;background:var(--blue);color:#fff;font-weight:700;
   }
+  html.sphere-desktop #sphereDesktopNav .sd-user-text{
+    min-width:0;flex:1;
+  }
+  html.sphere-desktop #sphereDesktopNav .sd-user-text b{
+    display:block;color:var(--text);font-size:12px;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;
+  }
+  html.sphere-desktop #sphereDesktopNav .sd-user-text small{
+    color:var(--muted);font-size:11px;
+  }
+  /* The actual mobile screens are reused as-is, with ordinary desktop spacing. */
+  html.sphere-desktop body.sphere-desktop-shell .screen{
+    padding:16px 4px 28px;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .header{
+    max-width:1000px;margin:0 auto;
+    padding:15px 4px 8px;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .header h1{
+    font-size:29px;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .field input,
+  html.sphere-desktop body.sphere-desktop-shell .field textarea,
+  html.sphere-desktop body.sphere-desktop-shell .field select{
+    font-size:14px;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .btn{
+    max-width:460px;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .card{
+    max-width:none;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .menu-item{
+    padding:14px 16px;
+  }
+  /* Retain the original client home tiles, images and section order. */
   html.sphere-desktop body.sphere-desktop-shell .sphere-client-home{
-    gap:0 13px!important;
+    display:block!important;min-width:0;
   }
-  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.sh-glass-panel{
-    padding-inline:9px!important;
+  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .topbar{
+    padding:12px 2px 10px;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .cl-dash{
+    padding:0!important;max-width:none!important;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .cl-stats{
+    max-width:720px;gap:14px;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .explore-row{
+    display:flex!important;flex-wrap:wrap!important;
+    justify-content:flex-start!important;gap:16px!important;
+    padding:12px 0!important;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .explore-item{
+    flex:0 0 112px;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .explore-circle{
+    width:76px!important;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .sh-glass-panel{
+    width:100%;max-width:none;
+    margin:12px 0 19px!important;
   }
   html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .tools-grid,
   html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .services-grid{
-    gap:7px!important;
+    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:12px!important;
   }
   html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .tool-card-img{
-    width:min(82px,100%)!important;
+    width:min(105px,100%)!important;margin-inline:auto;
   }
   html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .service-card{
-    width:min(88px,100%)!important;
+    width:min(120px,100%)!important;margin-inline:auto;
   }
-  html.sphere-desktop body.sphere-desktop-shell .se-home .se-shortcuts{gap:9px!important;}
-  html.sphere-desktop body.sphere-desktop-shell .se-home .se-shortcuts button{
-    min-height:108px;padding:11px 7px!important;
+  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .home-search-bottom{
+    max-width:700px;margin-left:0;margin-right:auto;
   }
+  /* Same editor screen and project cards. Only use space better. */
+  html.sphere-desktop body.sphere-desktop-shell .se-home,
+  html.sphere-desktop body.sphere-desktop-shell .se-page-head{
+    width:100%;max-width:1000px;margin:0 auto;padding:15px 4px 20px;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .se-greeting{
+    padding:20px;min-height:auto;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .se-greeting h1{font-size:24px;}
+  html.sphere-desktop body.sphere-desktop-shell .se-dash-stats{
+    grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .se-shortcuts{
+    grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .se-shortcuts button{
+    min-height:103px;padding:12px 7px;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .se-search{max-width:700px;}
+  html.sphere-desktop body.sphere-desktop-shell #workList{
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    align-items:stretch;gap:14px;
+  }
+  html.sphere-desktop body.sphere-desktop-shell #workList>.se-job-card{
+    min-width:0;margin:0;display:flex;flex-direction:column;
+  }
+  html.sphere-desktop body.sphere-desktop-shell #workList>.se-job-card .se-job-bottom{
+    margin-top:auto;
+  }
+  /* Keep the existing Editor My Projects / history UI unchanged. */
   html.sphere-desktop body.sphere-desktop-shell .se-portfolio-page{
-    grid-template-columns:minmax(0,1fr);
+    display:block!important;max-width:860px;margin:auto;
   }
-  html.sphere-desktop body.sphere-desktop-shell .se-portfolio-page>.se-add-panel:first-child,
-  html.sphere-desktop body.sphere-desktop-shell .se-portfolio-page>.se-details-panel{
-    grid-row:auto;grid-column:auto;
+  html.sphere-desktop body.sphere-desktop-shell .se-portfolio-page>.se-add-panel{
+    margin-bottom:16px;
+  }
+  /* Messages: original chat features, just a wider conversation and composer. */
+  html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="chatThread"] #app{
+    max-width:860px;
+  }
+  html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="chatThread"] .chat-head{
+    position:sticky!important;top:0;left:auto!important;
+    transform:none!important;width:100%;max-width:none;
+    margin:0 auto;padding:10px 16px;z-index:65;
+    border-radius:15px 15px 0 0;
+  }
+  html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="chatThread"] #chatBox{
+    width:100%;max-width:none;
+    min-height:calc(100vh - 200px);
+    padding:28px 16px 95px!important;
   }
   html.sphere-desktop body.sphere-desktop-shell .chat-input-bar,
   html.sphere-desktop body.sphere-desktop-shell .reply-bar,
   html.sphere-desktop body.sphere-desktop-shell .emoji-panel,
   html.sphere-desktop body.sphere-desktop-shell .attach-sheet{
-    width:calc(100vw - var(--sphere-rail) - 44px);
+    left:calc(var(--sd-rail) + (100vw - var(--sd-rail))/2);
+    transform:translateX(-50%);
+    width:min(860px,calc(100vw - var(--sd-rail) - 2 * var(--sd-gutter)));
+    max-width:860px;
+    border:1px solid var(--border);
+    box-shadow:0 4px 12px rgba(0,0,0,.06);
   }
-  html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="chatThread"] .chat-head{
-    top:70px;
+  html.sphere-desktop body.sphere-desktop-shell .chat-input-bar{
+    bottom:12px;border-radius:14px;padding:10px 14px;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .reply-bar,
+  html.sphere-desktop body.sphere-desktop-shell .emoji-panel,
+  html.sphere-desktop body.sphere-desktop-shell .attach-sheet{
+    bottom:76px;border-radius:12px 12px 0 0;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .chat-menu{
+    right:max(16px,calc((100vw - var(--sd-rail) - 860px)/2 + var(--sd-rail)));
+    top:115px;left:auto;bottom:auto;transform:none;
+  }
+  html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="chatList"] .screen{
+    max-width:860px;margin:auto;
+  }
+  /* Settings and profile have the same menu rows as the phone, not new widgets. */
+  html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="profile"] .screen,
+  html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="settingsScreen"] .screen{
+    max-width:850px;margin:0 auto;display:block!important;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .sp-load-ov{z-index:250;}
+  html.sphere-desktop body.sphere-desktop-shell .sp-dlg-wrap{z-index:300;}
+}
+/* Compact Windows app windows: same sidebar, icons only (not the phone layout). */
+@media(min-width:700px) and (max-width:979px){
+  html.sphere-desktop{--sd-rail:68px;--sd-gutter:18px;}
+  html.sphere-desktop body.sphere-desktop-shell #sphereDesktopNav{
+    padding:18px 7px;align-items:stretch;
+  }
+  html.sphere-desktop #sphereDesktopNav .sd-brand{
+    justify-content:center;padding:3px 0 12px;
+  }
+  html.sphere-desktop #sphereDesktopNav .sd-brand img{width:35px;height:35px;}
+  html.sphere-desktop #sphereDesktopNav .sd-brand>div,
+  html.sphere-desktop #sphereDesktopNav .sd-nav-cap,
+  html.sphere-desktop #sphereDesktopNav .sd-link>span:last-child,
+  html.sphere-desktop #sphereDesktopNav .sd-user-text{
+    display:none!important;
+  }
+  html.sphere-desktop #sphereDesktopNav .sd-link{
+    min-height:47px;justify-content:center;padding:9px 3px;
+  }
+  html.sphere-desktop #sphereDesktopNav .sd-link>span:first-child{
+    flex:0 0 28px;width:28px;
+  }
+  html.sphere-desktop #sphereDesktopNav .sd-link svg{width:22px;height:22px;}
+  html.sphere-desktop #sphereDesktopNav .sd-link .editor-art{width:26px;height:26px;}
+  html.sphere-desktop #sphereDesktopNav .sd-user{justify-content:center;padding:8px 0;}
+  html.sphere-desktop body.sphere-desktop-shell #workList{
+    grid-template-columns:minmax(0,1fr);
+  }
+  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .explore-item{
+    flex:0 0 95px;
   }
 }
-@media screen and (min-width:700px) and (max-width:810px){
-  html.sphere-desktop body.sphere-desktop-shell .se-home #workList{
-    grid-template-columns:minmax(0,1fr);gap:12px;
+@media(min-width:700px) and (max-width:780px){
+  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .tools-grid,
+  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .services-grid{
+    gap:8px!important;
   }
-  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.explore-row{
-    grid-template-columns:repeat(5,minmax(0,1fr));gap:10px!important;
+  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .tool-card-img{
+    width:80px!important;
   }
-  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .explore-circle{
-    width:min(66px,100%)!important;
-  }
-  html.sphere-desktop body.sphere-desktop-shell #sphereDesktopTop .sd-top-title b{
-    font-size:17px;
-  }
-  html.sphere-desktop body.sphere-desktop-shell #sphereDesktopTop .sd-actions .sd-action{
-    padding:9px 11px;
+  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .service-card{
+    width:95px!important;
   }
 }
-/* The Admin area already has an official PC layout. Enable and adapt it to
-   700px standalone desktop windows instead of the old 1000px requirement. */
-@media screen and (min-width:700px) and (max-width:1099px){
+/* Authenticated Admin PC panel uses the existing admin layout, never the common
+   client/editor sidebar. This is a width fix only for PWA windows under 1000px. */
+@media(min-width:700px) and (max-width:999px){
   html.os-other body.pc-admin{
-    width:100%!important;max-width:none!important;min-height:100vh;
-    margin:0!important;padding:0!important;
+    width:100%!important;max-width:none!important;
+    margin:0!important;padding:0!important;min-height:100vh;
   }
-  html.os-other body.pc-admin #app{width:100%;max-width:none;}
+  html.os-other body.pc-admin #app{
+    width:100%;max-width:none;
+  }
   html.os-other body.pc-admin .pca{
-    grid-template-columns:184px minmax(0,1fr);
     width:100%;min-height:100vh;
+    grid-template-columns:176px minmax(0,1fr);
   }
   html.os-other body.pc-admin .pca-side{
-    padding:16px 9px;min-width:0;
+    padding:16px 8px;min-width:0;
   }
-  html.os-other body.pc-admin .pca-brand{
-    padding:4px 5px 17px;gap:7px;
-  }
-  html.os-other body.pc-admin .pca-brand img{width:31px;height:31px;}
-  html.os-other body.pc-admin .pca-brand b{font-size:16px;}
-  html.os-other body.pc-admin .pca-brand small{font-size:10px;}
   html.os-other body.pc-admin .pca-side button{
-    font-size:12px;padding:10px 9px;
+    font-size:12px;padding:9px 8px;
   }
   html.os-other body.pc-admin .pca-main{
-    padding:24px clamp(16px,2.9vw,32px) 55px;
+    padding:22px 18px 55px;min-width:0;
   }
-  html.os-other body.pc-admin .pca-top h1{font-size:25px;}
   html.os-other body.pc-admin .pca-body{
-    max-width:none;min-width:0;
+    width:100%;max-width:none;min-width:0;
   }
   html.os-other body.pc-admin .pca-body.tab-overview{
-    grid-template-columns:repeat(2,minmax(0,1fr));gap:0 12px;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:0 12px;
   }
   html.os-other body.pc-admin .pca-body.tab-overview>.ad-grid{
     grid-template-columns:repeat(2,minmax(0,1fr));
   }
-  html.os-other body.pc-admin .pca .card{min-width:0;}
-  html.os-other body.pc-admin .pca-main>.card{
-    max-width:680px;margin:0 0 19px;
-  }
-  html.os-other body.pc-admin .pca .btn{
-    width:100%;max-width:none;
-  }
   html.os-other body.pc-admin .pcv{
-    grid-template-columns:minmax(200px,.87fr) minmax(0,1.1fr);
-    gap:12px;
+    grid-template-columns:minmax(0,1fr);
   }
-  html.os-other body.pc-admin .pcv-detail{padding:14px;}
-  html.os-other body.pc-admin .pcv-grid{
-    grid-template-columns:minmax(0,1fr);gap:12px;
-  }
-  html.os-other body.pc-admin .pcv-verified{
-    grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
-  }
-}
-@media screen and (min-width:700px) and (max-width:810px){
-  html.os-other body.pc-admin .pca{
-    grid-template-columns:166px minmax(0,1fr);
-  }
-  html.os-other body.pc-admin .pca-side button{
-    font-size:11.5px;padding:10px 7px;
-  }
-  html.os-other body.pc-admin .pcv{grid-template-columns:minmax(0,1fr);}
   html.os-other body.pc-admin .pcv-list,
   html.os-other body.pc-admin .pcv-detail{max-height:none;}
+  html.os-other body.pc-admin .pcv-grid{
+    grid-template-columns:minmax(0,1fr);
+  }
+}
+/* Dark mode: use the same Sphere dark palette, not another desktop theme. */
+@media(min-width:700px){
+  html.sphere-desktop.sphere-dark body.sphere-desktop-shell #sphereDesktopNav{
+    background:var(--card)!important;
+    border-right-color:var(--border)!important;
+  }
+  html.sphere-desktop.sphere-dark #sphereDesktopNav .sd-link{
+    color:var(--text)!important;
+  }
+  html.sphere-desktop.sphere-dark #sphereDesktopNav .sd-link:hover{
+    background:#2b2434!important;
+  }
+  html.sphere-desktop.sphere-dark #sphereDesktopNav .sd-link.active,
+  html.sphere-desktop.sphere-dark #sphereDesktopNav .sd-link[aria-current=page]{
+    background:#33253f!important;
+    color:#d7b5ff!important;
+  }
 }
