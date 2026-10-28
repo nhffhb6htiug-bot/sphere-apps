@@ -1156,6 +1156,276 @@ body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .bottom-nav{
   body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-item span{font-size:10px;}
 }
 
+
+/* SPHERE GLOBAL LIQUID GLASS THEME — OCT 2026 */
+/* Visual-only layer. Existing app structure, routing, payment and controls untouched.
+   Values emphasise readable contrast over transparency on budget Android devices. */
+:root{
+  --blue:#7139e4;
+  --blue-dark:#5022b8;
+  --bg:#f7e0f1;
+  --text:#18213e;
+  --muted:#606780;
+  --card:rgba(255,255,255,.84);
+  --border:rgba(229,207,247,.86);
+  --radius:20px;
+  --glass-line:rgba(255,255,255,.92);
+  --glass-shadow:0 8px 23px rgba(126,72,158,.115),inset 0 1px 2px rgba(255,255,255,.97);
+  --glass-surface:linear-gradient(132deg,rgba(255,255,255,.86),rgba(255,249,253,.78) 51%,rgba(242,228,255,.8));
+}
+html{background:#f8e4f4;color-scheme:light;}
+body:not([data-sphere-screen="home"]){
+  background:
+    radial-gradient(ellipse 73% 24% at 6% 0%,rgba(192,114,255,.57),transparent 83%),
+    radial-gradient(ellipse 67% 31% at 101% 13%,rgba(255,213,173,.77),transparent 85%),
+    radial-gradient(ellipse 68% 27% at 0% 59%,rgba(255,174,173,.58),transparent 84%),
+    radial-gradient(ellipse 76% 32% at 100% 88%,rgba(192,171,255,.56),transparent 80%),
+    linear-gradient(165deg,#f9d3ea 0%,#ffeadb 38%,#e8defe 74%,#f6d8f3 100%);
+  background-attachment:scroll;
+  color:#18213e;
+}
+body.sphere-editor-refresh{
+  --se-blue:#7139e4;
+  --se-navy:#202044;
+  --se-ink:#20213f;
+  --se-line:rgba(230,210,247,.95);
+  --se-muted:#666b83;
+  background:
+    radial-gradient(ellipse 77% 30% at 5% 0%,rgba(185,113,249,.61),transparent 81%),
+    radial-gradient(ellipse 74% 25% at 98% 18%,rgba(255,206,164,.63),transparent 82%),
+    radial-gradient(ellipse 76% 34% at 92% 91%,rgba(202,178,254,.58),transparent 85%),
+    linear-gradient(155deg,#f7d2f0,#ffe6d8 43%,#e6dcff 77%,#efd7f9);
+  color:var(--text);
+}
+body.pc-admin{background:linear-gradient(135deg,#f5deef,#ffefe2 42%,#e9e3ff);}
+body:not(.pc-admin) .screen{color:var(--text);}
+body .screen .header h1, body .screen .header h2{color:#20213f;}
+body .screen .header p{color:#686b83;}
+body .screen .header .back-btn{color:#7035dc;}
+body .screen .header .ch-more{color:#7035dc !important;}
+body .section-title h3{color:#252143;}
+body .section-title a,body .link{color:#7139e4;}
+
+/* Frosted cards, menus, dashboards, portfolio, project work and warnings.
+   Avoid blur on every small card to keep scrolling and tapping responsive. */
+body .card,
+body.sphere-editor-refresh .card,
+body .menu-item,
+body .help-mini,
+body .cl-stat,
+body .cl-proj,
+body .se-job-card,
+body .se-empty,
+body .nt-item,
+body .se-dash-stats button,
+body .se-shortcuts button,
+body .se-earn-grid>div,
+body .se-earning-row,
+body .pcv-box,
+body .pcv-list,
+body .pcv-detail,
+body .pca .card{
+  background:var(--glass-surface);
+  border:1px solid var(--glass-line);
+  box-shadow:var(--glass-shadow);
+  border-radius:20px;
+  color:var(--text);
+}
+body .menu-item{border-radius:18px;}
+body .menu-item.highlight{background:linear-gradient(132deg,#f6e7ff,#fffafc);}
+body .menu-item.danger .mi-icon{background:#fde8ea;color:#b91c1c;}
+body .menu-item.danger b{color:#b91c1c;}
+body .mi-text b{color:#222342;}
+body .cl-empty,body .cl-proj,body .nt-item{border-radius:22px;}
+body .card:not(.danger),body .menu-item:not(.danger){color:var(--text);}
+body .se-job-card h3,body .se-shortcuts b,body .se-section-head h2,
+body .se-section-title,body .se-brand,body .se-page-brand,body .se-greeting h1{
+  color:#252246;
+}
+body .se-greeting p,body .se-job-card>p{color:#646c83;}
+body .se-job-bottom>strong,body .se-earn-grid strong{color:#522f9a;}
+
+/* Premium purple/pink CTAs. Never overwrite disabled/alert/error state text. */
+body .btn-primary,
+body.sphere-editor-refresh .btn-primary,
+body .prem-pill,
+body .se-small-cta{
+  color:#fff;
+  border:1px solid rgba(255,255,255,.4);
+  background:linear-gradient(111deg,#7735ed 3%,#a64cde 54%,#df6fae 100%);
+  box-shadow:0 6px 15px rgba(133,63,193,.2),inset 0 1px 2px rgba(255,255,255,.3);
+}
+body .btn-primary:disabled,body .se-small-cta:disabled{opacity:.55;box-shadow:none;}
+body .btn-outline,body .btn-sm{
+  border-color:rgba(200,166,238,.85);
+  background:linear-gradient(145deg,rgba(255,255,255,.92),rgba(249,238,255,.89));
+  color:#6530d0;
+  box-shadow:inset 0 1px 2px #fff,0 3px 10px rgba(111,70,178,.085);
+}
+body .btn-dark{background:#29243b;color:#fff;}
+body .pick-chip,body .pill,
+body .se-pick-chips .pick-chip,body .nt-seg{
+  background:rgba(255,255,255,.76);
+  border-color:rgba(218,190,248,.82);
+  border-radius:18px;
+  color:#4f4575;
+}
+body .pick-chip.on,body .pill.active,body .se-pick-chips .pick-chip.on,
+body .nt-seg button.on{
+  background:linear-gradient(115deg,#7636e9,#a24fd8);
+  color:#fff;
+  border-color:rgba(255,255,255,.6);
+  box-shadow:0 3px 12px rgba(130,76,181,.18);
+}
+body .tag,body .mode-chip,body .se-tag:not(.premium):not(.match){
+  background:rgba(235,215,255,.83);color:#5b33b0;border-radius:10px;
+}
+body .se-verified,body .se-tag.match{background:#dbf7e9;color:#137c49;}
+body .se-tag.premium{background:#fff1d8;color:#915d00;}
+
+/* Inputs keep high opacity and explicit text colour for mobile autofill/readability. */
+body .field input,body .field select,body .field textarea,
+body.sphere-editor-refresh .field input,
+body.sphere-editor-refresh .field textarea,
+body.sphere-editor-refresh .field select,
+body .otp-phone input,body .otp-code,
+body .search-box,body .home-search-bottom,body .se-search,
+body .chat-input-bar input,body .pca input:not([type=checkbox]),
+body .pca select,body .pca textarea,
+body .pcv-search{
+  background:rgba(255,255,255,.94);
+  border:1px solid rgba(218,196,244,.93);
+  border-radius:17px;
+  color:#242442;
+  box-shadow:inset 0 1px 2px rgba(255,255,255,.96),0 3px 12px rgba(126,74,162,.075);
+}
+body .field input:focus,body .field select:focus,body .field textarea:focus,
+body .chat-input-bar input:focus{
+  outline:2px solid rgba(136,71,219,.45);outline-offset:1px;
+}
+body .se-search input,body .home-search-bottom input,body .search-box input{
+  background:transparent;border:0;box-shadow:none;outline:0;
+}
+body .se-search .se-filter-icon{color:#753ce5;}
+body .otp-code{letter-spacing:8px;}
+
+/* Liquid-glass icon holders: preserve SVGs, images, labels and original click wiring. */
+body .mi-icon,body .se-shortcut-icon,body .se-stat-icon,
+body .nt-ic,body .se-earn-item-icon,
+body .se-round,body .icon-btn{
+  color:#6139d7;
+  background:linear-gradient(150deg,rgba(255,255,255,.88),rgba(223,201,255,.81) 58%,rgba(172,151,239,.58));
+  border:1.4px solid rgba(255,255,255,.97);
+  box-shadow:inset 0 2px 3px rgba(255,255,255,.98),
+             inset 0 -2px 5px rgba(154,117,213,.19),
+             0 5px 12px rgba(117,74,181,.16);
+  border-radius:15px;
+}
+body .se-shortcut-icon.violet{background:linear-gradient(135deg,#f8ecff,#dfc6fc);color:#702dde;}
+body .se-shortcut-icon.mint{background:linear-gradient(135deg,#e8fff6,#bcebd8);color:#11845a;}
+body .se-shortcut-icon.peach{background:linear-gradient(135deg,#fff5e7,#ffd5bb);color:#bd6720;}
+body .se-top-actions .se-round{width:42px;height:42px;border-radius:15px;}
+body .se-brand span{background:#efe0ff;color:#673ac8;}
+body .se-job-card .se-tag{font-weight:700;}
+body .se-job-card,body .menu-item,body .cl-proj,body .se-shortcuts button{
+  transition:transform .14s ease,box-shadow .14s ease;
+}
+body .se-shortcuts button:active,body .menu-item:active,body .se-job-card:active{transform:scale(.986);}
+
+/* Navigation: translucent capsule across both client and editor modes. */
+body .bottom-nav,body.sphere-editor-refresh .bottom-nav{
+  background:linear-gradient(135deg,rgba(255,255,255,.91),rgba(250,242,255,.83) 57%,rgba(245,227,255,.82));
+  border:1.5px solid rgba(255,255,255,.94);
+  border-radius:28px;
+  -webkit-backdrop-filter:blur(17px) saturate(170%);
+  backdrop-filter:blur(17px) saturate(170%);
+  box-shadow:0 11px 28px rgba(114,65,155,.2),inset 0 2px 2px #fff,inset 0 -2px 5px rgba(174,141,223,.12);
+}
+body .bottom-nav button.active,body.sphere-editor-refresh .bottom-nav button.active{
+  color:#6a30df;
+  background:linear-gradient(135deg,#fff 10%,#f4e0ff 56%,#e7cefb);
+  box-shadow:0 4px 14px rgba(130,75,198,.15),inset 0 1px 2px #fff;
+}
+body .bottom-nav .nav-badge{background:#ea497b;}
+
+/* Chat: attractive but readable; keep attachment sheet and realtime controls intact. */
+body .chat-head,body.sphere-editor-refresh[data-sphere-screen="chatThread"] .chat-head{
+  color:#252345;
+  background:linear-gradient(125deg,rgba(255,248,255,.98),rgba(238,222,255,.97));
+  border-bottom:1px solid rgba(255,255,255,.94);
+  box-shadow:0 3px 16px rgba(115,67,158,.12);
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+}
+body .chat-head .ch-back,body .chat-head .ch-more,
+body.sphere-editor-refresh[data-sphere-screen="chatThread"] .chat-head .ch-back,
+body.sphere-editor-refresh[data-sphere-screen="chatThread"] .chat-head .ch-more{
+  color:#6932d6;background:rgba(255,255,255,.7);
+}
+body .chat-bubble.me{background:linear-gradient(125deg,#7742de,#9751da);color:#fff;}
+body .chat-bubble.them{background:rgba(255,255,255,.94);color:#22233e;border:1px solid rgba(255,255,255,.96);}
+body .chat-bubble{box-shadow:0 2px 10px rgba(111,73,165,.11);}
+body .chat-input-bar,body.sphere-editor-refresh[data-sphere-screen="chatThread"] .chat-input-bar{
+  background:linear-gradient(135deg,rgba(255,255,255,.96),rgba(247,233,255,.96));
+  border-top:1px solid rgba(255,255,255,.94);
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+}
+body .chat-input-bar #sendBtn{background:linear-gradient(140deg,#713ae2,#a451d6);color:#fff;}
+body .reply-bar,body .emoji-panel,body .attach-sheet{
+  background:rgba(255,250,255,.98);
+  border-color:rgba(226,206,248,.85);
+}
+body .msg-menu,body .sp-dlg{
+  background:linear-gradient(145deg,#fff,#faf1ff);
+  border:1px solid rgba(255,255,255,.96);
+  box-shadow:0 14px 40px rgba(94,52,138,.19);
+}
+body .sp-dlg.ok{border-top:5px solid #16a34a;}
+body .sp-dlg.err{border-top:5px solid #e11d48;}
+
+/* Editor dashboard and project workflows. Preserve My Projects content and layout. */
+body.sphere-editor-refresh .se-search{border-radius:20px;}
+body.sphere-editor-refresh .se-greeting{
+  padding:16px 14px;
+  border:1px solid rgba(255,255,255,.95);
+  border-radius:22px;
+  background:linear-gradient(130deg,rgba(255,255,255,.8),rgba(252,229,249,.68),rgba(236,219,255,.82));
+  box-shadow:var(--glass-shadow);
+}
+body.sphere-editor-refresh .se-shortcuts button{min-height:93px;}
+body.sphere-editor-refresh .se-dash-stats button{background:var(--glass-surface);}
+body.sphere-editor-refresh .se-empty{background:var(--glass-surface);}
+body .se-earning-row,body .se-earn-grid>div{background:var(--glass-surface);}
+body.sphere-editor-refresh .header h1{color:#252345;}
+body.sphere-editor-refresh .se-section-head button{color:#6e31de;}
+
+/* Admin desktop: soft glass panels without changing sticky nav, sizing or data table grids. */
+body.pc-admin .pca-side{
+  background:linear-gradient(175deg,#282148,#443070 68%,#5e3e8e);
+  color:#e9e1f3;
+}
+body.pc-admin .pca-side button.on{
+  background:linear-gradient(110deg,#7641dc,#9c57d7);
+  color:#fff;
+}
+body.pc-admin .pca .card,
+body.pc-admin .pcv-list,body.pc-admin .pcv-detail,body.pc-admin .pcv-box{
+  background:rgba(255,255,255,.91);border-color:rgba(255,255,255,.94);
+  box-shadow:var(--glass-shadow);
+}
+body.pc-admin .pcv-item.on{background:#f1e5ff;border-left-color:#7139e4;}
+body.pc-admin .pca-top h1{color:#242141;}
+body.pc-admin .pcv-search{background:rgba(255,255,255,.97);}
+
+/* Keep native interactions reachable and reduce animation for accessibility. */
+@media(max-width:365px){
+  body .bottom-nav{width:calc(100% - 20px);}
+  body .se-shortcuts{gap:6px;}
+  body .se-shortcuts button{padding-inline:2px;}
+}
+@media(prefers-reduced-motion:reduce){
+  body .se-job-card,body .menu-item,body .cl-proj{transition:none;}
+}
+
 </style>
 </head>
 <body>
