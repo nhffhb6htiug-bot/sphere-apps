@@ -1,0 +1,174 @@
+/* SPHERE DARK THEME v1 — opt-in only; light UI remains unchanged */
+html.sphere-dark{color-scheme:dark!important;background:#09090e!important;
+ --blue:#b48bff;--blue-dark:#8a58e9;--bg:#0b0a10;--text:#f0ebf8;--muted:#b6adc5;
+ --card:#1b1822;--border:#403647;--glass-line:#45394f;
+ --glass-shadow:0 7px 19px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.06);
+ --glass-surface:linear-gradient(145deg,#241e2e,#1a1822 72%,#201b28);}
+html.sphere-dark body,html.sphere-dark body:not([data-sphere-screen="home"]),
+html.sphere-dark body.sphere-editor-refresh,
+html.sphere-dark body[data-sphere-screen="home"]:not(.sphere-editor-refresh),
+html.sphere-dark body.pc-admin{
+ --se-blue:#b18aff;--se-navy:#eee9fa;--se-ink:#eeeaf7;--se-line:#413748;--se-muted:#b8afc6;
+ --sh-ink:#eeeaf7;--sh-violet:#b795ff;--text:#f0ebf8;--muted:#b6adc5;
+ --card:#1b1822;--border:#403647;
+ background:#0b0a10 linear-gradient(150deg,#14111c,#0b0a10 46%,#15111d 92%)!important;
+ color:#f0ebf8!important;}
+html.sphere-dark body .screen,html.sphere-dark body .sphere-client-home,html.sphere-dark body .cl-dash,
+html.sphere-dark body .se-home,html.sphere-dark body .pca{color:#eeeaf7!important;}
+html.sphere-dark body h1,html.sphere-dark body h2,html.sphere-dark body h3,html.sphere-dark body h4,
+html.sphere-dark body .header h1,html.sphere-dark body .header h2,
+html.sphere-dark body .screen .header h1,html.sphere-dark body .section-title h3,
+html.sphere-dark body .mi-text b,html.sphere-dark body .se-section-title,
+html.sphere-dark body .se-section-head h2,html.sphere-dark body .se-greeting h1,
+html.sphere-dark body .se-shortcuts b,html.sphere-dark body .se-job-card h3,
+html.sphere-dark body .se-page-head h1,html.sphere-dark body .se-brand,
+html.sphere-dark body .se-page-brand,html.sphere-dark body .se-portfolio-info b,
+html.sphere-dark body .se-earning-row b,html.sphere-dark body .se-earn-grid strong,
+html.sphere-dark body .se-empty>b,html.sphere-dark body .se-job-bottom>strong,
+html.sphere-dark body .pca-top h1{color:#f3effa!important;}
+html.sphere-dark body .muted,html.sphere-dark body .mi-text small,html.sphere-dark body .header p,
+html.sphere-dark body .cl-hello span,html.sphere-dark body .cl-stat span,
+html.sphere-dark body .se-greeting p,html.sphere-dark body .se-job-card>p,
+html.sphere-dark body .se-job-bottom,html.sphere-dark body .se-dash-stats small,
+html.sphere-dark body .se-earning-row small,html.sphere-dark body .se-portfolio-info small,
+html.sphere-dark body .se-earn-note,html.sphere-dark body .se-page-head p,
+html.sphere-dark body .se-section-head small,html.sphere-dark body .pcv-item small,
+html.sphere-dark body .pcv-tags i{color:#b8afc7!important;}
+html.sphere-dark body .card,html.sphere-dark body.sphere-editor-refresh .card,
+html.sphere-dark body .menu-item,html.sphere-dark body .cl-proj,html.sphere-dark body .cl-stat,
+html.sphere-dark body .cl-hello,html.sphere-dark body .help-mini,html.sphere-dark body .se-job-card,
+html.sphere-dark body .se-empty,html.sphere-dark body .se-greeting,
+html.sphere-dark body .se-dash-stats button,html.sphere-dark body .se-shortcuts button,
+html.sphere-dark body .se-earn-grid>div,html.sphere-dark body .se-earning-row,
+html.sphere-dark body .se-portfolio-row,html.sphere-dark body .se-add-panel,
+html.sphere-dark body .nt-item,html.sphere-dark body .jf,
+html.sphere-dark body .pcv-list,html.sphere-dark body .pcv-box,html.sphere-dark body .pcv-detail,
+html.sphere-dark body .pca .card,
+html.sphere-dark body .sh-glass-panel,html.sphere-dark body .sphere-client-home .sh-glass-panel{
+ background:var(--glass-surface)!important;border-color:var(--glass-line)!important;
+ color:var(--text)!important;box-shadow:var(--glass-shadow)!important;}
+html.sphere-dark body .menu-item.highlight{background:linear-gradient(135deg,#312441,#1c1926)!important;border-color:#7655a2!important;}
+html.sphere-dark body .cl-dash>.section-title,
+html.sphere-dark body .sphere-client-home .cl-dash>.section-title,
+html.sphere-dark body .se-add-panel.se-details-panel>summary{
+ background:linear-gradient(130deg,#2b2238,#1d1a28)!important;
+ border-color:#51405d!important;box-shadow:0 5px 15px rgba(0,0,0,.2)!important;color:#f0eafa!important;}
+html.sphere-dark body .sphere-client-home .topbar-logo span,
+html.sphere-dark body .sphere-client-home .cl-hello b,
+html.sphere-dark body .sphere-client-home .section-title h3,
+html.sphere-dark body .sphere-client-home .cl-dash>.section-title h3,
+html.sphere-dark body .sphere-client-home .explore-item span,
+html.sphere-dark body .sphere-client-home .tool-card span,
+html.sphere-dark body .se-home-top .se-brand,
+html.sphere-dark body .se-home-top .se-brand b{color:#f4eefa!important;text-shadow:none!important;}
+html.sphere-dark body .sphere-client-home .explore-circle,
+html.sphere-dark body .sphere-client-home .tool-card-img,
+html.sphere-dark body .sphere-client-home .service-card,
+html.sphere-dark body .cat-icon-box{
+ background:#292333!important;border-color:#4b3c54!important;box-shadow:0 4px 13px rgba(0,0,0,.24)!important;}
+/* Preserve every original photo, icon illustration and video. */
+html.sphere-dark img,html.sphere-dark video,html.sphere-dark canvas,html.sphere-dark .editor-art{filter:none;}
+html.sphere-dark body .mi-icon,html.sphere-dark body .nt-ic,
+html.sphere-dark body .se-round,html.sphere-dark body .se-top-actions .se-round,
+html.sphere-dark body .se-portfolio-glyph,html.sphere-dark body .se-earn-item-icon,
+html.sphere-dark body .se-brand span,html.sphere-dark body .sphere-editor-app-back,
+html.sphere-dark body .sphere-client-home .sec-min{
+ color:#c8a8ff!important;background:linear-gradient(145deg,#382946,#231c30)!important;
+ border-color:#594569!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 4px 10px rgba(0,0,0,.25)!important;}
+html.sphere-dark body.sphere-editor-refresh .se-shortcut-icon,
+html.sphere-dark body.sphere-editor-refresh .se-stat-icon,
+html.sphere-dark body.sphere-editor-refresh .mi-icon:has(.editor-art){
+ background:transparent!important;border:0!important;box-shadow:none!important;}
+html.sphere-dark body .field input,html.sphere-dark body .field select,html.sphere-dark body .field textarea,
+html.sphere-dark body .jf input,html.sphere-dark body .jf select,
+html.sphere-dark body textarea.ed-text,html.sphere-dark body .otp-phone input,
+html.sphere-dark body .otp-code,html.sphere-dark body .pcv-search,
+html.sphere-dark body .pca input:not([type=checkbox]),html.sphere-dark body .pca select,
+html.sphere-dark body .pca textarea,html.sphere-dark body .search-box,
+html.sphere-dark body .home-search-bottom,html.sphere-dark body .se-search,
+html.sphere-dark body .chat-input-bar input,
+html.sphere-dark body input:not([type=checkbox]):not([type=radio]):not([type=range]),
+html.sphere-dark body textarea,html.sphere-dark body select{
+ background:#24202c!important;color:#f3effa!important;-webkit-text-fill-color:#f3effa!important;
+ border-color:#4e405b!important;caret-color:#b48bff;box-shadow:none!important;}
+html.sphere-dark body .se-search input,html.sphere-dark body .search-box input,
+html.sphere-dark body .home-search-bottom input{background:transparent!important;border:0!important;}
+html.sphere-dark body input::placeholder,html.sphere-dark body textarea::placeholder{color:#afa5be!important;opacity:1;}
+html.sphere-dark body select option{background:#201b28;color:#f3effa;}
+html.sphere-dark body .btn-outline,html.sphere-dark body .btn-sm,
+html.sphere-dark body .cl-tabs button,html.sphere-dark body .nt-seg,html.sphere-dark body .nt-seg button,
+html.sphere-dark body .pick-chip,html.sphere-dark body .pill,
+html.sphere-dark body .av-pick button,html.sphere-dark body .av-chip,
+html.sphere-dark body .hrs-pick button,html.sphere-dark body .bid-sort button,
+html.sphere-dark body .pj-ex span,html.sphere-dark body .pcv-chips button{
+ background:#292331!important;border-color:#574663!important;
+ color:#eee2fa!important;box-shadow:none!important;}
+html.sphere-dark body .cl-tabs button.on,html.sphere-dark body .nt-seg button.on,
+html.sphere-dark body .pick-chip.on,html.sphere-dark body .pill.active,
+html.sphere-dark body .av-pick button.on,html.sphere-dark body .hrs-pick button.on,
+html.sphere-dark body .bid-sort button.on,html.sphere-dark body .pcv-chips button.on{
+ background:linear-gradient(110deg,#713ace,#9951c5)!important;color:#fff!important;
+ border-color:#a782e3!important;}
+html.sphere-dark body .btn-primary,html.sphere-dark body .prem-pill,html.sphere-dark body .se-small-cta{
+ color:#fff!important;background:linear-gradient(110deg,#7138d4,#9851c8,#b55c9b)!important;border-color:#ab7ed8!important;}
+html.sphere-dark body .btn-dark{background:#43344f!important;color:#fff!important;}
+html.sphere-dark body .phone-prefix,html.sphere-dark body .tl-item i,
+html.sphere-dark body .bid-chip,html.sphere-dark body .pj-ai,html.sphere-dark body .pj-tag,
+html.sphere-dark body .se-tag:not(.premium):not(.match),html.sphere-dark body .tag,
+html.sphere-dark body .mode-chip,html.sphere-dark body .pcv-tags i{
+ background:#31273b!important;color:#d7c0ff!important;border-color:#514160!important;}
+html.sphere-dark body .se-tag.match,html.sphere-dark body .se-verified{background:#19372b!important;color:#8be6ba!important;}
+html.sphere-dark body .se-tag.premium{background:#413217!important;color:#f4cf86!important;}
+html.sphere-dark body .chat-head,html.sphere-dark body.sphere-editor-refresh[data-sphere-screen="chatThread"] .chat-head,
+html.sphere-dark body .chat-input-bar,html.sphere-dark body .reply-bar,
+html.sphere-dark body .emoji-panel,html.sphere-dark body .attach-sheet{
+ background:#1c1823!important;color:#f3ecf9!important;border-color:#45374e!important;box-shadow:none!important;}
+html.sphere-dark body .chat-head .ch-back,html.sphere-dark body .chat-head .ch-more{
+ background:#32283c!important;color:#cbaaff!important;}
+html.sphere-dark body .chat-bubble.them{
+ background:#2d2634!important;color:#f1eaf8!important;border-color:#4c3e54!important;}
+html.sphere-dark body .chat-bubble.me{background:linear-gradient(130deg,#6c37c6,#874dca)!important;color:white!important;}
+html.sphere-dark body .chat-day span,html.sphere-dark body .msg-quote,html.sphere-dark body .msg-menu{
+ background:#342b3d!important;color:#eae0f6!important;border-color:#55425f!important;}
+html.sphere-dark body #bottomNav.bottom-nav{
+ background:linear-gradient(145deg,rgba(33,27,44,.98),rgba(22,19,31,.98))!important;
+ border-color:#5b4767!important;box-shadow:0 12px 26px rgba(0,0,0,.52),inset 0 1px 0 rgba(255,255,255,.09)!important;}
+html.sphere-dark body #bottomNav.bottom-nav::before{background:linear-gradient(145deg,rgba(255,255,255,.06),transparent 55%)!important;}
+html.sphere-dark body #bottomNav.bottom-nav::after{opacity:.34;}
+html.sphere-dark body #bottomNav.bottom-nav button{color:#bdb1cc!important;}
+html.sphere-dark body #bottomNav.bottom-nav button.active{color:#dfc5ff!important;}
+html.sphere-dark body #bottomNav.bottom-nav .sphere-liquid-lens{
+ background:linear-gradient(145deg,rgba(96,61,134,.62),rgba(72,47,97,.73))!important;
+ border-color:#8f6ab3!important;box-shadow:inset 0 1px 1px rgba(255,255,255,.23),0 5px 15px rgba(0,0,0,.32)!important;}
+html.sphere-dark body .sp-dlg,html.sphere-dark body .msg-menu,
+html.sphere-dark body .sp-load-card,html.sphere-dark body .media-preview,
+html.sphere-dark body .img-viewer{
+ background:#1c1824!important;color:#eee8f6!important;border-color:#504057!important;}
+html.sphere-dark body .sp-dlg-p,html.sphere-dark body .sp-dlg-raw{color:#b9adc7!important;}
+html.sphere-dark body .sp-dlg-raw code{background:#31273e!important;color:#f1e8fa!important;}
+html.sphere-dark body .nt-seg{background:#26212f!important;}
+html.sphere-dark body .pca-side{background:#14111b!important;}
+html.sphere-dark body .pca-top,html.sphere-dark body .pcv-search{
+ background:#1d1925!important;color:#eee8f6!important;}
+html.sphere-dark body .pcv-item:hover,html.sphere-dark body .pcv-item.on{background:#30253d!important;}
+/* Previous templates contain inline white surfaces and ink. Darken only those explicitly white. */
+html.sphere-dark body .screen [style*="background:#fff"]:not(img):not(svg):not(video):not(.btn-primary):not(.prem-pill),
+html.sphere-dark body .screen [style*="background: #fff"]:not(img):not(svg):not(video):not(.btn-primary),
+html.sphere-dark body .screen [style*="background:rgb(255,255,255)"]:not(img):not(svg):not(video){
+ background:#28222f!important;border-color:#51415e!important;}
+html.sphere-dark body .screen [style*="color:#111"]:not(.btn-primary):not(.prem-pill),
+html.sphere-dark body .screen [style*="color:#000"]:not(.btn-primary):not(.prem-pill){
+ color:#f0e9f8!important;}
+/* Settings appearance card: unique to this feature. */
+body .sphere-theme-card{display:flex;align-items:center;gap:11px;padding:14px 15px;}
+body .sphere-theme-icon{width:42px;height:42px;min-width:42px;display:grid;place-items:center;
+ border-radius:14px;background:#eee3ff;color:#7139e4;font-size:23px;}
+html.sphere-dark body .sphere-theme-icon{background:#3d3051;color:#dbc3ff;}
+body .sphere-theme-copy{flex:1;min-width:0;}
+body .sphere-theme-copy b{display:block;font-size:15px;font-weight:800;}
+body .sphere-theme-copy small{display:block;margin-top:4px;color:var(--muted);line-height:1.3;font-size:12px;}
+body .sphere-theme-apply{min-height:43px;border:0;border-radius:12px;padding:11px 13px;cursor:pointer;
+ background:linear-gradient(110deg,#783ae1,#a354d4);color:#fff;font-size:12px;font-weight:750;white-space:nowrap;}
+html.sphere-dark body .sphere-theme-apply{background:#3b2b50;color:#e8d9fa;border:1px solid #73568d;}
+body .sphere-theme-apply:focus-visible{outline:2px solid #bb94fa;outline-offset:3px;}
+@media(max-width:360px){body .sphere-theme-card{gap:7px;padding:12px;}body .sphere-theme-apply{padding:10px 8px;font-size:11px;}}
