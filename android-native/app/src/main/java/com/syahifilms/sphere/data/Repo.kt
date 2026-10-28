@@ -11,21 +11,34 @@ object Repo {
         Api.select("sp_public_profiles?$query")
 
     // ---------------- profiles ----------------
+    /**
+     * Read through the existing privacy-filtered RPC. Direct SELECT on profiles
+     * is deliberately denied to prevent contact details being exposed.
+     */
+    private suspend fun profilesByRpc(ids: List<String>): List<Profile> {
+        if (ids.isEmpty()) return emptyList()
+        val response = Api.rpc("sp_profiles_public", JSONObject().put("p_ids", JSONArray(ids)))
+        return JSONArray(response.ifBlank { "[]" }).mapObjects { Profile.from(it) }
+    }
+
     suspend fun loadMe(): Profile? {
         val uid = Api.userId ?: return null
-        var row = Api.selectOne("profiles?id=eq.$uid&select=*")
-        // email sign-up: profile is created on first login from sign-up details
+        var row = profilesByRpc(listOf(uid)).firstOrNull()
         val meta = Api.userMeta
-        if ((row == null || row.str("role").isBlank()) && meta.str("role").isNotBlank()) {
-            try {
-                Api.upsert("profiles", JSONObject()
-                    .put("id", uid).put("role", meta.str("role"))
-                    .put("full_name", meta.str("full_name").ifBlank { Api.email.substringBefore("@") })
-                    .put("email", Api.email).put("phone", meta.str("phone")), "id")
-            } catch (e: Exception) { }
-            row = Api.selectOne("profiles?id=eq.$uid&select=*")
+        val desiredRole = meta.str("role").uppercase()
+        if (row == null && desiredRole in listOf("CLIENT", "EDITOR")) {
+            val phone = cleanIndianPhone(meta.str("phone"))
+            if (phone != null) {
+                Api.rpc("sp_native_profile_save", JSONObject().put("p_data", JSONObject()
+                    .put("role", desiredRole)
+                    .put("full_name", meta.str("full_name").ifBlank {
+                        Api.email.substringBefore("@").ifBlank { "Sphere User" }
+                    })
+                    .put("phone", phone)))
+                row = profilesByRpc(listOf(uid)).firstOrNull()
+            }
         }
-        return row?.let { Profile.from(it) }
+        return row
     }
 
     /** Loads the commission % that the admin set (Admin Panel → Settings). */
@@ -42,9 +55,8 @@ object Repo {
 
     suspend fun saveRoleAndPhone(role: String, name: String, phone: String) {
         val uid = Api.userId ?: throw ApiException(401, "Please log in again")
-        Api.upsert("profiles", JSONObject()
-            .put("id", uid).put("role", role.uppercase()).put("full_name", name)
-            .put("email", Api.email).put("phone", phone), "id")
+        Api.rpc("sp_native_profile_save", JSONObject().put("p_data", JSONObject()
+            .put("role", role.uppercase()).put("full_name", name).put("phone", phone)))
     }
 
     suspend fun saveEditorDetails(
@@ -61,12 +73,12 @@ object Repo {
             .put("price_range", price)
             .put("portfolio_url", portfolio.ifBlank { null } ?: JSONObject.NULL)
             .put("sample_video_url", sample)
-        Api.update("profiles?id=eq.$uid", f)
+        Api.rpc("sp_native_profile_save", JSONObject().put("p_data", f))
     }
 
     suspend fun becomeEditor() {
         val uid = Api.userId ?: return
-        Api.update("profiles?id=eq.$uid", JSONObject().put("role", "EDITOR"))
+        Api.rpc("sp_native_profile_save", JSONObject().put("p_data", JSONObject().put("role", "EDITOR")))
     }
 
     private suspend fun withRatings(list: List<Profile>): List<Profile> {
@@ -91,18 +103,14 @@ object Repo {
 
     /** Full profile if you are connected (job / bid / chat), otherwise the public editor details. */
     suspend fun profile(id: String): Profile? {
-        val row = Api.selectOne("profiles?id=eq.$id&select=*") ?: publicEditors("id=eq.$id&select=*").let { if (it.length() > 0) it.getJSONObject(0) else null }
-        return row?.let { withRatings(listOf(Profile.from(it))).first() }
+        val row = profilesByRpc(listOf(id)).firstOrNull()
+        return row?.let { withRatings(listOf(it)).first() }
     }
 
     suspend fun profilesByIds(ids: Collection<String>): Map<String, Profile> {
-        val u = ids.filter { it.isNotBlank() }.distinct()
-        if (u.isEmpty()) return emptyMap()
-        val full = Api.select("profiles?id=in.(${u.joinToString(",")})&select=*").mapObjects { Profile.from(it) }
-        val missing = u.filter { id -> full.none { it.id == id } }
-        val pub = if (missing.isEmpty()) emptyList()
-            else publicEditors("id=in.(${missing.joinToString(",")})&select=*").mapObjects { Profile.from(it) }
-        val list = withRatings(full + pub)
+        val unique = ids.filter { it.isNotBlank() }.distinct()
+        if (unique.isEmpty()) return emptyMap()
+        val list = withRatings(unique.chunked(250).flatMap { profilesByRpc(it) })
         return list.associateBy { it.id }
     }
 
@@ -338,7 +346,7 @@ object Repo {
 
     suspend fun updateName(name: String) {
         val me = Api.userId ?: return
-        Api.update("profiles?id=eq.$me", JSONObject().put("full_name", name))
+        Api.rpc("sp_native_profile_save", JSONObject().put("p_data", JSONObject().put("full_name", name)))
     }
 
     suspend fun sendMessage(me: Profile, otherId: String, text: String) {
