@@ -62,7 +62,7 @@ self.addEventListener('fetch', (event) => {
       event.waitUntil(caches.open(CACHE).then((c) => c.put(req, res.clone())).catch(() => {}));
     }
     return res;
-  }).catch(() => caches.match(req, { ignoreSearch: /\\.css$/i.test(url.pathname) })
+  }).catch(() => caches.match(req, { ignoreSearch: /\.css$/i.test(url.pathname) })
     .then((r) => r || Response.error())));
 });
 
