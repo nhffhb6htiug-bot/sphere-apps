@@ -2934,8 +2934,6 @@ if(!/^https?:$/.test(location.protocol)) window.addEventListener('load', () => {
 });
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; });
 window.addEventListener('appinstalled', () => { installPrompt = null; });
-if('serviceWorker' in navigator){
-  // v2.22.30: keep the app's pictures decoded in memory so Home never flashes empty/black circles
 // Warm only the logo and first-page hero assets after the browser is idle.
 // The previous eager 19-image preload competed with auth and initial data requests.
 const SP_KEEP_IMGS = [];
