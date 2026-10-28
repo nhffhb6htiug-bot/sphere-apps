@@ -717,6 +717,166 @@ body.pc-admin{max-width:none; padding-bottom:0; background:#eef1f8;}
 .pcv-actions{display:grid; gap:8px;}
 .pcv-empty{text-align:center; padding:60px 20px;}
 .pcv-verified{display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:0 14px;} .pcv-verified h3{grid-column:1/-1;}
+/* ============================================================
+   SPHERE EDITOR UI 2026 - designed after the editor mockup PDF.
+   Strictly role + screen scoped. The original My Projects (My work,
+   History) and Project Status are intentionally not styled here.
+   Client mode does not receive any of these rules.
+============================================================ */
+body.sphere-editor-refresh{
+  --se-blue:#1657ff; --se-navy:#152246; --se-ink:#15203b;
+  --se-line:#e9eff9; --se-muted:#71809c;
+  background:linear-gradient(180deg,#eaf1ff 0,#f6f9ff 245px,#f7f9fd 470px);
+  color:var(--se-ink);
+}
+body.sphere-editor-refresh .screen{padding-left:16px;padding-right:16px}
+body.sphere-editor-refresh .card{border-color:#e9eef9;border-radius:19px;box-shadow:0 3px 16px rgba(26,62,132,.055);background:#fff}
+body.sphere-editor-refresh .btn-primary{background:linear-gradient(110deg,#1657ff,#307cff);border-radius:15px;box-shadow:0 6px 18px rgba(22,87,255,.14)}
+body.sphere-editor-refresh .btn-outline{border-radius:15px}
+body.sphere-editor-refresh .field input,body.sphere-editor-refresh .field textarea,body.sphere-editor-refresh .field select{border:1px solid #e1e8f5;border-radius:13px;background:#fbfcff;font-size:14px;min-height:45px}
+body.sphere-editor-refresh .header{margin-bottom:14px;padding:22px 18px 10px}
+body.sphere-editor-refresh .header h1{font-size:27px;font-weight:800;color:var(--se-navy);letter-spacing:-.7px}
+body.sphere-editor-refresh .header p{font-size:13px;color:var(--se-muted)}
+body.sphere-editor-refresh .header .back-btn{color:#1657ff}
+body.sphere-editor-refresh .bottom-nav{background:rgba(255,255,255,.9);border-color:#e0e9f9;backdrop-filter:blur(22px);box-shadow:0 7px 28px rgba(20,49,111,.12)}
+body.sphere-editor-refresh .bottom-nav button.active{background:#eaf1ff;box-shadow:none}
+body.sphere-editor-refresh .bottom-nav .nav-badge{background:#ff4d68}
+body.sphere-editor-refresh .se-icon{width:20px;height:20px;flex-shrink:0;vertical-align:middle}
+.se-home{padding:14px 16px 24px}
+.se-home-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 0 20px}
+.se-brand,.se-page-brand{display:flex;align-items:center;gap:9px;font-size:22px;font-weight:900;color:#152246}
+.se-brand img,.se-page-brand img{width:32px;height:32px;object-fit:cover;border-radius:50%}
+.se-brand span{font-size:9px;background:#e6efff;color:#1657ff;padding:5px 8px;border-radius:8px;letter-spacing:.11em}
+.se-top-actions{display:flex;align-items:center;gap:8px}
+.se-round{width:41px;height:41px;display:flex;align-items:center;justify-content:center;background:#fff;color:#334972;border:1px solid #e6edfb;border-radius:14px;cursor:pointer}
+.se-greeting{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:18px}
+.se-greeting h1{font-size:23px;letter-spacing:-.7px;font-weight:850;color:#14234b;line-height:1.25}
+.se-greeting p{color:#74819d;font-size:12px;margin-top:5px;line-height:1.5}
+.se-verified{display:inline-flex;gap:4px;align-items:center;background:#e5f9ee;color:#16834e;font-size:10px;padding:6px 8px;border-radius:20px;white-space:nowrap}
+.se-verified .se-icon{width:14px;height:14px}
+.se-search{background:#fff;border:1px solid #e6edfa;border-radius:18px;padding:10px 12px;display:flex;align-items:center;gap:9px;color:#657795;box-shadow:0 3px 12px rgba(27,72,159,.035);margin-bottom:15px}
+.se-search input{flex:1;border:none;outline:none;background:transparent;font-size:13px;min-width:0}
+.se-filter-icon{cursor:pointer;display:flex;align-items:center;color:#1657ff;border-left:1px solid #e2e9f4;padding-left:9px}
+.se-home .se-dash-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:13px 0 8px}
+.se-dash-stats button{background:#fff;border:1px solid #ebeff7;border-radius:18px;box-shadow:0 5px 16px rgba(35,75,140,.055);padding:12px 8px;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:5px;color:#152246;text-align:left;cursor:pointer}
+.se-stat-icon{display:flex;align-items:center;justify-content:center;color:#1657ff;background:#eaf1ff;border-radius:10px;width:33px;height:33px}
+.se-stat-icon .se-icon{width:18px;height:18px}
+.se-dash-stats button:nth-child(2) .se-stat-icon{background:#efe9ff;color:#7952e8}
+.se-dash-stats button:nth-child(3) .se-stat-icon{background:#fff1e3;color:#df761f}
+.se-dash-stats strong{font-size:16px;line-height:1.25;overflow-wrap:anywhere;font-weight:850}
+.se-dash-stats small{font-size:10.5px;color:#6f7d9b;line-height:1.3}
+.se-home-subrow{display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:11px;color:#637391;margin:10px 0 12px}
+.se-shortcuts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:10px 0 22px}
+.se-shortcuts button{border:1px solid #ecf0f8;background:#fff;border-radius:17px;min-height:93px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:8px 3px;cursor:pointer}
+.se-shortcuts b{font-size:10.5px;text-align:center;line-height:1.25;color:#243354}
+.se-shortcut-icon{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:14px;color:#1657ff;background:#e6efff}
+.se-shortcut-icon.violet{background:#f0e9ff;color:#7a4fe8}
+.se-shortcut-icon.mint{background:#e5faf0;color:#0c9a65}
+.se-shortcut-icon.peach{background:#fff0e0;color:#e0811c}
+.se-section-title,.se-section-head h2{font-size:17px;font-weight:800;color:#1a2849}
+.se-section-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:21px 0 12px}
+.se-section-head button{display:flex;gap:4px;align-items:center;border:0;background:none;color:#1657ff;font-size:12px;font-weight:700;cursor:pointer}
+.se-section-head button .se-icon{width:15px;height:15px}
+.se-section-head small{font-size:11px;color:#76839e}
+.se-pick-chips{margin:5px 0 12px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.se-pick-chips .pick-chip{font-size:11px;white-space:nowrap;border-radius:22px;padding:8px 12px}
+.se-pick-chips .pick-chip.on{background:#1657ff;border-color:#1657ff}
+body.sphere-editor-refresh .se-job-card{padding:15px 15px 13px;border:1px solid #e7edf8;cursor:pointer}
+.se-job-top{display:flex;align-items:center;gap:6px;margin-bottom:7px;flex-wrap:wrap}
+.se-tag{font-size:10px;color:#1657ff;background:#e6efff;border-radius:8px;padding:5px 8px;font-weight:700}
+.se-tag.premium{background:#fff1d9;color:#a96b00}
+.se-tag.match{background:#e6f8ed;color:#107c49}
+.se-job-arrow{margin-left:auto;color:#7a89a2}
+.se-job-arrow svg{width:17px;height:17px}
+.se-job-card h3{font-size:15px;color:#18284d;margin:7px 0 6px;font-weight:800;line-height:1.35}
+.se-job-card>p{font-size:12px;color:#75829b;line-height:1.5;margin:5px 0 13px}
+.se-job-bottom{display:flex;align-items:center;flex-wrap:wrap;gap:9px 12px;font-size:11px;color:#6f7f99}
+.se-job-bottom>strong{color:#173464;font-size:14px;font-weight:850;margin-right:auto}
+.se-job-bottom>span{display:flex;align-items:center;gap:4px}
+.se-job-bottom .se-icon{width:15px;height:15px;color:#507cff}
+.se-small-cta{border:0;background:#1657ff;color:#fff;border-radius:11px;padding:8px 9px;font-size:10.5px;font-weight:800;display:flex;align-items:center;gap:4px;cursor:pointer}
+.se-small-cta .se-icon{color:#fff;width:13px;height:13px}
+.se-card-action{color:#1657ff;font-size:12px;font-weight:800;display:flex;justify-content:flex-end;gap:6px;align-items:center;margin-top:12px}
+.se-card-action .se-icon{width:15px;height:15px}
+.se-empty{padding:30px 18px;border:1px dashed #d7e4f6;border-radius:18px;background:#fff;text-align:center;color:#6f809e}
+.se-empty>b{display:block;color:#243452;font-size:14px;margin:8px 0 5px}
+.se-empty>p{font-size:12px}
+.se-help{margin:22px 0 0}
+.se-help>span{color:#1657ff}
+/* Job discovery only. No changes to the user's My Work/History pages. */
+body.sphere-editor-refresh[data-sphere-screen="jobs"] .jf{background:#fff;border:1px solid #e8eef9;border-radius:18px;padding:12px;margin:12px 0}
+body.sphere-editor-refresh[data-sphere-screen="jobs"] .jf input,body.sphere-editor-refresh[data-sphere-screen="jobs"] .jf select{border:1px solid #e5ecf8;border-radius:12px;background:#f9fbff;padding:11px}
+body.sphere-editor-refresh[data-sphere-screen="jobs"] .cl-tabs{background:#eaf0fb;border-radius:14px;padding:4px;display:flex;gap:3px}
+body.sphere-editor-refresh[data-sphere-screen="jobs"] .cl-tabs button.on{background:#1657ff;color:#fff;border-radius:11px}
+body.sphere-editor-refresh[data-sphere-screen="jobs"] .se-job-card{margin-bottom:12px}
+/* Job detail and actual existing bid form */
+body.sphere-editor-refresh[data-sphere-screen="jobBidScreen"] .screen>.card:first-child{padding:18px;background:#fff}
+body.sphere-editor-refresh[data-sphere-screen="jobBidScreen"] .bid-price{color:#1657ff;font-size:24px}
+body.sphere-editor-refresh[data-sphere-screen="jobBidScreen"] .bid-chip{border-radius:10px;padding:6px 9px;background:#f1f5fd;margin:4px 3px 0 0}
+body.sphere-editor-refresh[data-sphere-screen="jobBidScreen"] .pj-sec{font-size:18px;font-weight:800;margin:20px 0 12px;color:#1c3055}
+body.sphere-editor-refresh[data-sphere-screen="jobBidScreen"] .field{margin-bottom:16px}
+body.sphere-editor-refresh[data-sphere-screen="jobBidScreen"] .screen>.field,body.sphere-editor-refresh[data-sphere-screen="jobBidScreen"] .pj-sec{padding:0 3px}
+/* Text-only editor-owned portfolio, not the client-visible portfolio */
+.se-page-head{padding:18px 16px 8px}
+.se-page-head .se-page-brand{font-size:20px;margin-bottom:16px}
+.se-page-head h1{font-size:26px;font-weight:850;color:#16264b;letter-spacing:-.7px}
+.se-page-head p{font-size:12px;color:#75839f;margin-top:5px}
+.se-add-panel{border:1px solid #e7edf8;border-radius:17px;background:#fff;margin:0 0 18px;overflow:hidden}
+.se-add-panel>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:14px 15px;background:#1657ff;color:#fff;font-weight:800;font-size:13px}
+.se-add-panel>summary::-webkit-details-marker{display:none}
+.se-add-panel>summary>span{margin-left:auto;font-size:11px;font-weight:500;opacity:.86}
+.se-add-panel .se-add-inner{padding:16px}
+.se-add-panel.se-details-panel>summary{background:#fff;color:#253858}
+.se-details-panel>summary svg:last-child{margin-left:auto}
+.se-portfolio-list{display:grid;gap:8px;margin-bottom:22px}
+.se-portfolio-row{display:flex;align-items:center;gap:11px;padding:13px 12px;border:1px solid #e6edf8;border-radius:15px;background:#fff;min-height:70px;cursor:pointer;box-shadow:0 3px 13px rgba(25,64,128,.03)}
+.se-portfolio-glyph{width:40px;height:40px;flex:0 0 40px;border-radius:12px;background:#eaf1ff;color:#1657ff;display:flex;align-items:center;justify-content:center}
+.se-portfolio-info{min-width:0;flex:1}
+.se-portfolio-info b{display:block;color:#203252;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.se-portfolio-info small{display:block;color:#7b89a5;font-size:11px;margin-top:4px}
+.se-del{width:34px;height:34px;display:grid;place-items:center;cursor:pointer;border:0;border-radius:10px;background:#fff4f4;color:#dd4656}
+.se-del svg{width:16px;height:16px}
+.se-row-chevron{color:#92a0b7}
+.se-row-chevron .se-icon{width:17px;height:17px}
+/* Earnings reflect actual RPC and jobs; no invented withdrawal. */
+.se-earn-hero{padding:21px;border-radius:20px;background:linear-gradient(115deg,#1657ff,#447aff 60%,#3ea4f2);color:white;box-shadow:0 10px 24px rgba(23,90,222,.18);display:flex;flex-direction:column;gap:8px;margin-bottom:13px}
+.se-earn-hero small{font-size:12px;opacity:.9}
+.se-earn-hero strong{font-size:31px;letter-spacing:-.6px}
+.se-earn-hero span{font-size:11px;opacity:.89;display:flex;align-items:center;gap:5px}
+.se-earn-hero .se-icon{width:15px;height:15px}
+.se-earn-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.se-earn-grid>div{border:1px solid #e8eff9;background:#fff;border-radius:16px;padding:15px 12px;display:flex;flex-direction:column;gap:5px}
+.se-earn-grid small{color:#7684a0;font-size:11px}
+.se-earn-grid strong{color:#172b53;font-size:17px}
+.se-earning-row{display:flex;align-items:center;gap:9px;border:1px solid #e9eef9;border-radius:16px;padding:12px 10px;background:#fff;margin:8px 0;cursor:pointer}
+.se-earn-item-icon{background:#e8f7ed;color:#17965d;width:35px;height:35px;flex:0 0 35px;display:grid;place-items:center;border-radius:11px}
+.se-earning-row>div{min-width:0;flex:1}
+.se-earning-row b{display:block;font-size:12px;color:#172a4b}
+.se-earning-row small{display:block;font-size:11px;color:#73829d;margin-top:4px}
+.se-earning-row>strong{color:#14864e;font-size:13px;white-space:nowrap}
+.se-earn-note{font-size:11px;color:#7987a0;line-height:1.5;margin-top:15px}
+/* Chat visuals: actual chat, read receipts, media, actions remain functional */
+body.sphere-editor-refresh[data-sphere-screen="chatList"] .screen>.card{padding:14px;border-radius:19px}
+body.sphere-editor-refresh[data-sphere-screen="chatList"] .screen>.card .avatar{border:2px solid #e6edff}
+body.sphere-editor-refresh[data-sphere-screen="chatList"] .unread{background:#1657ff}
+body.sphere-editor-refresh[data-sphere-screen="chatThread"] .chat-head{background:rgba(255,255,255,.97);color:#122244;border-bottom:1px solid #e5ebf6;box-shadow:0 2px 12px rgba(25,69,135,.06)}
+body.sphere-editor-refresh[data-sphere-screen="chatThread"] .chat-head .ch-back,body.sphere-editor-refresh[data-sphere-screen="chatThread"] .chat-head .ch-more{color:#1657ff;background:#edf3ff}
+body.sphere-editor-refresh[data-sphere-screen="chatThread"] .ch-online{color:#15824a}
+body.sphere-editor-refresh[data-sphere-screen="chatThread"] .chat-input-bar{background:#fff;border-top:1px solid #e6eef9}
+body.sphere-editor-refresh[data-sphere-screen="chatThread"] .chat-input-bar input{border:1px solid #e3eaf6;background:#f7faff;border-radius:22px}
+body.sphere-editor-refresh[data-sphere-screen="chatThread"] .chat-bubble{border-radius:16px;box-shadow:0 2px 8px rgba(16,50,120,.07)}
+/* Notifications and profile: preserve underlying controls and functionality */
+body.sphere-editor-refresh[data-sphere-screen="notifications"] .nt-item{background:#fff;border:1px solid #e8edf8;border-radius:17px;box-shadow:0 3px 14px rgba(40,70,145,.05)}
+body.sphere-editor-refresh[data-sphere-screen="notifications"] .nt-ic{background:#ebf2ff;color:#1657ff;border-radius:12px}
+body.sphere-editor-refresh[data-sphere-screen="notifications"] .nt-seg{background:#ecf1fb;border-radius:14px;padding:4px}
+body.sphere-editor-refresh[data-sphere-screen="notifications"] .nt-seg button.on{color:#1657ff;border-radius:11px}
+body.sphere-editor-refresh[data-sphere-screen="profile"] .screen>.card.center-text{background:#fff;border-radius:23px;border:1px solid #e5edf9;padding:20px 15px}
+body.sphere-editor-refresh[data-sphere-screen="profile"] .mi-icon{background:#ebf2ff;color:#1657ff;border-radius:12px}
+body.sphere-editor-refresh[data-sphere-screen="profile"] .menu-item{border-color:#e7edf7;box-shadow:0 2px 10px rgba(25,60,124,.025)}
+@media(max-width:360px){.se-shortcuts{gap:5px}.se-shortcuts b{font-size:9.5px}.se-greeting h1{font-size:20px}.se-dash-stats strong{font-size:14px}.se-home{padding-left:12px;padding-right:12px}}
+@media(prefers-reduced-motion:reduce){body.sphere-editor-refresh *{scroll-behavior:auto!important}}
+
+
 </style>
 </head>
 <body>
@@ -2477,6 +2637,13 @@ async function navInner(screen, data){
   const adminSameTab = adminSub || (adminStay && !(data && data.tab && data.tab !== adminTab));
   const adminKeep = adminStay ? { y: window.scrollY, x: ((document.querySelector('.ad-tabs') || {}).scrollLeft) || 0, sameTab: adminSameTab } : null;
   currentScreenName = screen; NAV_LAST_DATA = dataKey;
+  // Editor-only redesign. My Projects/My work/History/Project Status retain original visuals.
+  const sphEditor = getCurrentUser() && getCurrentUser().role === 'editor';
+  const sphEditorPage = ['home','jobBidScreen','chatList','chatThread','portfolio','profile','notifications','editorEarnings','settingsScreen','editorProfileEdit','verificationStatus'].includes(screen)
+    || (screen==='jobs' && data && data.tab==='available');
+  document.body.classList.toggle('sphere-editor-refresh', !!(sphEditor && sphEditorPage));
+  document.body.dataset.sphereScreen=screen;
+
   const pcAdmin = pcAdminScreen(screen) && pcAdminOn();
   document.body.classList.toggle('pc-admin', pcAdmin); PC_ADMIN_WAS = pcAdminOn();
   if(!adminStay) window.scrollTo(0,0);
@@ -2821,6 +2988,36 @@ async function saveEditorDetails(){
   nav(currentUser && currentUser.baseRole === 'admin' ? 'home' : 'verificationStatus');
 }
 
+/* Sphere editor UI refresh: lightweight inline icons (no external libraries). */
+const SE_PATHS = {
+  'briefcase':'<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/>',
+  'search':'<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
+  'message-circle':'<path d="M20 11.5a8 8 0 0 1-8 8 9 9 0 0 1-4-.9L3 21l2.3-5.1a8 8 0 1 1 14.7-4.4Z"/>',
+  'image':'<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m3 16 5-5 4 4 3-3 6 6"/>',
+  'wallet':'<rect x="3" y="7" width="18" height="14" rx="3"/><path d="M4 7V5a2 2 0 0 1 2-2h12v4m3 6h-5v4h5"/>',
+  'bell':'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',  'settings':'<path d="M12 2.8 14 4l2.2-.6 1.1 2.2L19.6 7l-.4 2.4L21 11l-1.8 2 .4 2.4-2.3 1.4-1.1 2.2L14 18.4 12 20l-2-1.6-2.2.6-1.1-2.2L4.4 15l.4-2.4L3 11l1.8-1.6L4.4 7l2.3-1.4 1.1-2.2L10 4Z"/><circle cx="12" cy="11" r="3"/>',
+  'chevron':'<path d="m9 18 6-6-6-6"/>',
+  'arrow-right':'<path d="M4 12h16m-7-7 7 7-7 7"/>',
+  'clock':'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  'calendar':'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18"/>',
+  'check-circle':'<circle cx="12" cy="12" r="9"/><path d="m7 12 3 3 7-7"/>',
+  'shield':'<path d="M12 2 4 6v6c0 5 4 8.5 8 10 4-1.5 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/>',
+  'sparkles':'<path d="m12 2 2 6 6 2-6 2-2 6-2-6-6-2 6-2Zm7 14 .8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8Z"/>',
+  'user':'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3-7 8-7s8 3 8 7"/>',
+  'upload':'<path d="M12 16V3m-5 5 5-5 5 5M4 16v4h16v-4"/>',
+  'external-link':'<path d="M13 4h7v7M20 4l-9 9M20 14v6H4V4h6"/>',
+  'trash':'<path d="M4 7h16M9 7V4h6v3m3 0-1 14H7L6 7m4 3v7m4-7v7"/>',
+  'filter':'<path d="M4 7h16M7 12h10m-7 5h4"/>',
+  'link':'<path d="M10 13a5 5 0 0 0 7 .1l3-3a5 5 0 0 0-7-7l-2 2m3 6a5 5 0 0 0-7-.1l-3 3a5 5 0 0 0 7 7l2-2"/>',
+  'file-text':'<path d="M5 2h9l5 5v15H5Z M14 2v6h5M8 12h8m-8 4h8"/>',
+  'check':'<path d="m4 12 5 5L20 6"/>'
+};
+function seIcon(name, cls=''){
+  const path = SE_PATHS[name] || SE_PATHS['briefcase'];
+  return `<svg class="se-icon ${cls}" aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+}
+
+
 /* ============ HOME — EXACT DESIGN MATCH ============ */
 SCREENS.home = () => {
   const user = getCurrentUser();
@@ -2842,52 +3039,45 @@ async function editorHomeScreen(user){
   workMine = user.categories && user.categories.length ? user.categories : (user.category ? [user.category] : []);
   const negotiating = (negRes.data || []).map(mapJob);
   return `
-  <div class="topbar">
-    <div class="icon-btn bell-btn" onclick="nav('notifications')">🔔<span class="bell-n" hidden></span></div>
-    <div class="icon-btn" onclick="nav('settingsScreen')">⚙️</div>
-    <div style="flex:1;"></div>
-    <div class="topbar-logo">${img('/img/0cbdc280b5c44e61.webp','🔷')}<span>Sphere</span></div>
-  </div>
-
-  <div class="screen" style="padding-top:6px;">
-    ${user.baseRole === 'admin' ? `<div class="card" onclick="nav('profile')" style="cursor:pointer; border:1.5px solid var(--blue);"><b>🛡️ Admin · Editor mode</b><p class="muted" style="font-size:12px; margin-top:2px;">You can bid on work. Switch back from Profile.</p></div>` : `
-    ${editorVerifyCard(user)}`}
-    <div id="edDash">${editorDashSkeleton(user)}</div>
-
-    <div class="section-title" style="padding:0; margin-top:18px;"><h3>Available Work</h3><a onclick="nav('jobs', { tab: 'available' })">🔎 Search & filter</a></div>
-    <div class="pick-chips" id="workFilter" style="margin-bottom:10px;">
-      ${['All', 'My categories', ...CATEGORIES].map(c => `<span class="pick-chip ${c === workFilter ? 'on' : ''}" data-v="${esc(c)}" onclick="setWorkFilter(this.dataset.v)">${esc(c)}</span>`).join('')}
+  <div class="se-home">
+    <div class="se-home-top">
+      <div class="se-brand">${img('/img/0cbdc280b5c44e61.webp','🔷')}<b>Sphere</b><span>EDITOR</span></div>
+      <div class="se-top-actions">
+        <button aria-label="Notifications" class="se-round bell-btn" onclick="nav('notifications')">${seIcon('bell')}<span class="bell-n" hidden></span></button>
+        <button aria-label="Settings" class="se-round" onclick="nav('settingsScreen')">${seIcon('settings')}</button>
+      </div>
     </div>
+    <div class="se-greeting"><div><h1>Hello, ${esc(String(user.name||'Editor').split(' ')[0])} <span aria-hidden="true">👋</span></h1><p>Find work and manage your creative projects</p></div>${user.verified ? `<span class="se-verified">${seIcon('check-circle')} Verified</span>` : ''}</div>
+    <label class="se-search">${seIcon('search')}<input aria-label="Search jobs" type="search" placeholder="Search jobs, skills, projects…" onkeydown="if(event.key==='Enter'){event.preventDefault(); homeSearch(this.value)}"> <span class="se-filter-icon" onclick="nav('jobs', {tab:'available'})">${seIcon('filter')}</span></label>
+    ${user.baseRole === 'admin' ? `<div class="card" onclick="nav('profile')"><b>Admin · Editor mode</b><p class="muted">Switch back from Profile.</p></div>` : editorVerifyCard(user)}
+    <div id="edDash">${editorDashSkeleton(user)}</div>
+    <h2 class="se-section-title">Quick actions</h2>
+    <div class="se-shortcuts">
+      <button onclick="nav('jobs', {tab:'available'})"><span class="se-shortcut-icon blue">${seIcon('search')}</span><b>Explore Work</b></button>
+      <button onclick="nav('jobs', {tab:'mine'})"><span class="se-shortcut-icon violet">${seIcon('briefcase')}</span><b>My Projects</b></button>
+      <button onclick="nav('portfolio')"><span class="se-shortcut-icon mint">${seIcon('image')}</span><b>Portfolio</b></button>
+      <button onclick="nav('editorEarnings')"><span class="se-shortcut-icon peach">${seIcon('wallet')}</span><b>Earnings</b></button>
+    </div>
+    <div class="se-section-head"><h2>Available Work</h2><button onclick="nav('jobs', {tab:'available'})">View all ${seIcon('arrow-right')}</button></div>
+    <div class="pick-chips se-pick-chips" id="workFilter">${['All','My categories',...CATEGORIES].map(c=>`<button type="button" class="pick-chip ${c===workFilter?'on':''}" data-v="${esc(c)}" onclick="setWorkFilter(this.dataset.v)">${esc(c)}</button>`).join('')}</div>
     <div id="workList">${renderWorkList()}</div>
-
-    ${negotiating.length>0?`
-    <div class="section-title" style="padding:0; margin-top:18px;"><h3>Active Negotiations</h3></div>
-    ${negotiating.map(j=>`
-      <div class="card" onclick="currentJobId='${j.id}'; nav('projectStatus')">
-        <b>${esc(j.category)}</b> <span class="badge" style="background:var(--blue);">negotiating</span>
-        <p class="muted" style="font-size:13px; margin:6px 0;">${esc(j.desc).slice(0,60)}...</p>
-        <p>Amount so far: <b>₹${j.proposedAmount||j.budget}</b></p>
-      </div>`).join('')}
-    `:''}
-  </div>
-  <div class="home-search-bottom"><span>🔍</span><input type="search" enterkeyhint="search" autocomplete="off" placeholder="Search editors, jobs, projects, help…" onkeydown="if(event.key==='Enter'){ event.preventDefault(); homeSearch(this.value); }"></div>
-  <button class="help-mini" onclick="nav(\'support\')"><span>🆘</span><b>Help &amp; Support</b><i>WhatsApp · report a problem</i><em>›</em></button>
-  <div style="height:20px;"></div>
-  `;
+    ${negotiating.length ? `<div class="se-section-head"><h2>Active Negotiations</h2></div>${negotiating.map(j=>`<div class="card se-job-card" onclick="currentJobId='${j.id}'; nav('projectStatus')"><b>${esc(j.title||j.category)}</b> <span class="se-tag">Negotiating</span><p>${esc(j.desc||'').slice(0,95)}</p><strong>${rupees(j.proposedAmount||j.budget)}</strong></div>`).join('')}` : ''}
+    <button class="help-mini se-help" onclick="nav('support')"><span>${seIcon('message-circle')}</span><b>Help &amp; Support</b><i>Need assistance? We're here to help.</i><em>›</em></button>
+  </div>`;
 }
 
 let workJobs = [], workMine = [], workFilter = 'All';
 function renderWorkList(){
-  const list = workJobs.filter(j => workFilter === 'All' ? true
-    : workFilter === 'My categories' ? workMine.includes(j.category) : j.category === workFilter);
-  if(!list.length) return `<p class="muted">No open jobs ${workFilter === 'All' ? '' : 'in ' + esc(workFilter) + ' '}right now. We will notify you when new work is posted.</p>`;
-  return list.map(j => `
-      <div class="card" onclick="currentJobId='${j.id}'; nav('jobBidScreen')">
-        <span class="tag">${esc(j.category)}</span>${j.language ? `<span class="tag">🗣 ${esc(j.language)}</span>` : ''}
-        <p class="muted" style="font-size:13px; margin:6px 0;">${esc(j.desc).slice(0,70)}...</p>
-        <p>Budget: <b>₹${j.budget}</b> ${j.deadline?`• Due ${fmtDate(j.deadline)}`:''}</p>
-      </div>`).join('');
+  const list = workJobs.filter(j => workFilter === 'All' ? true : workFilter === 'My categories' ? workMine.includes(j.category) : j.category === workFilter);
+  if(!list.length) return `<div class="se-empty">${seIcon('briefcase')}<b>No open jobs in this category</b><p>Try a different filter to discover projects.</p></div>`;
+  return list.slice(0, 12).map(j=>`<article class="card se-job-card" tabindex="0" role="button" onclick="currentJobId='${j.id}'; nav('jobBidScreen')" onkeydown="if(event.key==='Enter'){this.click()}">
+    <div class="se-job-top"><span class="se-tag">${esc(j.category)}</span>${j.audience==='premium'?'<span class="se-tag premium">Premium</span>':''}<span class="se-job-arrow">${seIcon('chevron')}</span></div>
+    <h3>${esc(j.title || j.category || 'Editing project')}</h3>
+    <p>${esc(j.desc||'').slice(0,140)}${(j.desc||'').length>140?'…':''}</p>
+    <div class="se-job-bottom"><strong>${rupees(j.budget)}</strong><span>${seIcon('calendar')}${j.deadline ? fmtDate(j.deadline) : 'Flexible deadline'}</span><button type="button" class="se-small-cta" onclick="event.stopPropagation(); currentJobId='${j.id}'; nav('jobBidScreen')">Details ${seIcon('arrow-right')}</button></div>
+  </article>`).join('');
 }
+
 function setWorkFilter(v){
   workFilter = v;
   document.querySelectorAll('#workFilter .pick-chip').forEach(el => el.classList.toggle('on', el.dataset.v === v));
@@ -3277,38 +3467,81 @@ function hireDirect(editorId){
 /* submitJob(): see PART 5 below */
 
 /* ============ EDITOR: JOB BID SCREEN ============ */
+function renderEditorPortfolioList(e, items, editable){
+  const list=[];
+  (items||[]).forEach(it=>{
+    const image=it.image_path?mediaUrl(it.image_path):youtubeThumb(it.video_url);
+    const href=(it.video_url&&/^https?:\/\//i.test(it.video_url))?it.video_url:null;
+    const view=href?`window.open(${jsq(href)},'_blank','noopener,noreferrer')`:image?`safeOpen(${jsq(image)})`:'';
+    list.push(`<div class="se-portfolio-row" ${view?`role="button" tabindex="0" onclick="${view}"`:''}>
+      <span class="se-portfolio-glyph">${seIcon(it.video_url?'file-text':'image')}</span>
+      <div class="se-portfolio-info"><b>${esc(it.title||'Portfolio work')}</b><small>${it.video_url?'Video / external link':'Image work'} · ${it.created_at?fmtDate(it.created_at):'Portfolio'}</small></div>
+      ${editable?`<button type="button" class="se-del" aria-label="Delete ${esc(it.title||'work')}" onclick="event.stopPropagation();deletePortfolioItem('${it.id}', ${jsq(it.image_path||'')})">${seIcon('trash')}</button>`:''}
+      ${view?`<span class="se-row-chevron">${seIcon('external-link')}</span>`:''}
+    </div>`);
+  });
+  if(e&&e.sample&&/^https?:\/\//i.test(e.sample)) list.push(`<div class="se-portfolio-row" role="button" onclick="window.open(${jsq(e.sample)},'_blank','noopener,noreferrer')"><span class="se-portfolio-glyph">${seIcon('link')}</span><div class="se-portfolio-info"><b>Sample Video</b><small>Open work sample link</small></div>${seIcon('external-link')}</div>`);
+  if(e&&e.portfolio&&/^https?:\/\//i.test(e.portfolio)) list.push(`<div class="se-portfolio-row" role="button" onclick="window.open(${jsq(e.portfolio)},'_blank','noopener,noreferrer')"><span class="se-portfolio-glyph">${seIcon('link')}</span><div class="se-portfolio-info"><b>Portfolio link</b><small>Open external portfolio</small></div>${seIcon('external-link')}</div>`);
+  return `<div class="se-section-head"><h2>My Work</h2><small>${(items||[]).length} saved</small></div><div class="se-portfolio-list">${list.join('')||'<div class="se-empty"><b>Your portfolio is empty</b><p>Add a project to show clients what you create.</p></div>'}</div>`;
+}
+
+
 /* Editor bid screen + submitBid(): see PART 6 below */
+
+SCREENS.editorEarnings = async () => {
+  const u=getCurrentUser(); if(!u || u.role!=='editor') return '';
+  const [sumRes, projectsRes]=await Promise.all([
+    sb.rpc('sp_editor_earnings_summary'),
+    sb.from('sp_jobs').select('*').eq('assigned_editor',u.id).order('created_at',{ascending:false}).limit(50)
+  ]);
+  const x=(!sumRes.error && sumRes.data)?(Array.isArray(sumRes.data)?sumRes.data[0]:sumRes.data):null;
+  const entries=(projectsRes.data||[]).map(mapJob).filter(j=>j.status!=='open');
+  const total=x?Math.max(0,(Number(x.base)||0)+(Number(x.bonus)||0)-(Number(x.deductions)||0)):null;
+  return `<div class="se-page-head"><div class="se-page-brand">${img('/img/0cbdc280b5c44e61.webp','🔷')}<b>Sphere</b></div><h1>Earnings &amp; Payments</h1><p>Your actual completed-work earnings and payout status</p></div>
+  <div class="screen se-earn-page">
+    <div class="se-earn-hero"><small>${x?'Total settled earnings':'Earnings summary unavailable'}</small><strong>${total===null?'—':rupees(total)}</strong><span>${seIcon('shield')} Information from Sphere payments</span></div>
+    ${x?`<div class="se-earn-grid">
+      <div><small>Base earnings</small><strong>${rupees(x.base||0)}</strong></div>
+      <div><small>Bonus earned</small><strong>${rupees(x.bonus||0)}</strong></div>
+      <div><small>Late deductions</small><strong>${rupees(x.deductions||0)}</strong></div>
+      <div><small>Settled projects</small><strong>${Number(x.projects)||0}</strong></div>
+    </div>`:`<div class="card"><p class="muted">Could not load the earnings summary. Your project statuses are shown below.</p></div>`}
+    <div class="se-section-head"><h2>Project payment status</h2><small>${entries.length} projects</small></div>
+    ${entries.length?entries.map(j=>`<div class="se-earning-row" role="button" onclick="currentJobId='${j.id}';nav('projectStatus')">
+      <span class="se-earn-item-icon">${seIcon('wallet')}</span><div><b>${esc(j.title||j.category)}</b><small>${esc(PAYOUT_LABEL[j.payoutStatus]||j.payoutStatus||j.status)}${j.deadline?' · '+fmtDate(j.deadline):''}</small></div><strong>${rupees(j.editorAmount|| (j.lockedAmount ? editorShare(j.lockedAmount):j.budget||0))}</strong>
+    </div>`).join(''):`<div class="se-empty"><b>No project payment records yet</b><p>Payments appear after you start completing projects.</p></div>`}
+    <p class="se-earn-note">Payment figures and status come from Sphere records. No withdrawal action is shown because the existing app does not provide an editor withdrawal button.</p>
+  </div>`;
+};
+
 
 /* ============ EDITOR: PORTFOLIO BUILDER ============ */
 SCREENS.portfolio = async () => {
-  const user = getCurrentUser();
-  if(user.role !== 'editor'){
-    return `<div class="header"><h1>Portfolio</h1><p>This section is for editors</p></div>
-    <div class="screen" style="padding-top:0;"><p class="muted">To see editors' work, open <span class="link" onclick="nav('allEditors')">All Editors</span>.</p></div>`;
-  }
-  const items = await loadPortfolio(user.id);
-  return `
-  <div class="header"><h1>My Portfolio</h1><p>Show your best work — clients hire based on this</p></div>
-  <div class="screen" style="padding-top:0;">
-    <div class="card">
-      <b>➕ Add new work</b> <span class="muted" style="font-size:12px;">(${items.length}/${MAX_PORTFOLIO_ITEMS})</span>
-      <div class="field" style="margin-top:10px;"><label>Title</label><input id="pwTitle" maxlength="80" placeholder="Wedding Highlight, Travel Vlog..."></div>
-      <div class="field"><label>Thumbnail / Photo</label><input type="file" id="pwPhoto" accept="image/*"></div>
-      <div class="field"><label>Video Link (YouTube / Drive) — optional</label><input id="pwVideo" placeholder="https://youtu.be/..."></div>
-      <p class="muted" style="font-size:11px; margin:-6px 0 10px;">Videos are not uploaded here — add a YouTube (unlisted) or Drive link. No photo? We use the YouTube thumbnail automatically.</p>
-      <button class="btn btn-primary" id="pwBtn" onclick="addPortfolioItem()">Add to Portfolio</button>
-    </div>
-    ${renderPortfolio(user, items, true)}
-    <div class="card" style="margin-top:16px;">
-      <b>Profile details</b>
-      <div class="field" style="margin-top:10px;"><label>Name</label><input id="pfName" value="${esc(user.name)}"></div>
-      <div class="field"><label>Experience (Years)</label><input id="pfExp" type="number" value="${esc(user.experience)}"></div>
-      <div class="field"><label>Expertise / Skills (e.g. VFX, Premiere Pro)</label><input id="pfSkills" value="${esc(user.skills)}"></div>
-      <div class="field"><label>Portfolio Link (YouTube channel / Drive folder)</label><input id="pfLink" value="${esc(user.portfolio)}" placeholder="https://..."></div>
-      <button class="btn btn-outline" onclick="savePortfolioInfo()">Save Details</button>
-    </div>
-  </div>`;
+  const user=getCurrentUser();
+  if(user.role!=='editor') return `<div class="header"><h1>Portfolio</h1><p>This section is for editors</p></div><div class="screen"><p class="muted">To see editors' work, open <span class="link" onclick="nav('allEditors')">All Editors</span>.</p></div>`;
+  const items=await loadPortfolio(user.id);
+  return `<div class="se-page-head"><div class="se-page-brand">${img('/img/0cbdc280b5c44e61.webp','🔷')}<b>Sphere</b></div><h1>My Portfolio</h1><p>Showcase your work and attract clients</p></div>
+    <div class="screen se-portfolio-page">
+      <details class="se-add-panel" id="seAddWork"><summary>${seIcon('upload')} Add New Work <span>(${items.length}/${MAX_PORTFOLIO_ITEMS})</span></summary>
+        <div class="se-add-inner">
+          <div class="field"><label>Title</label><input id="pwTitle" maxlength="80" placeholder="Travel Vlog, Brand Edit…"></div>
+          <div class="field"><label>Thumbnail / Photo (upload remains supported)</label><input type="file" id="pwPhoto" accept="image/*"></div>
+          <div class="field"><label>Video link (YouTube / Drive) — optional</label><input id="pwVideo" placeholder="https://youtu.be/..."></div>
+          <p class="muted" style="font-size:12px;margin-bottom:12px">Portfolio cards display no thumbnails. Uploads and links work as before.</p>
+          <button class="btn btn-primary" id="pwBtn" onclick="addPortfolioItem()">Add to Portfolio</button>
+        </div>
+      </details>
+      ${renderEditorPortfolioList(user,items,true)}
+      <details class="se-add-panel se-details-panel"><summary>${seIcon('user')} Profile details ${seIcon('chevron')}</summary><div class="se-add-inner">
+        <div class="field"><label>Name</label><input id="pfName" value="${esc(user.name)}"></div>
+        <div class="field"><label>Experience (Years)</label><input id="pfExp" type="number" value="${esc(user.experience)}"></div>
+        <div class="field"><label>Skills</label><input id="pfSkills" value="${esc(user.skills)}"></div>
+        <div class="field"><label>Portfolio Link</label><input id="pfLink" value="${esc(user.portfolio)}" placeholder="https://..."></div>
+        <button class="btn btn-outline" onclick="savePortfolioInfo()">Save Details</button>
+      </div></details>
+    </div>`;
 };
+
 async function loadPortfolio(editorId){
   const { data, error } = await sb.from('sp_portfolio').select('*').eq('editor_id', editorId).order('created_at', { ascending: false });
   if(error) console.error(error);
@@ -4276,7 +4509,8 @@ SCREENS.profile = async () => {
       ${user.role==='editor'?`<p class="muted">Categories: ${esc(catsLabel(user))}</p><p class="muted">Languages: ${esc(langsLabel(user))}</p><p class="muted">Code: ${esc(user.code)||'Pending'}</p>
         <p class="muted">Payout account: ${user.payoutAccount ? '✅ Set up' : '⏳ Pending — share your bank details with the Sphere team'}</p>`:''}
     </div>
-    ${user.role==='editor'?renderPortfolio(user, pfItems):''}
+    ${user.role==='editor'?renderEditorPortfolioList(user, pfItems, false):''}
+    ${user.role==='editor' ? menuItem('jobs', 'Earnings & Payments', "nav('editorEarnings')", { sub: 'Payments and earnings summary' }) : ''}
     ${user.role==='editor' ? menuItem('user', 'Edit editor profile', "nav('editorProfileEdit')", { sub: 'Bio, skills, categories, availability' }) : ''}
     ${user.baseRole==='editor' ? menuItem(user.verified ? 'check' : 'clock', 'Verification status', "nav('verificationStatus')", { sub: verifySubline(user) }) : ''}
     ${menuItem('jobs', isClientRole(user) ? 'My Projects' : 'My Jobs', "nav('jobs')", isClientRole(user) ? { sub: 'Active projects and history' } : undefined)}
@@ -4755,7 +4989,7 @@ const ROUTE_ACCESS = Object.freeze({
   editorProfile: 'user', jobs: 'user', projectStatus: 'user', portfolio: 'user',
   escrowScreen: 'user', vaultScreen: 'user', editProfile: 'user', previewPlayer: 'user', notifSettings: 'user', deleteAccount: 'user', verifyPhone: 'user', premiumScreen: 'client',
   postJob: 'client', applications: 'client', payment: 'client', savedList: 'client', ratings: 'client',
-  jobBidScreen: 'editor',
+  jobBidScreen: 'editor', editorEarnings: 'editor', 
   editorDetails: 'editorAccount', verificationStatus: 'editorAccount', editorProfileEdit: 'editorAccount', proScreen: 'editorAccount',
   admin: 'admin', caseFile: 'admin', adminClassic: 'admin', adminProject: 'admin', adminUser: 'admin'
 });
@@ -5302,29 +5536,24 @@ function editorDashSkeleton(user){
   return `<div class="cl-hello" style="margin-top:14px;">${avatarHtml(user)}<div><b>Hi, ${esc(String(user.name || '').split(' ')[0] || 'Editor')} 👋</b><span>Loading your work…</span></div></div>`;
 }
 async function renderEditorDashboard(tries){
-  const user = getCurrentUser();
-  if(!usingMode(user, ROLES.EDITOR)) return;
+  const user=getCurrentUser(); if(!usingMode(user, ROLES.EDITOR)) return;
   if(!document.getElementById('edDash')){
-    // Home is still loading its job list — try again shortly
-    if((tries || 0) < 20 && currentScreenName === 'home') setTimeout(() => renderEditorDashboard((tries || 0) + 1), 150);
+    if((tries||0)<20 && currentScreenName==='home') setTimeout(()=>renderEditorDashboard((tries||0)+1),150);
     return;
   }
-  const w = await loadEditorWork(user);
-  const el = document.getElementById('edDash');
-  if(!el) return;
-  const first = esc(String(user.name || '').split(' ')[0] || 'Editor');
-  el.innerHTML = `
-    <div class="cl-hello" style="margin-top:14px;">${avatarHtml(user)}<div style="flex:1;"><b>Hi, ${first}${user.verified ? ' <span class="sp-pill ver">✔ Verified Editor</span>' : ''} 👋</b><span>${w.active.length ? w.active.length + ' active project' + (w.active.length > 1 ? 's' : '') : 'Ready for new work'}</span></div></div>
-    <div class="cl-stats">
-      <div class="cl-stat" onclick="nav('profile')"><b>${w.reviews ? '⭐ ' + w.rating : '–'}</b><span>${w.reviews} review${w.reviews === 1 ? '' : 's'}</span></div>
-      <div class="cl-stat" onclick="nav('jobs', { tab: 'mine' })"><b>${w.active.length}</b><span>Active</span></div>
-      <div class="cl-stat" onclick="nav('jobs', { tab: 'history' })"><b>${w.done.length}</b><span>Completed</span></div>
+  const w=await loadEditorWork(user), el=document.getElementById('edDash'); if(!el) return;
+  el.innerHTML=`
+    <div class="se-dash-stats">
+      <button onclick="nav('jobs', {tab:'available'})"><span class="se-stat-icon">${seIcon('briefcase')}</span><strong>${workJobs.length}</strong><small>Available Jobs</small></button>
+      <button onclick="nav('jobs', {tab:'mine'})"><span class="se-stat-icon">${seIcon('file-text')}</span><strong>${w.active.length}</strong><small>Active Projects</small></button>
+      <button onclick="nav('editorEarnings')"><span class="se-stat-icon">${seIcon('wallet')}</span><strong>${rupees(w.earned)}</strong><small>Earned on Sphere</small></button>
     </div>
-    ${w.done.length ? `<p class="muted" style="font-size:12px; margin:-6px 0 12px; text-align:center;">Earned on Sphere: <b style="color:var(--text);">${rupees(w.earned)}</b></p>` : ''}
+    <div class="se-home-subrow"><span>${availabilityChip(user.availability)}</span>${w.reviews?`<span>⭐ ${w.rating} · ${w.reviews} reviews</span>`:''}</div>
     <div id="proHomeCard"></div>
-    ${w.active.length ? `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Your active work</h3><a onclick="nav('jobs', { tab: 'mine' })">See all</a></div>${w.active.slice(0, 3).map(j => editorJobCard(j, user)).join('')}` : ''}`;
+    ${w.active.length ? `<div class="se-section-head"><h2>Your active work</h2><button onclick="nav('jobs', {tab:'mine'})">See all ${seIcon('arrow-right')}</button></div><div class="se-preserve-project-cards">${w.active.slice(0,3).map(j=>editorJobCard(j,user)).join('')}</div>` : ''}`;
   fillProHomeCard();
 }
+
 async function setAvailability(v){
   if(!AVAILABILITY[v] || !currentUser) return;
   const { error } = await profileUpdate({ availability: v });
