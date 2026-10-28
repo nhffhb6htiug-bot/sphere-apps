@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="192" height="192">
+<defs>
+<radialGradient id="sp6earningsRad" cx="25%" cy="18%" r="86%"><stop stop-color="#ffffff"/><stop offset=".28" stop-color="#ffe4bc"/><stop offset="1" stop-color="#ffb15f"/></radialGradient>
+<linearGradient id="sp6earningsGlass" x1="0" x2="0.85" y1="0" y2="1"><stop stop-color="#ffffff" stop-opacity=".98"/><stop offset=".63" stop-color="#ffffff" stop-opacity=".48"/><stop offset="1" stop-color="#ffffff" stop-opacity=".08"/></linearGradient>
+<filter id="sp6earningsDepth" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#241251" flood-opacity=".25"/></filter>
+</defs>
+<circle cx="48" cy="48" r="44" fill="url(#sp6earningsRad)" opacity=".85"/><circle cx="48" cy="48" r="42" fill="none" stroke="#fff" stroke-opacity=".78" stroke-width="2"/><path d="M16 33Q16 11 43 10h10q25 0 28 22" fill="none" stroke="url(#sp6earningsGlass)" stroke-width="7" stroke-linecap="round" opacity=".48"/>
+<g filter="url(#sp6earningsDepth)">
+<rect x="17" y="32" width="64" height="46" rx="10" fill="#d77716" stroke="#fff9e9" stroke-width="3"/>
+<path d="M18 40q0-11 12-11h39v11" fill="#ffe8b5" stroke="#fff" stroke-width="2"/>
+<path d="M50 46h33v22H50c-7 0-11-5-11-11s4-11 11-11Z" fill="#f9b23a" stroke="#fff1d4" stroke-width="3"/>
+<circle cx="53" cy="57" r="5" fill="#fff9e6"/>
+<circle cx="69" cy="26" r="13" fill="#ffd85d" stroke="#fff4bd" stroke-width="3"/>
+<path d="M65 22h9m-9 5h9m-9-5 4 8" stroke="#955c12" stroke-width="2.5" stroke-linecap="round"/></g>
+</svg>

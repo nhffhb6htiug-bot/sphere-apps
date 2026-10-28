@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="192" height="192">
+<defs>
+<radialGradient id="sp6verificationRad" cx="25%" cy="18%" r="86%"><stop stop-color="#ffffff"/><stop offset=".28" stop-color="#f8dcff"/><stop offset="1" stop-color="#a45eeb"/></radialGradient>
+<linearGradient id="sp6verificationGlass" x1="0" x2="0.85" y1="0" y2="1"><stop stop-color="#ffffff" stop-opacity=".98"/><stop offset=".63" stop-color="#ffffff" stop-opacity=".48"/><stop offset="1" stop-color="#ffffff" stop-opacity=".08"/></linearGradient>
+<filter id="sp6verificationDepth" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#241251" flood-opacity=".25"/></filter>
+</defs>
+<circle cx="48" cy="48" r="44" fill="url(#sp6verificationRad)" opacity=".85"/><circle cx="48" cy="48" r="42" fill="none" stroke="#fff" stroke-opacity=".78" stroke-width="2"/><path d="M16 33Q16 11 43 10h10q25 0 28 22" fill="none" stroke="url(#sp6verificationGlass)" stroke-width="7" stroke-linecap="round" opacity=".48"/>
+<g filter="url(#sp6verificationDepth)">
+<rect x="22" y="36" width="53" height="39" rx="8" fill="#241a3e" stroke="#f7e4ff" stroke-width="3"/>
+<path d="M22 42h53v11H22z" fill="#5e3fa9"/>
+<path d="m26 42 8 10m8-10 8 10m8-10 8 10m8-10 6 7" stroke="#fff" stroke-width="6" opacity=".9"/>
+<path d="M24 32 72 21l4 13-48 11Z" fill="#26233c" stroke="#fff" stroke-width="2.5"/>
+<path d="m34 31 11 10m8-13 11 10" stroke="#eeeaff" stroke-width="6"/>
+<rect x="35" y="53" width="27" height="17" rx="5" fill="#ee426d"/>
+<path d="M45 57v10l9-5Z" fill="#fff"/>
+<circle cx="71" cy="66" r="10" fill="#7863e4" stroke="#fff" stroke-width="2"/><path d="M71 61v8m-4-4q0 7 8 0" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/></g>
+</svg>
