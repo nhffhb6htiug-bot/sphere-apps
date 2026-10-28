@@ -6,13 +6,9 @@ import org.json.JSONObject
 /** Everything the app does with the backend. Same tables and rules as the website. */
 object Repo {
 
-    /** Public editor directory (no phone/email). Falls back to profiles if update 8 is not installed yet. */
-    private suspend fun publicEditors(query: String): org.json.JSONArray = try {
+    /** Public editor directory. Fail closed: never query private profiles on an RPC/view error. */
+    private suspend fun publicEditors(query: String): org.json.JSONArray =
         Api.select("sp_public_profiles?$query")
-    } catch (e: ApiException) {
-        val all = Api.select("profiles?role=eq.EDITOR&is_verified=eq.true&$query")
-        all
-    }
 
     // ---------------- profiles ----------------
     suspend fun loadMe(): Profile? {
