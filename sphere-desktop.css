@@ -3,7 +3,7 @@
  * JS adds html.sphere-desktop only when non-mobile OS + wide fine-pointer viewport.
  */
 #sphereDesktopNav,#sphereDesktopTop{display:none;}
-@media screen and (min-width:980px){
+@media screen and (min-width:700px){
 html.sphere-desktop{
  --sphere-rail:250px;
  --sphere-desktop-ink:#252044;
@@ -298,7 +298,7 @@ html.sphere-desktop body.sphere-desktop-shell .img-viewer{z-index:300;}
 }
 }
 /* Dark theme inherited from Sphere preference; only sidebar/header surfaces change. */
-@media screen and (min-width:980px){
+@media screen and (min-width:700px){
 html.sphere-desktop.sphere-dark{
  --sphere-desktop-ink:#f0eaf8;
  --sphere-desktop-border:#403449;
@@ -322,4 +322,168 @@ html.sphere-desktop.sphere-dark #sphereDesktopNav .sd-user,
 html.sphere-desktop.sphere-dark #sphereDesktopTop .sd-action:not(.sd-action-primary){
  background:#24202d;border-color:#463851;color:#eee7f8;
 }
+}
+
+
+/* ========== SPHERE DESKTOP PWA WINDOW FIX v2 ==========
+   Chrome installed app windows often open around 750-900px.
+   A compact desktop rail replaces the mobile bottom bar at >=700px
+   on Windows/Mac/Linux, but never overrides the iOS/Android experience.
+*/
+@media screen and (min-width:700px) and (max-width:1099px){
+  html.sphere-desktop{--sphere-rail:78px;}
+  html.sphere-desktop body.sphere-desktop-shell:not(.pc-admin){
+    padding:92px clamp(22px,3vw,36px) 64px calc(var(--sphere-rail) + clamp(22px,3vw,36px))!important;
+  }
+  html.sphere-desktop body.sphere-desktop-shell #sphereDesktopNav{
+    width:78px!important;padding:20px 8px!important;align-items:stretch;
+  }
+  html.sphere-desktop body.sphere-desktop-shell #sphereDesktopNav .sd-brand{
+    margin:5px 0 20px;justify-content:center;
+  }
+  html.sphere-desktop #sphereDesktopNav .sd-brand img{
+    width:40px;height:40px;
+  }
+  html.sphere-desktop #sphereDesktopNav .sd-brand>div,
+  html.sphere-desktop #sphereDesktopNav .sd-nav-cap,
+  html.sphere-desktop #sphereDesktopNav .sd-link>span:last-child,
+  html.sphere-desktop #sphereDesktopNav .sd-user-text{display:none!important;}
+  html.sphere-desktop #sphereDesktopNav .sd-links{gap:5px;}
+  html.sphere-desktop #sphereDesktopNav .sd-link{
+    min-height:52px;padding:9px 7px;justify-content:center;
+    border-radius:15px;
+  }
+  html.sphere-desktop #sphereDesktopNav .sd-link>span:first-child{
+    display:grid;place-items:center;width:32px;flex:0 0 32px;
+  }
+  html.sphere-desktop #sphereDesktopNav .sd-link svg{width:23px;height:23px;max-width:100%;}
+  html.sphere-desktop #sphereDesktopNav .sd-user{
+    padding:8px;justify-content:center;border-radius:15px;
+  }
+  html.sphere-desktop #sphereDesktopNav .sd-avatar{flex:0 0 38px;width:38px;height:38px;}
+  html.sphere-desktop body.sphere-desktop-shell #sphereDesktopTop{
+    left:var(--sphere-rail)!important;
+    padding:10px clamp(22px,3vw,36px);
+    height:70px;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home{
+    gap:0 13px!important;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.sh-glass-panel{
+    padding-inline:9px!important;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .tools-grid,
+  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .services-grid{
+    gap:7px!important;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .tool-card-img{
+    width:min(82px,100%)!important;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .service-card{
+    width:min(88px,100%)!important;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .se-home .se-shortcuts{gap:9px!important;}
+  html.sphere-desktop body.sphere-desktop-shell .se-home .se-shortcuts button{
+    min-height:108px;padding:11px 7px!important;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .se-portfolio-page{
+    grid-template-columns:minmax(0,1fr);
+  }
+  html.sphere-desktop body.sphere-desktop-shell .se-portfolio-page>.se-add-panel:first-child,
+  html.sphere-desktop body.sphere-desktop-shell .se-portfolio-page>.se-details-panel{
+    grid-row:auto;grid-column:auto;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .chat-input-bar,
+  html.sphere-desktop body.sphere-desktop-shell .reply-bar,
+  html.sphere-desktop body.sphere-desktop-shell .emoji-panel,
+  html.sphere-desktop body.sphere-desktop-shell .attach-sheet{
+    width:calc(100vw - var(--sphere-rail) - 44px);
+  }
+  html.sphere-desktop body.sphere-desktop-shell[data-sphere-screen="chatThread"] .chat-head{
+    top:70px;
+  }
+}
+@media screen and (min-width:700px) and (max-width:810px){
+  html.sphere-desktop body.sphere-desktop-shell .se-home #workList{
+    grid-template-columns:minmax(0,1fr);gap:12px;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home>.explore-row{
+    grid-template-columns:repeat(5,minmax(0,1fr));gap:10px!important;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .sphere-client-home .explore-circle{
+    width:min(66px,100%)!important;
+  }
+  html.sphere-desktop body.sphere-desktop-shell #sphereDesktopTop .sd-top-title b{
+    font-size:17px;
+  }
+  html.sphere-desktop body.sphere-desktop-shell #sphereDesktopTop .sd-actions .sd-action{
+    padding:9px 11px;
+  }
+}
+/* The Admin area already has an official PC layout. Enable and adapt it to
+   700px standalone desktop windows instead of the old 1000px requirement. */
+@media screen and (min-width:700px) and (max-width:1099px){
+  html.os-other body.pc-admin{
+    width:100%!important;max-width:none!important;min-height:100vh;
+    margin:0!important;padding:0!important;
+  }
+  html.os-other body.pc-admin #app{width:100%;max-width:none;}
+  html.os-other body.pc-admin .pca{
+    grid-template-columns:184px minmax(0,1fr);
+    width:100%;min-height:100vh;
+  }
+  html.os-other body.pc-admin .pca-side{
+    padding:16px 9px;min-width:0;
+  }
+  html.os-other body.pc-admin .pca-brand{
+    padding:4px 5px 17px;gap:7px;
+  }
+  html.os-other body.pc-admin .pca-brand img{width:31px;height:31px;}
+  html.os-other body.pc-admin .pca-brand b{font-size:16px;}
+  html.os-other body.pc-admin .pca-brand small{font-size:10px;}
+  html.os-other body.pc-admin .pca-side button{
+    font-size:12px;padding:10px 9px;
+  }
+  html.os-other body.pc-admin .pca-main{
+    padding:24px clamp(16px,2.9vw,32px) 55px;
+  }
+  html.os-other body.pc-admin .pca-top h1{font-size:25px;}
+  html.os-other body.pc-admin .pca-body{
+    max-width:none;min-width:0;
+  }
+  html.os-other body.pc-admin .pca-body.tab-overview{
+    grid-template-columns:repeat(2,minmax(0,1fr));gap:0 12px;
+  }
+  html.os-other body.pc-admin .pca-body.tab-overview>.ad-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  html.os-other body.pc-admin .pca .card{min-width:0;}
+  html.os-other body.pc-admin .pca-main>.card{
+    max-width:680px;margin:0 0 19px;
+  }
+  html.os-other body.pc-admin .pca .btn{
+    width:100%;max-width:none;
+  }
+  html.os-other body.pc-admin .pcv{
+    grid-template-columns:minmax(200px,.87fr) minmax(0,1.1fr);
+    gap:12px;
+  }
+  html.os-other body.pc-admin .pcv-detail{padding:14px;}
+  html.os-other body.pc-admin .pcv-grid{
+    grid-template-columns:minmax(0,1fr);gap:12px;
+  }
+  html.os-other body.pc-admin .pcv-verified{
+    grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  }
+}
+@media screen and (min-width:700px) and (max-width:810px){
+  html.os-other body.pc-admin .pca{
+    grid-template-columns:166px minmax(0,1fr);
+  }
+  html.os-other body.pc-admin .pca-side button{
+    font-size:11.5px;padding:10px 7px;
+  }
+  html.os-other body.pc-admin .pcv{grid-template-columns:minmax(0,1fr);}
+  html.os-other body.pc-admin .pcv-list,
+  html.os-other body.pc-admin .pcv-detail{max-height:none;}
 }
