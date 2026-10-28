@@ -1955,6 +1955,90 @@ html.os-ios .sphere-ios-back-cue.release{
  html.os-ios .sphere-ios-back-cue{transition:none!important;}
 }
 
+
+/* SPHERE EDITOR HEADER LOGO ALIGNMENT FIX — 2026-10-28 */
+/* Only the editor HOME header: never crop the official Sphere mark or squeeze actions.
+   Leaves the rest of the liquid-glass UI, icons, navigation and screens untouched. */
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-home-top{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+  margin-bottom:17px;
+}
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-home-top .se-brand{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  white-space:nowrap;
+  font-weight:850;
+  color:#20213f;
+}
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-home-top .se-brand img{
+  display:block;
+  width:30px;
+  height:30px;
+  max-width:30px;
+  min-width:30px;
+  flex:0 0 30px;
+  aspect-ratio:1;
+  object-fit:contain;
+  border-radius:0;
+}
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-home-top .se-brand b{
+  display:block;
+  min-width:0;
+  font-size:clamp(17px,4.9vw,21px);
+  letter-spacing:-.6px;
+  line-height:1;
+  white-space:nowrap;
+}
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-home-top .se-brand span{
+  flex:0 0 auto;
+  padding:4px 6px;
+  font-size:9px;
+  letter-spacing:.025em;
+  line-height:1.1;
+  border:1px solid rgba(255,255,255,.8);
+  border-radius:9px;
+  background:rgba(255,255,255,.77);
+  color:#6933be;
+}
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-home-top .se-top-actions{
+  flex:0 0 auto;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-home-top .se-top-actions .se-round{
+  width:40px;
+  height:40px;
+  min-width:40px;
+  min-height:40px;
+  padding:0;
+  border-radius:15px;
+}
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-home-top .se-top-actions .se-round .se-icon{
+  width:20px;
+  height:20px;
+}
+@media(max-width:355px){
+  body.sphere-editor-refresh[data-sphere-screen="home"] .se-home{padding-left:12px;padding-right:12px;}
+  body.sphere-editor-refresh[data-sphere-screen="home"] .se-home-top{gap:5px;}
+  body.sphere-editor-refresh[data-sphere-screen="home"] .se-home-top .se-brand{gap:4px;}
+  body.sphere-editor-refresh[data-sphere-screen="home"] .se-home-top .se-brand img{
+    width:26px;height:26px;min-width:26px;max-width:26px;flex-basis:26px;
+  }
+  body.sphere-editor-refresh[data-sphere-screen="home"] .se-home-top .se-brand b{font-size:18px;}
+  body.sphere-editor-refresh[data-sphere-screen="home"] .se-home-top .se-brand span{padding:3px 5px;font-size:8px;}
+  body.sphere-editor-refresh[data-sphere-screen="home"] .se-home-top .se-top-actions{gap:4px;}
+  body.sphere-editor-refresh[data-sphere-screen="home"] .se-home-top .se-top-actions .se-round{
+    width:36px;height:36px;min-width:36px;min-height:36px;
+  }
+}
+
 </style>
 </head>
 <body>
