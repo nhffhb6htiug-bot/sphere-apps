@@ -1,8 +1,8 @@
 // Supabase Edge Function: sphere-ai
 // Sphere AI assistant powered by Google Gemini (free tier from Google AI Studio).
 // The Gemini API key stays here on the server (secret GEMINI_API_KEY), never in the app.
-// v21: retain Gemini Flash and use Groq chat completions as an authenticated,
-// server-side fallback when Gemini models are temporarily unavailable.
+// v22: use Groq supported GPT-OSS models and its authenticated model catalog;
+// Gemini remains primary but quickly falls back to Groq if unavailable.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const FALLBACK_MODELS = ["gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-3.8-flash", "gemini-flash-latest"];
@@ -10,6 +10,33 @@ let lastGoodModel: string | null = null;
 let discovered: string[] | null = null;
 // In-memory per warm instance: avoid hammering a retired or overloaded provider model.
 const unavailableUntil = new Map<string, number>();
+// These model IDs replace the retired free-tier Llama models (Groq deprecations 2026).
+const GROQ_PREFERRED_MODELS = ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"];
+let groqCatalog: { models: string[]; until: number } | null = null;
+async function discoverGroqModels(key: string): Promise<string[]> {
+  if (groqCatalog && groqCatalog.until > Date.now()) return groqCatalog.models;
+  try {
+    const response = await fetch("https://api.groq.com/openai/v1/models", {
+      headers: { Authorization: "Bearer " + key },
+      signal: AbortSignal.timeout(3500),
+    });
+    if (!response.ok) {
+      console.error("Groq model catalog request", response.status);
+      return GROQ_PREFERRED_MODELS;
+    }
+    const catalog = await response.json();
+    const ids = new Set<string>((Array.isArray(catalog?.data) ? catalog.data : [])
+      .filter((item: any) => item?.active !== false && typeof item?.id === "string")
+      .map((item: any) => item.id));
+    const available = GROQ_PREFERRED_MODELS.filter((id) => ids.has(id));
+    groqCatalog = { models: available, until: Date.now() + 15 * 60000 };
+    if (!available.length) console.error("Groq account has no supported text models in its catalog");
+    return available;
+  } catch (e) {
+    console.error("Groq model catalog unavailable", (e as Error)?.name ?? "Error");
+    return GROQ_PREFERRED_MODELS;
+  }
+}
 async function discoverModels(key: string): Promise<string[]> {
   if (discovered) return discovered;
   try {
@@ -147,7 +174,7 @@ RULES:
       if (!groqKey) (await discoverModels(key)).forEach(add);
     }
     let calls = 0;
-    for (let qi = 0; qi < queue.length && calls < (groqKey ? 2 : 4); qi++) {
+    for (let qi = 0; qi < queue.length && calls < (groqKey ? 1 : 4); qi++) {
       const left = (groqKey ? 17000 : 30000) - (Date.now() - started);
       if (left < 4000) break;                                  // give up in time; never hang
       const model = queue[qi];
@@ -158,7 +185,7 @@ RULES:
           method: "POST",
           headers: { "Content-Type": "application/json", "x-goog-api-key": key },
           body: payload,
-          signal: AbortSignal.timeout(Math.min(groqKey ? 6500 : 8000, left - 1000)),
+          signal: AbortSignal.timeout(Math.min(groqKey ? 5000 : 8000, left - 1000)),
         });
         status = res.status;
         data = await res.json().catch(() => ({}));
@@ -182,7 +209,7 @@ RULES:
     // Groq fallback uses the same authenticated user, verified editors and usage limit.
     // The API key never leaves Supabase; nothing about it is returned to the browser.
     if ((!res || !res.ok) && groqKey && (status === 0 || retryable(status))) {
-      const groqModels = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
+      const groqModels = await discoverGroqModels(groqKey);
       const groqInstructions = action === "draft_job"
         ? systemText + "\nRespond with ONLY a valid JSON object with category, description, budget and deadline_days. category must be one of: " + CATEGORIES.join(", ") + ". budget and deadline_days must be numbers. No markdown."
         : systemText;
@@ -197,7 +224,8 @@ RULES:
               ...history.map((m) => ({ role: m.role === "model" ? "assistant" : "user", content: m.text })),
             ],
             temperature: action === "draft_job" ? 0.3 : 0.6,
-            max_completion_tokens: action === "draft_job" ? 700 : 1150,
+            max_completion_tokens: action === "draft_job" ? 1600 : 1600,
+            ...(model.startsWith("openai/gpt-oss-") ? { reasoning_effort: "low", include_reasoning: false } : {}),
             ...(action === "draft_job" ? { response_format: { type: "json_object" } } : {}),
           };
           const gr = await fetch("https://api.groq.com/openai/v1/chat/completions", {
