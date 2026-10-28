@@ -141,7 +141,7 @@ html.sphere-dark body #bottomNav.bottom-nav .sphere-liquid-lens{
  background:linear-gradient(145deg,rgba(96,61,134,.62),rgba(72,47,97,.73))!important;
  border-color:#8f6ab3!important;box-shadow:inset 0 1px 1px rgba(255,255,255,.23),0 5px 15px rgba(0,0,0,.32)!important;}
 html.sphere-dark body .sp-dlg,html.sphere-dark body .msg-menu,
-html.sphere-dark body .sp-load-card,html.sphere-dark body .media-preview,
+html.sphere-dark body .media-preview,
 html.sphere-dark body .img-viewer{
  background:#1c1824!important;color:#eee8f6!important;border-color:#504057!important;}
 html.sphere-dark body .sp-dlg-p,html.sphere-dark body .sp-dlg-raw{color:#b9adc7!important;}
@@ -172,3 +172,117 @@ body .sphere-theme-apply{min-height:43px;border:0;border-radius:12px;padding:11p
 html.sphere-dark body .sphere-theme-apply{background:#3b2b50;color:#e8d9fa;border:1px solid #73568d;}
 body .sphere-theme-apply:focus-visible{outline:2px solid #bb94fa;outline-offset:3px;}
 @media(max-width:360px){body .sphere-theme-card{gap:7px;padding:12px;}body .sphere-theme-apply{padding:10px 8px;font-size:11px;}}
+
+
+/* ========== SPHERE DARK THEME HOTFIX v2 — screenshot + contrast audit ==========
+   Loading overlay must NOT draw a solid rectangle behind the logo.
+   Fix dark styles only; preserve existing light mode and all functions. */
+html.sphere-dark body .sp-load-ov{
+  background:rgba(8,7,13,.84)!important;
+  -webkit-backdrop-filter:blur(9px) brightness(.42) saturate(.65)!important;
+  backdrop-filter:blur(9px) brightness(.42) saturate(.65)!important;
+}
+html.sphere-dark body .sp-load-card{
+  background:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  outline:0!important;
+  padding:0!important;
+  max-width:calc(100vw - 40px);
+  color:#f4ecff!important;
+}
+html.sphere-dark body .sp-load-card .sp-loader{
+  background:transparent!important;
+  box-shadow:none!important;
+  isolation:isolate;
+}
+html.sphere-dark body .sp-load-card .sp-name,
+html.sphere-dark body .splash-wrap h1{
+  background:linear-gradient(105deg,#80a6ff,#a78bff 45%,#d09dff 85%)!important;
+  -webkit-background-clip:text!important;
+  background-clip:text!important;
+  -webkit-text-fill-color:transparent!important;
+  color:#cbb8ff;
+}
+html.sphere-dark body .sp-load-card p{
+  color:#d1c4dd!important;
+  -webkit-text-fill-color:#d1c4dd!important;
+}
+html.sphere-dark body .splash-wrap{
+  background:transparent!important;color:#f3eefb!important;
+}
+html.sphere-dark body .sp-loading{color:#eee7f7!important;}
+/* Notifications previously had black headings/text on dark panels. */
+html.sphere-dark body .nt-seg button{color:#d4cae1!important;}
+html.sphere-dark body .nt-seg button.on{
+  background:#4b365c!important;color:#fff!important;
+}
+html.sphere-dark body .nt-sec h3,
+html.sphere-dark body .nt-top b,
+html.sphere-dark body .nt-main p,
+html.sphere-dark body .nt-item:not(.nt-new) .nt-main p{
+  color:#f0e9fa!important;
+}
+html.sphere-dark body .nt-time,
+html.sphere-dark body .nt-hint{color:#b1a6bf!important;}
+html.sphere-dark body .nt-tag{
+  background:#342b3e!important;color:#d7c6e9!important;
+}
+html.sphere-dark body .nt-tag.imp{background:#432530!important;color:#ffc0cb!important;}
+html.sphere-dark body .nt-new{box-shadow:0 0 0 1px rgba(156,115,209,.24)!important;}
+/* Chat menu/options, AI and search controls. */
+html.sphere-dark body .chat-menu,
+html.sphere-dark body .search-row,
+html.sphere-dark body .ai-chip,
+html.sphere-dark body .sp-card,
+html.sphere-dark body .chat-menu div,
+html.sphere-dark body .msg-menu button,
+html.sphere-dark body .tone-play,
+html.sphere-dark body .pf-main,
+html.sphere-dark body .se-portfolio-list .se-portfolio-row{
+  background:#231e2b!important;color:#ece5f6!important;
+  border-color:#4d3f59!important;
+}
+html.sphere-dark body .chat-menu div:hover,
+html.sphere-dark body .msg-menu button:active{
+  background:#362a43!important;color:#fff!important;
+}
+html.sphere-dark body .chat-menu .danger,
+html.sphere-dark body .msg-menu .danger{color:#ff9bad!important;}
+html.sphere-dark body .search-row input{background:transparent!important;border:0!important;}
+html.sphere-dark body .ai-bubble:not(.me),
+html.sphere-dark body .ai-msg:not(.me){
+  color:#eee8f6!important;
+}
+html.sphere-dark body .tone-row{border-color:#45384f!important;color:#efe8f8!important;}
+html.sphere-dark body .tone-row.on{background:#30273d!important;}
+html.sphere-dark body .sp-card{border-color:#544664!important;}
+html.sphere-dark body .pj-sec,
+html.sphere-dark body .se-page-head,
+html.sphere-dark body .cl-row{color:#f0eaf7!important;}
+/* Preserve standout colored states; improve contrast on secondary badges. */
+html.sphere-dark body .bid-chip:not(.ok):not(.warn):not(.bad),
+html.sphere-dark body .mode-chip{
+  color:#d8c1ff!important;
+}
+html.sphere-dark body .se-home-subrow,
+html.sphere-dark body .se-card-action{color:#cfb7ff!important;}
+html.sphere-dark body .se-shortcuts button{
+  background:var(--glass-surface)!important;
+}
+html.sphere-dark body .se-shortcut-icon .editor-art,
+html.sphere-dark body .se-stat-icon .editor-art{
+  filter:none!important;
+}
+/* Dark UI also needs browser-native select menus and input autofill contrast. */
+html.sphere-dark body input:-webkit-autofill,
+html.sphere-dark body input:-webkit-autofill:focus{
+  -webkit-text-fill-color:#f1e9fa!important;
+  box-shadow:0 0 0 1000px #24202c inset!important;
+  caret-color:#d0b4ff!important;
+}
+@media(prefers-reduced-motion:reduce){
+  html.sphere-dark body .sp-load-card .sp-loader img{animation:none!important;}
+}
