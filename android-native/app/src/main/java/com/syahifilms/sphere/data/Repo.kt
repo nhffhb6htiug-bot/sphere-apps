@@ -224,32 +224,77 @@ object Repo {
         notify(listOf(job.assignedEditor), "Amount Locked 🔒", "Final amount ${money(amt)} is locked. Waiting for the client's payment.")
     }
 
-    suspend fun deliver(job: Job, link: String) {
-        Api.update("sp_jobs?id=eq.${job.id}", JSONObject().put("delivery_link", link).put("status", "delivered"))
-        notify(listOf(job.clientId), "Video Delivered", "Your editor has delivered the final video.")
+    /**
+     * Website and Android must use the same protected project workflow.
+     * Directly writing sp_jobs.status='delivered' is rejected by sp_jobs_api_guard.
+     */
+    data class PreviewStage(
+        val sent: Boolean,
+        val approved: Boolean,
+        val previewId: String,
+        val previewUrl: String
+    )
+
+    suspend fun previewStage(jobId: String): PreviewStage {
+        val work = Api.selectOne("sp_project_work?job_id=eq.$jobId&select=preview_at,preview_approved_at,preview_link")
+        val file = Api.selectOne("sp_project_files?job_id=eq.$jobId&kind=eq.preview&status=eq.ready&select=id,external_url&order=version.desc&limit=1")
+        val sentAt = work?.str("preview_at") ?: ""
+        val acceptedAt = work?.str("preview_approved_at") ?: ""
+        val approved = try {
+            sentAt.isNotBlank() && acceptedAt.isNotBlank() &&
+                !java.time.OffsetDateTime.parse(acceptedAt).toInstant()
+                    .isBefore(java.time.OffsetDateTime.parse(sentAt).toInstant())
+        } catch (_: Exception) { false }
+        return PreviewStage(
+            sent = sentAt.isNotBlank(),
+            approved = approved,
+            previewId = file?.str("id") ?: "",
+            previewUrl = file?.str("external_url").orEmpty().ifBlank { work?.str("preview_link") ?: "" }
+        )
     }
 
-    /** Approve + release payment happens on the server (same as website). Returns payout state. */
-    suspend fun approve(job: Job): String = Api.function("release-payout", JSONObject().put("jobId", job.id)).str("payout")
+    suspend fun submitPreview(job: Job, link: String) {
+        if (!link.startsWith("https://", ignoreCase = true))
+            throw ApiException(400, "Please use an HTTPS preview link")
+        // This RPC creates the preview record, updates the project clock and notifies the client.
+        Api.rpc("sp_files_add_link", JSONObject()
+            .put("p_job", job.id).put("p_kind", "preview").put("p_url", link)
+            .put("p_name", "Watermarked preview").put("p_note", JSONObject.NULL))
+    }
+
+    suspend fun approvePreview(job: Job) {
+        // Server validates current client, current job and submitted preview.
+        Api.rpc("sp_approve_preview", JSONObject().put("p_job", job.id))
+    }
+
+    suspend fun submitFinal(job: Job, approvedPreviewId: String, link: String) {
+        if (approvedPreviewId.isBlank())
+            throw ApiException(400, "Send a watermarked preview before the final file")
+        if (!link.startsWith("https://", ignoreCase = true))
+            throw ApiException(400, "Please use an HTTPS final video link")
+        Api.rpc("sp_final_submit", JSONObject()
+            .put("p_job", job.id).put("p_preview", approvedPreviewId)
+            .put("p_final_link", link).put("p_note", JSONObject.NULL))
+    }
+
+    /** Payment release is server-only; never update payment fields from Android. */
+    suspend fun approve(job: Job): String =
+        Api.function("release-payout", JSONObject().put("jobId", job.id)).str("payout")
 
     suspend fun extendDeadline(job: Job, date: String) {
         Api.update("sp_jobs?id=eq.${job.id}", JSONObject().put("deadline", date))
     }
 
-    suspend fun rate(job: Job, stars: Int, review: String) {
-        val me = Api.userId ?: return
-        try {
-            Api.insert("sp_ratings", JSONObject().put("job_id", job.id).put("editor_id", job.assignedEditor)
-                .put("client_id", me).put("stars", stars).put("review", review.ifBlank { null } ?: JSONObject.NULL))
-        } catch (e: ApiException) {
-            if (e.pgCode == "23505") throw ApiException(409, "You have already reviewed this project.")
-            throw e
-        }
-        Api.update("sp_jobs?id=eq.${job.id}", JSONObject().put("status", "closed"))
-        notify(listOf(job.assignedEditor), "New Review ⭐", "A client rated you $stars★.")
+    suspend fun rate(job: Job, score: Int, review: String) {
+        if (score !in -3..3) throw ApiException(400, "Choose a rating from −3 to +3.")
+        // This RPC records both modern rating and legacy stars atomically.
+        Api.rpc("sp_rating_submit", JSONObject()
+            .put("p_job", job.id).put("p_score", score)
+            .put("p_feedback", review.ifBlank { null } ?: JSONObject.NULL))
     }
 
-    suspend fun hasRated(jobId: String): Boolean = Api.select("sp_ratings?job_id=eq.$jobId&select=id").length() > 0
+    suspend fun hasRated(jobId: String): Boolean =
+        Api.select("sp_project_ratings?job_id=eq.$jobId&select=id&limit=1").length() > 0
 
     // ---------------- chat ----------------
     data class Conversation(val otherId: String, val last: ChatMessage)
