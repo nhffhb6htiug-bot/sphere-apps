@@ -1050,6 +1050,112 @@ body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .bottom-nav button.a
   body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-item span{font-size:10px;}
 }
 
+
+/* SPHERE client-home liquid-glass Explore upgrade 2026-10-28 */
+/* New appearance is confined to the client Home view; the five existing
+   <img> elements, captions, routes and click handlers remain untouched. */
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-row{
+  gap:7px;
+  padding:3px 20px 12px;
+  align-items:start;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-item{
+  min-width:0;
+  -webkit-tap-highlight-color:transparent;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-circle{
+  position:relative;
+  isolation:isolate;
+  padding:5px;
+  overflow:hidden;
+  border-radius:50%;
+  border:1.5px solid rgba(247,253,255,.96);
+  background:linear-gradient(147deg,#dfefff 0%,#76b6ff 12%,#2161be 36%,#092a77 74%,#8edaff 94%,#e4efff 100%);
+  -webkit-backdrop-filter:blur(12px) saturate(190%);
+  backdrop-filter:blur(12px) saturate(190%);
+  box-shadow:
+    inset 0 2px 3px rgba(255,255,255,.98),
+    inset 0 -4px 9px rgba(8,32,116,.48),
+    inset 3px 0 6px rgba(176,219,255,.55),
+    0 0 0 2px rgba(134,190,255,.19),
+    0 7px 12px rgba(77,62,166,.24),
+    0 2px 3px rgba(255,255,255,.8);
+  margin-bottom:10px;
+  transition:transform .18s ease,box-shadow .18s ease;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-circle img{
+  position:relative;
+  z-index:1;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  border-radius:50%;
+  filter:saturate(1.13) contrast(1.06);
+  box-shadow:0 0 0 1px rgba(212,238,255,.48);
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-circle.ic-zoom img{
+  transform:scale(1.08);
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-circle::before{
+  content:'';
+  pointer-events:none;
+  position:absolute;
+  z-index:2;
+  inset:0;
+  border-radius:inherit;
+  background:
+    radial-gradient(ellipse 48% 24% at 26% 10%,rgba(255,255,255,.91),transparent 85%),
+    radial-gradient(ellipse 42% 24% at 77% 89%,rgba(179,222,255,.65),transparent 100%),
+    linear-gradient(155deg,rgba(255,255,255,.35) 1%,transparent 33%,transparent 70%,rgba(201,240,255,.28) 100%);
+  box-shadow:
+    inset 0 3px 2px rgba(255,255,255,.9),
+    inset -3px -3px 7px rgba(91,155,239,.37),
+    inset 3px 0 5px rgba(229,248,255,.58);
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-circle::after{
+  content:'';
+  pointer-events:none;
+  position:absolute;
+  z-index:3;
+  width:51%;
+  height:11%;
+  top:9%;
+  left:11%;
+  transform:rotate(-29deg);
+  border-radius:100%;
+  background:linear-gradient(90deg,transparent 2%,rgba(255,255,255,.98) 30%,rgba(255,255,255,.8) 74%,transparent 100%);
+  filter:blur(.6px);
+  opacity:.95;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-item:active .explore-circle{
+  transform:scale(.95);
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-item span{
+  font-size:11px;
+  font-weight:800;
+  color:#1b2248;
+  line-height:1.3;
+  text-shadow:0 1px 0 rgba(255,255,255,.85);
+}
+/* A slightly stronger refractive glass feel for the surrounding home panels. */
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-hello,
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .sh-glass-panel{
+  -webkit-backdrop-filter:blur(22px) saturate(190%);
+  backdrop-filter:blur(22px) saturate(190%);
+  border-color:rgba(255,255,255,.94);
+  box-shadow:0 10px 22px rgba(137,73,173,.15),inset 0 2px 3px rgba(255,255,255,.97),inset 0 -2px 5px rgba(185,135,240,.08);
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .bottom-nav{
+  -webkit-backdrop-filter:blur(24px) saturate(200%);
+  backdrop-filter:blur(24px) saturate(200%);
+  box-shadow:0 12px 32px rgba(120,64,173,.2),inset 0 2px 3px rgba(255,255,255,.95),inset 0 -2px 6px rgba(150,113,206,.13);
+}
+@media(max-width:365px){
+  body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-row{gap:4px;padding:3px 16px 10px;}
+  body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-circle{padding:4px;}
+  body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-item span{font-size:10px;}
+}
+
 </style>
 </head>
 <body>
