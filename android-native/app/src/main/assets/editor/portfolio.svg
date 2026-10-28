@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="192" height="192" role="img" aria-label="Portfolio">
+<defs>
+<radialGradient id="pfBg" cx="25%" cy="15%" r="90%"><stop stop-color="#fff"/><stop offset=".32" stop-color="#e7dcff"/><stop offset="1" stop-color="#9476e9"/></radialGradient>
+<linearGradient id="pfCard" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#e6daff"/></linearGradient>
+<linearGradient id="pfGlass" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#a78dff"/><stop offset="1" stop-color="#6440c3"/></linearGradient>
+<filter id="pfDrop" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#362064" flood-opacity=".28"/></filter>
+</defs>
+<circle cx="48" cy="48" r="44" fill="url(#pfBg)"/><circle cx="48" cy="48" r="42" fill="none" stroke="#fff" stroke-opacity=".88" stroke-width="2"/>
+<path d="M17 32Q19 11 43 10h11q24 1 26 21" stroke="#fff" stroke-opacity=".6" stroke-width="6" stroke-linecap="round" fill="none"/>
+<g filter="url(#pfDrop)">
+<rect x="18" y="24" width="60" height="52" rx="10" fill="url(#pfCard)" stroke="#fff" stroke-width="3"/>
+<rect x="23" y="29" width="50" height="31" rx="6" fill="url(#pfGlass)"/>
+<path d="M27 54 38 43l10 7 10-12 11 16" stroke="#eceaff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+<circle cx="35" cy="38" r="4" fill="#fbe6ff"/>
+<circle cx="49" cy="44" r="12" fill="#fff" stroke="#7d58d8" stroke-width="2.5"/><path d="m46 38 10 6-10 6Z" fill="#7c49d6"/>
+<path d="M30 67h22" stroke="#8e75c7" stroke-width="4" stroke-linecap="round"/>
+<rect x="58" y="63" width="11" height="7" rx="3.5" fill="#f5b644" stroke="#fff3cf" stroke-width="1.5"/>
+</g></svg>

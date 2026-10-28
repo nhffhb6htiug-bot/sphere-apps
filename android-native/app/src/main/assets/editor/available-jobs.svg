@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="192" height="192">
+<defs>
+<radialGradient id="sp6jobsRad" cx="25%" cy="18%" r="86%"><stop stop-color="#ffffff"/><stop offset=".28" stop-color="#e6e3ff"/><stop offset="1" stop-color="#7c67f1"/></radialGradient>
+<linearGradient id="sp6jobsGlass" x1="0" x2="0.85" y1="0" y2="1"><stop stop-color="#ffffff" stop-opacity=".98"/><stop offset=".63" stop-color="#ffffff" stop-opacity=".48"/><stop offset="1" stop-color="#ffffff" stop-opacity=".08"/></linearGradient>
+<filter id="sp6jobsDepth" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#241251" flood-opacity=".25"/></filter>
+</defs>
+<circle cx="48" cy="48" r="44" fill="url(#sp6jobsRad)" opacity=".85"/><circle cx="48" cy="48" r="42" fill="none" stroke="#fff" stroke-opacity=".78" stroke-width="2"/><path d="M16 33Q16 11 43 10h10q25 0 28 22" fill="none" stroke="url(#sp6jobsGlass)" stroke-width="7" stroke-linecap="round" opacity=".48"/>
+<g filter="url(#sp6jobsDepth)">
+<path d="M20 37c0-6 4-9 10-9h36c6 0 10 3 10 9v32c0 5-4 9-10 9H30c-6 0-10-4-10-9Z" fill="#7d39e8" stroke="#fff" stroke-width="3"/>
+<path d="M35 30v-7c0-4 3-7 8-7h10c5 0 8 3 8 7v7" fill="none" stroke="#7951d9" stroke-width="7" stroke-linecap="round"/>
+<path d="M20 44q27 15 56 0" fill="none" stroke="#fff" stroke-width="4"/>
+<rect x="42" y="45" width="12" height="12" rx="3" fill="#e2f8ff" stroke="#6b38c8" stroke-width="2"/>
+<path d="M27 62h39" stroke="#d2b5ff" stroke-width="3" stroke-linecap="round"/></g>
+</svg>

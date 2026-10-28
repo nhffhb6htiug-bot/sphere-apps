@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -16,6 +17,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.WorkOutline
+import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -28,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -53,7 +60,8 @@ fun SphereTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = lightColorScheme(
             primary = Blue, onPrimary = Color.White, secondary = Blue,
-            background = Bg, surface = Color.White, surfaceVariant = BlueSoft
+            background = Bg, surface = Color(0xFFFEF9FC), surfaceVariant = BlueSoft,
+            onSurface = WebsiteColors.Plum, onBackground = WebsiteColors.Plum
         ),
         content = content
     )
@@ -144,52 +152,80 @@ fun <T> load(vararg keys: Any?, block: suspend () -> T): Loaded<T> {
 @Composable
 fun SphereTopBar(title: String, onBack: (() -> Unit)? = null, actions: @Composable RowScope.() -> Unit = {}) {
     TopAppBar(
-        title = { Text(title, fontWeight = FontWeight.Bold, maxLines = 1) },
+        title = {
+            Text(title, fontWeight = FontWeight.ExtraBold, color = WebsiteColors.Plum, maxLines = 1)
+        },
         navigationIcon = {
-            if (onBack != null) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+            if (onBack != null) IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = WebsiteColors.Plum)
+            }
         },
         actions = actions,
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = Bg)
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFF6D5F2))
     )
 }
 
-/** Standard page: top bar + scrolling column (+ optional bottom bar). */
+/** All native screens share the same pastel Sphere style. No HTML or WebView. */
 @Composable
 fun Page(
     title: String,
     onBack: (() -> Unit)? = null,
     bottomBar: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
+    hideTopBar: Boolean = false,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Scaffold(
         containerColor = Bg,
-        topBar = { SphereTopBar(title, onBack, actions) },
+        topBar = { if (!hideTopBar) SphereTopBar(title, onBack, actions) },
         bottomBar = bottomBar
     ) { pad ->
-        Column(
-            Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            content = content
-        )
+        Box(Modifier.padding(pad).fillMaxSize()
+            .background(WebsiteColors.Backdrop)) {
+            Column(
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                content = content
+            )
+        }
     }
 }
 
 @Composable
 fun MainBottomBar(nav: NavHostController, current: String) {
+    val isClient = AppState.clientSide
     val items = listOf<Triple<String, String, ImageVector>>(
-        Triple("home", "Home", Icons.Filled.Home),
-        Triple("chats", "Chat", Icons.Filled.Email),
-        Triple("jobs", "Jobs", Icons.AutoMirrored.Filled.List),
-        Triple("profile", "Profile", Icons.Filled.Person)
+        Triple("home", "Home", Icons.Outlined.Home),
+        Triple("chats", "Chat", Icons.Outlined.ChatBubbleOutline),
+        Triple("jobs", if (isClient) "Projects" else "Jobs",
+            if (isClient) Icons.Outlined.FolderOpen else Icons.Outlined.WorkOutline),
+        Triple("profile", "Profile", Icons.Outlined.PersonOutline)
     )
-    NavigationBar(containerColor = Color.White) {
+    NavigationBar(
+        modifier = Modifier.padding(horizontal=12.dp, vertical=5.dp)
+            .clip(RoundedCornerShape(30.dp))
+            .border(1.dp, Color.White, RoundedCornerShape(30.dp)),
+        containerColor = Color(0xFFFDF9FF),
+        tonalElevation = 5.dp
+    ) {
         items.forEach { (route, label, icon) ->
             NavigationBarItem(
                 selected = current == route,
-                onClick = { if (current != route) nav.navigate(route) { popUpTo("home"); launchSingleTop = true } },
+                onClick = {
+                    if (current != route) nav.navigate(route) {
+                        popUpTo("home")
+                        launchSingleTop = true
+                    }
+                },
                 icon = { Icon(icon, label) },
-                label = { Text(label) }
+                label = { Text(label, fontSize=11.sp) },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = WebsiteColors.Violet,
+                    selectedTextColor = WebsiteColors.Violet,
+                    indicatorColor = Color(0xFFF1D9FF),
+                    unselectedIconColor = WebsiteColors.Muted,
+                    unselectedTextColor = WebsiteColors.Muted
+                )
             )
         }
     }
@@ -197,13 +233,14 @@ fun MainBottomBar(nav: NavHostController, current: String) {
 
 @Composable
 fun CardBox(onClick: (() -> Unit)? = null, border: Color? = null, content: @Composable ColumnScope.() -> Unit) {
-    var m = Modifier.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(16.dp))
+    var m = Modifier.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(22.dp))
     if (onClick != null) m = m.clickable { onClick() }
     Card(
         modifier = m,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = border?.let { androidx.compose.foundation.BorderStroke(1.5.dp, it) }
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xF7FFFFFF)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, border ?: Color.White)
     ) { Column(Modifier.padding(14.dp), content = content) }
 }
 
@@ -297,7 +334,7 @@ fun Field(
         keyboardOptions = KeyboardOptions(keyboardType = keyboard),
         minLines = minLines,
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(17.dp)
     )
 }
 
