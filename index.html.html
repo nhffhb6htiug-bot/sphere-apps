@@ -1933,6 +1933,28 @@ body:not(.pc-admin) #bottomNav.bottom-nav button .icon svg{
 .sphere-editor-app-back:active{transform:scale(.96)}
 .sphere-editor-app-back:focus-visible{outline:2px solid #6d37e2;outline-offset:3px}
 
+
+/* SPHERE IOS EDGE SWIPE BACK v1 — Apple UI only; Android styles untouched */
+html.os-ios,html.os-ios body{overscroll-behavior-x:none;}
+html.os-ios .sphere-ios-back-cue{
+  position:fixed;left:0;top:50%;width:47px;height:62px;z-index:1000;
+  display:flex;align-items:center;justify-content:center;pointer-events:none;
+  background:rgba(255,255,255,.8);color:#6832d1;border:1px solid rgba(255,255,255,.94);
+  border-radius:0 34px 34px 0;
+  -webkit-backdrop-filter:blur(15px) saturate(190%);backdrop-filter:blur(15px) saturate(190%);
+  box-shadow:2px 4px 18px rgba(63,35,120,.14),inset 0 1px 2px #fff;
+  font:34px/1 -apple-system,BlinkMacSystemFont,sans-serif;
+  opacity:0;transform:translate3d(-55px,-50%,0) scale(.86);
+  will-change:transform,opacity;
+}
+html.os-ios .sphere-ios-back-cue.release{
+  opacity:0!important;transform:translate3d(-55px,-50%,0) scale(.86)!important;
+  transition:transform .2s ease-out,opacity .16s ease-out;
+}
+@media(prefers-reduced-motion:reduce){
+ html.os-ios .sphere-ios-back-cue{transition:none!important;}
+}
+
 </style>
 </head>
 <body>
@@ -2337,6 +2359,7 @@ function sphereBackHint(){
   SP_BACK_HINT_TIMER = setTimeout(() => { if(el.isConnected) el.remove(); }, 2050);
 }
 function sphereGoBack(){
+  if(document.documentElement.classList.contains('os-ios') && Date.now()-sphereIosEdgeBackAt<650) return true;
   // Return true to native Android if the app handled Back; false ONLY on a second exit press.
   if(SP_NAV_BACK_IN_PROGRESS) return true;
   const root = ['home','authLanding','splash','onboard1','admin','otpLogin'];
@@ -2364,6 +2387,118 @@ function sphereGoBack(){
 }
 window.sphereBack = sphereGoBack;
 window.sphereGoBack = sphereGoBack;
+
+/* SPHERE IOS EDGE SWIPE BACK v1
+ * Uses the app's existing route trail. Android hardware back is unchanged.
+ * Only engages on rightward horizontal gestures from the left 34px.
+ */
+let sphereIosEdgeBackAt=0;
+function sphereIosSaveLeavingScreen(){
+  if(!document.documentElement.classList.contains('os-ios')) return;
+  const entry=SP_NAV_TRAIL[SP_NAV_TRAIL.length-1];
+  if(entry && entry.screen===currentScreenName) entry.iosScroll=window.scrollY;
+}
+function sphereIosRememberEnteredScreen(screen){
+  if(!document.documentElement.classList.contains('os-ios')) return;
+  const entry=SP_NAV_TRAIL[SP_NAV_TRAIL.length-1];
+  if(entry && entry.screen===screen && !SP_NAV_BACK_IN_PROGRESS){
+    entry.iosContext={
+      chatWith:currentChatWith,chatJob:currentChatJob,
+      jobId:currentJobId,editorId:currentEditorId
+    };
+    if(typeof entry.iosScroll!=='number') entry.iosScroll=0;
+  }
+}
+function sphereIosFallbackScreen(){
+  if(currentScreenName==='chatInfo') return 'chatThread';
+  if(currentScreenName==='chatThread') return 'chatList';
+  if(['login','signup','chooseRole','resetPassword'].includes(currentScreenName)) return 'authLanding';
+  if(['home','splash','authLanding','onboard1','admin','suspended'].includes(currentScreenName)) return null;
+  const u=getCurrentUser();
+  return u ? (u.baseRole==='admin' && u.role==='admin' ? 'admin' : 'home') : 'authLanding';
+}
+function sphereIosEdgeCanGoBack(){
+  if(!document.documentElement.classList.contains('os-ios') ||
+    document.body.classList.contains('pc-admin') || NAV_PENDING || SP_NAV_BACK_IN_PROGRESS) return false;
+  if(document.querySelector('.sp-dlg-wrap:not(.hidden),.media-preview:not(.hidden),.img-viewer:not(.hidden),.sp-load-ov.on')) return false;
+  const last=SP_NAV_TRAIL[SP_NAV_TRAIL.length-1];
+  return ((last && last.screen===currentScreenName) ? SP_NAV_TRAIL.length>1 : SP_NAV_TRAIL.length>0)
+    || !!sphereIosFallbackScreen();
+}
+function sphereIosEdgeGoBack(){
+  if(!sphereIosEdgeCanGoBack()) return false;
+  let previous=null;
+  if(SP_NAV_TRAIL.length){
+    const top=SP_NAV_TRAIL[SP_NAV_TRAIL.length-1];
+    if(top && top.screen===currentScreenName) SP_NAV_TRAIL.pop();
+    previous=SP_NAV_TRAIL[SP_NAV_TRAIL.length-1] || null;
+  }
+  const target=previous ? previous.screen : sphereIosFallbackScreen();
+  if(!target) return false;
+  if(previous && previous.iosContext){
+    currentChatWith=previous.iosContext.chatWith;
+    currentChatJob=previous.iosContext.chatJob;
+    currentJobId=previous.iosContext.jobId;
+    currentEditorId=previous.iosContext.editorId;
+  }
+  sphereIosEdgeBackAt=Date.now();
+  SP_NAV_BACK_IN_PROGRESS=true;SP_LAST_EXIT_BACK=0;
+  Promise.resolve(nav(target,previous ? previous.data : undefined)).then(()=>{
+    if(previous && currentScreenName===target && previous.iosScroll>0)
+      requestAnimationFrame(()=>window.scrollTo(0,previous.iosScroll));
+  }).catch(e=>console.warn('Sphere iOS edge back:',e)).finally(()=>{SP_NAV_BACK_IN_PROGRESS=false;});
+  return true;
+}
+if(document.documentElement.classList.contains('os-ios')){
+  let swipe=null,cue=null;
+  function edgeCue(){
+    if(!cue){
+      cue=document.createElement('div');cue.className='sphere-ios-back-cue';
+      cue.setAttribute('aria-hidden','true');cue.textContent='‹';
+      document.body.appendChild(cue);
+    }
+    return cue;
+  }
+  function clearEdge(){
+    swipe=null;
+    if(cue){cue.classList.add('release');cue.style.opacity='0';}
+  }
+  document.addEventListener('touchstart',e=>{
+    swipe=null;
+    if(e.touches.length!==1 || !sphereIosEdgeCanGoBack()) return;
+    const t=e.touches[0],el=e.target;
+    if(t.clientX<0 || t.clientX>34) return;
+    if(el && el.closest && el.closest('input,textarea,select,[contenteditable],.chat-bubble,.msg-quote,.nt-item,.emoji-panel,.attach-sheet,.reply-bar,.media-preview,.img-viewer,[data-no-swipe-back]')) return;
+    swipe={x:t.clientX,y:t.clientY,dx:0,dy:0,active:false};
+    if(cue){cue.classList.add('release');cue.style.opacity='0';}
+  },{passive:true});
+  document.addEventListener('touchmove',e=>{
+    if(!swipe) return;
+    if(e.touches.length!==1){clearEdge();return;}
+    const t=e.touches[0],dx=t.clientX-swipe.x,dy=t.clientY-swipe.y;
+    if(!swipe.active){
+      if(dx< -8 || (Math.abs(dy)>13 && Math.abs(dy)>Math.abs(dx))){clearEdge();return;}
+      if(dx<=12 || dx<Math.abs(dy)*1.3) return;
+      swipe.active=true;
+    }
+    swipe.dx=dx;swipe.dy=dy;
+    if(e.cancelable)e.preventDefault();
+    const n=edgeCue();n.classList.remove('release');
+    const p=Math.min(1,Math.max(0,dx/100));
+    n.style.top=Math.max(44,Math.min(window.innerHeight-44,swipe.y))+'px';
+    n.style.transform='translate3d('+(Math.min(25,dx*.22)-15)+'px,-50%,0) scale('+(0.86+p*.14)+')';
+    n.style.opacity=String(Math.min(1,Math.max(0,(dx-10)/65)));
+  },{passive:false});
+  document.addEventListener('touchend',e=>{
+    if(!swipe) return;
+    const go=swipe.active && swipe.dx>=85 && Math.abs(swipe.dy)<Math.max(65,swipe.dx*.85);
+    if(go && e.cancelable)e.preventDefault();
+    clearEdge();
+    if(go)sphereIosEdgeGoBack();
+  },{passive:false});
+  document.addEventListener('touchcancel',clearEdge,{passive:true});
+}
+
 // Chrome/PWA hardware-back gesture: intercept before the browser leaves Sphere.
 (function sphereSetupBrowserBack(){
   if(!/^https?:$/.test(location.protocol)) return;
@@ -3805,8 +3940,10 @@ async function navInner(screen, data){
   const adminStay = (screen === 'admin' && currentScreenName === 'admin') || adminSub;
   const adminSameTab = adminSub || (adminStay && !(data && data.tab && data.tab !== adminTab));
   const adminKeep = adminStay ? { y: window.scrollY, x: ((document.querySelector('.ad-tabs') || {}).scrollLeft) || 0, sameTab: adminSameTab } : null;
+  sphereIosSaveLeavingScreen();
   currentScreenName = screen; NAV_LAST_DATA = dataKey;
   sphereRememberNav(screen, data);
+  sphereIosRememberEnteredScreen(screen);
   // Editor-only redesign. My Projects/My work/History/Project Status retain original visuals.
   const sphEditor = getCurrentUser() && getCurrentUser().role === 'editor';
   const sphEditorPage = ['home','jobBidScreen','chatList','chatThread','portfolio','profile','notifications','editorEarnings','settingsScreen','editorProfileEdit','verificationStatus'].includes(screen)
