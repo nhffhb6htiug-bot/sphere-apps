@@ -12,6 +12,19 @@
 <script>/* SPHERE DARK THEME v1 — preference before CSS paint */
 (function(){try{if(localStorage.getItem('sphere_ui_theme')==='dark')document.documentElement.classList.add('sphere-dark');}catch(e){}})();
 </script>
+<script>/* SPHERE DESKTOP ADAPTER v1 — desktop browser auto-detection, no user setting needed */
+(function(){
+  const mq=window.matchMedia&&window.matchMedia('(min-width:980px) and (pointer:fine)');
+  function detect(){
+    const pc=document.documentElement.classList.contains('os-other')&&!!mq&&mq.matches;
+    document.documentElement.classList.toggle('sphere-desktop',pc);
+    return pc;
+  }
+  window.sphereDetectDesktop=detect;
+  detect();
+  if(mq){if(mq.addEventListener)mq.addEventListener('change',detect);else if(mq.addListener)mq.addListener(detect);}
+})();
+</script>
 <meta name="theme-color" content="#dfe6fb">
 <meta name="description" content="Hire verified video editors or find editing work — Sphere by Syahi Films.">
 <link rel="manifest" href="/manifest.json">
@@ -2065,6 +2078,7 @@ body.sphere-editor-refresh #bottomNav.bottom-nav button.active .icon .editor-art
 
 </style>
 <link rel="stylesheet" href="/sphere-dark-theme.css?v=2">
+<link rel="stylesheet" href="/sphere-desktop.css?v=1">
 </head>
 <body>
 <div class="wco-drag"></div>
@@ -2072,6 +2086,8 @@ body.sphere-editor-refresh #bottomNav.bottom-nav button.active .icon .editor-art
 <div id="app"></div>
 
 <nav class="bottom-nav hidden" id="bottomNav"></nav>
+<aside id="sphereDesktopNav" aria-label="Sphere desktop navigation" hidden></aside>
+<header id="sphereDesktopTop" aria-label="Sphere desktop page actions" hidden></header>
 
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script src="vendor/supabase-2.117.2.js"></script>
@@ -4013,6 +4029,98 @@ function renderBottomNav(){
     bottomNav.dataset.liquidTabs = signature;
   }
 }
+
+/* SPHERE DESKTOP ADAPTER v1 — no changes to native mobile routing or icons. */
+let sphereDesktopRoleSig='';
+function sphereDesktopScreenTitle(name){
+  const titles={
+    home:'Dashboard',chatList:'Messages',chatThread:'Conversation',chatInfo:'Chat details',
+    jobs:'Projects & Work',portfolio:'My Portfolio',profile:'My Profile',
+    settingsScreen:'Settings',notifications:'Notifications',
+    editorEarnings:'Earnings',postJob:'Create Project',allEditors:'Browse Editors',
+    categories:'Categories',verifiedEditorsScreen:'Verified Editors',savedList:'Saved Editors',
+    projectStatus:'Project Details',jobBidScreen:'Job Details',support:'Help & Support',
+    sphereAI:'Sphere AI',vaultScreen:'Project Vault',editorProfileEdit:'Edit Profile'
+  };
+  return titles[name]||String(name||'Sphere').replace(/([A-Z])/g,' $1').replace(/^./,x=>x.toUpperCase());
+}
+function sphereDesktopNavItems(user){
+  const editing=user.role==='editor';
+  const icon=(key)=>NAV_ICONS[key]||UI_ICONS[key]||NAV_ICONS.home;
+  return editing ? [
+    {screen:'home',label:'Dashboard',icon:icon('home')},
+    {screen:'jobs',tab:'available',label:'Find Work',icon:icon('jobs')},
+    {screen:'jobs',tab:'mine',label:'My Projects',icon:icon('jobs')},
+    {screen:'chatList',label:'Messages',icon:icon('chat')},
+    {screen:'portfolio',label:'Portfolio',icon:icon('portfolio')},
+    {screen:'editorEarnings',label:'Earnings',icon:icon('jobs')},
+    {screen:'profile',label:'My Profile',icon:icon('profile')}
+  ] : [
+    {screen:'home',label:'Dashboard',icon:icon('home')},
+    {screen:'jobs',label:'My Projects',icon:icon('jobs')},
+    {screen:'allEditors',label:'Find Editors',icon:icon('profile')},
+    {screen:'chatList',label:'Messages',icon:icon('chat')},
+    {screen:'savedList',label:'Saved Editors',icon:icon('portfolio')},
+    {screen:'profile',label:'My Profile',icon:icon('profile')}
+  ];
+}
+function sphereDesktopRender(){
+  const desktop=window.sphereDetectDesktop&&window.sphereDetectDesktop();
+  const user=getCurrentUser();
+  const current=currentScreenName;
+  const hideScreens=['splash','authLanding','onboard1','onboard2','onboard3','login','signup',
+    'chooseRole','resetPassword','verifyPhone','addPhone','otpLogin','editorDetails','suspended'];
+  const shown=!!desktop&&!!user&&!hideScreens.includes(current)&&!document.body.classList.contains('pc-admin')
+    && current!=='admin';
+  document.body.classList.toggle('sphere-desktop-shell',shown);
+  const side=document.getElementById('sphereDesktopNav');
+  const top=document.getElementById('sphereDesktopTop');
+  if(!side||!top)return;
+  side.hidden=!shown;top.hidden=!shown;
+  if(!shown)return;
+  const editing=user.role==='editor';
+  let tab='';
+  try{tab=JSON.parse(NAV_LAST_DATA||'{}').tab||'';}catch(e){}
+  const items=sphereDesktopNavItems(user);
+  const makeLink=(item)=>{
+    const selected=item.screen===current&&(!item.tab||item.tab===tab);
+    const action=item.tab ? "nav('"+item.screen+"',{tab:'"+item.tab+"'})" : "nav('"+item.screen+"')";
+    return '<button type="button" class="sd-link'+(selected?' active':'')+'" '+(selected?'aria-current="page" ':'')
+      +'onclick="'+action+'"><span aria-hidden="true">'+item.icon+'</span><span>'+item.label+'</span></button>';
+  };
+  const roleName=editing?'EDITOR':'CLIENT';
+  const nick=String(user.name||roleName).trim();
+  const initial=nick.slice(0,1).toUpperCase()||'S';
+  // Reuse the existing main-nav routes instead of introducing desktop-only screens.
+  const main=items.map(makeLink).join('');
+  const secondary=[
+    {screen:'notifications',label:'Notifications',icon:UI_ICONS.bell},
+    {screen:'settingsScreen',label:'Settings & Theme',icon:UI_ICONS.settings},
+    {screen:'support',label:'Help & Support',icon:UI_ICONS.help}
+  ];
+  side.innerHTML='<div class="sd-brand">'
+    +'<img src="/img/0cbdc280b5c44e61.webp" alt="Sphere logo">'
+    +'<div><strong>Sphere</strong><small>'+roleName+' WORKSPACE</small></div></div>'
+    +'<div class="sd-nav-cap">Workspace</div><nav class="sd-links" aria-label="Main navigation">'+main+'</nav>'
+    +'<div class="sd-sep"></div><div class="sd-nav-cap">Account</div>'
+    +'<nav class="sd-links" aria-label="Account navigation">'+secondary.map(makeLink).join('')+'</nav>'
+    +'<div class="sd-spacer"></div><div class="sd-user">'
+    +'<span class="sd-avatar" aria-hidden="true">'+esc(initial)+'</span>'
+    +'<span class="sd-user-text"><b>'+esc(nick)+'</b><small>'+roleName.toLowerCase()+' account</small></span></div>';
+  const heading=sphereDesktopScreenTitle(current);
+  const crumb=current==='home'?'Your Sphere workspace':(editing?'Editor workspace':'Client workspace');
+  const primary=editing ? {label:'Explore Work',go:"nav('jobs',{tab:'available'})"} : {label:'Post a Project',go:"nav('postJob')"};
+  top.innerHTML='<div class="sd-top-title"><b>'+esc(heading)+'</b><small>'+crumb+'</small></div>'
+    +'<div class="sd-actions">'
+    +'<button type="button" class="sd-action" onclick="nav(\'notifications\')">🔔 Notifications</button>'
+    +'<button type="button" class="sd-action sd-action-primary" onclick="'+primary.go+'">'+primary.label+'</button>'
+    +'</div>';
+}
+window.addEventListener('resize',()=>{
+  if(window.sphereDetectDesktop)window.sphereDetectDesktop();
+  sphereDesktopRender();
+},{passive:true});
+
 function sphereMoveNavLens(button, immediate=false){
   if(!button || bottomNav.classList.contains('hidden')) return;
   const lens=bottomNav.querySelector('.sphere-liquid-lens');
@@ -4092,6 +4200,7 @@ async function navInner(screen, data){
   bottomNav.classList.toggle('hidden', !visibleScreens.includes(screen));
   renderBottomNav();
   document.querySelectorAll('#bottomNav button').forEach(b=>b.classList.toggle('active', b.dataset.nav===screen));
+  sphereDesktopRender();
   sphereSyncNavLens();
   if(visibleScreens.includes(screen)) refreshChatBadge();
   const renderer = SCREENS[screen];
