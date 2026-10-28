@@ -877,6 +877,179 @@ body.sphere-editor-refresh[data-sphere-screen="profile"] .menu-item{border-color
 @media(prefers-reduced-motion:reduce){body.sphere-editor-refresh *{scroll-behavior:auto!important}}
 
 
+
+/* ============================================================
+   Client Home pastel glass theme (reference 2026-10-28).
+   Scoped ONLY to client Home: editor UI and other screens unchanged.
+   ============================================================ */
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh){
+  --sh-ink:#172044;
+  --sh-violet:#6531e8;
+  background:
+    radial-gradient(ellipse 70% 30% at 9% 2%,rgba(187,66,247,.78),transparent 76%),
+    radial-gradient(ellipse 68% 32% at 95% 7%,rgba(255,212,166,.85),transparent 80%),
+    radial-gradient(ellipse 64% 28% at 0% 48%,rgba(255,156,117,.74),transparent 78%),
+    radial-gradient(ellipse 72% 36% at 102% 64%,rgba(192,149,255,.68),transparent 78%),
+    radial-gradient(ellipse 90% 25% at 3% 96%,rgba(255,194,135,.83),transparent 82%),
+    linear-gradient(150deg,#f9c5e5 0%,#ffe2c8 36%,#e6d7ff 70%,#e4baf6 100%);
+  color:var(--sh-ink);
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home{
+  color:var(--sh-ink); padding-bottom:10px; isolation:isolate;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .topbar{
+  padding:18px 22px 6px; gap:13px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .icon-btn{
+  width:54px;height:54px;border-radius:20px;color:#fff;font-size:25px;
+  background:linear-gradient(145deg,#dd9cff 3%,#ae54ee 58%,#8b40da);
+  border:1.5px solid rgba(255,255,255,.53);
+  box-shadow:0 9px 15px rgba(119,41,176,.25),inset 0 2px 5px rgba(255,255,255,.48);
+  text-shadow:0 2px 4px rgba(65,19,111,.3);
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .topbar-logo{gap:8px;}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .topbar-logo img{
+  width:43px;height:43px;object-fit:contain;border-radius:10px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .topbar-logo span{
+  color:#142142;font-size:25px;font-weight:850;letter-spacing:-.8px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-dash{
+  padding:0 20px;margin-top:0;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .prem-row{
+  margin:2px 0 15px;min-height:50px;align-items:center;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .prem-pill{
+  min-width:206px;padding:13px 22px;border-radius:999px;
+  font-size:17px;font-weight:800;letter-spacing:-.1px;
+  background:linear-gradient(106deg,#7214f8 0%,#b936e7 43%,#ff718d 72%,#ffab53 100%);
+  border:1px solid rgba(255,255,255,.55);
+  box-shadow:0 9px 18px rgba(159,63,202,.25),inset 0 2px 3px rgba(255,255,255,.38);
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-hello{
+  margin:3px 0 13px;min-height:98px;padding:15px 20px;
+  border-radius:30px;display:flex;gap:17px;
+  background:linear-gradient(125deg,rgba(255,255,255,.61),rgba(255,245,250,.51),rgba(249,230,255,.68));
+  border:1.5px solid rgba(255,255,255,.82);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  box-shadow:0 8px 18px rgba(202,99,159,.12),inset 0 1px 1px #fff;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-hello .avatar{
+  width:69px;height:69px;border-radius:50%;font-size:27px;margin:0;
+  background:linear-gradient(145deg,#f3f3f8,#d6dff3);color:#263044;
+  border:3px solid rgba(255,255,255,.78);
+  box-shadow:0 4px 8px rgba(97,71,113,.12);
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-hello b{
+  font-size:23px;line-height:1.14;color:#15203d;font-weight:850;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-hello span{
+  font-size:15px;color:#77819b;display:block;margin-top:6px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-dash > .section-title{
+  margin:12px 0 15px !important;padding:13px 16px 13px 20px !important;
+  min-height:74px;border-radius:28px;
+  background:linear-gradient(110deg,rgba(255,242,242,.78),rgba(255,255,255,.56),rgba(232,202,255,.77));
+  border:1.5px solid rgba(255,255,255,.86);
+  box-shadow:0 7px 16px rgba(167,72,176,.12),inset 0 1px 1px #fff;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-dash > .section-title h3{
+  font-size:23px;font-weight:850;color:#172044;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .sec-min{
+  width:53px;height:53px;background:rgba(255,255,255,.95);font-size:24px;
+  border:1px solid rgba(255,255,255,.95);border-radius:50%;
+  box-shadow:0 3px 12px rgba(129,86,204,.16);
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-empty,
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-stat,
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-proj{
+  background:rgba(255,255,255,.66);border:1px solid rgba(255,255,255,.85);
+  border-radius:24px;box-shadow:0 5px 18px rgba(124,72,185,.1);
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-stats{gap:9px;}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-stat{padding:14px 6px;}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .section-title{
+  margin:20px 0 13px;padding:0 28px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .section-title h3{
+  font-size:23px;font-weight:850;letter-spacing:-.4px;color:#142142;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .section-title a{
+  font-size:14px;color:#7135e1;font-weight:800;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .section-title a::after{content:' ›';font-size:20px;vertical-align:-1px;}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-row{
+  padding:0 22px;gap:9px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-circle{
+  border:4px solid rgba(255,255,255,.96);
+  border-radius:50%;background:rgba(255,255,255,.82);
+  box-shadow:0 6px 12px rgba(101,62,162,.17),inset 0 1px 2px #fff;
+  margin-bottom:9px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-item span{
+  color:#15203a;font-size:11px;font-weight:800;line-height:1.24;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .sh-glass-panel{
+  margin:20px 12px 13px;padding:13px 8px 17px;border-radius:31px;
+  background:linear-gradient(125deg,rgba(255,255,255,.58),rgba(255,233,248,.56) 47%,rgba(235,214,255,.72));
+  border:1.5px solid rgba(255,255,255,.89);
+  -webkit-backdrop-filter:blur(17px);backdrop-filter:blur(17px);
+  box-shadow:0 7px 18px rgba(165,81,185,.13),inset 0 1px 1px rgba(255,255,255,.95);
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .sh-glass-panel .section-title{
+  padding:0 13px;margin:3px 0 15px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .tools-grid,
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .services-grid{
+  padding:0 8px;gap:10px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .tool-card-img{
+  border-radius:23px;background:rgba(255,255,255,.86);
+  padding:3px;border:1px solid rgba(255,255,255,.98);
+  box-shadow:0 5px 14px rgba(123,67,161,.10);
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .tool-card-img img{border-radius:20px;}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .tool-card span{
+  font-size:11px;font-weight:800;color:#202240;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .service-card{
+  border:1px solid rgba(255,255,255,.85);border-radius:22px;
+  box-shadow:0 6px 14px rgba(112,52,179,.18);
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .home-search-bottom{
+  margin:17px 20px 8px;border:1.5px solid rgba(255,255,255,.95);
+  background:rgba(255,255,255,.92);border-radius:999px;min-height:62px;
+  box-shadow:0 6px 18px rgba(130,73,181,.13);padding:12px 20px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .home-search-bottom input{
+  font-size:16px;color:#26304d;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .help-mini{
+  border-radius:20px;border-color:rgba(255,255,255,.72);
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .bottom-nav{
+  background:linear-gradient(115deg,rgba(255,255,255,.88),rgba(255,249,255,.75));
+  border:1.5px solid rgba(255,255,255,.95);
+  box-shadow:0 10px 32px rgba(137,76,189,.18),inset 0 1px 1px #fff;
+  -webkit-backdrop-filter:blur(19px);backdrop-filter:blur(19px);
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .bottom-nav button.active{
+  color:#6531e8;background:linear-gradient(135deg,#fff,#f6dbff 55%,#e7caff);
+  box-shadow:0 6px 15px rgba(147,72,195,.2),inset 0 1px 3px #fff;
+}
+@media(max-width:365px){
+  body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .topbar{padding:15px 16px 5px;gap:9px;}
+  body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .icon-btn{width:48px;height:48px;}
+  body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .topbar-logo span{font-size:21px;}
+  body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .topbar-logo img{width:35px;height:35px;}
+  body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-hello b{font-size:20px;}
+  body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .section-title h3{font-size:21px;}
+  body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-item span{font-size:10px;}
+}
+
 </style>
 </head>
 <body>
@@ -3087,6 +3260,7 @@ function setWorkFilter(v){
 function clientHomeScreen(user){
   setTimeout(renderClientDashboard, 0);
   return `
+  <div class="sphere-client-home">
   <div class="topbar">
     <div class="icon-btn bell-btn" onclick="nav('notifications')">🔔<span class="bell-n" hidden></span></div>
     <div class="icon-btn" onclick="nav('settingsScreen')">⚙️</div>
@@ -3105,13 +3279,16 @@ function clientHomeScreen(user){
     <div class="explore-item" onclick="nav('vaultScreen')"><div class="explore-circle">${img('/img/04408a990d1eb1c9.webp','🔒')}</div><span>Vault</span></div>
   </div>
 
+  <section class="sh-glass-panel sh-tools-panel">
   <div class="section-title"><h3>Tools &amp; Resources</h3></div>
   <div class="tools-grid">
     <div class="tool-card" onclick="nav('categories')"><div class="tool-card-img">${img('/img/aaa791fe5be7f1c3.webp','📂')}</div><span>Verified Portfolios</span></div>
     <div class="tool-card" onclick="nav('jobs')"><div class="tool-card-img">${img('/img/1aec53f4a5840a80.webp','🎞️')}</div><span>Project Showcase</span></div>
     <div class="tool-card" onclick="nav('escrowScreen')"><div class="tool-card-img">${img('/img/fc638f281ea4473e.webp','🔐')}</div><span>SafePay Escrow</span></div>
   </div>
+  </section>
 
+  <section class="sh-glass-panel sh-services-panel">
   <div class="section-title"><h3>Sphere Services</h3></div>
   <div class="services-grid">
     <div class="service-card" onclick="nav('postJob')">${img('/img/19d5e15bfdf38106.webp','📝')}</div>
@@ -3121,9 +3298,11 @@ function clientHomeScreen(user){
     <div class="service-card" onclick="nav('jobs')">${img('/img/0c44b6ca325deac2.webp','💰')}</div>
     <div class="service-card" onclick="nav('profile')">${img('/img/0e28649c7a12b946.webp','👤')}</div>
   </div>
+  </section>
   <div class="home-search-bottom"><span>🔍</span><input type="search" enterkeyhint="search" autocomplete="off" placeholder="Search editors, jobs, projects, help…" onkeydown="if(event.key==='Enter'){ event.preventDefault(); homeSearch(this.value); }"></div>
   <button class="help-mini" onclick="nav(\'support\')"><span>🆘</span><b>Help &amp; Support</b><i>WhatsApp · report a problem</i><em>›</em></button>
   <div style="height:20px;"></div>
+  </div>
   `;
 };
 
