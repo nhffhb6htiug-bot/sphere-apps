@@ -1,8 +1,8 @@
 // Supabase Edge Function: sphere-ai
 // Sphere AI assistant powered by Google Gemini (free tier from Google AI Studio).
 // The Gemini API key stays here on the server (secret GEMINI_API_KEY), never in the app.
-// v19: skip models retired for this project, prefer current Flash Lite models,
-// and temporarily cool down overloaded models. Keep every request time-bounded.
+// v21: retain Gemini Flash and use Groq chat completions as an authenticated,
+// server-side fallback when Gemini models are temporarily unavailable.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const FALLBACK_MODELS = ["gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-3.8-flash", "gemini-flash-latest"];
@@ -49,7 +49,8 @@ Deno.serve(async (req) => {
   const started = Date.now();
   try {
     const key = Deno.env.get("GEMINI_API_KEY");
-    if (!key) return json({ error: "Sphere AI is not set up yet. Please try again later." }, 503);
+    const groqKey = Deno.env.get("GROQ_API_KEY");
+    if (!key && !groqKey) return json({ error: "Sphere AI providers are not configured yet." }, 503);
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "");
@@ -138,13 +139,16 @@ RULES:
     const retryable = (st: number) => st === 404 || st === 429 || st === 500 || st === 503 || st === 504;
     const queue: string[] = [];
     const add = (m?: string | null) => { if (m && !/gemini-2\.5(?:-|$)/.test(m) && !queue.includes(m)) queue.push(m); };
-    add(lastGoodModel);
-    FALLBACK_MODELS.forEach(add);
-    add(Deno.env.get("GEMINI_MODEL"));
-    (await discoverModels(key)).forEach(add);
+    if (key) {
+      add(lastGoodModel);
+      FALLBACK_MODELS.forEach(add);
+      add(Deno.env.get("GEMINI_MODEL"));
+      // Save the model-discovery call for when Groq backup is not configured.
+      if (!groqKey) (await discoverModels(key)).forEach(add);
+    }
     let calls = 0;
-    for (let qi = 0; qi < queue.length && calls < 4; qi++) {
-      const left = 30000 - (Date.now() - started);
+    for (let qi = 0; qi < queue.length && calls < (groqKey ? 2 : 4); qi++) {
+      const left = (groqKey ? 17000 : 30000) - (Date.now() - started);
       if (left < 4000) break;                                  // give up in time; never hang
       const model = queue[qi];
       if ((unavailableUntil.get(model) ?? 0) > Date.now()) continue;
@@ -154,7 +158,7 @@ RULES:
           method: "POST",
           headers: { "Content-Type": "application/json", "x-goog-api-key": key },
           body: payload,
-          signal: AbortSignal.timeout(Math.min(8000, left - 1000)),
+          signal: AbortSignal.timeout(Math.min(groqKey ? 6500 : 8000, left - 1000)),
         });
         status = res.status;
         data = await res.json().catch(() => ({}));
@@ -174,6 +178,56 @@ RULES:
       if (model === lastGoodModel) lastGoodModel = null;
       if (!retryable(status)) break;
     }
+
+    // Groq fallback uses the same authenticated user, verified editors and usage limit.
+    // The API key never leaves Supabase; nothing about it is returned to the browser.
+    if ((!res || !res.ok) && groqKey && (status === 0 || retryable(status))) {
+      const groqModels = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
+      const groqInstructions = action === "draft_job"
+        ? systemText + "\nRespond with ONLY a valid JSON object with category, description, budget and deadline_days. category must be one of: " + CATEGORIES.join(", ") + ". budget and deadline_days must be numbers. No markdown."
+        : systemText;
+      for (const model of groqModels) {
+        const left = 39000 - (Date.now() - started);
+        if (left < 4000) break;
+        try {
+          const groqRequest = {
+            model,
+            messages: [
+              { role: "system", content: groqInstructions },
+              ...history.map((m) => ({ role: m.role === "model" ? "assistant" : "user", content: m.text })),
+            ],
+            temperature: action === "draft_job" ? 0.3 : 0.6,
+            max_completion_tokens: action === "draft_job" ? 700 : 1150,
+            ...(action === "draft_job" ? { response_format: { type: "json_object" } } : {}),
+          };
+          const gr = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: "Bearer " + groqKey,
+            },
+            body: JSON.stringify(groqRequest),
+            signal: AbortSignal.timeout(Math.min(11000, left - 1000)),
+          });
+          const gd = await gr.json().catch(() => ({}));
+          const groqText = String(gd?.choices?.[0]?.message?.content ?? "").trim();
+          if (gr.ok && groqText) {
+            // Reuse the existing response parsing, draft schema validation, quota logic
+            // and error-handling code; do not alter client response contracts.
+            res = new Response(null, { status: 200 });
+            status = 200;
+            data = { candidates: [{ content: { parts: [{ text: groqText }] } }] };
+            console.log("Sphere AI fallback provider succeeded", model);
+            break;
+          }
+          console.error("Groq backup response", model, gr.status, String(gd?.error?.code ?? gd?.error?.type ?? "").slice(0, 60));
+          if (![404, 408, 429, 500, 502, 503, 504].includes(gr.status)) break;
+        } catch (e) {
+          console.error("Groq backup connection/timeout", model, (e as Error)?.name ?? "Error");
+        }
+      }
+    }
+
     const refund = () => admin.from("sp_ai_usage").upsert({ user_id: user.id, day, count: used }, { onConflict: "user_id,day" });
     if (!res || !res.ok) {
       await refund();
