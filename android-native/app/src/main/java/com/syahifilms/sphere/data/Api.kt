@@ -89,7 +89,7 @@ object Api {
                 saveSession(updated)
                 updated.getString("access_token")
             } catch (e: ApiException) {
-                if (e.status in 400..499) {
+                if (e.status in listOf(400, 401, 403, 422)) {
                     clearSession() // Invalid refresh token: require sign-in, never downgrade to anonymous.
                     throw ApiException(401, "Session expired. Please log in again")
                 }
