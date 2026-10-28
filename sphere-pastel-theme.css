@@ -1,0 +1,104 @@
+/* Sphere Pastel Theme v1 — visual-only, original HTML, routes, icons and assets unchanged.
+   Pink / peach / lilac, based on the approved home-screen concept. */
+:root {
+  --blue: #7c36e8;
+  --blue-dark: #5b20c7;
+  --bg: #fbe1f0;
+  --text: #211830;
+  --muted: #6e647c;
+  --card: rgba(255,255,255,.82);
+  --border: rgba(238,214,246,.96);
+  --radius: 23px;
+}
+html {background:#fbe3ee; color-scheme:light;}
+body {
+  background:
+    radial-gradient(ellipse 260px 235px at 5% 1%, rgba(195,110,253,.78),transparent 90%),
+    radial-gradient(ellipse 330px 270px at 100% 9%, rgba(255,226,177,.9),transparent 87%),
+    radial-gradient(ellipse 350px 360px at 6% 40%, rgba(255,169,144,.5),transparent 94%),
+    radial-gradient(ellipse 340px 320px at 100% 75%, rgba(208,149,255,.55),transparent 90%),
+    linear-gradient(158deg,#f4c5ee,#ffe7cd 40%,#f8d5fa 100%) !important;
+  background-attachment:fixed !important;
+}
+body:not(.pc-admin) #app{position:relative;z-index:1}
+.topbar{padding:18px 16px 10px}
+.topbar-logo span{color:#15102f;font-size:19px}
+.topbar-logo img{width:31px;height:31px;border-radius:9px}
+.icon-btn{
+  background:linear-gradient(145deg,#da91ff,#9f53ea 63%,#7834da) !important;
+  border:1px solid rgba(255,255,255,.66);
+  box-shadow:0 6px 16px rgba(126,52,151,.25),inset 0 1px 2px rgba(255,255,255,.9);
+  border-radius:16px;
+}
+.section-title{margin:22px 0 12px}
+.section-title h3{font-size:18px;color:#201735}
+.section-title a{color:#8433d5}
+.explore-row{
+  margin:0 12px;padding:13px 8px 12px;gap:8px;
+  background:rgba(255,252,255,.5);border:1px solid rgba(255,255,255,.75);
+  border-radius:24px;box-shadow:0 7px 25px rgba(143,58,135,.08);
+}
+.explore-circle{background:rgba(255,255,255,.94);border:2px solid white;box-shadow:0 6px 13px rgba(93,44,157,.16)}
+.explore-item span{color:#211830;font-weight:700}
+.tools-grid,.services-grid{
+  padding:14px 12px;margin:0 12px;gap:10px;
+  background:linear-gradient(135deg,rgba(255,255,255,.7),rgba(255,240,249,.56));
+  border:1px solid rgba(255,255,255,.84);border-radius:26px;
+  box-shadow:0 8px 23px rgba(138,55,145,.1),inset 0 1px 0 rgba(255,255,255,.95);
+}
+.tool-card-img{background:rgba(255,255,255,.9);border:1px solid white;border-radius:19px;box-shadow:0 5px 12px rgba(123,56,145,.1)}
+.service-card{border-radius:18px;border:1px solid rgba(255,255,255,.7);box-shadow:0 7px 15px rgba(130,38,153,.18)}
+.header{
+  background:linear-gradient(120deg,rgba(255,255,255,.79),rgba(255,246,244,.62)) !important;
+  border:1px solid rgba(255,255,255,.87);border-radius:25px;
+  padding:15px 17px;margin:13px 13px 11px;
+  box-shadow:0 7px 22px rgba(141,61,153,.09);
+}
+.header h1{color:#201735;font-weight:800}
+.header p{color:#6e647c}
+.header .back-btn{color:#8433d5}
+.card,.menu-item{
+  background:linear-gradient(145deg,rgba(255,255,255,.86),rgba(255,247,251,.71));
+  border:1px solid rgba(255,255,255,.87);
+  border-radius:23px;
+  box-shadow:0 7px 21px rgba(133,58,145,.09),inset 0 1px 0 rgba(255,255,255,.8);
+}
+.btn-primary,.pill.active{
+  background:linear-gradient(105deg,#7934ec 0%,#ce54da 54%,#ff9478 100%);
+  color:white;border-color:transparent;
+  box-shadow:0 6px 16px rgba(167,77,161,.19);
+}
+.btn-outline{background:rgba(255,255,255,.85);color:#7834da;border:1.5px solid #b688ed}
+.btn{border-radius:18px}
+.search-box,.home-search-bottom{
+  background:rgba(255,255,255,.92);border:1px solid rgba(255,255,255,.96);
+  border-radius:30px;box-shadow:0 8px 21px rgba(123,54,150,.09)
+}
+.field input,.field select,.field textarea,.ed-text,.pill,.chip{
+  background:rgba(255,255,255,.9);border-color:#eedcf4;
+  border-radius:15px;
+}
+input:focus,textarea:focus,select:focus{outline-color:#a55fea}
+.bottom-nav{
+  background:rgba(255,255,255,.87) !important;
+  border:1px solid rgba(255,255,255,.9);
+  box-shadow:0 12px 30px rgba(125,61,155,.2),inset 0 1px 0 white;
+}
+.bottom-nav button.active{
+  background:linear-gradient(145deg,#f7ddff,#fff1fc) !important;
+  color:#7630da !important;
+  box-shadow:0 5px 16px rgba(150,73,199,.14),inset 0 1px 0 white;
+}
+.avatar{background:linear-gradient(145deg,#ffe7eb,#e6d5ff)}
+.pro-hero,.premium-hero{background:linear-gradient(105deg,#8f46e9,#df60cb,#ffaf83);border-radius:27px}
+.kv,.notif-item,.pj-steps,.chat-bubble,.job-card{border-radius:18px}
+.status-step.done .dot,.dot.active{background:#8e44df}
+.badge{border-radius:13px}
+.menu-item:active,.card:active{filter:brightness(.985)}
+/* Desktop admin is visually consistent, but preserves its own responsive layout. */
+body.pc-admin{background:#f8e7f5 !important}
+.pca-side{background:linear-gradient(165deg,#48296a,#722ca0)!important}
+.pca .card,.pca-panel,.pca-detail{border-radius:18px}
+@media (prefers-reduced-motion:reduce){
+  .card,.btn,.bottom-nav button{transition:none!important}
+}
