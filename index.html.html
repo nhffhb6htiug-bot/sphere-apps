@@ -2260,7 +2260,7 @@ body.sphere-editor-refresh #bottomNav.bottom-nav .icon svg{
 
 </style>
 <link rel="stylesheet" href="/sphere-dark-theme.css?v=2">
-<link rel="stylesheet" href="/sphere-desktop.css?v=2">
+<link rel="stylesheet" href="/sphere-desktop.css?v=3">
 </head>
 <body>
 <div class="wco-drag"></div>
@@ -2422,7 +2422,7 @@ async function onGoogleCredential(resp){
     const { data:{ user: authUser } } = await sb.auth.getUser();
     pendingAuthUser = authUser; nav('chooseRole'); return;
   }
-  nav(user.role === 'admin' ? 'admin' : 'home');
+  nav(sphereEntryScreen(user));
 }
 
 async function signInWithGoogle(){
@@ -3951,7 +3951,7 @@ async function otpVerify(){
     if(error){ alert(/expired|invalid/i.test(error.message || '') ? 'Wrong or expired code. Please check and try again.' : error.message); return; }
     clearInterval(OTP.timer); OTP = { phone: '', sent: false, wait: 0, timer: null, busy: false };
     const user = await fetchAndSetCurrentUser();
-    if(user){ nav(user.role === 'admin' ? 'admin' : 'home'); return; }
+    if(user){ nav(sphereEntryScreen(user)); return; }
     const { data: { user: authUser } } = await sb.auth.getUser();
     if(authUser){ pendingAuthUser = authUser; nav('chooseRole'); }
   } finally { OTP.busy = false; }
@@ -4226,77 +4226,95 @@ function sphereDesktopScreenTitle(name){
   };
   return titles[name]||String(name||'Sphere').replace(/([A-Z])/g,' $1').replace(/^./,x=>x.toUpperCase());
 }
+/* SPHERE DESKTOP v3: keep the original Sphere mobile content and tab icons.
+   Only the navigation container adapts to screen size; Admin remains role-gated. */
+function sphereEntryScreen(user){
+  // iPhone/Android retain the original startup. PC users, including authorized
+  // admins, open the standard Sphere workspace; admins may open Admin separately.
+  return user && user.role==='admin'
+    && !(window.sphereDetectDesktop && window.sphereDetectDesktop())
+    ? 'admin' : 'home';
+}
 function sphereDesktopNavItems(user){
   const editing=user.role==='editor';
-  const icon=(key)=>NAV_ICONS[key]||UI_ICONS[key]||NAV_ICONS.home;
-  return editing ? [
-    {screen:'home',label:'Dashboard',icon:icon('home')},
-    {screen:'jobs',tab:'available',label:'Find Work',icon:icon('jobs')},
-    {screen:'jobs',tab:'mine',label:'My Projects',icon:icon('jobs')},
-    {screen:'chatList',label:'Messages',icon:icon('chat')},
-    {screen:'portfolio',label:'Portfolio',icon:icon('portfolio')},
-    {screen:'editorEarnings',label:'Earnings',icon:icon('jobs')},
-    {screen:'profile',label:'My Profile',icon:icon('profile')}
+  const originalIcon=(key)=>{
+    const btn=bottomNav.querySelector('button[data-nav="'+key+'"] .icon');
+    if(btn && btn.innerHTML) return btn.innerHTML;
+    const navIcon=key==='chatList'?'chat':key==='portfolio'?'portfolio':key==='profile'?'profile':key==='jobs'?'jobs':'home';
+    return editing ? (editorAsset(key==='portfolio'?'portfolio-nav':navIcon)||NAV_ICONS[navIcon]) : NAV_ICONS[navIcon];
+  };
+  const items=editing ? [
+    {screen:'home',label:'Home',icon:originalIcon('home')},
+    {screen:'chatList',label:'Chat',icon:originalIcon('chatList')},
+    {screen:'portfolio',label:'Portfolio',icon:originalIcon('portfolio')},
+    {screen:'profile',label:'Profile',icon:originalIcon('profile')},
   ] : [
-    {screen:'home',label:'Dashboard',icon:icon('home')},
-    {screen:'jobs',label:'My Projects',icon:icon('jobs')},
-    {screen:'allEditors',label:'Find Editors',icon:icon('profile')},
-    {screen:'chatList',label:'Messages',icon:icon('chat')},
-    {screen:'savedList',label:'Saved Editors',icon:icon('portfolio')},
-    {screen:'profile',label:'My Profile',icon:icon('profile')}
+    {screen:'home',label:'Home',icon:originalIcon('home')},
+    {screen:'chatList',label:'Chat',icon:originalIcon('chatList')},
+    {screen:'jobs',label:'Projects',icon:originalIcon('jobs')},
+    {screen:'profile',label:'Profile',icon:originalIcon('profile')},
   ];
+  return items;
 }
 function sphereDesktopRender(){
   const desktop=window.sphereDetectDesktop&&window.sphereDetectDesktop();
   const user=getCurrentUser();
-  const current=currentScreenName;
-  const hideScreens=['splash','authLanding','onboard1','onboard2','onboard3','login','signup',
-    'chooseRole','resetPassword','verifyPhone','addPhone','otpLogin','editorDetails','suspended'];
-  const shown=!!desktop&&!!user&&!hideScreens.includes(current)&&!document.body.classList.contains('pc-admin')
-    && current!=='admin';
+  const screen=currentScreenName;
+  const hiddenRoutes=['splash','authLanding','onboard1','onboard2','onboard3',
+    'login','signup','chooseRole','resetPassword','verifyPhone','addPhone',
+    'otpLogin','editorDetails','suspended'];
+  const shown=!!desktop&&!!user&&!hiddenRoutes.includes(screen)
+    && !document.body.classList.contains('pc-admin')
+    && !pcAdminScreen(screen);
   document.body.classList.toggle('sphere-desktop-shell',shown);
   const side=document.getElementById('sphereDesktopNav');
   const top=document.getElementById('sphereDesktopTop');
   if(!side||!top)return;
-  side.hidden=!shown;top.hidden=!shown;
-  if(!shown)return;
-  const editing=user.role==='editor';
+  side.hidden=!shown;top.hidden=true;top.innerHTML='';
+  if(!shown){side.innerHTML='';return;}
   let tab='';
   try{tab=JSON.parse(NAV_LAST_DATA||'{}').tab||'';}catch(e){}
-  const items=sphereDesktopNavItems(user);
   const makeLink=(item)=>{
-    const selected=item.screen===current&&(!item.tab||item.tab===tab);
-    const action=item.tab ? "nav('"+item.screen+"',{tab:'"+item.tab+"'})" : "nav('"+item.screen+"')";
-    return '<button type="button" title="'+item.label+'" aria-label="'+item.label+'" class="sd-link'+(selected?' active':'')+'" '+(selected?'aria-current="page" ':'')
-      +'onclick="'+action+'"><span aria-hidden="true">'+item.icon+'</span><span>'+item.label+'</span></button>';
+    const selected=item.screen===screen&&(!item.tab||item.tab===tab || (item.tab==='available'&&!tab));
+    const action=item.tab?"nav('"+item.screen+"',{tab:'"+item.tab+"'})":"nav('"+item.screen+"')";
+    return '<button type="button" title="'+item.label+'" aria-label="'+item.label+'" class="sd-link'+(selected?' active':'')+'"'
+      +(selected?' aria-current="page"':'')+' onclick="'+action+'">'
+      +'<span class="sd-link-icon" aria-hidden="true">'+item.icon+'</span>'
+      +'<span>'+item.label+'</span></button>';
   };
-  const roleName=editing?'EDITOR':'CLIENT';
-  const nick=String(user.name||roleName).trim();
-  const initial=nick.slice(0,1).toUpperCase()||'S';
-  // Reuse the existing main-nav routes instead of introducing desktop-only screens.
-  const main=items.map(makeLink).join('');
-  const secondary=[
-    {screen:'notifications',label:'Notifications',icon:UI_ICONS.bell},
-    {screen:'settingsScreen',label:'Settings & Theme',icon:UI_ICONS.settings},
-    {screen:'support',label:'Help & Support',icon:UI_ICONS.help}
+  const editing=user.role==='editor';
+  const main=sphereDesktopNavItems(user).map(makeLink).join('');
+  const extras=editing ? [
+    {screen:'jobs',tab:'available',label:'Find Work',icon:UI_ICONS.jobs},
+    {screen:'jobs',tab:'mine',label:'My Projects',icon:UI_ICONS.jobs},
+    {screen:'editorEarnings',label:'Earnings',icon:UI_ICONS.jobs}
+  ] : [
+    {screen:'allEditors',label:'Find Editors',icon:UI_ICONS.search},
+    {screen:'savedList',label:'Saved Editors',icon:UI_ICONS.star}
   ];
+  const settings=[
+    {screen:'notifications',label:'Notifications',icon:UI_ICONS.bell},
+    {screen:'settingsScreen',label:'Settings',icon:UI_ICONS.settings},
+    {screen:'support',label:'Help',icon:UI_ICONS.help}
+  ];
+  // Crucial: do not show any Admin entry unless the account's server role is ADMIN.
+  if(isAdminUser(user)) settings.push({
+    screen:'admin',label:'Admin Panel',icon:UI_ICONS.shield
+  });
+  const role=editing?'Editor':isAdminUser(user)?'Sphere account':'Client';
+  const nick=String(user.name||role).trim();
   side.innerHTML='<div class="sd-brand">'
     +'<img src="/img/0cbdc280b5c44e61.webp" alt="Sphere logo">'
-    +'<div><strong>Sphere</strong><small>'+roleName+' WORKSPACE</small></div></div>'
-    +'<div class="sd-nav-cap">Workspace</div><nav class="sd-links" aria-label="Main navigation">'+main+'</nav>'
-    +'<div class="sd-sep"></div><div class="sd-nav-cap">Account</div>'
-    +'<nav class="sd-links" aria-label="Account navigation">'+secondary.map(makeLink).join('')+'</nav>'
-    +'<div class="sd-spacer"></div><div class="sd-user">'
-    +'<span class="sd-avatar" aria-hidden="true">'+esc(initial)+'</span>'
-    +'<span class="sd-user-text"><b>'+esc(nick)+'</b><small>'+roleName.toLowerCase()+' account</small></span></div>';
-  const heading=sphereDesktopScreenTitle(current);
-  const crumb=current==='home'?'Your Sphere workspace':(editing?'Editor workspace':'Client workspace');
-  const primary=editing ? {label:'Explore Work',go:"nav('jobs',{tab:'available'})"} : {label:'Post a Project',go:"nav('postJob')"};
-  top.innerHTML='<div class="sd-top-title"><b>'+esc(heading)+'</b><small>'+crumb+'</small></div>'
-    +'<div class="sd-actions">'
-    +'<button type="button" class="sd-action" onclick="nav(\'notifications\')">🔔 Notifications</button>'
-    +'<button type="button" class="sd-action sd-action-primary" onclick="'+primary.go+'">'+primary.label+'</button>'
-    +'</div>';
+    +'<div><strong>Sphere</strong><small>'+role+'</small></div></div>'
+    +'<nav class="sd-links" aria-label="Sphere navigation">'+main+'</nav>'
+    +'<div class="sd-sep"></div>'
+    +'<nav class="sd-links" aria-label="Workspace shortcuts">'+extras.map(makeLink).join('')+'</nav>'
+    +'<div class="sd-sep"></div>'
+    +'<nav class="sd-links" aria-label="Account options">'+settings.map(makeLink).join('')+'</nav>'
+    +'<div class="sd-spacer"></div>'
+    +'<div class="sd-user"><span class="sd-avatar" aria-hidden="true">'
+    +esc(nick.slice(0,1).toUpperCase()||'S')+'</span>'
+    +'<span class="sd-user-text"><b>'+esc(nick)+'</b><small>'+role+'</small></span></div>';
 }
 window.addEventListener('resize',()=>{
   if(window.sphereDetectDesktop)window.sphereDetectDesktop();
@@ -4436,7 +4454,7 @@ SCREENS.splash = () => {
   setTimeout(async ()=>{
     if(IS_RECOVERY){ nav('resetPassword'); return; }
     const user = await fetchAndSetCurrentUser();
-    if(user){ nav(user.role==='admin'?'admin':'home'); return; }
+    if(user){ nav(sphereEntryScreen(user)); return; }
     const { data:{ user: authUser } } = await sb.auth.getUser();
     if(authUser){ pendingAuthUser = authUser; nav('chooseRole'); return; }
     nav('onboard1');
@@ -4589,7 +4607,7 @@ async function saveNewPassword(){
   alert('Password updated ✅');
   IS_RECOVERY = false;
   const user = await fetchAndSetCurrentUser();
-  nav(user ? (user.role==='admin' ? 'admin' : 'home') : 'authLanding');
+  nav(user ? sphereEntryScreen(user) : 'authLanding');
 }
 async function doLogin(){
   const email = document.getElementById('loginEmail').value.trim();
@@ -4606,7 +4624,7 @@ async function doLogin(){
     const { data:{ user: authUser } } = await sb.auth.getUser();
     pendingAuthUser = authUser; nav('chooseRole'); return;
   }
-  nav(user.role==='admin' ? 'admin' : 'home');
+  nav(sphereEntryScreen(user));
 }
 
 SCREENS.signup = () => `
