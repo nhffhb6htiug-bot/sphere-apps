@@ -2576,12 +2576,12 @@ SCREENS.authLanding = () => { if(otpOn()) return otpLoginScreen(); setTimeout(se
     ${img('/img/15ff7b3e628d1cb7.webp','🔷')}
     <h1>Sphere</h1>
     <div style="width:100%; padding:0 20px; margin-top:30px; display:flex; flex-direction:column; gap:14px;">
-      <div id="gsiBtn" style="display:flex; justify-content:center; min-height:44px;"><p class="muted" style="font-size:12px;">Loading Google sign-in…</p></div>
-      <button id="googleFallbackBtn" class="btn" style="background:#fff; color:#111; border:1px solid var(--border); display:none; align-items:center; justify-content:center; gap:10px;" onclick="signInWithGoogle()">
+      ${waRequired() ? '' : '<div id="gsiBtn" style="display:flex; justify-content:center; min-height:44px;"><p class="muted" style="font-size:12px;">Loading Google sign-in…</p></div>'}
+      ${waRequired() ? '' : `<button id="googleFallbackBtn" class="btn" style="background:#fff; color:#111; border:1px solid var(--border); display:none; align-items:center; justify-content:center; gap:10px;" onclick="signInWithGoogle()">
         <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>
         Continue with Google
-      </button>
-      <p class="muted center-text" style="margin:2px 0;">or</p>
+      </button>`}
+      ${waRequired() ? '' : '<p class="muted center-text" style="margin:2px 0;">or</p>'}
       <button class="btn btn-dark" onclick="nav('login')">Log In</button>
       <button class="btn btn-outline" onclick="nav('signup')">Sign Up</button>
       ${POLICY_LINKS}
@@ -4333,6 +4333,7 @@ async function deleteMyAccount(){
 async function logout(){
   await stopPushForThisPhone();
   VERIFIED_CACHE = null; CLIENT_DASH_CACHE = { uid: null, html: '' }; PREMIUM_CACHE.clear(); SCREEN_CACHE.clear(); stopChatPresence();   // Part C: forget cached screens on logout
+  PHONE_V = { uid: null, st: null, at: 0 }; stopPvPoll();
   loggingOut = true;
   clearSessionState();
   await sb.auth.signOut();
@@ -4752,7 +4753,7 @@ const ROUTE_ACCESS = Object.freeze({
   support: 'user', report: 'user', myReports: 'user', sphereAI: 'user',
   categories: 'user', categoryDetail: 'user', allEditors: 'user', verifiedEditorsScreen: 'user',
   editorProfile: 'user', jobs: 'user', projectStatus: 'user', portfolio: 'user',
-  escrowScreen: 'user', vaultScreen: 'user', editProfile: 'user', previewPlayer: 'user', notifSettings: 'user', deleteAccount: 'user', premiumScreen: 'client',
+  escrowScreen: 'user', vaultScreen: 'user', editProfile: 'user', previewPlayer: 'user', notifSettings: 'user', deleteAccount: 'user', verifyPhone: 'user', premiumScreen: 'client',
   postJob: 'client', applications: 'client', payment: 'client', savedList: 'client', ratings: 'client',
   jobBidScreen: 'editor',
   editorDetails: 'editorAccount', verificationStatus: 'editorAccount', editorProfileEdit: 'editorAccount', proScreen: 'editorAccount',
@@ -4774,6 +4775,78 @@ function hasRouteAccess(level, u){
     default: return !!u;
   }
 }
+// ===== v2.22.40: phone verification on WhatsApp — the user SENDS a code to Sphere's number (free, no SMS) =====
+// Server side: sp_phone_verify_start / _status / _complete + Edge Function sphere-wa-verify (Meta WhatsApp Cloud API webhook).
+// Switch on in Supabase: sp_settings wa_verify_number = Sphere's WhatsApp number, then wa_verify_required = 1.
+const PHONE_OK_SCREENS = ['verifyPhone', 'support', 'suspended', 'deleteAccount', 'authLanding', 'login', 'signup', 'public'];
+var PHONE_V = { uid: null, st: null, at: 0 }, PV_POLL = null;
+function waRequired(){ return String(SETTINGS.wa_verify_required) === '1'; }
+async function phoneVerifyStatus(force){
+  const u = getCurrentUser(); if(!u) return null;
+  const fresh = PHONE_V.uid === u.id && PHONE_V.st && (PHONE_V.st.verified || Date.now() - PHONE_V.at < (PHONE_V.st.required ? 3000 : 300000));
+  if(fresh && !force) return PHONE_V.st;
+  try {
+    const { data, error } = await sb.rpc('sp_phone_verify_status');
+    if(error || !data) return PHONE_V.uid === u.id ? PHONE_V.st : null;       // can't check → never lock people out
+    PHONE_V = { uid: u.id, st: data, at: Date.now() }; return data;
+  } catch(e) { return null; }
+}
+function waNumber10(){ return String(SETTINGS.wa_verify_number || '').replace(/\D/g, '').slice(-10); }
+SCREENS.verifyPhone = async () => {
+  const st = await phoneVerifyStatus(true) || {};
+  const u = getCurrentUser() || {};
+  if(st.verified || !st.required){ setTimeout(() => nav('home'), 0); return '<div class="screen"></div>'; }
+  const ready = waNumber10().length === 10;
+  return `<div class="screen" style="padding-top:28px;">
+    <div style="text-align:center; font-size:46px;">💬</div>
+    <h2 style="text-align:center; margin:6px 0 4px;">Verify your mobile number</h2>
+    <p class="muted" style="text-align:center; margin-bottom:16px;">One mobile number can be used for one Sphere account. It takes 10 seconds and costs nothing.</p>
+    <div class="card">
+      ${phoneField('vpPhone', st.phone || u.phone, 'Your WhatsApp number')}
+      <ol style="font-size:13px; margin:2px 0 12px 18px; line-height:1.7;">
+        <li>Tap <b>Verify on WhatsApp</b></li>
+        <li>WhatsApp opens with your code already typed</li>
+        <li>Press <b>Send</b>, then come back here</li></ol>
+      <button class="btn btn-primary" id="vpBtn" onclick="startPhoneVerify()" ${ready ? '' : 'disabled'}>💬 Verify on WhatsApp</button>
+      ${ready ? '' : '<p class="muted center-text" style="font-size:12px; margin-top:8px;">Verification is being set up. Please try again a little later.</p>'}
+      <p id="vpMsg" class="center-text" style="font-size:13px; margin-top:10px; min-height:18px;"></p>
+      <p id="vpCode" class="center-text muted" style="font-size:12px;"></p>
+    </div>
+    <p class="center-text muted" style="font-size:12px; margin-top:14px;">Wrong number? Change it above and tap the button again.</p>
+    <p class="center-text" style="margin-top:6px;"><span class="link" onclick="nav('support')">Need help?</span> · <span class="link" onclick="stopPvPoll(); logout()">Log out</span></p>
+  </div>`;
+};
+function stopPvPoll(){ if(PV_POLL){ clearInterval(PV_POLL); PV_POLL = null; } }
+async function startPhoneVerify(){
+  const msg = document.getElementById('vpMsg'), btn = document.getElementById('vpBtn'), say = (t, bad) => { if(msg){ msg.textContent = t; msg.style.color = bad ? '#c62828' : 'inherit'; } };
+  const phone = readPhone('vpPhone'); if(!phone) return;
+  const n = String(phone).replace(/\D/g, '').slice(-10), u = getCurrentUser();
+  if(btn){ btn.disabled = true; btn.textContent = 'Please wait…'; }
+  try {
+    if(n !== String(u.phone || '').replace(/\D/g, '').slice(-10)){            // number changed → save it first
+      const { error: pe } = await sb.from('profiles').update({ phone: '+91' + n }).eq('id', u.id);
+      if(pe) throw pe; u.phone = '+91' + n;
+    }
+    const { data, error } = await sb.rpc('sp_phone_verify_start', { p_phone: n });
+    if(error) throw error;
+    const url = 'https://wa.me/91' + waNumber10() + '?text=' + encodeURIComponent(data.code);
+    const c = document.getElementById('vpCode'); if(c) c.innerHTML = 'If WhatsApp did not open, send this code to <b>+91 ' + esc(waNumber10()) + '</b>:<br><b style="font-size:18px; letter-spacing:1px;">' + esc(data.code) + '</b>';
+    say('⏳ Waiting for your WhatsApp message…');
+    window.open(url, '_blank');
+    stopPvPoll(); let tries = 0;
+    PV_POLL = setInterval(async () => {
+      if(currentScreenName !== 'verifyPhone'){ stopPvPoll(); return; }
+      if(++tries > 600){ stopPvPoll(); say('Time is up. Tap the button to get a new code.', true); return; }
+      const st = await phoneVerifyStatus(true);
+      if(st && st.verified){ stopPvPoll(); say('✅ Number verified!'); setTimeout(() => nav('home'), 600); }
+    }, 3000);
+  } catch(e) {
+    say(String((e && e.message) || e).replace(/^.*?:\s*(?=This|Enter|Please)/, ''), true);
+  }
+  if(btn){ btn.disabled = false; btn.textContent = '💬 Verify on WhatsApp'; }
+}
+document.addEventListener('visibilitychange', () => { if(!document.hidden && PV_POLL && currentScreenName === 'verifyPhone') phoneVerifyStatus(true).then(st => { if(st && st.verified){ stopPvPoll(); nav('home'); } }); });
+
 async function routeGate(screen){
   const level = routeAccess(screen);
   const u = getCurrentUser();
@@ -4790,6 +4863,10 @@ async function routeGate(screen){
       ? 'This is part of Admin mode. Switch back to Admin mode from Profile.'
       : 'This is part of Client mode. Switch to Client from Profile to hire editors.' };
     return { ok: false, to: 'home' };
+  }
+  if(u && !isAdminUser(u) && !PHONE_OK_SCREENS.includes(screen)){      // v2.22.40: number must be verified on WhatsApp (when the admin switches it on)
+    const pv = await phoneVerifyStatus();
+    if(pv && pv.required && !pv.verified) return { ok: false, to: 'verifyPhone' };
   }
   const rule = JOB_SCREENS[screen];
   if(rule && typeof currentJobId !== 'undefined' && currentJobId){
