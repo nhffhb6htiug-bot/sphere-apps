@@ -2432,6 +2432,21 @@ function netNotice(){
     }
   });
 }
+// Add-on: gracefully refresh the active Home dashboard when a connection returns.
+// Never reload a form, chat draft, payment page, or project workflow automatically.
+let SP_RECONNECT_AT = 0;
+window.addEventListener('offline', () => { NET_DOWN_AT = Date.now(); netNotice(); });
+window.addEventListener('online', () => {
+  NET_DOWN_AT = 0; netNotice();
+  if(Date.now() - SP_RECONNECT_AT < 15000) return;
+  SP_RECONNECT_AT = Date.now();
+  setTimeout(() => {
+    if(document.hidden || typeof currentScreenName === 'undefined' || currentScreenName !== 'home' || !getCurrentUser()) return;
+    if(getCurrentUser().role === 'editor') renderEditorDashboard();
+    else renderClientDashboard();
+  }, 800);
+});
+
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storageKey: 'sb-' + SPHERE_CONFIG.supabaseProjectRef + '-auth-token' }, global: { fetch: trackedFetch } });
 const RAZORPAY_KEY_ID = SPHERE_CONFIG.razorpayKeyId;
 
@@ -2919,11 +2934,25 @@ if(!/^https?:$/.test(location.protocol)) window.addEventListener('load', () => {
 });
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; });
 window.addEventListener('appinstalled', () => { installPrompt = null; });
-if('serviceWorker' in navigator){
-  // v2.22.30: keep the app's pictures decoded in memory so Home never flashes empty/black circles
+// Warm only the logo and first-page hero assets after the browser is idle.
+// The previous eager 19-image preload competed with auth and initial data requests.
 const SP_KEEP_IMGS = [];
-window.addEventListener('load', () => { if(location.protocol.startsWith('http')) ["/img/04408a990d1eb1c9.webp", "/img/082a0646075c735b.webp", "/img/0c44b6ca325deac2.webp", "/img/0cbdc280b5c44e61.webp", "/img/0e28649c7a12b946.webp", "/img/1209c4be37fa92f3.webp", "/img/15ff7b3e628d1cb7.webp", "/img/19d5e15bfdf38106.webp", "/img/1aec53f4a5840a80.webp", "/img/2061cbf3489f11d0.webp", "/img/7255ffd977185e21.webp", "/img/7f7f499015ca28f7.webp", "/img/9823ae8fa53bb565.webp", "/img/aaa791fe5be7f1c3.webp", "/img/b061764dc1a2fb70.webp", "/img/c055b24fc823715f.webp", "/img/c087adc7bc2ad7f4.webp", "/img/c3db169904bada66.webp", "/img/fc638f281ea4473e.webp"].forEach(u => { const im = new Image(); im.decoding = 'async'; im.src = u; SP_KEEP_IMGS.push(im); }); });
-  window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW', err)); });
+window.addEventListener('load', () => {
+  if(!location.protocol.startsWith('http')) return;
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if(connection && (connection.saveData || /^(?:slow-2g|2g)$/.test(connection.effectiveType || ''))) return;
+  const warmAssets = () => {
+    for(const src of ['/img/0cbdc280b5c44e61.webp', '/img/082a0646075c735b.webp', '/img/2061cbf3489f11d0.webp']){
+      const im = new Image(); im.decoding='async'; im.src=src; SP_KEEP_IMGS.push(im);
+    }
+  };
+  if('requestIdleCallback' in window) requestIdleCallback(warmAssets, {timeout:3500});
+  else setTimeout(warmAssets,1500);
+});
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW', err));
+  });
 }
 function isStandalone(){
   return IN_ANDROID_APP || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
@@ -4237,19 +4266,33 @@ async function getProfilesByIds(ids){
   return map;
 }
 let VERIFIED_CACHE = null;   // Part C: { at, uid, list } — All Editors opens instantly when you come back
+let VERIFIED_INFLIGHT = null, VERIFIED_INFLIGHT_UID = null;
 async function getVerifiedEditors(){
   const me0 = getCurrentUser(), uid0 = me0 && me0.id;
   if(VERIFIED_CACHE && VERIFIED_CACHE.uid === uid0 && Date.now() - VERIFIED_CACHE.at < 60000) return VERIFIED_CACHE.list.slice();
-  const list = await getVerifiedEditorsFresh();
-  if(list.length) VERIFIED_CACHE = { at: Date.now(), uid: uid0, list: list.slice() };
-  return list;
+  // Multiple panels often request the same directory simultaneously.
+  // Share a single request, but never share in-flight work between accounts.
+  if(VERIFIED_INFLIGHT && VERIFIED_INFLIGHT_UID === uid0) return (await VERIFIED_INFLIGHT).slice();
+  const pending = getVerifiedEditorsFresh();
+  VERIFIED_INFLIGHT = pending;
+  VERIFIED_INFLIGHT_UID = uid0;
+  try {
+    const list = await pending;
+    if(list.length) VERIFIED_CACHE = { at: Date.now(), uid: uid0, list: list.slice() };
+    return list.slice();
+  } finally {
+    if(VERIFIED_INFLIGHT === pending){ VERIFIED_INFLIGHT = null; VERIFIED_INFLIGHT_UID = null; }
+  }
 }
 async function getVerifiedEditorsFresh(){
   const { data, error } = await publicEditors(t => t.select('*'));
   if(dbErr(error)) return [];
   const me = getCurrentUser();
-  const list = await attachRatings((data || []).map(toAppUser).filter(u => !me || u.id !== me.id));
-  await loadProSet();
+  // Rating lookup and Pro status lookup are independent.
+  const [list] = await Promise.all([
+    attachRatings((data || []).map(toAppUser).filter(u => !me || u.id !== me.id)),
+    loadProSet()
+  ]);
   if(proBenefit('boost')) list.sort((x, y) => (PRO_SET.has(y.id) ? 1 : 0) - (PRO_SET.has(x.id) ? 1 : 0));
   return list;
 }
@@ -4385,9 +4428,17 @@ function sphereDesktopRender(){
     +esc(nick.slice(0,1).toUpperCase()||'S')+'</span>'
     +'<span class="sd-user-text"><b>'+esc(nick)+'</b><small>'+role+'</small></span></div>';
 }
-window.addEventListener('resize',()=>{
-  if(window.sphereDetectDesktop)window.sphereDetectDesktop();
-  sphereDesktopRender();
+// Coalesce resize storms (desktop dragging, iPad rotation, virtual keyboard)
+// into a single layout pass per animation frame. The original UI is unchanged.
+let sphereResizeFrame = 0;
+window.addEventListener('resize', () => {
+  if(sphereResizeFrame) return;
+  sphereResizeFrame = requestAnimationFrame(() => {
+    sphereResizeFrame = 0;
+    if(window.sphereDetectDesktop) window.sphereDetectDesktop();
+    sphereDesktopRender();
+    sphereSyncNavLens(true);
+  });
 },{passive:true});
 
 function sphereMoveNavLens(button, immediate=false){
@@ -4412,7 +4463,6 @@ bottomNav.addEventListener('pointerdown',event=>{
   const button=event.target.closest('button[data-nav]');
   if(button) sphereMoveNavLens(button);
 },{passive:true});
-window.addEventListener('resize',()=>sphereSyncNavLens(true),{passive:true});
 
 let NAV_SEQ = 0;     // Part 19.1: only the newest navigation may change the screen
 let NAV_LAST_DATA = '';
@@ -7115,8 +7165,11 @@ async function loadClientProjects(user){
     (apps || []).forEach(a => { bids[a.job_id] = (bids[a.job_id] || 0) + 1; });
   }
   const edIds = [...new Set(list.map(j => j.assignedEditor).filter(Boolean))];
-  const eds = edIds.length ? await getProfilesByIds(edIds) : {};
-  await loadWorkFor(list.filter(j => j.assignedEditor).map(j => j.id));
+  // Independent profile and work-details reads run together, not serially.
+  const [eds] = await Promise.all([
+    edIds.length ? getProfilesByIds(edIds) : Promise.resolve({}),
+    loadWorkFor(list.filter(j => j.assignedEditor).map(j => j.id))
+  ]);
   const items = list.map(j => clientProjectView(j, bids[j.id] || 0, eds[j.assignedEditor], user));
   return { ok: true, items, stats: clientStats(items) };
 }
@@ -11085,6 +11138,17 @@ function premiumStatus(m){
 }
 // Home search: clients → All Editors (filtered); editors → Available work (uses the existing job filter)
 function homeSearch(v){ nav('searchAll', { q: String(v || '').trim() }); }
+// Add-on feature for desktop and hardware-keyboard users: Ctrl/Cmd+K opens
+// the existing universal search; it creates no new buttons or visual changes.
+document.addEventListener('keydown', event => {
+  if(event.defaultPrevented || event.altKey || !((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k')) return;
+  if(!getCurrentUser()) return;
+  event.preventDefault();
+  Promise.resolve(nav('searchAll')).then(() => {
+    const searchBox = document.getElementById('srQ');
+    if(searchBox) searchBox.focus();
+  }).catch(() => {});
+});
 
 // App-wide search: pages, categories, editors, jobs and your own projects — whatever matches the words typed.
 const SEARCH_PAGES = [

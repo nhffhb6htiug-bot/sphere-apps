@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - "index.html.html"
+      - "sw.js"
+      - "tests/unit/sw_cache_safety.test.mjs"
       - "android-native/**"
       - "tests/audit-static.mjs"
       - "tests/audit-browser.mjs"
@@ -24,6 +26,8 @@ jobs:
           node-version: "22"
       - name: Static source and security regression tests
         run: node tests/audit-static.mjs
+      - name: Service-worker performance and privacy regression tests
+        run: node --test tests/unit/sw_cache_safety.test.mjs
       - name: Install pinned browser test runner
         run: npm install --no-save playwright@1.56.1
       - name: Install Chromium and WebKit browser engines
