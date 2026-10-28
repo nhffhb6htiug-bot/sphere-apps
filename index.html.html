@@ -14,7 +14,7 @@
 </script>
 <script>/* SPHERE DESKTOP ADAPTER v1 — desktop browser auto-detection, no user setting needed */
 (function(){
-  const mq=window.matchMedia&&window.matchMedia('(min-width:980px)');
+  const mq=window.matchMedia&&window.matchMedia('(min-width:700px)');
   function detect(){
     const pc=document.documentElement.classList.contains('os-other')&&!!mq&&mq.matches;
     document.documentElement.classList.toggle('sphere-desktop',pc);
@@ -2078,7 +2078,7 @@ body.sphere-editor-refresh #bottomNav.bottom-nav button.active .icon .editor-art
 
 </style>
 <link rel="stylesheet" href="/sphere-dark-theme.css?v=2">
-<link rel="stylesheet" href="/sphere-desktop.css?v=1">
+<link rel="stylesheet" href="/sphere-desktop.css?v=2">
 </head>
 <body>
 <div class="wco-drag"></div>
@@ -4085,7 +4085,7 @@ function sphereDesktopRender(){
   const makeLink=(item)=>{
     const selected=item.screen===current&&(!item.tab||item.tab===tab);
     const action=item.tab ? "nav('"+item.screen+"',{tab:'"+item.tab+"'})" : "nav('"+item.screen+"')";
-    return '<button type="button" class="sd-link'+(selected?' active':'')+'" '+(selected?'aria-current="page" ':'')
+    return '<button type="button" title="'+item.label+'" aria-label="'+item.label+'" class="sd-link'+(selected?' active':'')+'" '+(selected?'aria-current="page" ':'')
       +'onclick="'+action+'"><span aria-hidden="true">'+item.icon+'</span><span>'+item.label+'</span></button>';
   };
   const roleName=editing?'EDITOR':'CLIENT';
@@ -9708,12 +9708,17 @@ function adminPinCard(pinSet){
 function pcAdminScreen(s){ return ['admin', 'adminUser', 'adminProject', 'adminEditDetails', 'adminClassic'].includes(s); }
 var PC_SUB_TAB = { adminUser: 'users', adminProject: 'projects', adminEditDetails: 'verification', adminClassic: 'classic' };
 var PC_ADMIN_COUNTS = {}, PCV_LIST = [], PCV_REV = [], PCV_SEL = null, PCV_FILTER = 'waiting', PCV_Q = '', PCV_CHECK = {};
+/* Desktop admin automatically uses its PC workspace even in 700-900px
+ * installed Chrome windows. Explicit Phone View is tab-scoped only. */
 function pcAdminOn(){
-  let phone = false; try { phone = localStorage.getItem('sp_admin_phone_view') === '1'; } catch(e) {}
-  return window.innerWidth >= 1000 && !phone && isAdminUser(getCurrentUser());
+  let phone = false;
+  try { phone = sessionStorage.getItem('sp_admin_phone_view_session') === '1'; } catch(e) {}
+  return window.innerWidth >= 700
+    && document.documentElement.classList.contains('os-other')
+    && !phone && isAdminUser(getCurrentUser());
 }
 function pcAdminSetPhoneView(on){
-  try { on ? localStorage.setItem('sp_admin_phone_view', '1') : localStorage.removeItem('sp_admin_phone_view'); } catch(e) {}
+  try { on ? sessionStorage.setItem('sp_admin_phone_view_session', '1') : sessionStorage.removeItem('sp_admin_phone_view_session'); } catch(e) {}
   pcAdminRerender();
 }
 function pcAdminRerender(){
@@ -9909,7 +9914,7 @@ SCREENS.admin = async (data) => {
   } catch(e) { body = `<div class="card"><p style="color:#c62828;">${esc(e.message || e)}</p></div>`; }
   PC_ADMIN_COUNTS = counts;
   if(pcAdminOn()) return pcAdminShell(adminTab, body, { pin: ADMIN_PIN ? '' : adminPinCard(pinSet) });
-  const wide = window.innerWidth >= 1000 ? `<button class="btn-sm" style="float:right; margin-top:-34px;" onclick="pcAdminSetPhoneView(false)">🖥 PC view</button>` : '';
+  const wide = (window.innerWidth >= 700 && document.documentElement.classList.contains('os-other')) ? `<button class="btn-sm" style="float:right; margin-top:-34px;" onclick="pcAdminSetPhoneView(false)">🖥 PC view</button>` : '';
   return `
   <div class="header"><button class="back-btn" onclick="nav('profile')">‹</button><h1>Admin Panel</h1><p>Sphere by Syahi Films</p>${wide}</div>
   <div class="screen" style="padding-top:0;">
