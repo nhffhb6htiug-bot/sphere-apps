@@ -59,6 +59,17 @@ fun SplashScreen(nav: NavHostController) {
     }
 }
 
+/** Compact branded G mark; renders locally even without network access. */
+@Composable
+private fun GoogleSignInMark() {
+    Box(
+        modifier = Modifier.size(26.dp).clip(CircleShape).background(Color.White),
+        contentAlignment = Alignment.Center
+    ) {
+        Text("G", color = Color(0xFF4285F4), fontWeight = FontWeight.ExtraBold, fontSize = 19.sp)
+    }
+}
+
 @Composable
 fun WelcomeScreen(nav: NavHostController) {
     val ctx = LocalContext.current
@@ -74,7 +85,11 @@ fun WelcomeScreen(nav: NavHostController) {
         Text("Sphere", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = Blue)
         Text("Hire verified video editors — or find editing work", color = Muted, textAlign = TextAlign.Center)
         Spacer(Modifier.height(36.dp))
-        PrimaryButton(if (busy) "Please wait…" else "Continue with Google", enabled = !busy) {
+        PrimaryButton(
+            if (busy) "Please wait…" else "Continue with Google",
+            enabled = !busy,
+            leadingIcon = { GoogleSignInMark() }
+        ) {
             scope.launch {
                 busy = true
                 try {
