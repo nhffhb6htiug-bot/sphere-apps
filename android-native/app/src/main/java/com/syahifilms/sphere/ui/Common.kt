@@ -7,6 +7,9 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -43,6 +46,9 @@ import com.syahifilms.sphere.data.*
 val Blue = Color(0xFF7934E8)
 val BlueSoft = Color(0xFFF8E9FA)
 val Bg = Color(0xFFFFE8F2)
+val Peach = Color(0xFFFFE3CD)
+val Lilac = Color(0xFFF2D8FA)
+val Ink = Color(0xFF241634)
 val Muted = Color(0xFF6B7280)
 val Danger = Color(0xFFC62828)
 val Success = Color(0xFF2E7D32)
@@ -149,7 +155,7 @@ fun SphereTopBar(title: String, onBack: (() -> Unit)? = null, actions: @Composab
             if (onBack != null) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
         },
         actions = actions,
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = Bg)
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
     )
 }
 
@@ -162,16 +168,18 @@ fun Page(
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Scaffold(
-        containerColor = Bg,
-        topBar = { SphereTopBar(title, onBack, actions) },
-        bottomBar = bottomBar
-    ) { pad ->
-        Column(
-            Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            content = content
-        )
+    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Lilac, Peach, Bg, Color(0xFFF2D5FF))))) {
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = { SphereTopBar(title, onBack, actions) },
+            bottomBar = bottomBar
+        ) { pad ->
+            Column(
+                Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                content = content
+            )
+        }
     }
 }
 
@@ -183,7 +191,11 @@ fun MainBottomBar(nav: NavHostController, current: String) {
         Triple("jobs", "Jobs", Icons.AutoMirrored.Filled.List),
         Triple("profile", "Profile", Icons.Filled.Person)
     )
-    NavigationBar(containerColor = Color.White) {
+    NavigationBar(
+        containerColor = Color(0xF5FFFFFF),
+        tonalElevation = 9.dp,
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp).clip(RoundedCornerShape(30.dp))
+    ) {
         items.forEach { (route, label, icon) ->
             NavigationBarItem(
                 selected = current == route,
@@ -201,10 +213,11 @@ fun CardBox(onClick: (() -> Unit)? = null, border: Color? = null, content: @Comp
     if (onClick != null) m = m.clickable { onClick() }
     Card(
         modifier = m,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = border?.let { androidx.compose.foundation.BorderStroke(1.5.dp, it) }
-    ) { Column(Modifier.padding(14.dp), content = content) }
+        shape = RoundedCornerShape(22.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xEDFFFFFF)),
+        border = border?.let { BorderStroke(1.5.dp, it) } ?: BorderStroke(1.dp, Color.White)
+    ) { Column(Modifier.padding(16.dp), content = content) }
 }
 
 @Composable

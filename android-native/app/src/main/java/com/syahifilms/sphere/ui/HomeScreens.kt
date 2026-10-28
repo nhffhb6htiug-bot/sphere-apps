@@ -4,6 +4,8 @@ package com.syahifilms.sphere.ui
 
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -50,20 +52,60 @@ fun HomeScreen(nav: NavHostController) {
 @Composable
 private fun QuickAction(label: String, emoji: String, modifier: Modifier, onClick: () -> Unit) {
     Column(
-        modifier.clip(RoundedCornerShape(16.dp)).background(Color.White).clickable { onClick() }.padding(14.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier.clip(RoundedCornerShape(20.dp))
+            .background(Brush.verticalGradient(listOf(Color(0xFFBB67ED), Color(0xFF6B25C7))))
+            .clickable { onClick() }.padding(vertical = 18.dp, horizontal = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Text(emoji, fontSize = 26.sp)
-        Spacer(Modifier.height(4.dp))
-        Text(label, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+        Text(emoji, fontSize = 32.sp)
+        Spacer(Modifier.height(8.dp))
+        Text(label, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.White, maxLines = 2)
     }
 }
 
 @Composable
 private fun ClientHome(nav: NavHostController, me: Profile) {
     val ctx = LocalContext.current
-    Text("Hi, ${me.firstName} 👋", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
-    MutedText("Find the right verified editor for your video")
+    CardBox {
+        Text("Hi, ${me.firstName} 👋", fontSize = 23.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+        MutedText("Welcome to Sphere", 15)
+    }
+    CardBox(onClick = { nav.go("postJob") }) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Get started", fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+            Text("＋", fontSize = 29.sp, color = Blue, fontWeight = FontWeight.Bold)
+        }
+    }
+    SectionTitle("Explore")
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        listOf(
+            Triple("Saved", "❤️", "editors"),
+            Triple("All Editors", "🗂️", "editors"),
+            Triple("Sphere AI", "▶️", "editors"),
+            Triple("Verified PC", "🖥️", "editors"),
+            Triple("Vault", "🔒", "profile")
+        ).forEach { (label, icon, route) ->
+            Column(
+                Modifier.weight(1f).clip(RoundedCornerShape(17.dp))
+                    .background(Color(0xCCFFFFFF))
+                    .then(if (label == "All Editors") Modifier.clickable { nav.go(route) } else Modifier)
+                    .padding(vertical = 12.dp, horizontal = 2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(icon, fontSize = 24.sp)
+                Spacer(Modifier.height(6.dp))
+                Text(label, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
+            }
+        }
+    }
+    SectionTitle("Tools & Resources")
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        QuickAction("Verified Portfolios", "📜", Modifier.weight(1f)) { nav.go("editors") }
+        QuickAction("Project Showcase", "🎬", Modifier.weight(1f)) { nav.go("jobs") }
+        QuickAction("SafePay Escrow", "🛡️", Modifier.weight(1f)) { nav.go("jobs") }
+    }
+    SectionTitle("Sphere Services")
     if (me.role == "admin") {
         CardBox(onClick = { openUrl(ctx, Config.WEBSITE) }, border = Orange) {
             Text("🛡️ Admin panel", fontWeight = FontWeight.Bold)
@@ -115,7 +157,10 @@ private fun ClientHome(nav: NavHostController, me: Profile) {
 
 @Composable
 private fun EditorHome(nav: NavHostController, me: Profile) {
-    Text("Hi, ${me.firstName} 👋", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+    CardBox {
+        Text("Hi, ${me.firstName} 👋", fontSize = 23.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+        MutedText("Welcome to Sphere", 15)
+    }
     if (me.role == "admin") CardBox(onClick = { nav.go("profile") }, border = Blue) {
         Text("🛡️ Admin · Editor mode", fontWeight = FontWeight.Bold)
         MutedText("You can bid on work. Switch back from Profile.", 12)
