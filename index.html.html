@@ -1742,6 +1742,191 @@ body:not(.pc-admin) #bottomNav.bottom-nav button:focus-visible{
   body:not(.pc-admin) #bottomNav.bottom-nav button .icon{transition:none !important;}
 }
 
+
+/* SPHERE HOME COMPACT PANELS, RESTORE EXPLORE — v3 */
+/* Client asked for BIG Explore icons and SMALL glass boxes.
+   Client-home only except the shared bottom nav.
+   No img, route, click/gesture handler or payment JS changes. */
+
+/* Reverse previous Explore size cap: retain the original glossy circular icon style. */
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-row{
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:7px;
+  padding:0 18px 11px;
+  align-items:start;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-circle{
+  width:100%;
+  max-width:none;
+  height:auto;
+  aspect-ratio:1/1;
+  padding:5px;
+  margin:0 auto 8px;
+  border-width:1.5px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-item span{
+  font-size:11px;
+  line-height:1.2;
+  font-weight:800;
+}
+
+/* Premium CTA and welcome: substantially less vertical space. */
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .prem-row{
+  min-height:0;
+  margin:1px 0 9px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .prem-pill{
+  min-width:0;
+  padding:9px 17px;
+  font-size:14px;
+  line-height:1.2;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-dash{
+  padding:0 16px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-hello{
+  min-height:70px;
+  margin:3px 0 8px;
+  padding:9px 13px;
+  border-radius:23px;
+  gap:11px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-hello .avatar{
+  width:49px;
+  height:49px;
+  font-size:21px;
+  border-width:2px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-hello b{
+  font-size:18px;
+  line-height:1.2;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-hello span{
+  font-size:12px;
+  margin-top:3px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-stats{
+  gap:7px;
+  margin-bottom:8px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-stat{
+  padding:9px 5px;
+  border-radius:17px;
+}
+
+/* Get Started/Needs Action header is the wide box seen in screenshot.
+   !important is needed only to override old large inline-styled margin/padding rule. */
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-dash > .section-title{
+  min-height:56px;
+  margin:8px 0 10px !important;
+  padding:6px 11px 6px 15px !important;
+  border-radius:21px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-dash > .section-title h3{
+  font-size:18px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .sec-min{
+  width:40px;
+  height:40px;
+  font-size:18px;
+}
+/* Keep panels short: original icons/illustrations stay unchanged. */
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home > .section-title{
+  margin:13px 0 9px;
+  padding:0 19px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .section-title h3{
+  font-size:19px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .section-title a{
+  font-size:12px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .sh-glass-panel{
+  margin:12px 12px 9px;
+  padding:8px 7px 12px;
+  border-radius:25px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .sh-glass-panel .section-title{
+  margin:3px 0 9px;
+  padding:0 11px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .tools-grid,
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .services-grid{
+  gap:8px;
+  padding:0 7px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .tool-card-img{
+  width:min(76px,100%);
+  margin-bottom:6px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .services-grid{
+  justify-items:center;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .service-card{
+  width:min(102px,100%);
+  aspect-ratio:1/1;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .home-search-bottom{
+  min-height:51px;
+  padding:9px 14px;
+  margin:12px 16px 8px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .help-mini{
+  padding-top:10px;
+  padding-bottom:10px;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .cl-empty{
+  padding:16px 12px;
+}
+
+/* Shared compact liquid navigation: lens v2 still measures the buttons and animates.
+   Minimum touch targets 48px high. */
+body:not(.pc-admin) #bottomNav.bottom-nav{
+  width:calc(100% - 44px);
+  max-width:414px;
+  min-height:58px;
+  padding:4px 6px;
+  gap:2px;
+  border-radius:26px;
+}
+body:not(.pc-admin) #bottomNav.bottom-nav button{
+  min-height:48px;
+  padding:4px 2px;
+  gap:2px;
+  border-radius:20px;
+  font-size:10px;
+}
+body:not(.pc-admin) #bottomNav.bottom-nav .sphere-liquid-lens{
+  border-radius:19px;
+}
+body:not(.pc-admin) #bottomNav.bottom-nav button .icon{
+  min-height:19px;
+  font-size:18px;
+}
+body:not(.pc-admin) #bottomNav.bottom-nav button .icon svg{
+  width:19px;
+  height:19px;
+}
+@media(max-width:365px){
+  body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-row{
+    gap:5px;
+    padding:0 13px 10px;
+  }
+  body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .explore-circle{
+    width:100%;
+    max-width:none;
+    padding:4px;
+  }
+  body:not(.pc-admin) #bottomNav.bottom-nav{
+    width:calc(100% - 26px);
+    min-height:56px;
+    padding:4px 5px;
+  }
+  body:not(.pc-admin) #bottomNav.bottom-nav button{
+    min-height:47px;
+  }
+}
+
 </style>
 </head>
 <body>
