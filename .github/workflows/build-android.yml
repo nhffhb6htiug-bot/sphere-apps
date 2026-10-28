@@ -41,6 +41,14 @@ jobs:
           mkdir -p builds
           if [ "${{ steps.build.outcome }}" = "success" ]; then
             cp android-native/app/build/outputs/apk/debug/app-debug.apk builds/Sphere-native.apk
+            VERSION=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' android-native/app/build.gradle.kts | head -1)
+            if [ -n "$VERSION" ]; then
+              cp android-native/app/build/outputs/apk/debug/app-debug.apk "builds/Sphere-native-v${VERSION}.apk"
+            fi
+            if [ -f "$HOME/.android/debug.keystore" ]; then
+              keytool -list -v -keystore "$HOME/.android/debug.keystore" -alias androiddebugkey -storepass android -keypass android |
+                awk '/SHA1:/{print $2;exit}' > builds/android-google-signin-sha1.txt
+            fi
             echo "SUCCESS $(date -u) ${{ github.sha }}" > builds/android-build-status.txt
           else
             echo "FAILED $(date -u) ${{ github.sha }}" > builds/android-build-status.txt
