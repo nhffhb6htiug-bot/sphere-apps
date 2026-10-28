@@ -1,7 +1,7 @@
 // Sphere service worker — makes the app installable and opens fast.
 // Pages: network first (always newest version), falls back to the saved copy when offline.
 // Supabase / Razorpay / other sites are never cached.
-const CACHE = 'sphere-v2';
+const CACHE = 'sphere-v3-editor-icons';
 const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/favicon.png'];
 
 self.addEventListener('install', (event) => {
