@@ -9,6 +9,9 @@
 <script>/* v2.22.31: iPhone gets the iPhone look, Android gets the Android look */
 (function(){ var u = navigator.userAgent || '', ios = /iphone|ipad|ipod/i.test(u) || (/Macintosh/.test(u) && navigator.maxTouchPoints > 1), and = /android/i.test(u);
   document.documentElement.classList.add(ios ? 'os-ios' : and ? 'os-android' : 'os-other'); })();</script>
+<script>/* SPHERE DARK THEME v1 — preference before CSS paint */
+(function(){try{if(localStorage.getItem('sphere_ui_theme')==='dark')document.documentElement.classList.add('sphere-dark');}catch(e){}})();
+</script>
 <meta name="theme-color" content="#dfe6fb">
 <meta name="description" content="Hire verified video editors or find editing work — Sphere by Syahi Films.">
 <link rel="manifest" href="/manifest.json">
@@ -2061,6 +2064,7 @@ body.sphere-editor-refresh #bottomNav.bottom-nav button.active .icon .editor-art
 }
 
 </style>
+<link rel="stylesheet" href="/sphere-dark-theme.css?v=1">
 </head>
 <body>
 <div class="wco-drag"></div>
@@ -4818,12 +4822,41 @@ SCREENS.vaultScreen = async () => {
   </div>`;
 };
 
+/* SPHERE DARK THEME v1 — user-controlled appearance; never changes a route. */
+function sphereDarkOn(){return document.documentElement.classList.contains('sphere-dark');}
+function sphereThemeCard(){
+  const dark=sphereDarkOn();
+  return `<div class="card sphere-theme-card" role="group" aria-label="Appearance">
+    <span class="sphere-theme-icon" aria-hidden="true">${dark?'☀':'☾'}</span>
+    <div class="sphere-theme-copy"><b>Appearance</b>
+      <small>${dark?'Dark mode active':'Light mode active'} · Black + Sphere colours</small>
+    </div>
+    <button type="button" class="sphere-theme-apply" aria-pressed="${dark?'true':'false'}"
+      aria-label="${dark?'Apply light theme':'Apply dark theme'}" onclick="sphereToggleTheme()">
+      ${dark?'Light Theme':'Dark Theme'}</button>
+  </div>`;
+}
+function sphereToggleTheme(){
+  const dark=!sphereDarkOn();
+  document.documentElement.classList.toggle('sphere-dark',dark);
+  try{localStorage.setItem('sphere_ui_theme',dark?'dark':'light');}catch(e){}
+  const meta=document.querySelector('meta[name="theme-color"]');
+  if(meta)meta.setAttribute('content',dark?'#09090e':'#dfe6fb');
+  const old=document.querySelector('.sphere-theme-card');
+  if(old){const shell=document.createElement('div');shell.innerHTML=sphereThemeCard();old.replaceWith(shell.firstElementChild);}
+}
+if(sphereDarkOn()){
+ const meta=document.querySelector('meta[name="theme-color"]');
+ if(meta)meta.setAttribute('content','#09090e');
+}
+
 SCREENS.settingsScreen = () => `
   <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Settings</h1></div>
   <div class="screen" style="padding-top:0;">
     ${menuItem('user', 'Profile', "nav('profile')")}
     ${menuItem('bell', 'Notifications', "nav('notifications')")}
     ${menuItem('bell', 'Message alerts & sounds', "nav('msgAlerts')")}
+    ${sphereThemeCard()}
     ${menuItem('help', 'Help, Support & Policies', "nav('support')")}
     ${modeSwitchCard(getCurrentUser())}
     ${menuItem('logout', 'Logout', 'logout()', { cls: 'danger' })}
