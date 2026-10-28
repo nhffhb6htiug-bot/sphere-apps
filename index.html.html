@@ -755,7 +755,7 @@ body.pc-admin{max-width:none; padding-bottom:0; background:#eef1f8;}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.39',
+  appVersion: '2.22.39-frontfix1',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -986,7 +986,7 @@ function cachedSrc(src){
   return u;
 }
 function img(src, emoji, cls=''){
-  return `<img src="${cachedSrc(src)}" class="${cls}" loading="lazy" onerror="this.outerHTML='<div style=\\'font-size:22px;display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:#eee;\\'>${emoji}</div>'">`;
+  return `<img src="${esc(cachedSrc(src))}" class="${esc(cls)}" alt="${esc(emoji || '')}" loading="lazy" onerror="this.onerror=null;this.style.display='none'">`;
 }
 
 const CATEGORIES = ["Vlog Editing","Cinematic","Gaming Edits","Reels & Shorts","Podcast Editing","Color Grading & VFX","Motion Graphics","Ads & Commercial"];
@@ -999,7 +999,7 @@ let ADMIN_PIN = '';   // admin panel unlock (kept only in memory)
 // Public editor directory (no phone/email). Falls back to profiles if update 8 is not installed yet.
 async function publicEditors(build){
   let r = await build(sb.from('sp_public_profiles'));
-  if(r.error){ r = await build(sb.from('profiles')); if(!r.error && r.data) r.data = r.data.filter(p => String(p.role).toUpperCase() === 'EDITOR' && p.is_verified); }
+  if(r.error) console.warn('Public editor directory unavailable; sp_public_profiles must be installed.');
   return r;
 }
 const FREE_BIDS = 3;   // editors without the ✔ tick can place this many bids in total
@@ -2145,7 +2145,7 @@ function otpBoxHtml(){
   if(!OTP.sent) return `
     <label class="muted" style="font-size:13px;">Your mobile number</label>
     <div class="otp-phone"><span>+91</span><input id="otpPhone" type="tel" inputmode="numeric" maxlength="10" autocomplete="tel-national" placeholder="98765 43210" value="${esc(OTP.phone)}"></div>
-    <button class="btn btn-primary" id="otpSendBtn" onclick="otpSend('whatsapp')">Get OTP on WhatsApp</button>
+    <button class="btn btn-primary" id="otpSendBtn" onclick="otpSend('whatsapp')">Send verification code</button><p class="muted center-text" style="font-size:11px;">Delivery channel depends on the configured verification provider.</p>
     <p class="muted center-text" style="font-size:12px;">One mobile number = one Sphere account.</p>`;
   return `
     <p class="muted" style="font-size:13px;">Enter the 6-digit code sent to <b>+91 ${esc(OTP.phone)}</b> <a class="link" onclick="otpChange()">Change</a></p>
@@ -2155,7 +2155,7 @@ function otpBoxHtml(){
 }
 function otpResendHtml(){
   return OTP.wait > 0 ? `You can ask again in ${OTP.wait}s`
-    : `Didn't get it? <a class="link" onclick="otpSend('sms')">Send by SMS</a> · <a class="link" onclick="otpSend('whatsapp')">WhatsApp again</a>`;
+    : `Didn't get it? <a class="link" onclick="otpSend('sms')">Send by SMS</a> · <a class="link" onclick="otpSend('whatsapp')">Try WhatsApp preference again</a>`;
 }
 function otpTick(){
   clearInterval(OTP.timer); OTP.wait = 30;
@@ -4014,12 +4014,10 @@ async function insertMessage(row){
     ({ data, error } = await sb.from('sp_messages').insert(Object.assign({}, base, r2)).select().single());
   }
   if(error && base.job_id && /belongs to another project/i.test(error.message || '')){
-    delete base.job_id; currentChatJob = null;   // wrong project tag: send as a normal message instead of failing
-    ({ data, error } = await sb.from('sp_messages').insert(Object.assign({}, base, row)).select().single());
+    alert('This chat is not linked to the selected project. Please reopen the correct conversation.'); return null;
   }
   if(error && base.job_id && /job_id|column|schema cache/i.test(error.message || '')){
-    delete base.job_id;   // database not updated yet (009)
-    ({ data, error } = await sb.from('sp_messages').insert(Object.assign(base, row)).select().single());
+    alert('Messaging is temporarily unavailable. Please contact Sphere support.'); return null;
   }
   if(error){
     if(/blocked/i.test(error.message || '')) alert('Message not sent — one of you has blocked the other.');
@@ -6182,8 +6180,7 @@ async function selectBid(appId, name, price, days){
   if(error){
     if(/sp_bid_select|schema cache|does not exist|Could not find/i.test(error.message || '')){
       // database not updated yet (006): the old way (no closing of other bids)
-      const { data: a } = await sb.from('sp_applications').select('*').eq('id', appId).maybeSingle();
-      if(a) return selectEditor(a.job_id, a.editor_id, Number(a.bid_amount) || 0);
+      alert('Editor selection is temporarily unavailable. A required database update is missing. Please contact Sphere support.'); return;
     }
     alert(error.message || 'Could not choose this editor'); return;
   }
@@ -6296,7 +6293,7 @@ SCREENS.payment = async () => {
   const ps = paymentState(job, pay);
   const amount = Number(job.lockedAmount || job.budget || 0);
   const ed = people[job.assignedEditor];
-  const razorpayReady = RAZORPAY_KEY_ID.startsWith('rzp_');
+  const razorpayReady = /^rzp_(test|live)_/.test(RAZORPAY_KEY_ID);
   const testMode = RAZORPAY_KEY_ID.startsWith('rzp_test_');
   const head = `<div class="header"><button class="back-btn" onclick="openJob('${job.id}')">‹</button><h1>Payment</h1><p>Project ${projectCode(job)}</p></div>`;
   if(ps === 'paid') return head + `<div class="screen" style="padding-top:0;"><div class="card pay-hero" style="border:1.5px solid #15803d;">
@@ -6322,7 +6319,7 @@ SCREENS.payment = async () => {
       <p class="muted" style="font-size:12px;">Includes everything. No extra charges.</p>
     </div>
     ${ps === 'failed' ? `<div class="card" style="border:1.5px solid #c62828;"><b style="color:#c62828;">Last payment did not go through</b>
-      <p class="muted" style="font-size:12px; margin-top:4px;">${esc((pay && pay.failure_reason) || 'Please try again.')} No money was taken for a failed payment.</p></div>` : ''}
+      <p class="muted" style="font-size:12px; margin-top:4px;">${esc((pay && pay.failure_reason) || 'Please try again.')} If any amount was debited, check its status with your payment provider before retrying.</p></div>` : ''}
     <div class="card"><b>What happens next</b>
       <ol class="pay-steps muted"><li>You pay — Sphere holds the money safely</li><li>The editor starts and sends a watermarked preview</li><li>You approve the final video — then the editor is paid</li></ol></div>
     ${razorpayReady ? `
@@ -6345,8 +6342,9 @@ async function payWithRazorpay(jobId){
   // 1) ready to pay, and not paid already? (skipped if 007 is not installed yet)
   try {
     const { data: ready, error: rErr } = await sb.rpc('sp_pay_start', { p_job: jobId });
-    if(!rErr && ready && !ready.ok){ busy(false); alert(ready.message || 'This project cannot be paid right now.'); currentJobId = jobId; nav(ready.code === 'paid' ? 'payment' : 'projectStatus'); return; }
-  } catch(e) {}
+    if(rErr || !ready){ busy(false); alert('Payment cannot start because the server readiness check is unavailable. Please try later.'); return; }
+    if(!ready.ok){ busy(false); alert(ready.message || 'This project cannot be paid right now.'); currentJobId = jobId; nav(ready.code === 'paid' ? 'payment' : 'projectStatus'); return; }
+  } catch(e) { busy(false); alert('Payment readiness check failed. Please try later.'); return; }
   const record = (result, order, payment, reason) => sb.rpc('sp_pay_record', { p_job: jobId, p_result: result, p_order: order || null, p_payment: payment || null, p_reason: reason || null }).then(() => {}, () => {});
   try {
     // 2) the server makes the order — the amount comes from the project, never from the app
@@ -6366,10 +6364,10 @@ async function payWithRazorpay(jobId){
       description: (job.title || job.category) + ' · ' + projectCode(job),
       order_id: order.id,
       notes: { project: projectCode(job) },
-      prefill: { name: user.name, email: user.email, contact: user.phone || '' },
+      prefill: { name: user?.name || '', email: user?.email || '', contact: user?.phone || '' },
       theme: { color: '#1657ff' },
       handler: async function(response){
-        await record('success', response.razorpay_order_id, response.razorpay_payment_id, null);
+        // Browser must not record success before server signature verification.
         // 3) the server checks Razorpay's signature and marks the project paid
         const { data: verify, error: vErr } = await sb.functions.invoke('verify-razorpay-payment', {
           body: { order_id: response.razorpay_order_id, payment_id: response.razorpay_payment_id, signature: response.razorpay_signature }
@@ -6377,10 +6375,10 @@ async function payWithRazorpay(jobId){
         busy(false);
         currentJobId = jobId;
         if(!vErr && verify && verify.valid){
-          alert('Payment successful ✅ Your money is held safely by Sphere. The editor will start now.');
+          alert('Payment verified successfully. Check project status for the next step.');
           nav('projectStatus');
         } else {
-          alert('We could not confirm the payment yet. Payment ID: ' + response.razorpay_payment_id + '\nPlease keep this ID and contact Support — you will not be charged twice.');
+          alert('We could not confirm the payment yet. Payment ID: ' + response.razorpay_payment_id + '\nPlease keep this ID and contact Support — check transaction status before retrying to avoid a duplicate payment.');
           nav('payment');
         }
       },
@@ -6390,7 +6388,7 @@ async function payWithRazorpay(jobId){
       const reason = (resp.error && resp.error.description) || 'Payment failed';
       busy(false);
       record('failed', resp.error && resp.error.metadata ? resp.error.metadata.order_id : order.id, null, reason);
-      alert('Payment failed: ' + reason + '\nNo money was taken. You can try again.');
+      alert('Payment failed: ' + reason + '\nIf money was debited, check the transaction status before retrying.');
     });
     rzp.open();
   } catch(e){
@@ -7297,16 +7295,16 @@ async function payExtra(extraId, jobId){
   const rzp = spRazorpay({
     key: order.key_id || RAZORPAY_KEY_ID, amount: order.amount, currency: order.currency, order_id: order.order_id,
     name: 'Sphere — Syahi Films', description: 'Extra payment',
-    prefill: { name: user.name, email: user.email, contact: user.phone || '' }, theme: { color: '#1657ff' },
+    prefill: { name: user?.name || '', email: user?.email || '', contact: user?.phone || '' }, theme: { color: '#1657ff' },
     handler: async function(r){
       const { data: v, error: ve } = await sb.functions.invoke('sphere-extra-payment', { body: { action: 'verify', extraId, order_id: r.razorpay_order_id, payment_id: r.razorpay_payment_id, signature: r.razorpay_signature } });
       if(!ve && v && v.valid) alert('Payment successful ✅');
-      else alert('We could not confirm the payment yet. Payment ID: ' + r.razorpay_payment_id + '\nKeep this ID and contact Support — you will not be charged twice.');
+      else alert('We could not confirm the payment yet. Payment ID: ' + r.razorpay_payment_id + '\nKeep this ID and contact Support — check transaction status before retrying to avoid a duplicate payment.');
       currentJobId = jobId; nav('projectStatus');
     },
     modal: { ondismiss: function(){ if(btn) btn.disabled = false; } }
   });
-  rzp.on('payment.failed', function(resp){ if(btn) btn.disabled = false; alert('Payment failed: ' + ((resp.error && resp.error.description) || '') + '\nNo money was taken.'); });
+  rzp.on('payment.failed', function(resp){ if(btn) btn.disabled = false; alert('Payment failed: ' + ((resp.error && resp.error.description) || '') + '\nIf an amount was debited, check its status before retrying.'); });
   rzp.open();
 }
 async function submitExtraUtr(extraId, jobId){
@@ -8348,18 +8346,18 @@ async function payFee(kind, after, preFee){
   const rzp = spRazorpay({
     key: order.key_id || RAZORPAY_KEY_ID, amount: order.amount, currency: order.currency, order_id: order.order_id,
     name: 'Sphere — Syahi Films', description: kind === 'details_update' ? 'Details update request' : kind === 'pro' ? 'Editor Pro — 1 month' : kind === 'client_premium' ? 'Sphere Premium — 1 month' : kind === 'contact_unlock' ? 'Chat & Phone Number Access' : 'Editor verification fee (one-time)',
-    prefill: { name: user.name, email: user.email, contact: user.phone || '' }, theme: { color: '#1657ff' },
+    prefill: { name: user?.name || '', email: user?.email || '', contact: user?.phone || '' }, theme: { color: '#1657ff' },
     handler: async function(r){
       const { data: v, error: ve } = await sb.functions.invoke('sphere-extra-payment', { body: { action: 'verify', feeId: f.id, order_id: r.razorpay_order_id, payment_id: r.razorpay_payment_id, signature: r.razorpay_signature } });
       if(!ve && v && v.valid) alert(kind === 'contact_unlock' ? 'Payment successful ✅ The phone number is unlocked.' : kind === 'client_premium' ? 'Payment successful ✅ Sphere Premium is active.' : kind === 'pro' ? 'Payment successful ✅ Sphere Pro is active.' : 'Payment successful ✅ Your verification request is with the Sphere team.');
-      else alert('We could not confirm the payment yet. Payment ID: ' + r.razorpay_payment_id + '\nKeep this ID — you will not be charged twice.');
+      else alert('We could not confirm the payment yet. Payment ID: ' + r.razorpay_payment_id + '\nKeep this ID — check transaction status before retrying to avoid a duplicate payment.');
       await fetchAndSetCurrentUser(); PRO_SET_AT = 0; nav(after);
     },
     modal: { ondismiss: function(){ if(btn) btn.disabled = false; nav(after); } }
   });
   rzp.on('payment.failed', async function(resp){
     await sb.rpc('sp_fee_failed', { p_fee: f.id, p_reason: (resp.error && resp.error.description) || 'Payment failed' }).then(() => {}, () => {});
-    alert('Payment failed: ' + ((resp.error && resp.error.description) || '') + '\nNo money was taken.');
+    alert('Payment failed: ' + ((resp.error && resp.error.description) || '') + '\nIf an amount was debited, check its status before retrying.');
   });
   rzp.open();
 }
@@ -8405,7 +8403,7 @@ async function fillVerifyFee(u){
   if(state === 'paid') html += `<p style="font-size:13px;">✅ Paid${v && v.paid_at ? ' on ' + fmtDate(v.paid_at) : ''}. Your request is with the Sphere team — you get the ✔ tick only after they approve it.</p>`;
   else if(state === 'pending' && (v && v.utr || u.feeStatus === 'submitted')) html += `<p style="font-size:13px;">⏳ UPI transaction ID <b>${esc((v && v.utr) || u.feeRef || '')}</b> sent — Sphere is checking it.</p>`;
   else {
-    if(state === 'failed') html += `<p style="font-size:12px; color:#c62828; margin-bottom:8px;">Last attempt failed${v.failure_reason ? ': ' + esc(v.failure_reason) : ''}. No money was taken — try again.</p>`;
+    if(state === 'failed') html += `<p style="font-size:12px; color:#c62828; margin-bottom:8px;">Last attempt failed${v.failure_reason ? ': ' + esc(v.failure_reason) : ''}. Check your payment provider if money was debited before retrying.</p>`;
     if(state === 'pending') html += `<p style="font-size:12px; margin-bottom:8px;">A payment was started but not finished.</p>`;
     html += `<button class="btn btn-primary" id="feePayBtn" onclick="payFee('verification', 'verificationStatus')">🔒 Pay ₹${price}</button>` + feeUpiBlock('verification', price);
   }
@@ -8449,7 +8447,7 @@ SCREENS.proScreen = async () => {
     <div class="card"><b>Your plan</b> ${subStateChip(st)}
       ${st === 'active' ? `<p style="font-size:13px; margin-top:6px;">Active until <b>${fmtDT(s.current_period_end)}</b></p>` : ''}
       ${st === 'expired' ? `<p style="font-size:13px; margin-top:6px;">Expired on ${fmtDT(s.current_period_end)}</p>` : ''}
-      ${st === 'failed' ? `<p style="font-size:12px; margin-top:6px; color:#c62828;">The last payment failed. No money was taken — try again.</p>` : ''}
+      ${st === 'failed' ? `<p style="font-size:12px; margin-top:6px; color:#c62828;">The last payment failed. Check your payment provider if money was debited before retrying.</p>` : ''}
       ${pending ? `<p style="font-size:12px; margin-top:6px;">⏳ UPI transaction ID <b>${esc(pending.utr)}</b> sent — Sphere is checking it.</p>` : ''}
       ${!pending && canBuy ? `<button class="btn btn-primary" style="margin-top:10px;" id="feePayBtn" onclick="payFee('pro', 'proScreen')">${st === 'active' ? 'Renew' : 'Upgrade'} — ₹${price}</button>${feeUpiBlock('pro', price)}`
         : (!pending && st === 'active' ? `<p class="muted" style="font-size:12px; margin-top:8px;">You can renew in the last ${renewDays} days before it ends.</p>` : '')}
@@ -8992,7 +8990,7 @@ SCREENS.premiumScreen = async () => {
     <div class="card"><b>Your plan</b> ${subStateChip(st)}
       ${st === 'active' ? `<p style="font-size:13px; margin-top:6px;">Active until <b>${fmtDT(s.current_period_end)}</b></p>` : ''}
       ${st === 'expired' ? `<p style="font-size:13px; margin-top:6px;">Expired on ${fmtDT(s.current_period_end)} — your open Premium jobs are now visible to all editors.</p>` : ''}
-      ${st === 'failed' ? `<p style="font-size:12px; margin-top:6px; color:#c62828;">The last payment failed. No money was taken — try again.</p>` : ''}
+      ${st === 'failed' ? `<p style="font-size:12px; margin-top:6px; color:#c62828;">The last payment failed. Check your payment provider if money was debited before retrying.</p>` : ''}
       ${pending ? `<p style="font-size:12px; margin-top:6px;">⏳ UPI transaction ID <b>${esc(pending.utr)}</b> sent — Sphere is checking it.</p>` : ''}
       ${!pending && canBuy ? `<button class="btn btn-primary" style="margin-top:10px;" id="feePayBtn" onclick="payFee('client_premium', 'premiumScreen')">${st === 'active' ? 'Renew' : 'Get Premium'} — ₹${price}</button>${feeUpiBlock('client_premium', price)}`
         : (!pending && st === 'active' ? `<p class="muted" style="font-size:12px; margin-top:8px;">You can renew in the last ${renewDays} days before it ends.</p>` : '')}
