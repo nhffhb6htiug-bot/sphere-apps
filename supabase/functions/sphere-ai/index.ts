@@ -1,25 +1,27 @@
 // Supabase Edge Function: sphere-ai
 // Sphere AI assistant powered by Google Gemini (free tier from Google AI Studio).
 // The Gemini API key stays here on the server (secret GEMINI_API_KEY), never in the app.
+// v19: skip models retired for this project, prefer current Flash Lite models,
+// and temporarily cool down overloaded models. Keep every request time-bounded.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-// Google renames/retires models over time, so we ASK Google which Flash models exist right now
-// and use the newest one. The model that worked last is remembered while the function stays warm.
-const FALLBACK_MODELS = ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-3-flash", "gemini-2.5-flash"];
+const FALLBACK_MODELS = ["gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-3.8-flash", "gemini-flash-latest"];
 let lastGoodModel: string | null = null;
 let discovered: string[] | null = null;
+// In-memory per warm instance: avoid hammering a retired or overloaded provider model.
+const unavailableUntil = new Map<string, number>();
 async function discoverModels(key: string): Promise<string[]> {
   if (discovered) return discovered;
   try {
-    const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", { headers: { "x-goog-api-key": key } });
+    const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", { headers: { "x-goog-api-key": key }, signal: AbortSignal.timeout(5000) });
     const d = await r.json();
     const names: string[] = (d.models ?? [])
       .filter((m: any) => (m.supportedGenerationMethods ?? []).includes("generateContent"))
       .map((m: any) => String(m.name).replace(/^models\//, ""))
-      .filter((n: string) => /flash/i.test(n) && !/(image|tts|audio|live|embed|vision|thinking|computer|robotics)/i.test(n));
+      .filter((n: string) => /flash/i.test(n) && !/gemini-2\.5(?:-|$)/.test(n) && !/(image|tts|audio|live|embed|vision|thinking|computer|robotics)/i.test(n));
     const score = (n: string) => {
       const v = parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) ?? [])[1] ?? "0");
-      return v * 10 + (/latest/.test(n) ? 3 : 0) - (/lite/.test(n) ? 1 : 0) - (/(preview|exp)/.test(n) ? 4 : 0);
+      return (/lite/.test(n) ? 100 : 0) + v * 10 + (/latest/.test(n) ? 3 : 0) - (/(preview|exp)/.test(n) ? 30 : 0);
     };
     discovered = names.sort((a, b) => score(b) - score(a)).slice(0, 5);
   } catch (e) {
@@ -28,7 +30,7 @@ async function discoverModels(key: string): Promise<string[]> {
   }
   return discovered;
 }
-const DAILY_LIMIT = Number(Deno.env.get("AI_DAILY_LIMIT") ?? "30"); // messages per user per day
+const DAILY_LIMIT = Number(Deno.env.get("AI_DAILY_LIMIT") ?? "30");
 const CATEGORIES = ["Vlog Editing", "Cinematic", "Gaming Edits", "Reels & Shorts", "Podcast Editing",
   "Color Grading & VFX", "Motion Graphics", "Ads & Commercial"];
 
@@ -44,6 +46,7 @@ type Msg = { role: "user" | "model"; text: string };
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  const started = Date.now();
   try {
     const key = Deno.env.get("GEMINI_API_KEY");
     if (!key) return json({ error: "Sphere AI is not set up yet. Please try again later." }, 503);
@@ -63,8 +66,7 @@ Deno.serve(async (req) => {
       return json({ error: "Please type a message" }, 400);
     }
 
-    // ---- daily limit per user (protects the free Gemini quota)
-    const day = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10); // India date
+    const day = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
     const { data: usage } = await admin.from("sp_ai_usage").select("count").eq("user_id", user.id).eq("day", day).maybeSingle();
     const used = usage?.count ?? 0;
     if (used >= DAILY_LIMIT) {
@@ -72,7 +74,6 @@ Deno.serve(async (req) => {
     }
     await admin.from("sp_ai_usage").upsert({ user_id: user.id, day, count: used + 1 }, { onConflict: "user_id,day" });
 
-    // ---- context: who is asking + the real verified editors (so AI never invents editors)
     const { data: me } = await admin.from("profiles").select("full_name, role").eq("id", user.id).maybeSingle();
     const { data: eds } = await admin.from("profiles")
       .select("id, full_name, verification_code, categories, languages, price_range, experience_years, skills")
@@ -95,10 +96,10 @@ The user is ${me?.full_name ?? "a user"} (${String(me?.role ?? "client").toLower
 HOW SPHERE WORKS (only state these facts, never invent others):
 - Categories: ${CATEGORIES.join(", ")}.
 - Clients post a job (category, details, budget, deadline, raw files or a Drive link). Editors bid; clients see on every bid whether the editor is ✔ Verified by Sphere or "Not verified". The client picks one, both agree a final price, it gets locked.
-- The client pays inside the app (Razorpay). Money is held in escrow. The editor delivers a link; when the client approves, payment is released. Sphere keeps a ${feePct}% fee from the editor's payout.
+- The client pays inside the app (Razorpay). Money is held in escrow. The editor sends a watermarked preview; the client approves the preview or asks for a revision; then the editor delivers the final video and the client releases the payment. Sphere keeps a ${feePct}% fee from the editor's payout.
 - Refunds are never automatic: the client asks with "Report problem" on the project (or Help & Support), and the Sphere team checks the case and sends approved refunds back through Razorpay. Per the Refund Policy a full refund is given if the editor does not deliver within 3 days after the deadline, or if the client asks to cancel within 24 hours of paying and nothing was delivered yet. After a delivery the Sphere team decides (re-edit, partial or full refund, or release to the editor). After the client approves, there is no refund.
-- Editors become verified after a call with the Sphere team; they get a code like SF-EDT-1234 and a ✔ badge.
-- Support: open Help & Support at the bottom of the Home screen — WhatsApp the Sphere team or use "Report problem" (10 AM–7 PM Mon–Sat). Never share phone numbers.
+- Editors become verified after making a short Sphere promo video and a call with the Sphere team; they get a code like SF-EDT-1234 and a ✔ badge.
+- Support: open Help & Support — WhatsApp the Sphere team or use "Report problem" (10 AM–7 PM Mon–Sat). Never share phone numbers.
 
 VERIFIED EDITORS (the ONLY editors you may recommend; always mention their code exactly):
 ${editorLines}
@@ -132,46 +133,54 @@ RULES:
     const payload = JSON.stringify({ systemInstruction: { parts: [{ text: systemText }] }, contents, generationConfig });
     let res: Response | null = null;
     let data: any = null;
-    // Busy (503/500/429) or retired (404) model -> try the next one. Bad key/request -> stop.
-    const retryable = (st: number) => st === 404 || st === 429 || st === 500 || st === 503;
+    let status = 0;
+    // busy (503/500/429), timed out (504) or retired (404) model -> try the next one. Bad key/request -> stop.
+    const retryable = (st: number) => st === 404 || st === 429 || st === 500 || st === 503 || st === 504;
     const queue: string[] = [];
-    const add = (m?: string | null) => { if (m && !queue.includes(m)) queue.push(m); };
-    add(Deno.env.get("GEMINI_MODEL")); add(lastGoodModel);
-    (await discoverModels(key)).forEach(add);
+    const add = (m?: string | null) => { if (m && !/gemini-2\.5(?:-|$)/.test(m) && !queue.includes(m)) queue.push(m); };
+    add(lastGoodModel);
     FALLBACK_MODELS.forEach(add);
+    add(Deno.env.get("GEMINI_MODEL"));
+    (await discoverModels(key)).forEach(add);
     let calls = 0;
-    outer: for (let qi = 0; qi < queue.length && calls < 8; qi++) {
+    for (let qi = 0; qi < queue.length && calls < 4; qi++) {
+      const left = 30000 - (Date.now() - started);
+      if (left < 4000) break;                                  // give up in time; never hang
       const model = queue[qi];
-      for (let attempt = 0; attempt < 2 && calls < 8; attempt++) {
-        calls++;
+      if ((unavailableUntil.get(model) ?? 0) > Date.now()) continue;
+      calls++;
+      try {
         res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-goog-api-key": key },
           body: payload,
+          signal: AbortSignal.timeout(Math.min(8000, left - 1000)),
         });
+        status = res.status;
         data = await res.json().catch(() => ({}));
-        if (res.ok) { lastGoodModel = model; break outer; }
-        console.error("Gemini error", model, res.status, JSON.stringify(data).slice(0, 300));
-        // Google often names the replacement model in the error: "...use models/gemini-X-flash..."
-        const hint = String(data?.error?.message ?? "").match(/models\/(gemini-[\w.\-]+)/g) ?? [];
-        hint.map((h) => h.replace("models/", "").replace(/\.+$/, ""))
-          .filter((h) => h !== model && !queue.slice(0, qi + 1).includes(h))
-          .forEach((h) => { const at = queue.indexOf(h); if (at > -1) queue.splice(at, 1); queue.splice(qi + 1, 0, h); });
-        if (model === lastGoodModel) lastGoodModel = null;
-        if (!retryable(res.status)) break outer;
-        if (res.status !== 503 || attempt === 1) break;       // 503: one quick retry on the same model
-        await new Promise((r) => setTimeout(r, 700));
+      } catch (e) {
+        res = null; status = 504; data = { error: { message: "timed out" } };
+        console.error("Gemini timeout", model, String((e as Error)?.message ?? e));
       }
+      if (res && res.ok) { lastGoodModel = model; unavailableUntil.delete(model); break; }
+      if (res) console.error("Gemini error", model, status, JSON.stringify(data).slice(0, 300));
+      if (status === 404) unavailableUntil.set(model, Date.now() + 24 * 60 * 60 * 1000);
+      else if (status === 429 || status === 500 || status === 503 || status === 504)
+        unavailableUntil.set(model, Date.now() + (status === 429 ? 120000 : 60000));
+      const hint = String(data?.error?.message ?? "").match(/models\/(gemini-[\w.\-]+)/g) ?? [];
+      hint.map((h) => h.replace("models/", "").replace(/\.+$/, ""))
+        .filter((h) => h !== model && !queue.slice(0, qi + 1).includes(h))
+        .forEach((h) => { const at = queue.indexOf(h); if (at > -1) queue.splice(at, 1); queue.splice(qi + 1, 0, h); });
+      if (model === lastGoodModel) lastGoodModel = null;
+      if (!retryable(status)) break;
     }
-    // a failed answer does not use up the user's daily messages
     const refund = () => admin.from("sp_ai_usage").upsert({ user_id: user.id, day, count: used }, { onConflict: "user_id,day" });
     if (!res || !res.ok) {
       await refund();
-      const status = res?.status ?? 0;
       const g = String(data?.error?.status ?? "");
       const gmsg = String(data?.error?.message ?? "").slice(0, 160);
-      if (status === 429 || status === 503 || status === 500) {
-        return json({ error: "Sphere AI is busy right now. Please try again in a minute." }, 429);
+      if (retryable(status) || status === 0) {
+        return json({ error: "AI provider is temporarily busy. Please try again shortly." }, 503);
       }
       if (status === 400 && /API key|API_KEY/i.test(gmsg + g)) {
         return json({ error: "Setup problem: the Gemini API key is not valid. Check GEMINI_API_KEY in Supabase secrets." }, 502);
