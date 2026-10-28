@@ -1639,11 +1639,19 @@ const SUPABASE_KEY = SPHERE_CONFIG.supabaseKey;
 // Part 19.1: remember when Sphere's server could not be reached, so screens can say so
 let NET_DOWN_AT = 0;
 function trackedFetch(input, init){
+  // Sphere AI provider errors are local to AI chat, NOT evidence that Sphere or the internet is down.
+  const url = typeof input === 'string' ? input : (input && input.url) || '';
+  const aiRequest = /\/functions\/v1\/sphere-ai(?:[?#]|$)/.test(url);
   return fetch(input, init).then(res => {
-    if(res.status >= 500 || res.status === 0) NET_DOWN_AT = Date.now(); else if(res.ok) NET_DOWN_AT = 0;
-    try { netNotice(); } catch(e) {}
+    if(!aiRequest){
+      if(res.status >= 500 || res.status === 0) NET_DOWN_AT = Date.now(); else if(res.ok) NET_DOWN_AT = 0;
+      try { netNotice(); } catch(e) {}
+    }
     return res;
-  }, err => { NET_DOWN_AT = Date.now(); try { netNotice(); } catch(e) {} throw err; });
+  }, err => {
+    if(!aiRequest){ NET_DOWN_AT = Date.now(); try { netNotice(); } catch(e) {} }
+    throw err;
+  });
 }
 function netIsDown(){ return NET_DOWN_AT && Date.now() - NET_DOWN_AT < 30000; }
 function netNotice(){
