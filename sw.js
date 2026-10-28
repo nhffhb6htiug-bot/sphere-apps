@@ -2,9 +2,10 @@
 // Only static public assets may enter Cache Storage. In particular, Supabase
 // responses and account data are never cached, even if proxied by this origin.
 const CACHE = 'sphere-static-v4';
-const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/favicon.png'];
-const STATIC_ASSETS = /^\/(?:img\/[^?#]+|(?:icon|apple-touch-icon|notif-icon|notif-badge|favicon)[^/]*\.(?:png|webp|svg|ico)|sphere-(?:dark-theme|desktop)\.css|manifest\.json)$/i;
-const CACHE_FIRST = /^\/img\/[^?#]+\.(?:webp|png|jpe?g|svg)$/i;
+const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/favicon.png',
+  '/vendor/supabase-2.117.2.js', '/sphere-dark-theme.css', '/sphere-desktop.css'];
+const STATIC_ASSETS = /^\/(?:img\/[^?#]+|vendor\/supabase-2\.117\.2\.js|(?:icon|apple-touch-icon|notif-icon|notif-badge|favicon)[^/]*\.(?:png|webp|svg|ico)|sphere-(?:dark-theme|desktop)\.css|manifest\.json)$/i;
+const CACHE_FIRST = /^\/(?:img\/[^?#]+\.(?:webp|png|jpe?g|svg)|vendor\/supabase-2\.117\.2\.js)$/i;
 const PRIVATE_PREFIX = /^\/(?:sb(?:\/|$)|api(?:\/|$)|rest\/v1(?:\/|$)|auth\/v1(?:\/|$)|functions\/v1(?:\/|$)|storage\/v1(?:\/|$))/i;
 
 self.addEventListener('install', (event) => {
