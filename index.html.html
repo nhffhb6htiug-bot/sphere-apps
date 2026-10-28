@@ -1927,6 +1927,12 @@ body:not(.pc-admin) #bottomNav.bottom-nav button .icon svg{
   }
 }
 
+
+/* Sphere Editor Application: visible liquid-glass back control, mobile-safe tap target */
+.sphere-editor-app-back{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;margin:0 0 10px;padding:0;border:1.5px solid rgba(255,255,255,.94);border-radius:15px;color:#6531dc;background:linear-gradient(140deg,rgba(255,255,255,.96),rgba(238,216,255,.81));box-shadow:0 4px 14px rgba(102,56,166,.15),inset 0 1px 2px #fff;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.sphere-editor-app-back:active{transform:scale(.96)}
+.sphere-editor-app-back:focus-visible{outline:2px solid #6d37e2;outline-offset:3px}
+
 </style>
 </head>
 <body>
@@ -2286,14 +2292,88 @@ if(IN_ANDROID_APP){
     return _open(u, t, f);
   };
 }
-// Android back button: go back to Home first, then close the app
+// SPHERE BACK NAVIGATION v3: Android/WebView + Android Chrome/PWA.
+// Record the real screen sequence rather than jumping to Home or closing at each Back press.
 let currentScreenName = 'splash';
-window.sphereBack = function(){
-  const top = ['home', 'authLanding', 'splash', 'onboard1', 'admin'];
-  if(top.includes(currentScreenName)) return false;
-  nav(currentUser ? (currentUser.baseRole === 'admin' && currentUser.role === 'admin' && currentScreenName !== 'admin' ? 'admin' : 'home') : 'authLanding');
+let SP_NAV_TRAIL = [];
+let SP_NAV_USER_KEY = null;
+let SP_NAV_BACK_IN_PROGRESS = false;
+let SP_LAST_EXIT_BACK = 0;
+let SP_BACK_HINT_TIMER = null;
+function sphereRememberNav(screen, data){
+  if(screen === 'splash') return;
+  const u = getCurrentUser();
+  const identity = u ? u.id + '|' + u.role : 'guest';
+  if(SP_NAV_USER_KEY !== identity){ SP_NAV_TRAIL = []; SP_NAV_USER_KEY = identity; }
+  if(SP_NAV_BACK_IN_PROGRESS) return;
+  // A completed login/sign-up starts a new session; don't back into old auth forms.
+  const last = SP_NAV_TRAIL[SP_NAV_TRAIL.length-1];
+  if((screen === 'home' || screen === 'admin') && last &&
+     ['authLanding','login','signup','otpLogin','chooseRole','onboard1','onboard2','onboard3'].includes(last.screen)){
+    SP_NAV_TRAIL = [];
+  }
+  if(screen === 'editorDetails' && last && ['signup','chooseRole'].includes(last.screen)){
+    SP_NAV_TRAIL = [];
+  }
+  let signature = '';
+  try { signature = JSON.stringify(data ?? null); } catch(e) {}
+  const current = SP_NAV_TRAIL[SP_NAV_TRAIL.length-1];
+  if(current && current.screen === screen && current.signature === signature) return;
+  SP_NAV_TRAIL.push({ screen, data: data ?? null, signature });
+  if(SP_NAV_TRAIL.length > 45) SP_NAV_TRAIL.shift();
+  SP_LAST_EXIT_BACK = 0;
+}
+function sphereBackHint(){
+  let el = document.getElementById('sphere-back-hint');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'sphere-back-hint';
+    el.setAttribute('role','status');
+    el.style.cssText = 'position:fixed;left:50%;bottom:calc(105px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);background:rgba(29,23,53,.94);color:white;border:1px solid rgba(255,255,255,.4);border-radius:99px;padding:11px 17px;z-index:10020;font-size:13px;font-weight:650;white-space:nowrap;max-width:calc(100vw - 28px);box-shadow:0 8px 25px rgba(39,23,71,.28);pointer-events:none;text-align:center';
+    document.body.appendChild(el);
+  }
+  el.textContent = 'Press Back again to exit Sphere';
+  clearTimeout(SP_BACK_HINT_TIMER);
+  SP_BACK_HINT_TIMER = setTimeout(() => { if(el.isConnected) el.remove(); }, 2050);
+}
+function sphereGoBack(){
+  // Return true to native Android if the app handled Back; false ONLY on a second exit press.
+  if(SP_NAV_BACK_IN_PROGRESS) return true;
+  const root = ['home','authLanding','splash','onboard1','admin','otpLogin'];
+  if(root.includes(currentScreenName)){
+    if(Date.now() - SP_LAST_EXIT_BACK < 2000){ SP_LAST_EXIT_BACK = 0; return false; }
+    SP_LAST_EXIT_BACK = Date.now();
+    sphereBackHint();
+    return true;
+  }
+  SP_LAST_EXIT_BACK = 0;
+  let previous = null;
+  if(SP_NAV_TRAIL.length > 1){
+    // Go to the previous *different* page, never add a new entry during back navigation.
+    SP_NAV_TRAIL.pop();
+    previous = SP_NAV_TRAIL[SP_NAV_TRAIL.length-1];
+  }
+  const fallback = currentUser
+    ? (currentUser.baseRole === 'admin' && currentUser.role === 'admin' ? 'admin' : 'home')
+    : 'authLanding';
+  SP_NAV_BACK_IN_PROGRESS = true;
+  Promise.resolve(nav(previous ? previous.screen : fallback, previous ? previous.data : undefined))
+    .catch(e => console.warn('Sphere back navigation', e))
+    .finally(() => { SP_NAV_BACK_IN_PROGRESS = false; });
   return true;
-};
+}
+window.sphereBack = sphereGoBack;
+window.sphereGoBack = sphereGoBack;
+// Chrome/PWA hardware-back gesture: intercept before the browser leaves Sphere.
+(function sphereSetupBrowserBack(){
+  if(!/^https?:$/.test(location.protocol)) return;
+  const arm = () => { try { history.pushState({ sphereBackGuard: true }, '', location.href); } catch(e) {} };
+  arm();
+  window.addEventListener('popstate', () => {
+    if(sphereGoBack()) arm();
+    else history.back(); // second Back at root: allow returning to the browser/launcher
+  });
+})();
 /* ============ INSTALL AS APP (PWA) ============ */
 let installPrompt = null;
 // v2.22.30: opened as a file (e.g. from WhatsApp)? Pictures, Google login and payments only work on the real address
@@ -3455,6 +3535,9 @@ function editorDetailsLockedHtml(u){
   const arr = v => (Array.isArray(v) ? v.join(', ') : (v || '')) || '—';
   setTimeout(loadMyDetailRequest, 0);
   return `<div class="screen">
+    <button type="button" class="sphere-editor-app-back" onclick="sphereGoBack()" aria-label="Back to previous page" title="Back">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
     <h2>Editor details</h2>
     <div class="card" style="border:1.5px solid #15803d;"><b>✔ Checked by Sphere</b>
       <p class="muted" style="font-size:12px; margin-top:4px;">These details were checked on your verification call, so they can't be changed here.</p></div>
@@ -3723,6 +3806,7 @@ async function navInner(screen, data){
   const adminSameTab = adminSub || (adminStay && !(data && data.tab && data.tab !== adminTab));
   const adminKeep = adminStay ? { y: window.scrollY, x: ((document.querySelector('.ad-tabs') || {}).scrollLeft) || 0, sameTab: adminSameTab } : null;
   currentScreenName = screen; NAV_LAST_DATA = dataKey;
+  sphereRememberNav(screen, data);
   // Editor-only redesign. My Projects/My work/History/Project Status retain original visuals.
   const sphEditor = getCurrentUser() && getCurrentUser().role === 'editor';
   const sphEditorPage = ['home','jobBidScreen','chatList','chatThread','portfolio','profile','notifications','editorEarnings','settingsScreen','editorProfileEdit','verificationStatus'].includes(screen)
@@ -4021,6 +4105,9 @@ SCREENS.editorDetails = () => {
   if(detailsAreLocked(u)) return editorDetailsLockedHtml(u);
   return `
   <div class="screen">
+    <button type="button" class="sphere-editor-app-back" onclick="sphereGoBack()" aria-label="Back to previous page" title="Back">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
     <h2>Editor Application</h2>
     <p class="muted" style="margin-bottom:12px;">Tell us about your work. Our team will call you to verify your profile.</p>
     <div class="card" style="border:1.5px solid var(--blue); margin-bottom:16px;"><b>🎬 To get verified you must make a Sphere promo video</b>
