@@ -2039,6 +2039,27 @@ body.sphere-editor-refresh[data-sphere-screen="home"] .se-home-top .se-top-actio
   }
 }
 
+
+/* SPHERE EDITOR ILLUSTRATED ICONS V3 */
+body.sphere-editor-refresh .editor-art{display:block;flex:none;max-width:100%;max-height:100%;pointer-events:none;user-select:none;overflow:visible;}
+body.sphere-editor-refresh .se-shortcut-icon{width:48px;height:48px;min-width:48px;padding:0;background:transparent!important;border:0;box-shadow:none;}
+body.sphere-editor-refresh .se-shortcut-icon .editor-art{width:48px;height:48px;}
+body.sphere-editor-refresh .se-shortcuts button{gap:6px;padding-top:9px;padding-bottom:9px;}
+body.sphere-editor-refresh .se-stat-icon{width:39px;height:39px;min-width:39px;padding:0;background:transparent!important;border:0;box-shadow:none;}
+body.sphere-editor-refresh .se-stat-icon .editor-art{width:39px;height:39px;}
+body.sphere-editor-refresh .se-home-top .se-round .editor-art{width:27px;height:27px;}
+body.sphere-editor-refresh .se-home .mi-icon:has(.editor-art){width:49px;height:49px;flex:0 0 49px;border:0;background:transparent!important;box-shadow:none;}
+body.sphere-editor-refresh .se-home .mi-icon .editor-art{width:49px;height:49px;}
+body.sphere-editor-refresh .se-help>span .editor-art{width:31px;height:31px;}
+body.sphere-editor-refresh .se-empty>.editor-art{width:52px;height:52px;margin:0 auto;}
+body.sphere-editor-refresh #bottomNav.bottom-nav .icon .editor-art{width:24px;height:24px;filter:drop-shadow(0 1px 2px rgba(90,47,155,.16));}
+body.sphere-editor-refresh #bottomNav.bottom-nav button.active .icon .editor-art{filter:drop-shadow(0 2px 4px rgba(109,54,175,.3));}
+@media(max-width:360px){
+ body.sphere-editor-refresh .se-shortcut-icon,
+ body.sphere-editor-refresh .se-shortcut-icon .editor-art{width:43px;height:43px;min-width:43px;}
+ body.sphere-editor-refresh #bottomNav.bottom-nav .icon .editor-art{width:22px;height:22px;}
+}
+
 </style>
 </head>
 <body>
@@ -3981,7 +4002,8 @@ function renderBottomNav(){
   if(bottomNav.dataset.liquidTabs !== signature || !bottomNav.querySelector('.sphere-liquid-lens')){
     bottomNav.innerHTML = '<span class="sphere-liquid-lens" aria-hidden="true"></span>' + items.map(([key,label])=>{
       const iconKey = key==='chatList' ? 'chat' : key;
-      return `<button onclick="nav('${key}')" data-nav="${key}"><span class="icon">${NAV_ICONS[iconKey]}</span>${label}${key==='chatList' ? '<span class="nav-badge" id="navChatBadge"></span>' : ''}</button>`;
+      const illustration = user && user.role==='editor' ? editorAsset(key==='portfolio' ? 'portfolio-nav' : iconKey) : NAV_ICONS[iconKey];
+      return `<button onclick="nav('${key}')" data-nav="${key}"><span class="icon">${illustration}</span>${label}${key==='chatList' ? '<span class="nav-badge" id="navChatBadge"></span>' : ''}</button>`;
     }).join('');
     bottomNav.dataset.liquidTabs = signature;
   }
@@ -4430,6 +4452,51 @@ const SE_PATHS = {
   'file-text':'<path d="M5 2h9l5 5v15H5Z M14 2v6h5M8 12h8m-8 4h8"/>',
   'check':'<path d="m4 12 5 5L20 6"/>'
 };
+
+/* Original Sphere editor icons: small, scalable SVG illustrations, no third-party assets. */
+const EDITOR_ART_PALETTE = {
+ work:['#2577ff','#133dba','#9bdcff'],projects:['#8d58f6','#5130be','#e2bcff'],
+ portfolio:['#0abca5','#08749a','#b0fff0'],earnings:['#ffb436','#c46a12','#fff2a7'],
+ available:['#347ef0','#2256ba','#a5d5ff'],active:['#9956f0','#6031c4','#e4c4ff'],
+ verification:['#9c4ced','#5a2ac0','#f6d1ff'],verified:['#20b987','#087e6b','#b0ffe1'],
+ support:['#f164a8','#ad348e','#ffdced'],bell:['#9162ef','#5033c4','#e7cfff'],
+ settings:['#9478ee','#3d49b7','#d3e1ff'],home:['#8356f5','#4d31c4','#e4baff'],
+ chat:['#2b9af5','#3452bc','#c6eaff'],'portfolio-nav':['#9564ed','#4d44c0','#e4d4ff'],
+ profile:['#45aeda','#2766c9','#c9f3ff']
+};
+const EDITOR_ART_PICTOGRAM = {
+ work:'<rect x="20" y="40" width="53" height="34" rx="9" fill="#eaf8ff" stroke="#fff" stroke-width="3"/><path d="M34 39v-6c0-6 4-9 10-9h8c6 0 10 3 10 9v6" fill="none" stroke="#fff" stroke-width="6"/><path d="M20 49q28 13 53 0" fill="none" stroke="#9cc9ff" stroke-width="4"/><circle cx="62" cy="66" r="12" fill="#1f3eaa" stroke="#fff" stroke-width="3"/><circle cx="60" cy="64" r="6" fill="none" stroke="#d9fbff" stroke-width="3"/><path d="m65 69 7 7" stroke="#d9fbff" stroke-width="4" stroke-linecap="round"/>',
+ projects:'<path d="M17 39c0-6 4-10 10-10h16l8 7h18c6 0 10 4 10 10v27c0 6-4 10-10 10H27c-6 0-10-4-10-10Z" fill="#f6edff" stroke="#fff" stroke-width="3"/><path d="M17 48h62L70 77H26c-5 0-9-3-9-8Z" fill="#aa80e9"/><rect x="44" y="16" width="27" height="39" rx="5" fill="#fff" stroke="#d1b5f8" stroke-width="3" transform="rotate(8 58 36)"/><path d="m49 37 6 6 11-13" stroke="#8545df" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+ portfolio:'<rect x="16" y="23" width="64" height="53" rx="9" fill="#edffff" stroke="#fff" stroke-width="3"/><rect x="23" y="29" width="50" height="40" rx="6" fill="#13376e"/><path d="M23 38h50" stroke="#4ad5da" stroke-width="6"/><path d="M30 29v12m15-12v12m15-12v12" stroke="#e8ffff" stroke-width="3"/><path d="M42 45v17l16-8.5Z" fill="#c9ffff"/><circle cx="72" cy="73" r="12" fill="#23c79d" stroke="#fff" stroke-width="3"/><path d="m66 73 4 4 8-10" stroke="#fff" stroke-width="3.5" fill="none" stroke-linecap="round"/>',
+ earnings:'<rect x="16" y="37" width="64" height="41" rx="12" fill="#fff0ca" stroke="#fff" stroke-width="3"/><path d="M18 45c0-8 5-12 13-12h36v12" fill="#ffc34e" stroke="#fff" stroke-width="2"/><path d="M50 48h30v20H50c-6 0-10-4-10-10s4-10 10-10Z" fill="#e78b1d" stroke="#fff3bd" stroke-width="3"/><circle cx="54" cy="58" r="4" fill="#fff4cc"/><ellipse cx="33" cy="24" rx="13" ry="8" fill="#ffe37c" stroke="#fff5ba" stroke-width="3"/><path d="M20 25v7c0 11 26 11 26 0v-7" fill="#d88c1b" stroke="#ffefb3" stroke-width="2"/>',
+ available:'<rect x="18" y="37" width="60" height="40" rx="9" fill="#e4f3ff" stroke="#fff" stroke-width="3"/><path d="M33 38v-9c0-5 4-9 9-9h12c5 0 9 4 9 9v9" stroke="#fff" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M19 51q28 12 58 0" stroke="#7eb5f8" stroke-width="5" fill="none"/><rect x="42" y="50" width="13" height="13" rx="3" fill="#fff" stroke="#4d7cd2" stroke-width="2"/>',
+ active:'<rect x="25" y="18" width="52" height="66" rx="8" fill="#f9f3ff" stroke="#fff" stroke-width="3"/><rect x="40" y="13" width="22" height="13" rx="5" fill="#e4d2ff" stroke="#fff" stroke-width="2"/><path d="M44 41h23m-23 12h23m-23 12h23" stroke="#a693d7" stroke-width="4" stroke-linecap="round"/><path d="m28 39 5 5 7-9m-12 18 5 5 7-9m-12 18 5 5 7-9" stroke="#6738c8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+ verification:'<rect x="19" y="35" width="60" height="43" rx="8" fill="#f5e7ff" stroke="#fff" stroke-width="3"/><path d="M19 35h60v15H19Z" fill="#4f2697"/><path d="m26 36 9 13m9-13 9 13m9-13 9 13" stroke="#e6bbff" stroke-width="7"/><path d="M26 27h49" stroke="#fff" stroke-width="10" stroke-linecap="round"/><path d="M42 55v15l16-7Z" fill="#7635d0"/><circle cx="76" cy="74" r="12" fill="#25ba8a" stroke="#fff" stroke-width="3"/><path d="m70 74 4 4 8-10" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>',
+ verified:'<path d="M48 13 78 26v18c0 22-18 36-30 41-12-5-30-19-30-41V26Z" fill="#e4fff2" stroke="#fff" stroke-width="3"/><path d="M48 21 70 31v15c0 15-11 25-22 31C37 71 26 61 26 46V31Z" fill="#22b589"/><path d="m35 47 9 9 17-20" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>',
+ support:'<path d="M25 53V43c0-17 9-26 23-26s23 9 23 26v10" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round"/><rect x="19" y="44" width="16" height="29" rx="8" fill="#f7e5ff" stroke="#fff" stroke-width="3"/><rect x="61" y="44" width="16" height="29" rx="8" fill="#f7e5ff" stroke="#fff" stroke-width="3"/><path d="M70 70q-3 12-19 12" stroke="#fff" stroke-width="4" fill="none"/><rect x="46" y="77" width="15" height="8" rx="4" fill="#fff"/>',
+ bell:'<path d="M24 66c6-8 7-15 7-25 0-13 7-21 17-21s17 8 17 21c0 10 1 17 7 25Z" fill="#f9ebff" stroke="#fff" stroke-width="3"/><path d="M35 59h27" stroke="#ab89e8" stroke-width="4" stroke-linecap="round"/><path d="M43 72q5 10 10 0" stroke="#fff" stroke-width="6" fill="none"/><circle cx="72" cy="24" r="9" fill="#ff648f" stroke="#fff" stroke-width="3"/>',
+ settings:'<path d="m48 16 7 9 10-2 3 10 10 5-4 10 4 10-10 5-3 10-10-2-7 9-7-9-10 2-3-10-10-5 4-10-4-10 10-5 3-10 10 2Z" fill="#eff8ff" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><circle cx="48" cy="48" r="16" fill="#987ee0" stroke="#fff" stroke-width="4"/><circle cx="48" cy="48" r="7" fill="#fff"/>',
+ home:'<path d="M20 45 48 19 76 45" fill="none" stroke="#fff" stroke-width="9" stroke-linejoin="round" stroke-linecap="round"/><path d="M26 43v31h44V43L48 24Z" fill="#e9ddff" stroke="#fff" stroke-width="3"/><rect x="42" y="52" width="12" height="22" rx="3" fill="#7541d8"/>',
+ chat:'<path d="M19 27h54a8 8 0 0 1 8 8v27a8 8 0 0 1-8 8H41L26 81V70h-7a8 8 0 0 1-8-8V35a8 8 0 0 1 8-8Z" fill="#def7ff" stroke="#fff" stroke-width="3"/><circle cx="30" cy="49" r="5" fill="#3185dc"/><circle cx="46" cy="49" r="5" fill="#3185dc"/><circle cx="62" cy="49" r="5" fill="#3185dc"/>',
+ 'portfolio-nav':'<rect x="18" y="25" width="61" height="51" rx="8" fill="#f0ebff" stroke="#fff" stroke-width="3"/><path d="M19 40h59" stroke="#956ddb" stroke-width="6"/><path d="M30 29v15m15-15v15m15-15v15" stroke="#fff" stroke-width="4"/><path d="M42 48v18l17-9Z" fill="#6d40cc"/>',
+ profile:'<circle cx="48" cy="33" r="14" fill="#f3faff" stroke="#fff" stroke-width="3"/><path d="M20 77c0-18 12-27 28-27s28 9 28 27v3H20Z" fill="#e3f4ff" stroke="#fff" stroke-width="3"/><path d="M26 73q6-18 22-18t22 18" fill="none" stroke="#75b6e8" stroke-width="4"/>'
+};
+function editorAsset(name){
+ const palette=EDITOR_ART_PALETTE[name],glyph=EDITOR_ART_PICTOGRAM[name];
+ if(!palette || !glyph) return '';
+ const id='sph-ed-'+name.replace(/[^a-z-]/g,'');
+ return '<svg class="editor-art" role="img" aria-label="" aria-hidden="true" viewBox="0 0 96 96" width="48" height="48" xmlns="http://www.w3.org/2000/svg">'
+ +'<defs><linearGradient id="'+id+'-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="'+palette[2]+'"/><stop offset=".46" stop-color="'+palette[0]+'"/><stop offset="1" stop-color="'+palette[1]+'"/></linearGradient>'
+ +'<linearGradient id="'+id+'-shine" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff" stop-opacity=".75"/><stop offset=".6" stop-color="#fff" stop-opacity=".06"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>'
+ +'<filter id="'+id+'-shadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#152052" flood-opacity=".26"/></filter></defs>'
+ +'<rect x="7" y="9" width="82" height="82" rx="23" fill="#24145d" opacity=".18"/>'
+ +'<rect x="5" y="4" width="86" height="86" rx="25" fill="url(#'+id+'-bg)" stroke="#fff" stroke-opacity=".95" stroke-width="2.7"/>'
+ +'<path d="M12 36Q9 9 34 9h28Q86 9 85 36Q52 45 12 36Z" fill="url(#'+id+'-shine)" opacity=".58"/>'
+ +'<g filter="url(#'+id+'-shadow)">'+glyph+'</g>'
+ +'<path d="M14 76q33 17 68 0" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2.5"/>'
+ +'</svg>';
+}
+
 function seIcon(name, cls=''){
   const path = SE_PATHS[name] || SE_PATHS['briefcase'];
   return `<svg class="se-icon ${cls}" aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
@@ -4461,8 +4528,8 @@ async function editorHomeScreen(user){
     <div class="se-home-top">
       <div class="se-brand">${img('/img/0cbdc280b5c44e61.webp','🔷')}<b>Sphere</b><span>EDITOR</span></div>
       <div class="se-top-actions">
-        <button aria-label="Notifications" class="se-round bell-btn" onclick="nav('notifications')">${seIcon('bell')}<span class="bell-n" hidden></span></button>
-        <button aria-label="Settings" class="se-round" onclick="nav('settingsScreen')">${seIcon('settings')}</button>
+        <button aria-label="Notifications" class="se-round bell-btn" onclick="nav('notifications')">${editorAsset('bell')}<span class="bell-n" hidden></span></button>
+        <button aria-label="Settings" class="se-round" onclick="nav('settingsScreen')">${editorAsset('settings')}</button>
       </div>
     </div>
     <div class="se-greeting"><div><h1>Hello, ${esc(String(user.name||'Editor').split(' ')[0])} <span aria-hidden="true">👋</span></h1><p>Find work and manage your creative projects</p></div>${user.verified ? `<span class="se-verified">${seIcon('check-circle')} Verified</span>` : ''}</div>
@@ -4471,23 +4538,23 @@ async function editorHomeScreen(user){
     <div id="edDash">${editorDashSkeleton(user)}</div>
     <h2 class="se-section-title">Quick actions</h2>
     <div class="se-shortcuts">
-      <button onclick="nav('jobs', {tab:'available'})"><span class="se-shortcut-icon blue">${seIcon('search')}</span><b>Explore Work</b></button>
-      <button onclick="nav('jobs', {tab:'mine'})"><span class="se-shortcut-icon violet">${seIcon('briefcase')}</span><b>My Projects</b></button>
-      <button onclick="nav('portfolio')"><span class="se-shortcut-icon mint">${seIcon('image')}</span><b>Portfolio</b></button>
-      <button onclick="nav('editorEarnings')"><span class="se-shortcut-icon peach">${seIcon('wallet')}</span><b>Earnings</b></button>
+      <button onclick="nav('jobs', {tab:'available'})"><span class="se-shortcut-icon blue">${editorAsset('work')}</span><b>Explore Work</b></button>
+      <button onclick="nav('jobs', {tab:'mine'})"><span class="se-shortcut-icon violet">${editorAsset('projects')}</span><b>My Projects</b></button>
+      <button onclick="nav('portfolio')"><span class="se-shortcut-icon mint">${editorAsset('portfolio')}</span><b>Portfolio</b></button>
+      <button onclick="nav('editorEarnings')"><span class="se-shortcut-icon peach">${editorAsset('earnings')}</span><b>Earnings</b></button>
     </div>
     <div class="se-section-head"><h2>Available Work</h2><button onclick="nav('jobs', {tab:'available'})">View all ${seIcon('arrow-right')}</button></div>
     <div class="pick-chips se-pick-chips" id="workFilter">${['All','My categories',...CATEGORIES].map(c=>`<button type="button" class="pick-chip ${c===workFilter?'on':''}" data-v="${esc(c)}" onclick="setWorkFilter(this.dataset.v)">${esc(c)}</button>`).join('')}</div>
     <div id="workList">${renderWorkList()}</div>
     ${negotiating.length ? `<div class="se-section-head"><h2>Active Negotiations</h2></div>${negotiating.map(j=>`<div class="card se-job-card" onclick="currentJobId='${j.id}'; nav('projectStatus')"><b>${esc(j.title||j.category)}</b> <span class="se-tag">Negotiating</span><p>${esc(j.desc||'').slice(0,95)}</p><strong>${rupees(j.proposedAmount||j.budget)}</strong></div>`).join('')}` : ''}
-    <button class="help-mini se-help" onclick="nav('support')"><span>${seIcon('message-circle')}</span><b>Help &amp; Support</b><i>Need assistance? We're here to help.</i><em>›</em></button>
+    <button class="help-mini se-help" onclick="nav('support')"><span>${editorAsset('support')}</span><b>Help &amp; Support</b><i>Need assistance? We're here to help.</i><em>›</em></button>
   </div>`;
 }
 
 let workJobs = [], workMine = [], workFilter = 'All';
 function renderWorkList(){
   const list = workJobs.filter(j => workFilter === 'All' ? true : workFilter === 'My categories' ? workMine.includes(j.category) : j.category === workFilter);
-  if(!list.length) return `<div class="se-empty">${seIcon('briefcase')}<b>No open jobs in this category</b><p>Try a different filter to discover projects.</p></div>`;
+  if(!list.length) return `<div class="se-empty">${editorAsset('available')}<b>No open jobs in this category</b><p>Try a different filter to discover projects.</p></div>`;
   return list.slice(0, 12).map(j=>`<article class="card se-job-card" tabindex="0" role="button" onclick="currentJobId='${j.id}'; nav('jobBidScreen')" onkeydown="if(event.key==='Enter'){this.click()}">
     <div class="se-job-top"><span class="se-tag">${esc(j.category)}</span>${j.audience==='premium'?'<span class="se-tag premium">Premium</span>':''}<span class="se-job-arrow">${seIcon('chevron')}</span></div>
     <h3>${esc(j.title || j.category || 'Editing project')}</h3>
@@ -6896,7 +6963,7 @@ function editorVerifyCard(user){
     : ('Not verified yet — you can bid on any job. Get the ✔ tick (₹' + VERIFY_FEE + ') so clients trust you more');
   const red = st === 'rejected' && !v;
   return `<div class="card" onclick="nav('verificationStatus')" style="cursor:pointer; display:flex; align-items:center; gap:12px; ${v ? 'background:linear-gradient(135deg,#0f3fcc,#1657ff); color:#fff;' : (red ? 'border:1.5px solid #c62828;' : 'border:1.5px solid var(--blue);')}">
-      <div class="mi-icon" style="${v ? 'background:rgba(255,255,255,.2); color:#fff;' : ''}">${v ? UI_ICONS.check : UI_ICONS.clock}</div>
+      <div class="mi-icon" style="${v ? 'background:rgba(255,255,255,.2); color:#fff;' : ''}">${editorAsset(v ? 'verified' : 'verification')}</div>
       <div style="flex:1;">
         <b style="${red ? 'color:#c62828;' : ''}">${title}</b>
         <p style="font-size:12px; opacity:.9; margin-top:2px;">${line}</p>
@@ -6968,9 +7035,9 @@ async function renderEditorDashboard(tries){
   const w=await loadEditorWork(user), el=document.getElementById('edDash'); if(!el) return;
   el.innerHTML=`
     <div class="se-dash-stats">
-      <button onclick="nav('jobs', {tab:'available'})"><span class="se-stat-icon">${seIcon('briefcase')}</span><strong>${workJobs.length}</strong><small>Available Jobs</small></button>
-      <button onclick="nav('jobs', {tab:'mine'})"><span class="se-stat-icon">${seIcon('file-text')}</span><strong>${w.active.length}</strong><small>Active Projects</small></button>
-      <button onclick="nav('editorEarnings')"><span class="se-stat-icon">${seIcon('wallet')}</span><strong>${rupees(w.earned)}</strong><small>Earned on Sphere</small></button>
+      <button onclick="nav('jobs', {tab:'available'})"><span class="se-stat-icon">${editorAsset('available')}</span><strong>${workJobs.length}</strong><small>Available Jobs</small></button>
+      <button onclick="nav('jobs', {tab:'mine'})"><span class="se-stat-icon">${editorAsset('active')}</span><strong>${w.active.length}</strong><small>Active Projects</small></button>
+      <button onclick="nav('editorEarnings')"><span class="se-stat-icon">${editorAsset('earnings')}</span><strong>${rupees(w.earned)}</strong><small>Earned on Sphere</small></button>
     </div>
     <div class="se-home-subrow"><span>${availabilityChip(user.availability)}</span>${w.reviews?`<span>⭐ ${w.rating} · ${w.reviews} reviews</span>`:''}</div>
     <div id="proHomeCard"></div>
