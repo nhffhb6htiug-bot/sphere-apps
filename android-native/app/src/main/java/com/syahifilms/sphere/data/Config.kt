@@ -22,6 +22,6 @@ object Config {
     )
     val CATEGORIES = listOf(
         "Vlog Editing", "Cinematic", "Gaming Edits", "Reels & Shorts",
-        "Podcast Editing", "Color Grading & VFX", "Motion Graphics", "Ads & Commercial"
+        "Podcast Editing", "Color Grading & VFX", "Motion Graphics", "Ads & Commercial", "AI Video Editor"
     )
 }
