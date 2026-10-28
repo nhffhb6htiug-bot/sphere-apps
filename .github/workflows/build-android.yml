@@ -27,6 +27,18 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Install stable debug signing certificate when configured
+        env:
+          SPHERE_DEBUG_KEYSTORE_B64: ${{ secrets.SPHERE_DEBUG_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$SPHERE_DEBUG_KEYSTORE_B64" ]; then
+            mkdir -p "$HOME/.android"
+            printf '%s' "$SPHERE_DEBUG_KEYSTORE_B64" | base64 --decode > "$HOME/.android/debug.keystore"
+            chmod 600 "$HOME/.android/debug.keystore"
+          else
+            echo "No stable debug keystore secret configured. Build may not update earlier APKs."
+          fi
+
       - name: Build APK
         id: build
         continue-on-error: true
@@ -41,6 +53,10 @@ jobs:
           mkdir -p builds
           if [ "${{ steps.build.outcome }}" = "success" ]; then
             cp android-native/app/build/outputs/apk/debug/app-debug.apk builds/Sphere-native.apk
+            if [ -f "$HOME/.android/debug.keystore" ]; then
+              keytool -list -v -keystore "$HOME/.android/debug.keystore" -alias androiddebugkey -storepass android -keypass android 2>/dev/null \
+                | grep -E 'SHA1:|SHA256:' | sed -E 's/^[[:space:]]+//' > builds/android-signing-fingerprint.txt || true
+            fi
             echo "SUCCESS $(date -u) ${{ github.sha }}" > builds/android-build-status.txt
           else
             echo "FAILED $(date -u) ${{ github.sha }}" > builds/android-build-status.txt
