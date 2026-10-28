@@ -13,7 +13,14 @@ function createWorker() {
   const origin = 'https://sphere.syahi.online';
   const key = (request) => typeof request === 'string' ? new URL(request, origin).href : request.url;
   const cache = {
-    match: async request => stored.get(key(request)),
+    match: async (request, opts = {}) => {
+      const exact = stored.get(key(request));
+      if (exact || !opts.ignoreSearch) return exact;
+      const target = new URL(key(request)).pathname;
+      for (const [k, value] of stored) {
+        if (new URL(k).pathname === target) return value;
+      }
+    },
     put: async (request, response) => { stored.set(key(request), response); },
     addAll: async paths => { paths.forEach(p => stored.set(key(p), response(p))); }
   };
@@ -35,12 +42,13 @@ function createWorker() {
       open: async () => cache,
       keys: async () => ['sphere-static-v4'],
       delete: async () => true,
-      match: async request => cache.match(request),
+      match: async (request, options) => cache.match(request, options),
     },
     Response: { error: () => ({ ok: false, offline: true }) },
     URL, Promise, Date, JSON, RegExp, String, Object, Array
   };
   vm.runInNewContext(script, context, { filename: 'sw.js' });
+  let lastResponse = null;
   async function dispatch(path, mode = 'cors', method = 'GET') {
     const waiting = [];
     let result;
@@ -51,7 +59,7 @@ function createWorker() {
       waitUntil(p) { waiting.push(Promise.resolve(p)); }
     });
     const handled = !!result;
-    if (result) await result;
+    if (result) lastResponse = await result;
     await Promise.all(waiting);
     return { handled };
   }
@@ -60,7 +68,8 @@ function createWorker() {
     calls: () => calls.slice(),
     cacheKeys: () => [...stored.keys()],
     offline: v => { networkDown = v; },
-    handlers
+    handlers,
+    lastResponse: () => lastResponse
   };
 }
 
@@ -100,4 +109,12 @@ test('offline navigation uses cached HTML shell; no private query is stored as c
   const keys = sw.cacheKeys();
   assert.ok(keys.includes('https://sphere.syahi.online/'));
   assert.ok(!keys.some(k => k.includes('chat=')));
+});
+
+test('offline versioned CSS falls back to its precached unversioned resource', async () => {
+  const sw = createWorker();
+  await sw.dispatch('/sphere-dark-theme.css');
+  sw.offline(true);
+  assert.equal((await sw.dispatch('/sphere-dark-theme.css?v=2')).handled, true);
+  assert.equal(sw.lastResponse()?.ok, true);
 });
