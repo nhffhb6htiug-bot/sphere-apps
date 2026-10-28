@@ -2472,9 +2472,10 @@ function sphereGoBack(){
 window.sphereBack = sphereGoBack;
 window.sphereGoBack = sphereGoBack;
 
-/* SPHERE IOS EDGE SWIPE BACK v1
- * Uses the app's existing route trail. Android hardware back is unchanged.
- * Only engages on rightward horizontal gestures from the left 34px.
+/* SPHERE IOS EDGE SWIPE BACK v3
+ * Safari often SKIPS synthetic pushState guards on real edge swipes. On iOS
+ * consume the native gesture at touchstart (capture, non-passive) and handle
+ * back in Sphere, with an inner-edge fallback. Android logic stays untouched.
  */
 let sphereIosEdgeBackAt=0;
 function sphereIosSaveLeavingScreen(){
@@ -2504,6 +2505,8 @@ function sphereIosFallbackScreen(){
 function sphereIosEdgeCanGoBack(){
   if(!document.documentElement.classList.contains('os-ios') ||
     document.body.classList.contains('pc-admin') || NAV_PENDING || SP_NAV_BACK_IN_PROGRESS) return false;
+  // Never swipe away from a root tab, even if it was visited after another tab.
+  if(['home','authLanding','splash','onboard1','admin','otpLogin','suspended'].includes(currentScreenName)) return false;
   if(document.querySelector('.sp-dlg-wrap:not(.hidden),.media-preview:not(.hidden),.img-viewer:not(.hidden),.sp-load-ov.on')) return false;
   const last=SP_NAV_TRAIL[SP_NAV_TRAIL.length-1];
   return ((last && last.screen===currentScreenName) ? SP_NAV_TRAIL.length>1 : SP_NAV_TRAIL.length>0)
@@ -2547,25 +2550,33 @@ if(document.documentElement.classList.contains('os-ios')){
     swipe=null;
     if(cue){cue.classList.add('release');cue.style.opacity='0';}
   }
+  // Capture before Safari's native swipe-back starts. CSS overscroll alone
+  // cannot stop WebKit's history swipe. The outer 28px must be consumed at
+  // touchstart; otherwise Safari can leave the standalone PWA (white screen).
   document.addEventListener('touchstart',e=>{
     swipe=null;
-    if(e.touches.length!==1 || !sphereIosEdgeCanGoBack()) return;
+    if(e.touches.length!==1) return;
     const t=e.touches[0],el=e.target;
-    // Keep the real 0-27px iOS system edge free; handle an inner left-edge
-    // swipe so Safari does not start its interactive browser-back animation.
-    if(t.clientX<28 || t.clientX>72) return;
-    if(el && el.closest && el.closest('input,textarea,select,button,a,[contenteditable],#bottomNav,.chat-bubble,.msg-quote,.nt-item,.emoji-panel,.attach-sheet,.reply-bar,.media-preview,.img-viewer,[data-no-swipe-back]')) return;
-    swipe={x:t.clientX,y:t.clientY,dx:0,dy:0,active:false};
+    const x=t.clientX;
+    if(x<0 || x>76) return;
+    const interactive=!!(el && el.closest && el.closest('input,textarea,select,button,a,[contenteditable],#bottomNav,.chat-bubble,.msg-quote,.nt-item,.emoji-panel,.attach-sheet,.reply-bar,.media-preview,.img-viewer,[data-no-swipe-back]'));
+    // Preserve taps and clicks on controls, including the top-left Back arrow.
+    if(interactive) return;
+    const nativeEdge=x<=28;
+    if(nativeEdge && e.cancelable) e.preventDefault();
+    // Even at Home, consume the system gesture, but do not navigate backwards.
+    if(!sphereIosEdgeCanGoBack()) return;
+    swipe={x,y:t.clientY,dx:0,dy:0,active:false};
     if(cue){cue.classList.add('release');cue.style.opacity='0';}
-  },{passive:true});
+  },{capture:true,passive:false});
   document.addEventListener('touchmove',e=>{
     if(!swipe) return;
     if(e.touches.length!==1){clearEdge();return;}
     const t=e.touches[0],dx=t.clientX-swipe.x,dy=t.clientY-swipe.y;
     if(!swipe.active){
       if(dx< -8 || (Math.abs(dy)>12 && Math.abs(dy)>Math.abs(dx)*.8)){clearEdge();return;}
-      // Don't hijack ordinary vertical scrolling or small accidental drags.
-      if(dx<25 || dx<Math.abs(dy)*2.2) return;
+      // Horizontal intent must be unmistakable; normal scrolling remains.
+      if(dx<35 || dx<Math.abs(dy)*2.5) return;
       swipe.active=true;
     }
     swipe.dx=dx;swipe.dy=dy;
@@ -2578,7 +2589,7 @@ if(document.documentElement.classList.contains('os-ios')){
   },{passive:false});
   document.addEventListener('touchend',e=>{
     if(!swipe) return;
-    const go=swipe.active && swipe.dx>=105 && Math.abs(swipe.dy)<Math.min(48,swipe.dx*.45);
+    const go=swipe.active && swipe.dx>=110 && Math.abs(swipe.dy)<Math.min(44,swipe.dx*.4);
     if(go && e.cancelable)e.preventDefault();
     clearEdge();
     if(go)sphereIosEdgeGoBack();
@@ -2590,15 +2601,15 @@ if(document.documentElement.classList.contains('os-ios')){
 (function sphereSetupBrowserBack(){
   if(!/^https?:$/.test(location.protocol)) return;
   const arm = () => { try { history.pushState({ sphereBackGuard: true }, '', location.href); } catch(e) {} };
-  arm();
+  // On iOS, Safari skips pushState entries created without user activation.
+  // Do NOT install a fake history entry and do NOT push another in popstate:
+  // this was causing the native swipe to show a blank previous page.
+  const isIOS=document.documentElement.classList.contains('os-ios');
+  if(!isIOS) arm();
   window.addEventListener('popstate', () => {
-    // On iPhone, Safari's interactive left-edge Back must NEVER fall through to
-    // history.back() at a root tab: that navigates out of the installed PWA,
-    // leaving the blank white app seen in the user's recording.
-    if(document.documentElement.classList.contains('os-ios')){
-      arm(); // Immediately keep a same-document browser entry in the iOS PWA.
+    if(isIOS){
       if(!SP_NAV_BACK_IN_PROGRESS && Date.now()-sphereIosEdgeBackAt>=900)
-        sphereIosEdgeGoBack(); // Navigate inside Sphere, not to a previous website.
+        sphereIosEdgeGoBack();
       return;
     }
     if(sphereGoBack()) arm();
