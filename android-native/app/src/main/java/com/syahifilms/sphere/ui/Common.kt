@@ -267,12 +267,23 @@ fun VerifiedBadge(code: String) {
 }
 
 @Composable
-fun PrimaryButton(text: String, enabled: Boolean = true, onClick: () -> Unit) {
+fun PrimaryButton(
+    text: String,
+    enabled: Boolean = true,
+    leadingIcon: (@Composable () -> Unit)? = null,
+    onClick: () -> Unit
+) {
     Button(
         onClick = onClick, enabled = enabled,
         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).height(50.dp),
         shape = RoundedCornerShape(25.dp)
-    ) { Text(text, fontWeight = FontWeight.Bold) }
+    ) {
+        if (leadingIcon != null) {
+            leadingIcon()
+            Spacer(Modifier.width(10.dp))
+        }
+        Text(text, fontWeight = FontWeight.Bold)
+    }
 }
 
 @Composable
