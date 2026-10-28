@@ -62,7 +62,8 @@ self.addEventListener('fetch', (event) => {
       event.waitUntil(caches.open(CACHE).then((c) => c.put(req, res.clone())).catch(() => {}));
     }
     return res;
-  }).catch(() => caches.match(req).then((r) => r || Response.error())));
+  }).catch(() => caches.match(req, { ignoreSearch: /\\.css$/i.test(url.pathname) })
+    .then((r) => r || Response.error())));
 });
 
 // Tapping a message notification opens (or focuses) Sphere
