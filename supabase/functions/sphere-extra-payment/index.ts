@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   try {
     const body = await req.json().catch(() => ({}));
-    const { action, extraId, feeId } = body;
+    const { action, extraId, feeId, expectedKeyId } = body;
     if ((!extraId && !feeId) || !["create", "verify"].includes(action)) return json({ ok: false, error: "Bad request" }, 400);
     const isFee = !!feeId;
     const table = isFee ? "sp_fee_payments" : "sp_extra_payments";
@@ -64,6 +64,9 @@ Deno.serve(async (req) => {
     const keyId = Deno.env.get("RAZORPAY_KEY_ID");
     const secret = Deno.env.get("RAZORPAY_KEY_SECRET") ?? Deno.env.get("RAZORPAY_SECRET");
     if (!keyId || !secret) return json({ ok: false, error: "Online payment is not set up — use UPI" });
+    // For new orders, fail closed when the client and Supabase point to different Razorpay accounts.
+    if (action === "create" && expectedKeyId !== keyId)
+      return json({ ok: false, error: "Razorpay account mismatch. Set the new account's test Key ID and Key Secret in Supabase Edge Function Secrets before testing payments." }, 409);
 
     if (action === "create") {
       // reuse the open order (no new order on every tap — stops order spam and double charges)
