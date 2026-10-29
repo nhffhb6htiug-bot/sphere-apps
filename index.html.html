@@ -1960,6 +1960,12 @@ body.sphere-editor-refresh[data-sphere-screen="editorEarnings"] .se-withdraw-not
 html.sphere-dark body.sphere-editor-refresh[data-sphere-screen="editorEarnings"] .se-withdraw-notice{background:var(--glass-surface);border-color:var(--border);color:var(--text)}
 html.sphere-dark body.sphere-editor-refresh[data-sphere-screen="editorEarnings"] .se-withdraw-notice-icon{background:#3d3055}
 
+
+/* Admin project activity stats, responsive across iOS, Android, APK and desktop. */
+.sp-admin-metrics{display:flex;flex-wrap:wrap;gap:5px;margin:7px 0}
+.sp-admin-metrics span{font-size:10px;line-height:1.4;padding:4px 7px;border-radius:8px;background:rgba(116,79,177,.09);color:var(--text,#252039);white-space:nowrap}
+html.sphere-dark .sp-admin-metrics span{background:rgba(178,139,255,.14);color:var(--text,#f0ebf8)}
+
 /* Earnings screen only: visible back navigation and no overlapping payout cards. */
 body[data-sphere-screen="editorEarnings"] .se-earn-head-row{
   display:flex;align-items:center;gap:12px;min-width:0;margin-bottom:14px;
@@ -10874,8 +10880,14 @@ async function sphereAdminProjectVisibility(jobId, action){
 async function adminProjectsTab(){
   const rows = await adminRpc('sp_admin_projects', { p_filter: adminProjFilter, p_search: adminProjSearch || null, p_limit: 60, p_offset: 0 }).catch(() => null);
   if(!rows) return `<div class="card" style="border:1.5px solid #e67e22;"><p style="font-size:12px;">⚙️ This part needs the latest database update (<b>014_admin_panel.sql</b>).</p></div>`;
+  const hiddenRows = await adminRpc('sp_admin_hidden_projects').catch(()=>[]);
+  const metricsRows = (rows||[]).length ? await adminRpc('sp_admin_project_metrics',{p_jobs:rows.map(x=>x.id)}).catch(()=>[]) : [];
+  const metrics = Object.fromEntries((metricsRows||[]).map(x=>[x.job_id,x]));
+  const totalBids=(metricsRows||[]).reduce((a,x)=>a+Number(x.bids||0),0);
+  const totalChats=(metricsRows||[]).reduce((a,x)=>a+Number(x.chat_editors||0),0);
   const chip = (k, l) => `<button class="${adminProjFilter === k ? 'on' : ''}" onclick="adminProjFilter='${k}'; nav('admin', { tab: 'projects' })">${l}</button>`;
   return `
+    <div class="card" style="padding:12px;margin-bottom:12px;"><b>📊 Project activity</b><div class="ad-grid" style="margin-top:8px;"><div class="ad-stat"><b>${(rows||[]).length}</b><span>Visible projects</span></div><div class="ad-stat"><b>${totalBids}</b><span>Editors bidding</span></div><div class="ad-stat"><b>${totalChats}</b><span>Editor chat connections</span></div></div><small class="muted">Counts for projects loaded below. Chats are counted only when linked to a project.</small></div>
     <div class="ad-search"><input id="apSearch" placeholder="Search title, client, editor, project code" value="${esc(adminProjSearch)}" onkeypress="if(event.key==='Enter'){ adminProjSearch=this.value; nav('admin', { tab: 'projects' }); }">
       <button class="btn-sm" onclick="adminProjSearch=document.getElementById('apSearch').value; nav('admin', { tab: 'projects' })">Search</button></div>
     <div class="ad-tabs">${chip('all', 'All')}${chip('normal', '✅ Normal')}${chip('suspicious', '⚠️ Suspicious')}${chip('dispute', '🔴 Dispute')}</div>
@@ -10884,9 +10896,11 @@ async function adminProjectsTab(){
       ${(hiddenRows||[]).map(x=>`<div class="earn-row"><span>${esc(x.title||'Project')} · SPH-${String(x.id).replace(/-/g,'').slice(0,6).toUpperCase()}</span><button class="btn-sm" onclick="sphereAdminProjectVisibility('${x.id}','restore')">Restore</button></div>`).join('')||'<p class="muted">None hidden.</p>'}
     </details>
     ${(rows || []).length === 0 ? '<p class="muted">No projects.</p>' : ''}
-    ${(rows || []).map(x => { const h = HEALTH[x.health] || HEALTH.normal; return `<div class="card ad-row" onclick="nav('adminProject', { jobId: '${x.id}' })">
+    ${(rows || []).map(x => { const h = HEALTH[x.health] || HEALTH.normal; const m=metrics[x.id]||{}; return `<div class="card ad-row" onclick="nav('adminProject', { jobId: '${x.id}' })">
       <div class="ad-ic">${h[0]}</div><div class="ad-main"><b>${esc(x.title || 'Project')}</b>
         <small>SPH-${String(x.id).replace(/-/g, '').slice(0, 6).toUpperCase()} · ${esc(x.status)}${x.review_state && x.review_state !== 'none' ? ' · ' + esc(x.review_state) : ''} · ${esc(x.client_name || '-')} → ${esc(x.editor_name || '—')}</small>
+        <div class="sp-admin-metrics"><span>📝 ${Number(m.bids||0)} bids</span><span>💬 ${Number(m.chat_editors||0)} editors chatted</span><span>✉️ ${Number(m.messages||0)} messages</span><span>↩️ ${Number(m.editors_replied||0)} editors replied</span><span>📎 ${Number(m.files||0)} files</span><span>🔁 ${Number(m.revisions||0)} revisions</span><span>⚠️ ${Number(m.disputes||0)} disputes</span><span>📋 ${Number(m.events||0)} events</span></div>
+        ${m.last_activity? `<small class="muted">Last activity: ${new Date(m.last_activity).toLocaleString()}</small>`:''}
         ${(x.reasons || []).length ? `<small style="display:block; color:${h[2]};">${esc(x.reasons.join(' · '))}</small>` : ''}</div>
       <div style="text-align:right;"><b style="font-size:13px;">${rupees(x.amount)}</b><small class="muted" style="display:block; font-size:11px;">${esc(x.payment_status || 'unpaid')}</small><div style="display:flex;gap:6px;justify-content:flex-end;margin-top:7px;"><button class="btn-sm" onclick="event.stopPropagation();sphereAdminProjectVisibility('${x.id}','hide')">Hide</button><button class="btn-sm" style="color:#b42318;" onclick="event.stopPropagation();sphereAdminProjectVisibility('${x.id}','delete')">Delete</button></div></div></div>`; }).join('')}`;
 }
