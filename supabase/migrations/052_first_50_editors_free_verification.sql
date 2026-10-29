@@ -283,6 +283,6 @@ begin
 end $function$;
 
 insert into public.sp_schema_versions(version,name)
-values ('052','First 50 editors free verification and private screenshot proof')
+values ('offer50_v1','First 50 editors free verification and private screenshot proof')
 on conflict(version) do update set applied_at=now();
 commit;
