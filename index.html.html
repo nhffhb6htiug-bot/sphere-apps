@@ -2388,7 +2388,7 @@ const SPHERE_CONFIG = Object.freeze({
   supabaseUrl: (location.hostname === 'sphere-live.onrender.com' ? location.origin + '/sb' : 'https://sphere-api.niteshkumarmatho37.workers.dev'),
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
   supabaseProjectRef: 'pwcchgjsgkwrsvbzqspp',
-  razorpayKeyId: 'rzp_test_ToP8tptwI8hD6g',                        // rzp_test_ = test money, rzp_live_ = real money
+  razorpayKeyId: 'rzp_test_TtfSMuZLxu0Jaw',                        // rzp_test_ = test money, rzp_live_ = real money
   googleClientId: '258192736968-ocmgvgkm00t0sglunn6tqgodpf6d4ak2.apps.googleusercontent.com',
   website: 'https://sphere-live.onrender.com',
   // Which modules are built (Parts 1–18). Not used to hide screens — kept for reference / future switches.
@@ -8826,7 +8826,7 @@ async function payWithRazorpay(jobId){
   const record = (result, order, payment, reason) => sb.rpc('sp_pay_record', { p_job: jobId, p_result: result, p_order: order || null, p_payment: payment || null, p_reason: reason || null }).then(() => {}, () => {});
   try {
     // 2) the server makes the order — the amount comes from the project, never from the app
-    const { data: order, error } = await sb.functions.invoke('create-razorpay-order', { body: { jobId } });
+    const { data: order, error } = await sb.functions.invoke('create-razorpay-order', { body: { jobId, expectedKeyId: RAZORPAY_KEY_ID } });
     if(error || !order || !order.id){
       busy(false);
       const msg = error ? await functionError(error) : 'unknown';
@@ -9759,7 +9759,7 @@ async function payExtra(extraId, jobId){
   const btn = document.getElementById('xPay_' + extraId); if(btn) btn.disabled = true;
   let order = null;
   try {
-    const { data, error } = await sb.functions.invoke('sphere-extra-payment', { body: { action: 'create', extraId } });
+    const { data, error } = await sb.functions.invoke('sphere-extra-payment', { body: { action: 'create', extraId, expectedKeyId: RAZORPAY_KEY_ID } });
     if(!error && data && data.ok) order = data;
     else if(data && data.paid){ alert('Already paid ✅'); currentJobId = jobId; return nav('projectStatus'); }
   } catch(e) {}
@@ -10872,7 +10872,7 @@ async function payFee(kind, after, preFee){
   if(error){ if(btn) btn.disabled = false; alert(error.message); return; }
   let order = null;
   try {
-    const { data, error: e2 } = await sb.functions.invoke('sphere-extra-payment', { body: { action: 'create', feeId: f.id } });
+    const { data, error: e2 } = await sb.functions.invoke('sphere-extra-payment', { body: { action: 'create', feeId: f.id, expectedKeyId: RAZORPAY_KEY_ID } });
     if(!e2 && data && data.ok) order = data;
   } catch(e) {}
   if(!order || typeof Razorpay === 'undefined'){
