@@ -10131,7 +10131,7 @@ function adminPinCard(pinSet){
    "Phone view" in the sidebar switches back to the normal layout. */
 function pcAdminScreen(s){ return ['admin', 'adminUser', 'adminProject', 'adminEditDetails', 'adminClassic'].includes(s); }
 var PC_SUB_TAB = { adminUser: 'users', adminProject: 'projects', adminEditDetails: 'verification', adminClassic: 'classic' };
-var PC_ADMIN_COUNTS = {}, PCV_LIST = [], PCV_REV = [], PCV_SEL = null, PCV_FILTER = 'waiting', PCV_Q = '', PCV_CHECK = {};
+var PC_ADMIN_COUNTS = {}, PCV_LIST = [], PCV_REV = [], PCV_SEL = null, PCV_FILTER = 'waiting', PCV_Q = '', PCV_SORT = 'activity', PCV_CHECK = {};
 /* Desktop admin automatically uses its PC workspace even in 700-900px
  * installed Chrome windows. Explicit Phone View is tab-scoped only. */
 function pcAdminOn(){
@@ -10203,11 +10203,60 @@ async function pcVerificationTab(){
   return chips + reqBox + `<div class="pcv">
     <div class="pcv-list">
       <div class="pcv-search"><input id="pcvSearch" placeholder="Search name, phone, email  ( / )" value="${esc(PCV_Q)}" oninput="PCV_Q=this.value; pcvRenderList()"></div>
+      <div class="pcv-sort" style="display:flex; align-items:center; gap:7px; padding:6px 10px;">
+        <label for="pcvSort" style="font-size:11px; opacity:.8;">Sort</label>
+        <select id="pcvSort" aria-label="Sort editors by recent activity" onchange="PCV_SORT=this.value;pcvRenderList()" style="flex:1; min-width:0; border:1px solid var(--border); border-radius:7px; padding:5px; background:var(--card, #241b32); color:inherit; font:inherit; font-size:12px;">
+          <option value="activity" ${PCV_SORT === 'activity' ? 'selected' : ''}>Latest activity</option>
+          <option value="login" ${PCV_SORT === 'login' ? 'selected' : ''}>Latest login</option>
+          <option value="video" ${PCV_SORT === 'video' ? 'selected' : ''}>Latest video sent</option>
+          <option value="payment" ${PCV_SORT === 'payment' ? 'selected' : ''}>Latest payment</option>
+          <option value="joined" ${PCV_SORT === 'joined' ? 'selected' : ''}>Newest joined</option>
+        </select>
+      </div>
       <div id="pcvItems">${pcvItemsHtml()}</div>
       <p class="muted pcv-keys">Keys: <b>J</b>/<b>↓</b> next · <b>K</b>/<b>↑</b> previous · <b>/</b> search</p>
     </div>
     <div class="pcv-detail" id="pcvDetail">${sel ? pcvDetailHtml(sel) : `<div class="pcv-empty"><b>Nothing here 👍</b><p class="muted">No editors in this list.</p></div>`}</div>
   </div>`;
+}
+function pcvTime(ts){
+  const time = Date.parse(ts || '');
+  return Number.isFinite(time) ? time : 0;
+}
+function pcvSortTime(e){
+  if(PCV_SORT === 'login') return pcvTime(e.last_login);
+  if(PCV_SORT === 'video') return pcvTime(e.proof_at);
+  if(PCV_SORT === 'payment') return pcvTime(e.fee_at);
+  if(PCV_SORT === 'joined') return pcvTime(e.joined);
+  return Math.max(pcvTime(e.last_activity), pcvTime(e.last_seen), pcvTime(e.last_login),
+    pcvTime(e.proof_at), pcvTime(e.fee_at), pcvTime(e.joined));
+}
+function pcvRecentEvent(e){
+  const options = [
+    {key:'login', label:'Login', time:e.last_login},
+    {key:'video', label:'Video sent', time:e.proof_at},
+    {key:'payment', label:'Payment', time:e.fee_at},
+    {key:'joined', label:'Joined', time:e.joined}
+  ];
+  if(PCV_SORT !== 'activity') return options.find(x => x.key === PCV_SORT) || options[0];
+  return [{key:'seen',label:'Active',time:e.last_seen}, ...options]
+    .sort((a,b) => pcvTime(b.time) - pcvTime(a.time))[0];
+}
+function pcvAgo(ts){
+  const time = pcvTime(ts);
+  if(!time) return '';
+  const minutes = Math.max(0, Math.floor((Date.now() - time) / 60000));
+  if(minutes < 1) return 'just now';
+  if(minutes < 60) return minutes + 'm ago';
+  if(minutes < 1440) return Math.floor(minutes / 60) + 'h ago';
+  if(minutes < 10080) return Math.floor(minutes / 1440) + 'd ago';
+  return fmtDT(ts);
+}
+function pcvRecentLabel(e){
+  const event = pcvRecentEvent(e);
+  if(!pcvTime(event.time)) return '<small style="display:block; opacity:.65; margin-top:3px; font-size:11px;">No ' + esc(event.label.toLowerCase()) + ' recorded</small>';
+  return '<small title="' + esc(event.label + ': ' + fmtDT(event.time)) + '" style="display:block; opacity:.85; margin-top:3px; font-size:11px;">🕒 ' +
+    esc(event.label) + ': ' + esc(pcvAgo(event.time)) + '</small>';
 }
 function pcvFiltered(){
   const q = String(PCV_Q || '').trim().toLowerCase();
@@ -10217,17 +10266,18 @@ function pcvFiltered(){
     if(PCV_FILTER === 'video' && !e.proof_video) return false;
     if(PCV_FILTER === 'rejected' && e.status !== 'rejected') return false;
     return !q || [e.name, e.phone, e.email, (e.categories || []).join(' ')].join(' ').toLowerCase().includes(q);
-  });
+  }).sort((a, b) => pcvSortTime(b) - pcvSortTime(a) || String(a.name || '').localeCompare(String(b.name || '')));
 }
 function pcvItemsHtml(){
   const rows = pcvFiltered();
   if(!rows.length) return '<p class="muted" style="padding:14px;">No editors match.</p>';
   return rows.map(e => {
+    const recent = pcvRecentLabel(e);
     const tags = [e.fee_status === 'confirmed' ? '<i class="ok">₹29 ✓</i>' : e.fee_status === 'submitted' ? '<i class="warn">₹29 check</i>' : '<i>unpaid</i>',
       e.proof_video ? '<i class="ok">🎬 video</i>' : '<i>no video</i>'].join('');
     return `<div class="pcv-item ${e.id === PCV_SEL ? 'on' : ''}" data-id="${esc(e.id)}" onclick="pcvSelect('${esc(e.id)}')">
       ${avatarHtml({ avatar: e.avatar }, 'margin:0; width:38px; height:38px; flex:none;')}
-      <div style="min-width:0; flex:1;"><b>${esc(e.name || 'Editor')}</b><small>${esc((e.categories || []).slice(0, 2).join(', ') || e.email || '')}</small><div class="pcv-tags">${tags}</div></div>
+      <div style="min-width:0; flex:1;"><b>${esc(e.name || 'Editor')}</b><small>${esc((e.categories || []).slice(0, 2).join(', ') || e.email || '')}</small><div class="pcv-tags">${tags}</div>${recent}</div>
       ${e.status === 'rejected' ? '<span title="Rejected">✖</span>' : ''}</div>`; }).join('');
 }
 function pcvRenderList(){ const box = document.getElementById('pcvItems'); if(box) box.innerHTML = pcvItemsHtml(); }
@@ -10279,6 +10329,10 @@ function pcvDetailHtml(e){
             <a class="btn-sm" href="${wa}" target="_blank" rel="noopener">💬 WhatsApp</a><a class="btn-sm" href="tel:+91${ph}">📞 Call</a></div>` : ''}</div>
         <div class="pcv-box"><b>💳 Verification fee</b><div style="margin-top:6px;">${adminVerifyBlock({ verification_status: e.status, verification_fee_status: e.fee_status, verification_fee_ref: e.fee_ref, verification_fee_at: e.fee_at, verification_note: e.note })}</div>
           ${e.fee_status === 'submitted' ? `<div class="btn-row"><button class="btn-sm" onclick="edReview('${esc(e.id)}','confirm_fee')">✅ Fee received</button><button class="btn-sm" onclick="edReview('${esc(e.id)}','reject_fee')">❌ Fee not found</button></div>` : ''}</div>
+        <div class="pcv-box"><b>🕒 Recent activity</b>
+          <div class="kv"><span>Last login</span><b>${esc(fmtDT(e.last_login))}</b></div>
+          <div class="kv"><span>Last active</span><b>${esc(fmtDT(e.last_seen))}</b></div>
+          <div class="kv"><span>Video sent</span><b>${esc(fmtDT(e.proof_at))}</b></div></div>
         <div class="pcv-box"><b>🧾 Details</b>
           <div class="kv"><span>Categories</span><b>${esc(arr(e.categories)) || '-'}</b></div>
           <div class="kv"><span>Languages</span><b>${esc(arr(e.languages)) || '-'}</b></div>
