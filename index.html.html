@@ -5761,22 +5761,60 @@ function renderEditorPortfolioList(e, items, editable){
 
 /* =========== SPHERE EDITOR EARNINGS & WITHDRAWALS =========== */
 let spWalletBusy=false;
+
+let SP_PAYOUT_QR_PATH='';
+async function spUploadPayoutQR(){
+  if(spWalletBusy)return;
+  const u=getCurrentUser(),file=document.getElementById('spPayoutQR')?.files?.[0];
+  if(!u||u.baseRole!=='editor'){alert('Editor login required');return}
+  if(!file){alert('Select your personal receive-money UPI QR screenshot first.');return}
+  const ext={'image/png':'png','image/jpeg':'jpg','image/webp':'webp'}[file.type];
+  if(!ext||!file.size||file.size>2097152){alert('Use a JPG, PNG or WebP QR image under 2 MB.');return}
+  if(!confirm('Confirm this QR belongs to your own receive-money UPI account. Never upload a QR someone sent you to request payment.'))return;
+  spWalletBusy=true;
+  const btn=document.getElementById('spQRUploadBtn');if(btn){btn.disabled=true;btn.textContent='Uploading QR…'}
+  try{
+    const name=u.id+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,12)+'.'+ext;
+    const {error}=await sb.storage.from('sphere-payout-qr').upload(name,file,{upsert:false,contentType:file.type,cacheControl:'0'});
+    if(error)throw error;
+    SP_PAYOUT_QR_PATH=name;
+    const msg=document.getElementById('spQRUploadStatus');
+    if(msg)msg.textContent='✅ QR uploaded privately. Tap Submit for verification to save this payout method.';
+  }catch(err){alert('QR upload failed: '+(err.message||String(err)))}
+  finally{spWalletBusy=false;if(btn){btn.disabled=false;btn.textContent='Upload private UPI QR'}}
+}
+async function spOpenPayoutQR(which){
+  const path=which ? (window.__spAdminPayoutQR||{})[which] : SP_PAYOUT_QR_PATH;
+  if(!path||!/^[-a-f0-9]{36}\/[0-9a-zA-Z_.-]+\.(?:png|jpg|jpeg|webp)$/.test(path)){alert('No valid UPI QR screenshot submitted');return}
+  const w=window.open('','_blank');
+  try{
+    const {data,error}=await sb.storage.from('sphere-payout-qr').createSignedUrl(path,120);
+    if(error||!data?.signedUrl)throw error||new Error('QR permission denied');
+    if(w)w.location.href=data.signedUrl;
+    else {const a=document.createElement('a');a.href=data.signedUrl;a.target='_blank';a.rel='noopener noreferrer';a.click()}
+  }catch(err){if(w)w.close();alert('Cannot open private QR: '+(err.message||String(err)))}
+}
 async function spSaveBank(){
   if(spWalletBusy)return;
-  const h=document.getElementById('spHolder').value.trim();
-  const i=document.getElementById('spIfsc').value.trim().toUpperCase();
-  const n=document.getElementById('spLast4').value.trim();
-  if(h.length<3||!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(i)||!/^\d{4}$/.test(n)){
-    alert('Please enter the holder name, a valid IFSC and only the last 4 account digits.');return;
+  const meth=document.getElementById('spPayMethod')?.value||'upi';
+  const h=(document.getElementById('spHolder')?.value||'').trim();
+  const i=(document.getElementById('spIfsc')?.value||'').trim().toUpperCase();
+  const n=(document.getElementById('spLast4')?.value||'').trim();
+  const upi=(document.getElementById('spUpiId')?.value||'').trim().toLowerCase();
+  const phone=(document.getElementById('spUpiPhone')?.value||'').trim();
+  if(meth==='upi'&&!upi&&!phone&&!SP_PAYOUT_QR_PATH){alert('Add your receive-money UPI QR, UPI ID or UPI mobile number.');return}
+  if(upi&&!/^[a-z0-9._-]{2,100}@[a-z][a-z0-9.-]{1,64}$/.test(upi)){alert('Enter a valid UPI ID, for example name@bank.');return}
+  if(phone&&!/^[6-9][0-9]{9}$/.test(phone)){alert('UPI mobile number must be 10 digits.');return}
+  if(h||i||n||meth==='bank'){
+    if(h.length<3||!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(i)||!/^\d{4}$/.test(n)){alert('For optional bank details, enter holder name, IFSC and last 4 digits together.');return}
   }
-  if(!confirm('Submit masked bank details? Sphere will not collect your complete bank number. Verification requires the authorized Sphere team.'))return;
+  if(!confirm('Submit '+(meth==='upi'?'UPI':'bank')+' payout details for team review? No money will be sent yet.'))return;
   spWalletBusy=true;
   try{
-    const r=await sb.rpc('sp_editor_bank_submit',{p_holder:h,p_ifsc:i,p_last4:n});
+    const r=await sb.rpc('sp_editor_payout_submit',{p_method:meth,p_upi_id:upi||null,p_upi_phone:phone||null,p_qr_path:meth==='upi'?(SP_PAYOUT_QR_PATH||null):null,p_holder:h||null,p_ifsc:i||null,p_last4:n||null});
     if(r.error)throw r.error;
-    alert('Bank request submitted. Verification pending; no money has moved.');
-    nav('editorEarnings');
-  }catch(e){alert('Bank setup: '+e.message)}
+    alert('Payout details submitted ✅ Admin verification pending.');nav('editorEarnings');
+  }catch(e){alert('Payout setup: '+(e.message||String(e)))}
   finally{spWalletBusy=false}
 }
 async function spRequestWithdraw(){
@@ -5811,21 +5849,34 @@ SCREENS.editorEarnings=async()=>{
  let html='<div class="se-page-head"><div class="se-page-brand">Sphere</div><h1>Earnings &amp; Withdrawals</h1><p>Track money, bank verification and payouts</p></div><div class="screen se-earn-page">';
  html+='<div class="se-earn-hero"><small>Total earned (approved projects)</small><strong>'+rupees(w.total_earned||0)+'</strong><span>Based on actual Sphere project records</span></div>';
  html+='<div class="se-earn-grid"><div><small>Available to request</small><strong>'+rupees(w.available||0)+'</strong></div><div><small>Pending work</small><strong>'+rupees(w.pending_work||0)+'</strong></div><div><small>Requested / processing</small><strong>'+rupees(w.requested||0)+'</strong></div><div><small>Released / paid</small><strong>'+rupees(w.paid_or_released||0)+'</strong></div></div>';
- html+='<div class="card"><b>🏦 Bank account setup</b><p style="font-size:12px;margin:8px 0;">Status: <b>'+esc((b.status||'not submitted').toUpperCase())+'</b></p>';
- if(b.last4)html+='<p class="muted" style="font-size:12px;">'+esc(b.holder)+' · •••• '+esc(b.last4)+' · '+esc(b.ifsc)+'<br>'+(b.route_account_id?'Route linked account approved':'Manual bank transfer verification')+'</p>';
- html+='<p class="muted" style="font-size:12px;">Only enter your bank holder name, IFSC and last four digits. The authorized team completes actual bank/KYC onboarding through Razorpay. Full account numbers are not stored in Sphere.</p>';
- html+='<div class="field"><label>Bank account holder name</label><input id="spHolder" maxlength="100" autocomplete="name" placeholder="Name on account" value="'+esc(b.holder||'')+'"></div>';
+
+ SP_PAYOUT_QR_PATH=b.upi_qr_path||'';
+ html+='<div class="card"><b>🏦 Choose where you receive payments</b><p class="muted" style="font-size:12px;margin:8px 0;">Admin review: <b>'+esc((b.status||'not submitted').toUpperCase())+'</b>. UPI QR/ID or UPI-linked number; bank account is optional.</p>';
+ html+='<div class="field"><label>Preferred payout method</label><select id="spPayMethod"><option value="upi" '+(b.payout_method!=='bank'?'selected':'')+'>UPI QR / UPI ID / UPI number</option><option value="bank" '+(b.payout_method==='bank'?'selected':'')+'>Bank transfer</option></select></div>';
+ html+='<p class="muted" style="font-size:12px;margin-bottom:8px;">UPI: add at least one of these. Only your own receive-money QR. Admin must verify destination before withdrawal.</p>';
+ html+='<div class="field"><label>UPI ID (optional)</label><input id="spUpiId" autocomplete="off" maxlength="165" placeholder="yourname@bank" value="'+esc(b.upi_id||'')+'"></div>';
+ html+='<div class="field"><label>UPI-linked mobile number (optional)</label><input id="spUpiPhone" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="10-digit UPI number" value="'+esc(b.upi_phone||'')+'"></div>';
+ html+='<div class="field"><label>UPI receive-money QR image (optional; private)</label><input id="spPayoutQR" type="file" accept="image/png,image/jpeg,image/webp" style="width:100%;max-width:100%;"></div>';
+ html+='<button class="btn btn-outline" id="spQRUploadBtn" onclick="spUploadPayoutQR()">Upload private UPI QR</button>';
+ html+='<p id="spQRUploadStatus" class="muted" style="font-size:12px;margin:8px 0;">'+(SP_PAYOUT_QR_PATH?'✅ QR saved privately.':'PNG/JPG/WebP, up to 2 MB. Not publicly accessible.')+'</p>';
+ if(SP_PAYOUT_QR_PATH)html+='<button class="btn-sm" onclick="spOpenPayoutQR()">View my private QR</button>';
+ html+='<details class="se-add-panel se-details-panel" style="margin-top:12px;"><summary>Optional bank details (for bank transfer)</summary><div class="se-add-inner">';
+ html+='<p class="muted" style="font-size:12px;">Bank account number is not collected here. Real transfer needs separate secure verification through an authorized payment provider.</p>';
+ if(b.last4)html+='<p class="muted">Saved: '+esc(b.holder||'')+' · •••• '+esc(b.last4)+' · '+esc(b.ifsc||'')+'</p>';
+ html+='<div class="field"><label>Bank account holder name</label><input id="spHolder" maxlength="100" autocomplete="name" placeholder="Account holder" value="'+esc(b.holder||'')+'"></div>';
  html+='<div class="field"><label>IFSC</label><input id="spIfsc" maxlength="11" autocapitalize="characters" placeholder="ABCD0123456" value="'+esc(b.ifsc||'')+'"></div>';
- html+='<div class="field"><label>Last FOUR digits only</label><input id="spLast4" maxlength="4" inputmode="numeric" placeholder="1234" value="'+esc(b.last4||'')+'"></div>';
- html+='<button class="btn btn-outline" onclick="spSaveBank()">'+(ok?'Request bank change':'Submit for bank verification')+'</button></div>';
+ html+='<div class="field"><label>Last 4 bank account digits</label><input id="spLast4" maxlength="4" inputmode="numeric" placeholder="1234" value="'+esc(b.last4||'')+'"></div>';
+ html+='</div></details>';
+ html+='<button class="btn btn-primary" style="margin-top:12px;" onclick="spSaveBank()">'+(ok?'Request payout-method change':'Submit payout method for verification')+'</button>';
+ html+='<p class="muted" style="font-size:11px;margin-top:8px;">Never enter UPI PIN, OTP or full bank account number here. QR upload does not send or guarantee payment.</p></div>';
  html+='<div class="card"><b>💸 Withdraw approved project earnings</b><p class="muted" style="font-size:12px;">Available: '+rupees(w.available||0)+'. This creates a request, not an instant money transfer.</p>';
  html+='<button class="btn btn-primary" onclick="spRequestWithdraw()" '+(!ok||Number(w.available||0)<=0?'disabled':'')+'>Request withdrawal · '+rupees(w.available||0)+'</button>';
- if(!ok)html+='<p class="muted" style="font-size:12px;">Wait until the Sphere team verifies your bank setup to enable requests.</p>';
+ if(!ok)html+='<p class="muted" style="font-size:12px;">Wait until the Sphere team verifies your UPI or bank payout setup to enable requests.</p>';
  if(extra>0)html+='<p class="muted" style="font-size:12px;">Other paid-revision/bonus payouts awaiting separate processing: '+rupees(extra)+'</p>';
  html+='</div><div class="se-section-head"><h2>Withdrawal history</h2><small>'+history.length+' requests</small></div>';
- if(!history.length)html+='<div class="se-empty"><b>No withdrawal requests yet</b><p>Completed approved projects become eligible after bank verification.</p></div>';
+ if(!history.length)html+='<div class="se-empty"><b>No withdrawal requests yet</b><p>Completed approved projects become eligible after payout-method verification.</p></div>';
  history.forEach(v=>{
-   html+='<div class="card"><b>'+rupees(v.amount)+' · '+esc(v.status.toUpperCase())+'</b><p class="muted" style="font-size:12px;">'+esc(v.title||'Project')+' · Bank •••• '+esc(v.bank_last4)+' · '+fmtDT(v.requested_at)+(v.reference?' · Ref '+esc(v.reference):'')+'</p>';
+   html+='<div class="card"><b>'+rupees(v.amount)+' · '+esc(v.status.toUpperCase())+'</b><p class="muted" style="font-size:12px;">'+esc(v.title||'Project')+' · '+esc(v.payout_method==='upi'?'UPI '+(v.upi_id||v.upi_phone||'QR'):'Bank •••• '+(v.bank_last4||''))+' · '+fmtDT(v.requested_at)+(v.reference?' · Ref '+esc(v.reference):'')+'</p>';
    if(v.reason)html+='<p class="muted">'+esc(v.reason)+'</p>';
    if(v.status==='requested')html+='<button class="btn-sm" onclick="spCancelWithdraw(\''+v.id+'\')">Cancel request</button>';
    html+='</div>';
@@ -10973,20 +11024,20 @@ async function adminUserAction(userId, action){
 /* =========== ADMIN WITHDRAWAL & BANK APPROVAL =========== */
 async function spAdminReviewBank(id,approve){
  if(needPin())return;
- const route=approve?prompt('Verified Razorpay Route acc_ ID (optional if verified for MANUAL bank transfer):',''):'';
+ const route=approve?prompt('Optional Razorpay Route linked account ID (BANK only). Leave blank for UPI/manual payout:',''):'';
  if(route===null)return;
  const reason=approve?'':prompt('Reason for bank rejection (minimum 5 characters):','');
  if(reason===null)return;
- if(approve&&!confirm('Confirm bank details were verified through Razorpay or the authorized bank process? This action does not verify an account automatically.'))return;
+ if(approve&&!confirm('Confirm the payout destination was verified through an authorized process, including the QR payee identity? Approving does NOT send money.'))return;
  const r=await sb.rpc('sp_admin_bank_review',{p_editor:id,p_approve:approve,p_route:route||'',p_reason:reason||'',p_pin:ADMIN_PIN});
  if(r.error)alert('Verification: '+r.error.message);
- else{alert(approve?'Bank approved.':'Bank rejected.');nav('admin',{tab:'payments'})}
+ else{alert(approve?'Payout destination approved.':'Bank rejected.');nav('admin',{tab:'payments'})}
 }
 async function spAdminActionWithdraw(id,action){
  if(needPin())return;
  let ref='',reason='';
  if(action==='paid'){
-   ref=prompt('Actual external bank-transfer UTR / reference (required):','');
+   ref=prompt('Successful external bank/UPI transfer UTR or reference (required):','');
    if(ref===null)return;
    if(!confirm('Did the bank transfer already succeed externally? This does NOT send money.'))return;
  }else if(action==='reject'){
@@ -10997,22 +11048,35 @@ async function spAdminActionWithdraw(id,action){
  if(r.error)alert('Payout: '+r.error.message);
  else{alert('Withdrawal '+action+' recorded.');nav('admin',{tab:'payments'})}
 }
+
 async function spAdminWithdrawSection(){
  const r=await sb.rpc('sp_admin_withdraw_queue');
  if(r.error)return '<div class="card"><b>Withdrawal queue unavailable</b><p class="muted">'+esc(r.error.message)+'</p></div>';
  const banks=r.data?.banks||[],requests=r.data?.withdrawals||[];
  window.__spWithdrawActiveJobs=new Set(requests.filter(x=>x.status==='requested'||x.status==='approved').map(x=>x.job_id));
- let h='<h3 style="margin:16px 0 10px;">🏦 Bank verification ('+banks.filter(x=>x.status==='pending').length+' pending)</h3>';
+ window.__spAdminPayoutQR=Object.create(null);
+ let h='<h3 style="margin:16px 0 10px;">🏦 Payout method verification ('+banks.filter(x=>x.status==='pending').length+' pending)</h3>';
  banks.filter(x=>x.status==='pending').forEach(b=>{
-   h+='<div class="card"><b>'+esc(b.editor||'Editor')+'</b><p class="muted" style="font-size:12px;">'+esc(b.holder)+' · •••• '+esc(b.last4)+' · IFSC '+esc(b.ifsc)+'</p><p class="muted" style="font-size:12px;">Check details and KYC through an authorized provider. Sphere stores only last 4 digits, not a complete bank account number.</p><button class="btn-sm" onclick="spAdminReviewBank(\''+b.editor_id+'\',true)">Verify bank</button> <button class="btn-sm" onclick="spAdminReviewBank(\''+b.editor_id+'\',false)">Reject</button></div>';
+   if(b.upi_qr_path)window.__spAdminPayoutQR['editor:'+b.editor_id]=b.upi_qr_path;
+   const method=b.payout_method==='upi'?'UPI':'Bank';
+   const details=b.payout_method==='upi'?'UPI ID: '+(b.upi_id||'not given')+' · UPI number: '+(b.upi_phone||'not given'):
+      'Bank: '+(b.holder||'')+' •••• '+(b.last4||'')+' '+(b.ifsc||'');
+   h+='<div class="card"><b>'+esc(b.editor||'Editor')+' · '+esc(method)+'</b><p class="muted" style="font-size:12px;">'+esc(details)+'</p>';
+   if(b.payout_method==='upi'&&(b.holder||b.ifsc))h+='<p class="muted" style="font-size:12px;">Optional bank: '+esc((b.holder||'')+' •••• '+(b.last4||'')+' '+(b.ifsc||''))+'</p>';
+   if(b.upi_qr_path)h+='<button class="btn-sm" onclick="spOpenPayoutQR(\'editor:'+b.editor_id+'\')">View private UPI QR</button>';
+   h+='<p class="muted" style="font-size:12px;">Verify payee identity and QR payment recipient using authorized channels. QR/number alone is not proof of ownership. No money has moved.</p>';
+   h+='<button class="btn-sm" onclick="spAdminReviewBank(\''+b.editor_id+'\',true)">Approve payout details</button> <button class="btn-sm" onclick="spAdminReviewBank(\''+b.editor_id+'\',false)">Reject</button></div>';
  });
- if(!banks.some(x=>x.status==='pending'))h+='<p class="muted">No pending bank requests.</p>';
+ if(!banks.some(x=>x.status==='pending'))h+='<p class="muted">No pending payout setup requests.</p>';
  h+='<h3 style="margin:16px 0 10px;">💸 Withdrawal requests ('+requests.filter(x=>x.status==='requested'||x.status==='approved').length+' active)</h3>';
  requests.forEach(w=>{
-   h+='<div class="card"><b>'+rupees(w.amount)+' · '+esc(w.editor||'Editor')+' · '+esc(w.status.toUpperCase())+'</b><p class="muted" style="font-size:12px;">'+esc(w.title||'Project')+' · '+esc(w.bank_holder)+' · Bank •••• '+esc(w.bank_last4)+' · '+esc(w.bank_ifsc)+(w.reference?' · UTR '+esc(w.reference):'')+'</p>';
+   if(w.upi_qr_path)window.__spAdminPayoutQR['withdraw:'+w.id]=w.upi_qr_path;
+   const payee=w.payout_method==='upi'?'UPI '+(w.upi_id||w.upi_phone||'QR payment'):'Bank '+(w.bank_holder||'')+' •••• '+(w.bank_last4||'')+' '+(w.bank_ifsc||'');
+   h+='<div class="card"><b>'+rupees(w.amount)+' · '+esc(w.editor||'Editor')+' · '+esc(w.status.toUpperCase())+'</b><p class="muted" style="font-size:12px;">'+esc(w.title||'Project')+' · '+esc(payee)+(w.reference?' · UTR '+esc(w.reference):'')+'</p>';
+   if(w.upi_qr_path)h+='<button class="btn-sm" onclick="spOpenPayoutQR(\'withdraw:'+w.id+'\')">View payout QR</button>';
    if(w.reason)h+='<p class="muted">'+esc(w.reason)+'</p>';
    if(w.status==='requested')h+='<button class="btn-sm" onclick="spAdminActionWithdraw(\''+w.id+'\',\'approve\')">Approve</button> <button class="btn-sm" onclick="spAdminActionWithdraw(\''+w.id+'\',\'reject\')">Reject</button>';
-   if(w.status==='approved')h+='<p class="muted" style="font-size:12px;">Send money outside Sphere via verified bank transfer, then record successful UTR.</p><button class="btn-sm" onclick="spAdminActionWithdraw(\''+w.id+'\',\'paid\')">Record completed transfer</button>';
+   if(w.status==='approved')h+='<p class="muted" style="font-size:12px;">Send money externally to the verified '+esc(w.payout_method==='upi'?'UPI payee':'bank destination')+', confirm actual success, then record the real UTR. This button does not transfer money.</p><button class="btn-sm" onclick="spAdminActionWithdraw(\''+w.id+'\',\'paid\')">Record completed transfer</button>';
    h+='</div>';
  });
  if(!requests.length)h+='<p class="muted">No withdrawal requests.</p>';
