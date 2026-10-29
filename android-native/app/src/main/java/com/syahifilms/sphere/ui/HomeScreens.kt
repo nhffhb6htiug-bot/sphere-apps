@@ -125,6 +125,8 @@ private fun ClientHome(nav: NavHostController, me: Profile) {
 
 @Composable
 private fun EditorHome(nav: NavHostController, me: Profile) {
+    val promo = load(me.id) { fetchNativeEditorOffer() }
+    NativeEditorOfferBanner(if (!me.verified) promo.data else null, nav)
     WebsiteWelcome(me, "Find work and manage your creative projects")
     WebsiteSearchBar(nav, editor = true)
     if (me.role == "admin") {
@@ -141,7 +143,9 @@ private fun EditorHome(nav: NavHostController, me: Profile) {
                     Text(if(me.verified) "Verified editor" else "Verification pending",
                         fontSize=16.sp,fontWeight=FontWeight.ExtraBold,color=WebsiteColors.Plum)
                     Text(if(me.verified) "✔ ${me.code} · View status" else
-                        "${Config.FREE_WORKS} paid works free, then ✔ tick (₹${Config.VERIFY_FEE})",
+                        (if (promo.data?.isFree == true) "🎉 First 50 editors · ₹29 FREE · Send promo video + screenshot"
+                         else if (promo.data == null) "Checking verification offer…"
+                         else "${Config.FREE_WORKS} paid works free, then ✔ tick (₹${Config.VERIFY_FEE})"),
                         fontSize=12.sp,color=WebsiteColors.Muted)
                 }
             }
