@@ -4116,7 +4116,7 @@ function suspendedScreen(){
 let STATUS_TIMER = null, STATUS_IN_FLIGHT = null;
 async function refreshAccountStatus(){
   const u = getCurrentUser(); if(!u || document.hidden) return;
-  if(STATUS_IN_FLIGHT) return STATUS_IN_FLIGHT;
+  if(STATUS_IN_FLIGHT && STATUS_IN_FLIGHT.uid === u.id) return STATUS_IN_FLIGHT.promise;
   const check = (async () => {
     const was = !!u.suspended;
     await loadAccountStatus(u);
@@ -4125,9 +4125,10 @@ async function refreshAccountStatus(){
     if(u.suspended && !was){ PREMIUM_CACHE.clear(); SCREEN_CACHE.clear(); nav('suspended'); }
     else if(!u.suspended && was){ PREMIUM_CACHE.clear(); SCREEN_CACHE.clear(); nav('home'); }
   })();
-  STATUS_IN_FLIGHT = check;
+  const active = { uid: u.id, promise: check };
+  STATUS_IN_FLIGHT = active;
   try { return await check; }
-  finally { if(STATUS_IN_FLIGHT === check) STATUS_IN_FLIGHT = null; }
+  finally { if(STATUS_IN_FLIGHT === active) STATUS_IN_FLIGHT = null; }
 }
 document.addEventListener('visibilitychange', () => { if(!document.hidden) refreshAccountStatus(); });
 if(!STATUS_TIMER) STATUS_TIMER = setInterval(refreshAccountStatus, 60000);
@@ -7192,9 +7193,12 @@ function clearSessionState(){
   if(typeof aiHistory !== 'undefined') aiHistory = [];
   // Private session-derived media URLs and badges are never retained for the next account.
   PREMIUM_CACHE.clear(); PREMIUM_INFLIGHT.clear(); SCREEN_CACHE.clear();
+  SIGN_SESSION_EPOCH++;
   SIGN_MAP.clear(); SIGNED.clear();
   if(signTimer){ clearTimeout(signTimer); signTimer = null; }
   MSG_INDEX.clear();
+  if(chatPresence) stopChatPresence();
+  if(PV_POLL) stopPvPoll();
 }
 
 // Session ended somewhere else (logged out in another tab, or the login expired) → back to the welcome screen
@@ -11187,10 +11191,12 @@ function friendlyError(msg){
 // --- private files: swap public links for signed links (works before and after 017b)
 const SIGN_MAP = new Map();            // public url → { bucket, path }
 const SIGNED = new Map();              // public url → { url, until }
-let signTimer = null;
+let signTimer = null, SIGN_SESSION_EPOCH = 0;
 function registerSigned(bucket, path, publicUrl){ if(path && publicUrl) SIGN_MAP.set(publicUrl, { bucket, path }); return publicUrl; }
 async function resolveSignedMedia(){
   signTimer = null;
+  const epoch = SIGN_SESSION_EPOCH;
+  const signedFor = getCurrentUser() && getCurrentUser().id;
   const els = document.querySelectorAll('img[src], video[src], audio[src], source[src], a[href]');
   const need = new Map();
   els.forEach(el => {
@@ -11206,9 +11212,12 @@ async function resolveSignedMedia(){
   for(const [bucket, paths] of need){
     try {
       const { data } = await sb.storage.from(bucket).createSignedUrls([...paths.keys()], 3600);
+      // Never retain or write a private link from an old signed-out session.
+      if(epoch !== SIGN_SESSION_EPOCH || (getCurrentUser() && getCurrentUser().id) !== signedFor) return;
       (data || []).forEach(d => { if(d && d.signedUrl && paths.has(d.path)) SIGNED.set(paths.get(d.path), { url: d.signedUrl, until: Date.now() + 50 * 60000 }); });
     } catch(e) {}
   }
+  if(epoch !== SIGN_SESSION_EPOCH || (getCurrentUser() && getCurrentUser().id) !== signedFor) return;
   if(need.size) document.querySelectorAll('img[src], video[src], audio[src], source[src], a[href]').forEach(el => {
     const attr = el.tagName === 'A' ? 'href' : 'src';
     const c = SIGNED.get(el.getAttribute(attr));
