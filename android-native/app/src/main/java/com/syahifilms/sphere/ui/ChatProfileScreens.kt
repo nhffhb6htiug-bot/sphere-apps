@@ -123,12 +123,32 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
             sending = true
             try {
                 val mime = ctx.contentResolver.getType(uri) ?: "image/jpeg"
+                // A photo picker can return a very large video. Reject it while reading
+                // instead of loading the entire file into memory before checking the size.
                 val bytes = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    ctx.contentResolver.openInputStream(uri)?.use { input ->
+                        val maxMediaBytes = 50L * 1024 * 1024
+                        val output = java.io.ByteArrayOutputStream()
+                        val buffer = ByteArray(16 * 1024)
+                        var bytesRead = 0L
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            bytesRead += count
+                            if (bytesRead > maxMediaBytes) {
+                                throw ApiException(400, "File is bigger than 50 MB. Share big videos as a Google Drive link.")
+                            }
+                            output.write(buffer, 0, count)
+                        }
+                        output.toByteArray()
+                    }
                 } ?: throw ApiException(400, "Could not read the file")
-                val caption = text.trim(); text = ""
+                val caption = text.trim()
                 Repo.sendMedia(me, otherId, bytes, mime, caption)
-                messages = Repo.thread(otherId)
+                // Preserve the caption if uploading fails or the user types more text.
+                if (text.trim() == caption) text = ""
+                // A refresh error after a successful send is NOT an upload failure.
+                try { messages = Repo.thread(otherId) } catch (_: Exception) { }
             } catch (e: Exception) { toast(ctx, e.message ?: "Upload failed") }
             sending = false
         }
@@ -195,8 +215,12 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
                     val t = text.trim()
                     scope.launch {
                         sending = true
-                        try { Repo.sendMessage(me, otherId, t); text = ""; messages = Repo.thread(otherId) }
-                        catch (e: Exception) { toast(ctx, e.message ?: "Message not sent") }
+                        try {
+                            Repo.sendMessage(me, otherId, t)
+                            if (text.trim() == t) text = ""
+                            // Polling will pick it up if this read fails; do not claim send failed.
+                            try { messages = Repo.thread(otherId) } catch (_: Exception) { }
+                        } catch (e: Exception) { toast(ctx, e.message ?: "Message not sent") }
                         sending = false
                     }
                 }) { Icon(Icons.AutoMirrored.Filled.Send, "Send", tint = Blue) }
