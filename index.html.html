@@ -2338,6 +2338,43 @@ body.sphere-editor-refresh[data-sphere-screen="home"] .se-photo-stat img{
 .sp-free-proof input{display:block;padding:8px 0}
 .sp-free-fee .sp-free-label{font-size:17px}
 @media(min-width:800px){.sp-free-banner{max-width:980px;margin:14px auto}}
+
+/* Portfolio, editor directory and Sphere AI refinements (v2.22.40). */
+body[data-sphere-screen="verifiedEditorsScreen"] .screen,
+body[data-sphere-screen="categoryDetail"] .screen,
+body[data-sphere-screen="allEditors"] .screen,
+body[data-sphere-screen="savedList"] .screen { width:100%; min-width:0; max-width:100%; box-sizing:border-box; overflow-x:clip; }
+body[data-sphere-screen="verifiedEditorsScreen"] .grid2,
+body[data-sphere-screen="categoryDetail"] .grid2,
+body[data-sphere-screen="allEditors"] .grid2,
+body[data-sphere-screen="savedList"] .grid2 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; width:100%; min-width:0; max-width:100%; }
+body[data-sphere-screen="verifiedEditorsScreen"] .grid2 > .card,
+body[data-sphere-screen="categoryDetail"] .grid2 > .card,
+body[data-sphere-screen="allEditors"] .grid2 > .card,
+body[data-sphere-screen="savedList"] .grid2 > .card { box-sizing:border-box; width:100%; min-width:0; max-width:100%; overflow:hidden; overflow-wrap:anywhere; }
+body[data-sphere-screen="verifiedEditorsScreen"] .grid2 > .card .sp-pill,
+body[data-sphere-screen="categoryDetail"] .grid2 > .card .sp-pill,
+body[data-sphere-screen="allEditors"] .grid2 > .card .sp-pill,
+body[data-sphere-screen="savedList"] .grid2 > .card .sp-pill { max-width:100%; white-space:normal; overflow-wrap:anywhere; display:inline-flex; text-align:center; justify-content:center; }
+@media(max-width:480px){
+ body[data-sphere-screen="verifiedEditorsScreen"] .grid2,
+ body[data-sphere-screen="categoryDetail"] .grid2,
+ body[data-sphere-screen="allEditors"] .grid2,
+ body[data-sphere-screen="savedList"] .grid2 { grid-template-columns:minmax(0,1fr); }
+}
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-editor-ai-cta { display:flex; align-items:center; width:100%; gap:12px; padding:11px 14px; margin:-7px 0 20px; border-radius:17px; border:1px solid rgba(123,78,209,.22); background:linear-gradient(115deg,#faf4ff,#eff6ff); color:#26204a; text-align:left; cursor:pointer; box-shadow:0 5px 14px rgba(65,42,115,.06); }
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-editor-ai-cta > img { width:48px; height:48px; flex:none; object-fit:contain; border-radius:13px; }
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-editor-ai-cta .se-editor-ai-copy { display:flex; min-width:0; flex:1; flex-direction:column; gap:3px; }
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-editor-ai-cta b { font-size:14px; color:#35216e; }
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-editor-ai-cta small { font-size:11px; line-height:1.4; color:#625c83; }
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-editor-ai-cta svg { width:18px; height:18px; flex:none; }
+.se-portfolio-filters { display:flex; gap:8px; overflow-x:auto; max-width:100%; padding:3px 0 12px; margin:1px 0 8px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+.se-portfolio-filters::-webkit-scrollbar { display:none; }
+.se-portfolio-filters button { flex:0 0 auto; max-width:180px; padding:8px 12px; font-size:12px; font-weight:700; line-height:1.2; color:#4e4a71; background:#fff; border:1px solid #e2ddf0; border-radius:18px; cursor:pointer; }
+.se-portfolio-filters button.on { background:#6e46d9; color:#fff; border-color:#6e46d9; }
+.se-portfolio-row[hidden], .portfolio-item[hidden], .se-portfolio-empty-filter[hidden] { display:none!important; }
+.se-portfolio-empty-filter { padding:22px 12px; font-size:13px; color:#6c6a85; text-align:center; }
+body[data-sphere-screen="portfolio"] .se-page-brand img { object-fit:contain; border-radius:9px; background:transparent; }
 </style>
 <link rel="stylesheet" href="/sphere-dark-theme.css?v=2">
 <link rel="stylesheet" href="/sphere-desktop.css?v=3">
@@ -2380,7 +2417,7 @@ body.sphere-editor-refresh[data-sphere-screen="home"] .se-photo-stat img{
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.39-frontfix1',
+  appVersion: '2.22.40-portfolio-ai',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -2639,6 +2676,7 @@ function img(src, emoji, cls=''){
 }
 
 const CATEGORIES = ["Vlog Editing","Cinematic","Gaming Edits","Reels & Shorts","Podcast Editing","Color Grading & VFX","Motion Graphics","Ads & Commercial","AI Video Editor"];
+const portfolioCategory = item => CATEGORIES.includes(item?.category) ? item.category : 'Other';
 const CAT_EMOJI = {"Vlog Editing":"📹","Cinematic":"🎬","Gaming Edits":"🎮","Reels & Shorts":"📱","Podcast Editing":"🎙️","Color Grading & VFX":"🎨","Motion Graphics":"✨","Ads & Commercial":"📢","AI Video Editor":"🤖"};
 const CAT_ICON = {"Vlog Editing":"/img/a8099bd51869605d.webp","Cinematic":"/img/4e49d79e9f821891.webp","Gaming Edits":"/img/e25c2f5d050ac5f3.webp","Reels & Shorts":"/img/a349ff10a3d47b1d.webp","Podcast Editing":"/img/bac509a943f335a7.webp","Color Grading & VFX":"/img/7a8769ab29d3c89f.webp","Motion Graphics":"/img/dde39dd6f0016980.webp","Ads & Commercial":"/img/9b679c70149150c9.webp","AI Video Editor":"/img/editor-v6/ai-video-editor.svg"};
 
@@ -5157,6 +5195,7 @@ async function editorHomeScreen(user){
       <button onclick="nav('portfolio')"><span class="se-photo-action-image">${img('/img/editor-v6/portfolio.svg?v=7','🎞️')}</span><b>Portfolio</b><small>Show your edits</small></button>
       <button onclick="nav('editorEarnings')"><span class="se-photo-action-image">${img('/img/editor-v6/earnings.svg?v=7','💰')}</span><b>Earnings</b><small>View payouts</small></button>
     </div>
+    <button type="button" class="se-editor-ai-cta" onclick="nav('sphereAI')" aria-label="Open Sphere AI for editors">${img('/img/2061cbf3489f11d0.webp','🤖')}<span class="se-editor-ai-copy"><b>Sphere AI</b><small>Hooks, titles, captions and professional client replies</small></span>${seIcon('arrow-right')}</button>
     <div class="se-section-head se-categories-head"><h2>Explore Categories</h2><button onclick="nav('jobs', {tab:'available'})">See all ${seIcon('arrow-right')}</button></div>
     <div class="se-photo-categories" role="region" aria-label="Swipe left or right to explore all editor categories" tabindex="0">
       ${CATEGORIES.map(c=>`<button type="button" class="se-photo-category" data-category="${esc(c)}" onclick="setWorkFilter(this.dataset.category);document.getElementById('workList')?.scrollIntoView({behavior:'smooth',block:'start'})"><span class="se-photo-category-img">${img(CAT_ICON[c],CAT_EMOJI[c])}</span><b>${esc(c)}</b></button>`).join('')}
@@ -5249,7 +5288,7 @@ let aiBusy = false;
 function aiChips(){
   const u = getCurrentUser();
   const list = u && u.role === 'editor'
-    ? ['✍️ Write a bid message for me', '💡 How can I get more jobs?', '🎨 Tips to improve my portfolio', '💰 How do payouts work?']
+    ? ['✍️ Write a winning bid', '🎬 Suggest creative video hooks', '📝 Write a reel caption', '🖼️ Give thumbnail text ideas', '💬 Draft a polite client reply', '🎨 Improve my portfolio']
     : ['✍️ Help me write a job post', '🎬 Suggest an editor for a wedding video', '📱 Best editor for Reels under ₹1000', '💳 How does payment work?'];
   return list.map(t => `<button class="ai-chip" onclick="sendAI(this.textContent.replace(/^\\S+\\s/, ''))">${t}</button>`).join('');
 }
@@ -5278,15 +5317,16 @@ function renderAIMessages(){
 }
 SCREENS.sphereAI = () => {
   if(aiBusy && Date.now() - aiBusySince > 60000) aiBusy = false;
+  const editorAI = getCurrentUser()?.role === 'editor';
   setTimeout(renderAIMessages, 0);
   return `
-  <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Sphere AI ✨</h1><p>Your assistant for editing & hiring</p></div>
+  <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Sphere AI ✨</h1><p>${editorAI ? 'Creative support for video editors' : 'Your assistant for editing & hiring'}</p></div>
   <div class="screen" style="padding-top:0; padding-bottom:90px;">
     <div class="ai-chips">${aiChips()}</div>
     <div id="aiBox"></div>
     <button class="btn btn-outline" id="aiDraftBtn" style="display:none; margin:6px 0 10px;" onclick="aiDraftJob()">📝 Turn this chat into a job post</button>
     <p class="ai-note">Sphere AI can make mistakes. Don't share passwords, OTPs or bank details.</p>
-    <details class="card" style="margin-top:6px;"><summary><b>🔎 Quick match by budget</b></summary>
+    <details class="card" style="margin-top:6px;${editorAI ? 'display:none;' : ''}"><summary><b>🔎 Quick match by budget</b></summary>
       <div class="field" style="margin-top:10px;"><label>What kind of video?</label>
         <select id="smCat">${CATEGORIES.map(c=>`<option>${c}</option>`).join('')}</select></div>
       <div class="field"><label>Your budget (₹ per video)</label>
@@ -5482,16 +5522,23 @@ function youtubeThumb(url){
   const m = String(url || '').match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/);
   return m ? `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg` : null;
 }
+function filterPublicPortfolio(button){
+  const group=button.closest('.pf-public-section'); if(!group) return;
+  const cat=button.dataset.category;
+  group.querySelectorAll('.se-portfolio-filters button').forEach(b=>b.classList.toggle('on',b===button));
+  group.querySelectorAll('.portfolio-item[data-pf-category]').forEach(tile=>{ tile.hidden=cat!=='All' && tile.dataset.pfCategory!==cat; });
+}
 function renderPortfolio(e, items, editable){
   const tiles = [];
   (items || []).forEach(it => {
-    const img = it.image_path ? mediaUrl(it.image_path) : youtubeThumb(it.video_url);
-    const bg = img ? `background:#111 url('${esc(img)}') center/cover;` : 'background:linear-gradient(135deg,#0b3d91,#0e6ba8);';
+    const thumb = it.image_path ? mediaUrl(it.image_path) : youtubeThumb(it.video_url);
+    const bg = thumb ? `background:#111 url('${esc(thumb)}') center/cover;` : 'background:linear-gradient(135deg,#0b3d91,#0e6ba8);';
     const inner = `${it.video_url ? '<div class="play-ic">▶</div>' : ''}<div class="pf-title">${esc(it.title)}</div>`;
     const del = editable ? `<button class="pf-del" onclick="event.preventDefault(); event.stopPropagation(); deletePortfolioItem('${it.id}', ${jsq(it.image_path || '')})">✕</button>` : '';
+    const category = esc(portfolioCategory(it));
     tiles.push(it.video_url && /^https?:\/\//i.test(it.video_url)
-      ? `<a class="portfolio-item" href="${esc(it.video_url)}" target="_blank" rel="noopener noreferrer" style="${bg}">${del}${inner}</a>`
-      : `<div class="portfolio-item" style="${bg}" onclick="safeOpen(${jsq(img)})">${del}${inner}</div>`);
+      ? `<a class="portfolio-item" data-pf-category="${category}" href="${esc(it.video_url)}" target="_blank" rel="noopener noreferrer" style="${bg}">${del}${inner}</a>`
+      : `<div class="portfolio-item" data-pf-category="${category}" style="${bg}" onclick="safeOpen(${jsq(thumb)})">${del}${inner}</div>`);
   });
   const links = [];
   if(e && e.sample) links.push({ title: 'Sample Video', url: e.sample });
@@ -5499,12 +5546,14 @@ function renderPortfolio(e, items, editable){
   links.filter(l => /^https?:\/\//i.test(l.url)).forEach(l => {
     const th = youtubeThumb(l.url);
     const bg = th ? `background:#000 url('${th}') center/cover;` : 'background:linear-gradient(135deg,#0b3d91,#0e6ba8);';
-    tiles.push(`<a class="portfolio-item" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" style="${bg}">
+    tiles.push(`<a class="portfolio-item" data-pf-category="Other" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" style="${bg}">
       <div class="play-ic">▶</div><div class="pf-title">${esc(l.title)}</div></a>`);
   });
   const head = `<div class="section-title" style="padding:0; margin-top:16px;"><h3>Portfolio</h3></div>`;
-  if(tiles.length === 0) return head + `<p class="muted">No portfolio items yet.</p>`;
-  return head + `<div class="portfolio-grid" style="margin-bottom:18px;">${tiles.join('')}</div>`;
+  if(!tiles.length) return head + `<p class="muted">No portfolio items yet.</p>`;
+  const groups = ['All',...CATEGORIES,'Other'];
+  const controls = `<div class="se-portfolio-filters" role="group" aria-label="Filter portfolio by category">${groups.map((cat,i)=>`<button type="button" data-category="${esc(cat)}" class="${i===0?'on':''}" onclick="filterPublicPortfolio(this)">${esc(cat)}</button>`).join('')}</div>`;
+  return head + `<div class="pf-public-section">${controls}<div class="portfolio-grid" style="margin-bottom:18px;">${tiles.join('')}</div></div>`;
 }
 function renderEditorCards(list){
   if(list.length===0) return `<p class="muted">No editors yet.</p>`;
@@ -5605,24 +5654,37 @@ function hireDirect(editorId){
 /* submitJob(): see PART 5 below */
 
 /* ============ EDITOR: JOB BID SCREEN ============ */
+function filterEditorPortfolio(button){
+  const collection=button.closest('.se-portfolio-collection'); if(!collection) return;
+  const selected=button.dataset.category;
+  collection.querySelectorAll('.se-portfolio-filters button').forEach(b=>b.classList.toggle('on', b===button));
+  const rows=collection.querySelectorAll('.se-portfolio-row[data-pf-category]');
+  let visible=0;
+  rows.forEach(row=>{ row.hidden=selected!=='All' && row.dataset.pfCategory!==selected; if(!row.hidden) visible++; });
+  const empty=collection.querySelector('.se-portfolio-empty-filter');
+  if(empty)empty.hidden=visible>0 || !rows.length;
+}
 function renderEditorPortfolioList(e, items, editable){
   const list=[];
   (items||[]).forEach(it=>{
     const image=it.image_path?mediaUrl(it.image_path):youtubeThumb(it.video_url);
     const href=(it.video_url&&/^https?:\/\//i.test(it.video_url))?it.video_url:null;
     const view=href?`window.open(${jsq(href)},'_blank','noopener,noreferrer')`:image?`safeOpen(${jsq(image)})`:'';
-    list.push(`<div class="se-portfolio-row" ${view?`role="button" tabindex="0" onclick="${view}"`:''}>
+    const cat=portfolioCategory(it);
+    list.push(`<div class="se-portfolio-row" data-pf-category="${esc(cat)}" ${view?`role="button" tabindex="0" onclick="${view}"`:''}>
       <span class="se-portfolio-glyph">${seIcon(it.video_url?'file-text':'image')}</span>
-      <div class="se-portfolio-info"><b>${esc(it.title||'Portfolio work')}</b><small>${it.video_url?'Video / external link':'Image work'} · ${it.created_at?fmtDate(it.created_at):'Portfolio'}</small></div>
+      <div class="se-portfolio-info"><b>${esc(it.title||'Portfolio work')}</b><small>${esc(cat)} · ${it.created_at?fmtDate(it.created_at):'Portfolio'}</small></div>
       ${editable?`<button type="button" class="se-del" aria-label="Delete ${esc(it.title||'work')}" onclick="event.stopPropagation();deletePortfolioItem('${it.id}', ${jsq(it.image_path||'')})">${seIcon('trash')}</button>`:''}
       ${view?`<span class="se-row-chevron">${seIcon('external-link')}</span>`:''}
     </div>`);
   });
-  if(e&&e.sample&&/^https?:\/\//i.test(e.sample)) list.push(`<div class="se-portfolio-row" role="button" onclick="window.open(${jsq(e.sample)},'_blank','noopener,noreferrer')"><span class="se-portfolio-glyph">${seIcon('link')}</span><div class="se-portfolio-info"><b>Sample Video</b><small>Open work sample link</small></div>${seIcon('external-link')}</div>`);
-  if(e&&e.portfolio&&/^https?:\/\//i.test(e.portfolio)) list.push(`<div class="se-portfolio-row" role="button" onclick="window.open(${jsq(e.portfolio)},'_blank','noopener,noreferrer')"><span class="se-portfolio-glyph">${seIcon('link')}</span><div class="se-portfolio-info"><b>Portfolio link</b><small>Open external portfolio</small></div>${seIcon('external-link')}</div>`);
-  return `<div class="se-section-head"><h2>My Work</h2><small>${(items||[]).length} saved</small></div><div class="se-portfolio-list">${list.join('')||'<div class="se-empty"><b>Your portfolio is empty</b><p>Add a project to show clients what you create.</p></div>'}</div>`;
+  if(e&&e.sample&&/^https?:\/\//i.test(e.sample)) list.push(`<div class="se-portfolio-row" data-pf-category="Other" role="button" onclick="window.open(${jsq(e.sample)},'_blank','noopener,noreferrer')"><span class="se-portfolio-glyph">${seIcon('link')}</span><div class="se-portfolio-info"><b>Sample Video</b><small>Other · Open work sample link</small></div>${seIcon('external-link')}</div>`);
+  if(e&&e.portfolio&&/^https?:\/\//i.test(e.portfolio)) list.push(`<div class="se-portfolio-row" data-pf-category="Other" role="button" onclick="window.open(${jsq(e.portfolio)},'_blank','noopener,noreferrer')"><span class="se-portfolio-glyph">${seIcon('link')}</span><div class="se-portfolio-info"><b>Portfolio link</b><small>Other · Open external portfolio</small></div>${seIcon('external-link')}</div>`);
+  const cats=['All',...CATEGORIES,'Other'];
+  const chips=`<div class="se-portfolio-filters" role="group" aria-label="Filter portfolio by editing category">${cats.map((cat,i)=>`<button type="button" data-category="${esc(cat)}" class="${i===0?'on':''}" onclick="filterEditorPortfolio(this)">${esc(cat)}</button>`).join('')}</div>`;
+  const empty='<div class="se-empty"><b>Your portfolio is empty</b><p>Add a project to show clients what you create.</p></div>';
+  return `<div class="se-section-head"><h2>My Work</h2><small>${(items||[]).length} saved</small></div><div class="se-portfolio-collection">${chips}<div class="se-portfolio-list">${list.join('')||empty}<div class="se-portfolio-empty-filter" hidden>No work in this category yet.</div></div></div>`;
 }
-
 
 /* Editor bid screen + submitBid(): see PART 6 below */
 
@@ -5658,11 +5720,12 @@ SCREENS.portfolio = async () => {
   const user=getCurrentUser();
   if(user.role!=='editor') return `<div class="header"><h1>Portfolio</h1><p>This section is for editors</p></div><div class="screen"><p class="muted">To see editors' work, open <span class="link" onclick="nav('allEditors')">All Editors</span>.</p></div>`;
   const items=await loadPortfolio(user.id);
-  return `<div class="se-page-head"><div class="se-page-brand">${img('/img/0cbdc280b5c44e61.webp','🔷')}<b>Sphere</b></div><h1>My Portfolio</h1><p>Showcase your work and attract clients</p></div>
+  return `<div class="se-page-head"><div class="se-page-brand">${img('/icon-192-v2.png','Sphere logo')}<b>Sphere</b></div><h1>My Portfolio</h1><p>Showcase your work and attract clients</p></div>
     <div class="screen se-portfolio-page">
       <details class="se-add-panel" id="seAddWork"><summary>${seIcon('upload')} Add New Work <span>(${items.length}/${MAX_PORTFOLIO_ITEMS})</span></summary>
         <div class="se-add-inner">
           <div class="field"><label>Title</label><input id="pwTitle" maxlength="80" placeholder="Travel Vlog, Brand Edit…"></div>
+          <div class="field"><label>Category</label><select id="pwCategory" required>${CATEGORIES.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></div>
           <div class="field"><label>Thumbnail / Photo (upload remains supported)</label><input type="file" id="pwPhoto" accept="image/*"></div>
           <div class="field"><label>Video link (YouTube / Drive) — optional</label><input id="pwVideo" placeholder="https://youtu.be/..."></div>
           <p class="muted" style="font-size:12px;margin-bottom:12px">Portfolio cards display no thumbnails. Uploads and links work as before.</p>
@@ -5687,9 +5750,11 @@ async function loadPortfolio(editorId){
 }
 async function addPortfolioItem(){
   const title = document.getElementById('pwTitle').value.trim();
+  const category = document.getElementById('pwCategory')?.value || '';
   const file = document.getElementById('pwPhoto').files[0];
   const video = document.getElementById('pwVideo').value.trim();
   if(!title){ alert('Enter a title'); return; }
+  if(!CATEGORIES.includes(category)){ alert('Choose a category'); return; }
   if(video && !/^https?:\/\//i.test(video)){ alert('Video link must start with https://'); return; }
   if(!file && !youtubeThumb(video)){ alert('Choose a photo or add a YouTube link'); return; }
   const btn = document.getElementById('pwBtn');
@@ -5698,7 +5763,7 @@ async function addPortfolioItem(){
     const { count } = await sb.from('sp_portfolio').select('id', { count: 'exact', head: true }).eq('editor_id', currentUser.id);
     if((count || 0) >= MAX_PORTFOLIO_ITEMS) throw new Error(`Max ${MAX_PORTFOLIO_ITEMS} items. Remove an old one first.`);
     const path = file ? await uploadImage(file, 'portfolio', 1280) : null;
-    const { data: pRow, error } = await sb.from('sp_portfolio').insert({ editor_id: currentUser.id, title, image_path: path, video_url: video || null }).select('title').single();
+    const { data: pRow, error } = await sb.from('sp_portfolio').insert({ editor_id: currentUser.id, title, category, image_path: path, video_url: video || null }).select('title').single();
     if(error){ await removeMedia(path); throw error; }
     contactCheck(title, pRow && pRow.title);
     nav('portfolio');
