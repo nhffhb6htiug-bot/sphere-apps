@@ -55,8 +55,10 @@ const nativeChat = fs.readFileSync("android-native/app/src/main/java/com/syahifi
 assert(!nativeChat.includes("it.readBytes()"),"Native chat picker does not read unbounded media");
 assert(/bytesRead\s*>\s*maxMediaBytes/.test(nativeChat) && /50L\s*\*\s*1024\s*\*\s*1024/.test(nativeChat),
   "Native chat rejects media above 50MB while reading");
-assert(/Repo\.sendMedia\(me, otherId, bytes, mime, caption\)[\s\S]*?if \(text == caption\) text = ""/.test(nativeChat),
+assert(/Repo\.sendMedia\(me, otherId, bytes, mime, caption\)[\s\S]*?if \(text\.trim\(\) == caption\) text = ""/.test(nativeChat),
   "Native chat preserves message caption until media upload succeeds");
+assert((nativeChat.match(/try \{ messages = Repo\.thread\(otherId\) \} catch \(_: Exception\) \{ \}/g) || []).length >= 2,
+  "Native chat distinguishes successful sends from subsequent refresh failures");
 
 console.log(JSON.stringify({checks,scriptCount:inlineCount,imagesChecked:imagePaths.length},null,2));
 if(errors.length) process.exitCode=1;
