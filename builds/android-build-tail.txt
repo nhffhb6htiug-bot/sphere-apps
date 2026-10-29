@@ -27,23 +27,27 @@ Daemon will be stopped at the end of the build
 > Task :app:parseDebugLocalResources
 > Task :app:processDebugMainManifest
 > Task :app:processDebugManifest
-> Task :app:javaPreCompileDebug
 > Task :app:processDebugManifestForPackage
+> Task :app:javaPreCompileDebug
 > Task :app:mergeDebugShaders
 > Task :app:compileDebugShaders NO-SOURCE
 > Task :app:generateDebugAssets UP-TO-DATE
 > Task :app:mergeDebugAssets
-> Task :app:compressDebugAssets
 > Task :app:desugarDebugFileDependencies
+> Task :app:compressDebugAssets
 > Task :app:processDebugResources
 > Task :app:checkDebugDuplicateClasses
+
 > Task :app:compileDebugKotlin
+e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
+    1. Kotlin compile daemon is ready
+
 > Task :app:mergeExtDexDebug
 
 > Task :app:compileDebugKotlin
-w: file:///home/runner/work/sphere-apps/sphere-apps/android-native/app/src/main/java/com/syahifilms/sphere/MainActivity.kt:37:16 'var statusBarColor: Int' is deprecated. Deprecated in Java.
-w: file:///home/runner/work/sphere-apps/sphere-apps/android-native/app/src/main/java/com/syahifilms/sphere/MainActivity.kt:38:16 'var navigationBarColor: Int' is deprecated. Deprecated in Java.
-w: file:///home/runner/work/sphere-apps/sphere-apps/android-native/app/src/main/java/com/syahifilms/sphere/MainActivity.kt:43:22 'var databaseEnabled: Boolean' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/sphere-apps/sphere-apps/android-native/app/src/main/java/com/syahifilms/sphere/MainActivity.kt:56:16 'var statusBarColor: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/sphere-apps/sphere-apps/android-native/app/src/main/java/com/syahifilms/sphere/MainActivity.kt:57:16 'var navigationBarColor: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/sphere-apps/sphere-apps/android-native/app/src/main/java/com/syahifilms/sphere/MainActivity.kt:63:22 'var databaseEnabled: Boolean' is deprecated. Deprecated in Java.
 
 > Task :app:compileDebugJavaWithJavac NO-SOURCE
 > Task :app:dexBuilderDebug
@@ -56,14 +60,14 @@ w: file:///home/runner/work/sphere-apps/sphere-apps/android-native/app/src/main/
 > Task :app:mergeDebugJavaResource
 > Task :app:validateSigningDebug
 > Task :app:writeDebugAppMetadata
-> Task :app:writeDebugSigningConfigVersions
 
 > Task :app:stripDebugDebugSymbols
 Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so.
 
+> Task :app:writeDebugSigningConfigVersions
 > Task :app:packageDebug
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 3m 29s
+BUILD SUCCESSFUL in 3m 36s
 35 actionable tasks: 35 executed
