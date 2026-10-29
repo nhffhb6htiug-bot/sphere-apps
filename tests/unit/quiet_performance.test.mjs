@@ -105,12 +105,31 @@ test('logout clears signed media, premium results and private screen caches',()=
     currentChatWith:'other',currentJobId:'job',aiHistory:['secret'],
     PREMIUM_CACHE:cache('premium'),PREMIUM_INFLIGHT:cache('pending'),
     SCREEN_CACHE:cache('screens'),SIGN_MAP:cache('sign-map'),SIGNED:cache('signed'),
-    MSG_INDEX:cache('messages'),signTimer:3,clearTimeout(){clearedTimer++;}
+    MSG_INDEX:cache('messages'),SIGN_SESSION_EPOCH:0,signTimer:3,clearTimeout(){clearedTimer++;},
+    chatPresence:null,PV_POLL:null
   };
   vm.runInNewContext(src+'\nglobalThis.logoutLocal = clearSessionState;',sand);
   sand.logoutLocal();
   assert.deepEqual(cleared.sort(),['messages','pending','premium','screens','sign-map','signed'].sort());
   assert.equal(sand.currentUser,null);assert.equal(clearedTimer,1);assert.equal(channels,1);
+  assert.equal(sand.SIGN_SESSION_EPOCH,1);
+});
+
+test('new user can check suspension while old user status request is still running', async()=>{
+  const src = section('let STATUS_TIMER = null, STATUS_IN_FLIGHT = null;', '// ---- v2.22.24:');
+  let user={id:'account-one',suspended:false}, checks=[];
+  const sand={
+    getCurrentUser:()=>user,document:{hidden:false,addEventListener(){}},setInterval(){return 1;},
+    loadAccountStatus: u=>new Promise(resolve=>checks.push({u,resolve})),
+    PREMIUM_CACHE:{clear(){}},SCREEN_CACHE:{clear(){}},nav(){},Promise
+  };
+  vm.runInNewContext(src+'\\nglobalThis.checkStatus = refreshAccountStatus;',sand);
+  const before=sand.checkStatus();
+  user={id:'account-two',suspended:false};
+  const after=sand.checkStatus();
+  assert.equal(checks.length,2,'new account should not wait for old session check');
+  checks.forEach(x=>x.resolve());
+  await Promise.all([before,after]);
 });
 
 test('verification polling is foreground-only and never overlaps in-flight requests',()=>{
