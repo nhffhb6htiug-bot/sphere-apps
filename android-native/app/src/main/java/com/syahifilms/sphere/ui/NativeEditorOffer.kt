@@ -48,9 +48,9 @@ suspend fun fetchNativeEditorOffer(): NativeEditorOffer {
         isFree = offer.optBoolean("is_free", false),
         bannerVisible = offer.optBoolean("show_banner", false),
         remaining = offer.optInt("remaining", 0).coerceAtLeast(0),
-        proofVideo = p?.optString("proof_video_url") ?: "",
-        proofScreenshot = p?.optString("proof_screenshot_path") ?: "",
-        feeStatus = p?.optString("verification_fee_status") ?: ""
+        proofVideo = p?.takeUnless { it.isNull("proof_video_url") }?.optString("proof_video_url") ?: "",
+        proofScreenshot = p?.takeUnless { it.isNull("proof_screenshot_path") }?.optString("proof_screenshot_path") ?: "",
+        feeStatus = p?.takeUnless { it.isNull("verification_fee_status") }?.optString("verification_fee_status") ?: ""
     )
 }
 
