@@ -102,10 +102,18 @@ Deno.serve(async (req) => {
     }
     await admin.from("sp_ai_usage").upsert({ user_id: user.id, day, count: used + 1 }, { onConflict: "user_id,day" });
 
-    const { data: me } = await admin.from("profiles").select("full_name, role").eq("id", user.id).maybeSingle();
-    const { data: eds } = await admin.from("profiles")
-      .select("id, full_name, verification_code, categories, languages, price_range, experience_years, skills")
-      .eq("role", "EDITOR").eq("is_verified", true).limit(40);
+    // These three read-only queries have no dependency on each other.
+    // Parallelizing them removes unnecessary sequential database round trips.
+    const [meResult, editorsResult, feeResult] = await Promise.all([
+      admin.from("profiles").select("full_name, role").eq("id", user.id).maybeSingle(),
+      admin.from("profiles")
+        .select("id, full_name, verification_code, categories, languages, price_range, experience_years, skills")
+        .eq("role", "EDITOR").eq("is_verified", true).limit(40),
+      admin.from("sp_settings").select("value").eq("key", "platform_fee_percent").maybeSingle(),
+    ]);
+    const { data: me } = meResult;
+    const { data: eds } = editorsResult;
+    const { data: feeRow } = feeResult;
     const ids = (eds ?? []).map((e) => e.id);
     const { data: rts } = ids.length ? await admin.from("sp_ratings").select("editor_id, stars").in("editor_id", ids) : { data: [] };
     const agg: Record<string, { s: number; n: number }> = {};
@@ -116,7 +124,6 @@ Deno.serve(async (req) => {
         `${a ? (a.s / a.n).toFixed(1) + "★ (" + a.n + " reviews)" : "new, no reviews yet"} | skills: ${(e.skills ?? []).join(", ") || "-"}`;
     }).join("\n") || "(no verified editors yet)";
 
-    const { data: feeRow } = await admin.from("sp_settings").select("value").eq("key", "platform_fee_percent").maybeSingle();
     const feePct = Number.isFinite(Number(feeRow?.value)) ? Number(feeRow?.value) : 5;
     const system = `You are "Sphere AI", the friendly assistant inside Sphere by Syahi Films — an Indian app where clients hire verified video editors.
 The user is ${me?.full_name ?? "a user"} (${String(me?.role ?? "client").toLowerCase()}).
