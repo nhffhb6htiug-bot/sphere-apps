@@ -32,6 +32,8 @@ object Api {
         .build()
     private val JSON_TYPE = "application/json; charset=utf-8".toMediaType()
     private var prefs: SharedPreferences? = null
+    // Protect account changes against a refresh response arriving after logout/login.
+    private val sessionWriteLock = Any()
 
     fun init(context: Context) {
         prefs = context.getSharedPreferences("sphere_session", Context.MODE_PRIVATE)
@@ -42,7 +44,7 @@ object Api {
         try { JSONObject(it) } catch (e: Exception) { null }
     }
 
-    private fun saveSession(o: JSONObject) {
+    private fun saveSession(o: JSONObject) = synchronized(sessionWriteLock) {
         val now = System.currentTimeMillis() / 1000
         val s = JSONObject()
         s.put("access_token", o.getString("access_token"))
@@ -55,7 +57,7 @@ object Api {
         prefs?.edit()?.putString("session", s.toString())?.apply()
     }
 
-    fun clearSession() { prefs?.edit()?.remove("session")?.apply() }
+    fun clearSession() = synchronized(sessionWriteLock) { prefs?.edit()?.remove("session")?.apply() }
 
     val userId: String? get() = session()?.optString("user_id")?.takeIf { it.isNotBlank() }
     val email: String get() = session()?.optString("email") ?: ""
@@ -84,15 +86,26 @@ object Api {
             if (latest.optLong("expires_at", 0) - System.currentTimeMillis() / 1000 > 60) {
                 return@withLock latest.getString("access_token")
             }
+            val refreshToken = latest.getString("refresh_token")
             try {
                 val updated = JSONObject(raw("POST", "/auth/v1/token?grant_type=refresh_token",
-                    JSONObject().put("refresh_token", latest.getString("refresh_token")).toString(),
+                    JSONObject().put("refresh_token", refreshToken).toString(),
                     useUserToken = false))
-                saveSession(updated)
+                synchronized(sessionWriteLock) {
+                    // A signed-out or newly signed-in account must not inherit
+                    // the old account's late network response.
+                    if (session()?.optString("refresh_token") != refreshToken) {
+                        throw ApiException(401, "Session changed. Please retry.")
+                    }
+                    saveSession(updated)
+                }
                 updated.getString("access_token")
             } catch (e: ApiException) {
                 if (e.status in listOf(400, 401, 403, 422)) {
-                    clearSession() // Invalid refresh token: require sign-in, never downgrade to anonymous.
+                    synchronized(sessionWriteLock) {
+                        // A failed OLD refresh must not sign out a NEW session.
+                        if (session()?.optString("refresh_token") == refreshToken) clearSession()
+                    }
                     throw ApiException(401, "Session expired. Please log in again")
                 }
                 throw e
