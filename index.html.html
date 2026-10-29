@@ -10911,6 +10911,9 @@ SCREENS.adminProject = async (data) => {
   try { d = await adminRpc('sp_admin_project_detail', { p_job: id }); }
   catch(e) { return `<div class="header">${back}<h1>Project</h1></div><div class="screen"><p style="color:#c62828;">${esc(e.message)}</p></div>`; }
   if(!d) return `<div class="header">${back}<h1>Project</h1></div><div class="screen"><div class="card cl-empty"><div class="cl-empty-ic">📁</div><b>Project not found</b><p class="muted">It may have been removed, or the connection dropped. Go back and try again.</p></div></div>`;
+  const bidResult = await adminRpc('sp_admin_project_bids',{p_job:id}).catch(e=>({error:e.message}));
+  const bids = Array.isArray(bidResult)?bidResult:[];
+  const bidError = !Array.isArray(bidResult) ? (bidResult.error||'Could not load bids') : '';
   currentJobId = id;
   const c = d.case || {}, j = c.job || {}, w = c.work || {}, job = d.job || {}, people = d.people || {}, h = HEALTH[(d.health || {}).kind] || HEALTH.normal;
   const name = uid => esc(((people || {})[uid] || {}).name || '-');
@@ -10942,6 +10945,14 @@ SCREENS.adminProject = async (data) => {
       ${row('Length', esc(j.length || ''))}${row('Format', esc(j.format || ''))}${row('Style', esc(j.style || ''))}${row('References', esc(j.references || ''))}${row('Revisions expected', j.revisions_expected)}
       ${j.accepted_changes ? `<p style="font-size:12px; margin-top:6px;"><b>Accepted changes</b></p><p style="font-size:12px; white-space:pre-wrap;">${esc(j.accepted_changes)}</p>` : ''}</div>
 
+    <div class="ad-sec">📝 Editor bids (${bids.length})</div>
+    <div class="card">
+      ${bidError ? `<p class="muted">Could not load bids: ${esc(bidError)}</p>` :
+        bids.length ? bids.map((b,i)=>`<div class="kv" style="align-items:flex-start;gap:10px;">
+          <span style="min-width:0;flex:1;"><b>${i+1}. ${esc(b.editor_name||'Editor')}</b><small style="display:block;">${esc(b.status||'pending')} · ${b.created_at?fmtDT(b.created_at):''}</small>${b.message?`<small style="display:block;white-space:pre-wrap;">${esc(b.message)}</small>`:''}</span>
+          <b style="white-space:nowrap;">${rupees(b.bid_amount||0)}</b>
+        </div>`).join('') : '<p class="muted">No bids received yet.</p>'}
+    </div>
     <div class="ad-sec">Deadline & deliveries</div>
     <div class="card">${row('Started', w.started_at ? fmtDT(w.started_at) : '')}${row('Original deadline', w.original_due_at ? fmtDT(w.original_due_at) : '')}${row('Current deadline', w.due_at ? fmtDT(w.due_at) : '')}
       ${row('Time given', Number(w.extended_hours) ? '+' + w.extended_hours + ' h' : '')}
