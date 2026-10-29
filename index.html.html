@@ -5035,7 +5035,7 @@ async function saveNewPassword(){
 }
 async function doLogin(){
   const email = document.getElementById('loginEmail').value.trim();
-  const pass = document.getElementById('loginPass').value.trim();
+  const pass = document.getElementById('loginPass').value; // Passwords are exact; never trim spaces.
   if(!email||!pass){ alert('Enter your email and password'); return; }
   const wait = loginWaitSeconds();
   if(wait > 0){ alert('Too many wrong tries. Please wait ' + wait + ' seconds.'); return; }
