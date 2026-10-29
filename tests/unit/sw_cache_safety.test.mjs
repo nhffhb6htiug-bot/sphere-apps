@@ -40,7 +40,7 @@ function createWorker() {
     fetch,
     caches: {
       open: async () => cache,
-      keys: async () => ['sphere-static-v4'],
+      keys: async () => ['sphere-static-v5'],
       delete: async () => true,
       match: async (request, options) => cache.match(request, options),
     },

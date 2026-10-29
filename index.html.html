@@ -3387,25 +3387,56 @@ function spRazorpay(opts){
 // only when the server says "active". Answers are remembered for 5 minutes, so an expired plan
 // loses its badge on the next check; logout clears them.
 const PREMIUM_CACHE = new Map();
+const PREMIUM_INFLIGHT = new Map();
+// Multiple badge slots for the same account share one backend check.
+// Results from a signed-out/changed session must never populate the next account's cache.
 async function isPremiumClient(id){
   if(!id) return false;
   const c = PREMIUM_CACHE.get(id);
   if(c && Date.now() - c.at < 300000) return c.v;
-  let v = false;
-  try { const { data, error } = await sb.rpc('sp_is_premium_client', { p_user: id }); v = !error && data === true; } catch(e) {}
-  PREMIUM_CACHE.set(id, { v, at: Date.now() });
-  return v;
+  if(PREMIUM_INFLIGHT.has(id)) return PREMIUM_INFLIGHT.get(id);
+  const owner = getCurrentUser() && getCurrentUser().id;
+  const request = (async () => {
+    let v = false;
+    try { const { data, error } = await sb.rpc('sp_is_premium_client', { p_user: id }); v = !error && data === true; } catch(e) {}
+    if(owner && getCurrentUser() && getCurrentUser().id === owner) PREMIUM_CACHE.set(id, { v, at: Date.now() });
+    return v;
+  })();
+  PREMIUM_INFLIGHT.set(id, request);
+  try { return await request; }
+  finally { if(PREMIUM_INFLIGHT.get(id) === request) PREMIUM_INFLIGHT.delete(id); }
 }
 function premiumBadgeSlot(id){ return id ? `<span class="prem-badge-slot" data-pb="${esc(String(id))}"></span>` : ''; }
 let pbTimer = null;
 async function fillPremiumBadges(){
   const els = [...document.querySelectorAll('.prem-badge-slot[data-pb]:not([data-done])')];
-  if(!els.length || !getCurrentUser()) return;
+  const owner = getCurrentUser() && getCurrentUser().id;
+  if(!els.length || !owner) return;
   const ids = [...new Set(els.map(e => e.dataset.pb))].slice(0, 30);
   const res = new Map(await Promise.all(ids.map(async id => [id, await isPremiumClient(id)])));
-  els.forEach(e => { if(!res.has(e.dataset.pb)) return; e.dataset.done = '1'; e.innerHTML = res.get(e.dataset.pb) ? '<span class="sp-pill prem" title="Sphere Premium client">💎 Premium Client</span>' : ''; });
+  if(!getCurrentUser() || getCurrentUser().id !== owner) return;
+  els.forEach(e => { if(!e.isConnected || !res.has(e.dataset.pb)) return; e.dataset.done = '1'; e.innerHTML = res.get(e.dataset.pb) ? '<span class="sp-pill prem" title="Sphere Premium client">💎 Premium Client</span>' : ''; });
+  // A long editor list can contain more than 30 distinct clients. Finish in small batches.
+  if(els.some(e => e.isConnected && !e.dataset.done)) schedulePremiumBadges();
 }
-new MutationObserver(() => { clearTimeout(pbTimer); pbTimer = setTimeout(fillPremiumBadges, 80); }).observe(document.documentElement, { childList: true, subtree: true });
+function schedulePremiumBadges(){
+  if(pbTimer) clearTimeout(pbTimer);
+  pbTimer = setTimeout(() => { pbTimer = null; fillPremiumBadges(); }, 80);
+}
+// Only added premium slots need badge lookups. Ignore every unrelated DOM mutation
+// (message typing, countdowns, image loads, and the badge's own markup).
+function premiumBadgeMutations(changes){
+  for(const change of changes){
+    for(const node of change.addedNodes){
+      if(node.nodeType !== 1) continue;
+      if((node.matches && node.matches('.prem-badge-slot[data-pb]:not([data-done])')) ||
+         (node.querySelector && node.querySelector('.prem-badge-slot[data-pb]:not([data-done])'))){
+        schedulePremiumBadges(); return;
+      }
+    }
+  }
+}
+new MutationObserver(premiumBadgeMutations).observe(document.documentElement, { childList: true, subtree: true });
 // Chat "online" status (WhatsApp-style) with Supabase Realtime Presence — no database change.
 // Both people of a chat join a small channel named after their two ids. "online" shows while the
 // other person has this chat open and the app on screen; it disappears when they leave or hide the app.
@@ -4082,13 +4113,22 @@ function suspendedScreen(){
     <button class="btn btn-outline" style="margin-top:12px;" onclick="logout()">Log out</button>
   </div>`;
 }
-let STATUS_TIMER = null;
+let STATUS_TIMER = null, STATUS_IN_FLIGHT = null;
 async function refreshAccountStatus(){
   const u = getCurrentUser(); if(!u || document.hidden) return;
-  const was = !!u.suspended;
-  await loadAccountStatus(u);
-  if(u.suspended && !was){ PREMIUM_CACHE.clear(); SCREEN_CACHE.clear(); nav('suspended'); }
-  else if(!u.suspended && was){ PREMIUM_CACHE.clear(); SCREEN_CACHE.clear(); nav('home'); }
+  if(STATUS_IN_FLIGHT && STATUS_IN_FLIGHT.uid === u.id) return STATUS_IN_FLIGHT.promise;
+  const check = (async () => {
+    const was = !!u.suspended;
+    await loadAccountStatus(u);
+    // A delayed response from the previous account must never reroute a new login.
+    if(!getCurrentUser() || getCurrentUser().id !== u.id) return;
+    if(u.suspended && !was){ PREMIUM_CACHE.clear(); SCREEN_CACHE.clear(); nav('suspended'); }
+    else if(!u.suspended && was){ PREMIUM_CACHE.clear(); SCREEN_CACHE.clear(); nav('home'); }
+  })();
+  const active = { uid: u.id, promise: check };
+  STATUS_IN_FLIGHT = active;
+  try { return await check; }
+  finally { if(STATUS_IN_FLIGHT === active) STATUS_IN_FLIGHT = null; }
 }
 document.addEventListener('visibilitychange', () => { if(!document.hidden) refreshAccountStatus(); });
 if(!STATUS_TIMER) STATUS_TIMER = setInterval(refreshAccountStatus, 60000);
@@ -7004,7 +7044,7 @@ function hasRouteAccess(level, u){
 // Server side: sp_phone_verify_start / _status / _complete + Edge Function sphere-wa-verify (Meta WhatsApp Cloud API webhook).
 // Switch on in Supabase: sp_settings wa_verify_number = Sphere's WhatsApp number, then wa_verify_required = 1.
 const PHONE_OK_SCREENS = ['verifyPhone', 'support', 'suspended', 'deleteAccount', 'authLanding', 'login', 'signup', 'public'];
-var PHONE_V = { uid: null, st: null, at: 0 }, PV_POLL = null;
+var PHONE_V = { uid: null, st: null, at: 0 }, PV_POLL = null, PV_POLL_CHECK = null, PV_POLL_BUSY = false;
 function waRequired(){ return String(SETTINGS.wa_verify_required) === '1'; }
 async function phoneVerifyStatus(force){
   const u = getCurrentUser(); if(!u) return null;
@@ -7041,7 +7081,10 @@ SCREENS.verifyPhone = async () => {
     <p class="center-text" style="margin-top:6px;"><span class="link" onclick="nav('support')">Need help?</span> · <span class="link" onclick="stopPvPoll(); logout()">Log out</span></p>
   </div>`;
 };
-function stopPvPoll(){ if(PV_POLL){ clearInterval(PV_POLL); PV_POLL = null; } }
+function stopPvPoll(){
+  if(PV_POLL) clearInterval(PV_POLL);
+  PV_POLL = null; PV_POLL_CHECK = null;
+}
 async function startPhoneVerify(){
   const msg = document.getElementById('vpMsg'), btn = document.getElementById('vpBtn'), say = (t, bad) => { if(msg){ msg.textContent = t; msg.style.color = bad ? '#c62828' : 'inherit'; } };
   const phone = readPhone('vpPhone'); if(!phone) return;
@@ -7059,18 +7102,32 @@ async function startPhoneVerify(){
     say('⏳ Waiting for your WhatsApp message…');
     window.open(url, '_blank');
     stopPvPoll(); let tries = 0;
-    PV_POLL = setInterval(async () => {
+    // Check only while this screen is visible, and never overlap slow requests.
+    // Coming back from WhatsApp triggers an immediate check below.
+    const check = async () => {
+      if(!PV_POLL) return;
       if(currentScreenName !== 'verifyPhone'){ stopPvPoll(); return; }
+      if(document.hidden || PV_POLL_BUSY) return;
       if(++tries > 600){ stopPvPoll(); say('Time is up. Tap the button to get a new code.', true); return; }
-      const st = await phoneVerifyStatus(true);
-      if(st && st.verified){ stopPvPoll(); say('✅ Number verified!'); setTimeout(() => nav('home'), 600); }
-    }, 3000);
+      PV_POLL_BUSY = true;
+      const runningTimer = PV_POLL;
+      try {
+        const st = await phoneVerifyStatus(true);
+        if(PV_POLL === runningTimer && currentScreenName === 'verifyPhone' && st && st.verified){
+          stopPvPoll(); say('✅ Number verified!'); setTimeout(() => nav('home'), 600);
+        }
+      } finally { PV_POLL_BUSY = false; }
+    };
+    PV_POLL_CHECK = check;
+    PV_POLL = setInterval(() => { check().catch(() => {}); }, 3000);
   } catch(e) {
     say(String((e && e.message) || e).replace(/^.*?:\s*(?=This|Enter|Please)/, ''), true);
   }
   if(btn){ btn.disabled = false; btn.textContent = '💬 Verify on WhatsApp'; }
 }
-document.addEventListener('visibilitychange', () => { if(!document.hidden && PV_POLL && currentScreenName === 'verifyPhone') phoneVerifyStatus(true).then(st => { if(st && st.verified){ stopPvPoll(); nav('home'); } }); });
+document.addEventListener('visibilitychange', () => {
+  if(!document.hidden && PV_POLL_CHECK && currentScreenName === 'verifyPhone') PV_POLL_CHECK().catch(() => {});
+});
 
 async function routeGate(screen){
   const level = routeAccess(screen);
@@ -7134,6 +7191,14 @@ function clearSessionState(){
   if(typeof currentChatWith !== 'undefined') currentChatWith = null;
   if(typeof currentJobId !== 'undefined') currentJobId = null;
   if(typeof aiHistory !== 'undefined') aiHistory = [];
+  // Private session-derived media URLs and badges are never retained for the next account.
+  PREMIUM_CACHE.clear(); PREMIUM_INFLIGHT.clear(); SCREEN_CACHE.clear();
+  SIGN_SESSION_EPOCH++;
+  SIGN_MAP.clear(); SIGNED.clear();
+  if(signTimer){ clearTimeout(signTimer); signTimer = null; }
+  MSG_INDEX.clear();
+  if(chatPresence) stopChatPresence();
+  if(PV_POLL) stopPvPoll();
 }
 
 // Session ended somewhere else (logged out in another tab, or the login expired) → back to the welcome screen
@@ -11126,10 +11191,12 @@ function friendlyError(msg){
 // --- private files: swap public links for signed links (works before and after 017b)
 const SIGN_MAP = new Map();            // public url → { bucket, path }
 const SIGNED = new Map();              // public url → { url, until }
-let signTimer = null;
+let signTimer = null, SIGN_SESSION_EPOCH = 0;
 function registerSigned(bucket, path, publicUrl){ if(path && publicUrl) SIGN_MAP.set(publicUrl, { bucket, path }); return publicUrl; }
 async function resolveSignedMedia(){
   signTimer = null;
+  const epoch = SIGN_SESSION_EPOCH;
+  const signedFor = getCurrentUser() && getCurrentUser().id;
   const els = document.querySelectorAll('img[src], video[src], audio[src], source[src], a[href]');
   const need = new Map();
   els.forEach(el => {
@@ -11145,9 +11212,12 @@ async function resolveSignedMedia(){
   for(const [bucket, paths] of need){
     try {
       const { data } = await sb.storage.from(bucket).createSignedUrls([...paths.keys()], 3600);
+      // Never retain or write a private link from an old signed-out session.
+      if(epoch !== SIGN_SESSION_EPOCH || (getCurrentUser() && getCurrentUser().id) !== signedFor) return;
       (data || []).forEach(d => { if(d && d.signedUrl && paths.has(d.path)) SIGNED.set(paths.get(d.path), { url: d.signedUrl, until: Date.now() + 50 * 60000 }); });
     } catch(e) {}
   }
+  if(epoch !== SIGN_SESSION_EPOCH || (getCurrentUser() && getCurrentUser().id) !== signedFor) return;
   if(need.size) document.querySelectorAll('img[src], video[src], audio[src], source[src], a[href]').forEach(el => {
     const attr = el.tagName === 'A' ? 'href' : 'src';
     const c = SIGNED.get(el.getAttribute(attr));
