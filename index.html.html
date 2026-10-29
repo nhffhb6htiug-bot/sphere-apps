@@ -11001,6 +11001,7 @@ async function spAdminWithdrawSection(){
  const r=await sb.rpc('sp_admin_withdraw_queue');
  if(r.error)return '<div class="card"><b>Withdrawal queue unavailable</b><p class="muted">'+esc(r.error.message)+'</p></div>';
  const banks=r.data?.banks||[],requests=r.data?.withdrawals||[];
+ window.__spWithdrawActiveJobs=new Set(requests.filter(x=>x.status==='requested'||x.status==='approved').map(x=>x.job_id));
  let h='<h3 style="margin:16px 0 10px;">🏦 Bank verification ('+banks.filter(x=>x.status==='pending').length+' pending)</h3>';
  banks.filter(x=>x.status==='pending').forEach(b=>{
    h+='<div class="card"><b>'+esc(b.editor||'Editor')+'</b><p class="muted" style="font-size:12px;">'+esc(b.holder)+' · •••• '+esc(b.last4)+' · IFSC '+esc(b.ifsc)+'</p><p class="muted" style="font-size:12px;">Check details and KYC through an authorized provider. Sphere stores only last 4 digits, not a complete bank account number.</p><button class="btn-sm" onclick="spAdminReviewBank(\''+b.editor_id+'\',true)">Verify bank</button> <button class="btn-sm" onclick="spAdminReviewBank(\''+b.editor_id+'\',false)">Reject</button></div>';
@@ -11021,6 +11022,7 @@ async function adminPaymentsTab(){
   const [d0, xq, withdrawHtml] = await Promise.all([adminRpc('sp_admin_payments').catch(() => null), loadExtrasQueue(), spAdminWithdrawSection()]);
   if(!d0) return withdrawHtml + extrasQueueSection(xq) + payoutItemsHtml(await loadCasesQueue()) + `<div class="card" style="border:1.5px solid #e67e22;"><p style="font-size:12px;">⚙️ This part needs the latest database update (<b>014_admin_panel.sql</b>).</p></div>`;
   const d = d0, bs = d.by_status || {}, t = d.totals || {};
+  const manualRows=(d.manual_payouts||[]).filter(x=>!window.__spWithdrawActiveJobs?.has(x.job_id));
   const pend = (d.payout_items || []).filter(x => x.status === 'pending');
   return `
     ${withdrawHtml}
@@ -11029,13 +11031,13 @@ async function adminPaymentsTab(){
       <div class="ad-stat"><b>${bs.failed || 0}</b><span>Failed attempts</span></div><div class="ad-stat"><b>${bs.refunded || 0}</b><span>Refunded</span></div>
     </div>
     ${extrasQueueSection(xq)}
-    <h3 style="margin:16px 0 10px;">💸 Payouts & deductions (${pend.length + (d.manual_payouts || []).length})</h3>
-    ${(d.manual_payouts || []).map(x => `<div class="card" style="border-left:4px solid #e67e22;"><p style="font-size:13px;"><b>${rupees(x.amount)}</b> to ${esc(x.editor || 'Editor')} · ${esc(x.title || '')}</p><p class="muted" style="font-size:12px;">Client approved — send this to the editor by UPI / bank${x.payout_status === 'failed' ? ' (the automatic transfer failed)' : ''}, then tap Mark as paid. The editor gets a notification.</p>
+    <h3 style="margin:16px 0 10px;">💸 Payouts & deductions (${pend.length + manualRows.length})</h3>
+    ${manualRows.map(x => `<div class="card" style="border-left:4px solid #e67e22;"><p style="font-size:13px;"><b>${rupees(x.amount)}</b> to ${esc(x.editor || 'Editor')} · ${esc(x.title || '')}</p><p class="muted" style="font-size:12px;">Client approved — send this to the editor by UPI / bank${x.payout_status === 'failed' ? ' (the automatic transfer failed)' : ''}, then tap Mark as paid. The editor gets a notification.</p>
       <button class="btn-sm" style="margin-top:6px;" onclick="markPaidManually('${x.job_id}')">✅ Mark as paid</button>
       <button class="btn-sm" style="margin:6px 0 0 6px; background:#f3f4f6; color:#111;" onclick="nav('adminProject', { jobId: '${x.job_id}' })">Open project</button></div>`).join('')}
     ${pend.map(p => `<div class="card" style="${p.kind === 'deduction' ? 'border-left:4px solid #c62828;' : ''}"><p style="font-size:13px;"><b>${p.kind === 'deduction' ? '−' : ''}${rupees(p.amount)}</b> · ${esc(p.editor || 'Editor')}</p>
       <p class="muted" style="font-size:12px;">${p.kind === 'bonus' ? '🏆 Performance bonus' : p.kind === 'deduction' ? '⏰ Late deduction to recover' : '➕ Paid revisions / changes'} — ${esc(p.note || '')}</p>
-      <button class="btn-sm" style="margin-top:6px;" onclick="markPayoutPaid('${p.id}')">✅ ${p.kind === 'deduction' ? 'Mark recovered' : 'Mark paid'}</button></div>`).join('') || ((d.manual_payouts || []).length ? '' : '<p class="muted">Nothing to pay. 👍</p>')}
+      <button class="btn-sm" style="margin-top:6px;" onclick="markPayoutPaid('${p.id}')">✅ ${p.kind === 'deduction' ? 'Mark recovered' : 'Mark paid'}</button></div>`).join('') || (manualRows.length ? '' : '<p class="muted">Nothing to pay. 👍</p>')}
     <h3 style="margin:16px 0 10px;">↩️ Refunds (${(d.refunds || []).length})</h3>
     ${(d.refunds || []).map(r => `<div class="card"><p style="font-size:13px;"><b>${rupees(r.amount)}</b> · ${esc(r.title || '')} · <b>${esc(r.status)}</b></p><p class="muted" style="font-size:12px;">${fmtDT(r.created_at)}${r.reason ? ' · ' + esc(r.reason) : ''}${r.error ? ' · error: ' + esc(r.error) : ''}</p>
       <button class="btn-sm" style="margin-top:6px;" onclick="nav('adminProject', { jobId: '${r.job_id}' })">Open project</button></div>`).join('') || '<p class="muted">No refunds.</p>'}
