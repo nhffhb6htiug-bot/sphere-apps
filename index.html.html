@@ -11192,7 +11192,14 @@ function friendlyError(msg){
 const SIGN_MAP = new Map();            // public url → { bucket, path }
 const SIGNED = new Map();              // public url → { url, until }
 let signTimer = null, SIGN_SESSION_EPOCH = 0;
-function registerSigned(bucket, path, publicUrl){ if(path && publicUrl) SIGN_MAP.set(publicUrl, { bucket, path }); return publicUrl; }
+function registerSigned(bucket, path, publicUrl){
+  if(path && publicUrl){
+    SIGN_MAP.set(publicUrl, { bucket, path });
+    // Covers links registered after their DOM node was already inserted.
+    scheduleSign();
+  }
+  return publicUrl;
+}
 async function resolveSignedMedia(){
   signTimer = null;
   const epoch = SIGN_SESSION_EPOCH;
@@ -11224,8 +11231,25 @@ async function resolveSignedMedia(){
     if(c) el.setAttribute(attr, c.url);
   });
 }
-function scheduleSign(){ if(!signTimer) signTimer = setTimeout(resolveSignedMedia, 60); }
-try { new MutationObserver(scheduleSign).observe(document.body, { childList: true, subtree: true }); } catch(e) {}
+function scheduleSign(){
+  if(SIGN_MAP.size && !signTimer) signTimer = setTimeout(resolveSignedMedia, 60);
+}
+// Chat typing, countdown updates and unrelated UI changes no longer scan every
+// <a>, <img> and <video>. Only newly added media/link elements can need signing.
+function signedMediaMutations(changes){
+  if(!SIGN_MAP.size) return;
+  const mediaSelector = 'img[src], video[src], audio[src], source[src], a[href]';
+  for(const change of changes){
+    for(const node of change.addedNodes){
+      if(node.nodeType !== 1) continue;
+      if((node.matches && node.matches(mediaSelector)) ||
+         (node.querySelector && node.querySelector(mediaSelector))){
+        scheduleSign(); return;
+      }
+    }
+  }
+}
+try { new MutationObserver(signedMediaMutations).observe(document.body, { childList: true, subtree: true }); } catch(e) {}
 
 /* ============ PART 20.1: CLIENT PREMIUM (₹199 / 30 days) ============
    Free clients post jobs as before. Premium clients may also post "Premium" jobs that only
@@ -11241,11 +11265,16 @@ function premiumStatus(m){
 }
 // Home search: clients → All Editors (filtered); editors → Available work (uses the existing job filter)
 function homeSearch(v){ nav('searchAll', { q: String(v || '').trim() }); }
-// Add-on feature for desktop and hardware-keyboard users: Ctrl/Cmd+K opens
-// the existing universal search; it creates no new buttons or visual changes.
+// Invisible keyboard add-on: Ctrl/Cmd+K or "/" opens the existing search page.
+// "/" is ignored while typing inside any editor, form or chat composer.
 document.addEventListener('keydown', event => {
-  if(event.defaultPrevented || event.altKey || !((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k')) return;
-  if(!getCurrentUser()) return;
+  if(event.defaultPrevented || event.isComposing || event.altKey || !getCurrentUser()) return;
+  const searchCombo = (event.ctrlKey || event.metaKey) && String(event.key).toLowerCase() === 'k';
+  const target = event.target;
+  const editing = !!(target && (target.isContentEditable ||
+    (target.closest && target.closest('input, textarea, select, [contenteditable="true"], [role="textbox"]'))));
+  const searchSlash = event.key === '/' && !event.ctrlKey && !event.metaKey && !event.shiftKey && !editing;
+  if(!searchCombo && !searchSlash) return;
   event.preventDefault();
   Promise.resolve(nav('searchAll')).then(() => {
     const searchBox = document.getElementById('srQ');
