@@ -17,6 +17,10 @@ The existing Sphere mobile, iOS PWA, desktop and native Android screens remain v
 ## Limitations / rollout
 - These changes are designed to reduce redundant work but are **not measured speed-up claims**. Run a before/after waterfall and metrics study before publishing percentages.
 - No production payment transactions or customer database modifications are required for this change.
-- The Sphere AI Edge Function source change must be deployed to Supabase separately to affect the running server; committing this file alone does **not** deploy it.
+- The Sphere AI Edge Function was deployed separately to Supabase project `sphere` as active version **24** on October 29, 2026, and its source was read back to confirm an exact match. GitHub merging alone does not deploy future Edge Function changes.
 - The native Android code change reaches devices only with a newly built and installed APK.
 - For a rollback, revert the release and increment the service-worker cache name again rather than reusing an older cache version.
+
+## Verified CI
+- GitHub Actions cross-platform smoke test for commit `b322c8672` passed (synthetic browser flows, not real devices).
+- GitHub Actions Android debug APK build for commit `4446b32e3` passed. This does not install an APK onto users' devices.
