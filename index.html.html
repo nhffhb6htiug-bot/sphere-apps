@@ -2327,6 +2327,17 @@ body.sphere-editor-refresh[data-sphere-screen="home"] .se-photo-stat img{
   }
 }
 
+
+/* First 50 editors: compact, responsive, theme-neutral promo addition. */
+.sp-free-banner{margin:10px 14px 12px;padding:12px 14px;border:1px solid rgba(22,87,255,.35);border-radius:14px;background:linear-gradient(125deg,rgba(22,87,255,.14),rgba(104,63,190,.12));color:var(--text,#f6f3fc);box-shadow:0 4px 15px rgba(0,0,0,.08)}
+.sp-free-banner>b{display:block;font-size:14px;margin-bottom:5px}
+.sp-free-banner p{font-size:12px;line-height:1.5;margin:4px 0}
+.sp-free-banner strong,.sp-free-label{color:#16a34a;font-weight:900;letter-spacing:.25px}
+.sp-free-old{text-decoration:line-through;opacity:.65;margin-right:5px}
+.sp-free-banner button{border:1px solid var(--blue,#1657ff);background:var(--blue,#1657ff);color:white;border-radius:9px;padding:6px 11px;font-size:12px;font-weight:700;margin-top:7px;cursor:pointer}
+.sp-free-proof input{display:block;padding:8px 0}
+.sp-free-fee .sp-free-label{font-size:17px}
+@media(min-width:800px){.sp-free-banner{max-width:980px;margin:14px auto}}
 </style>
 <link rel="stylesheet" href="/sphere-dark-theme.css?v=2">
 <link rel="stylesheet" href="/sphere-desktop.css?v=3">
@@ -2565,6 +2576,7 @@ function toAppUser(profile){
     verified: !!profile.is_verified,
     verificationNote: profile.verification_note || '',
     proofVideo: profile.proof_video_url || '', proofVideoAt: profile.proof_video_at || null,
+    proofScreenshot: profile.proof_screenshot_path || '', proofScreenshotAt: profile.proof_screenshot_at || null,
     bio: profile.bio || '',
     availability: profile.availability || 'available',
     verificationStatus: profile.verification_status || (profile.is_verified ? 'approved' : ((profile.categories && profile.categories.length) ? 'pending' : 'not_applied')),
@@ -2655,6 +2667,7 @@ async function paidWorks(uid){
   return count || 0;
 }
 function verifyFeeCard(u){
+  if(isFreeEditor()) return freeVerificationFeeCard(u);
   const wa = `https://wa.me/91${FEE_PHONE}?text=${encodeURIComponent('Hi Sphere team, I paid the ₹' + VERIFY_FEE + ' verification fee. My Sphere account: ' + ((u && u.email) || '') + '. Screenshot attached.')}`;
   const upi = `upi://pay?pa=${encodeURIComponent(FEE_UPI)}&pn=${encodeURIComponent(FEE_UPI_NAME)}&am=${VERIFY_FEE}&cu=INR&tn=${encodeURIComponent('Sphere verification')}`;
   const mobile = /android|iphone|ipad/i.test(navigator.userAgent);
@@ -2685,6 +2698,100 @@ function pickChips(id, options, selected){
 function pickedValues(id){
   return Array.from(document.querySelectorAll('#' + id + ' .pick-chip.on')).map(el => el.dataset.v);
 }
+
+/* ============ FIRST 50 EDITORS: VERIFIED FREE PROMO ============ */
+let FREE_EDITOR_OFFER = null, FREE_EDITOR_OFFER_USER = '';
+async function loadFreeEditorOffer(){
+  const u = getCurrentUser();
+  if(!u || u.baseRole !== 'editor') { FREE_EDITOR_OFFER = null; FREE_EDITOR_OFFER_USER=''; return null; }
+  if(FREE_EDITOR_OFFER_USER !== u.id){ FREE_EDITOR_OFFER=null; FREE_EDITOR_OFFER_USER=u.id; }
+  try{
+    const {data,error}=await sb.rpc('sp_editor_offer_status');
+    if(error) throw error;
+    if(getCurrentUser()?.id === u.id) FREE_EDITOR_OFFER = data || null;
+  }catch(err){ console.warn('Editor offer status unavailable:',err); FREE_EDITOR_OFFER=null; }
+  return FREE_EDITOR_OFFER;
+}
+function isFreeEditor(){return !!(FREE_EDITOR_OFFER && FREE_EDITOR_OFFER.is_editor && FREE_EDITOR_OFFER.is_free && FREE_EDITOR_OFFER_USER === getCurrentUser()?.id);}
+function rankEnding(n){
+  n=Number(n||0);
+  return n%100>=11&&n%100<=13?'th':n%10===1?'st':n%10===2?'nd':n%10===3?'rd':'th';
+}
+function freeEditorBanner(u){
+  const o=FREE_EDITOR_OFFER;
+  if(!u || !o || !o.show_banner || !isFreeEditor() || u.verified) return '';
+  const n=Number(o.editor_rank || 0);
+  return `<div class="sp-free-banner" role="status">
+    <b>🎉 First 50 Editors — FREE Verification</b>
+    <p><span class="sp-free-old">₹29</span> <strong>FREE</strong> · Just send your Sphere promo video and editing-timeline screenshot.</p>
+    <p><b>You are the ${n}${rankEnding(n)} editor!</b> · ${Math.max(0,Number(o.remaining)||0)} slots remaining</p>
+    <button type="button" onclick="nav('verificationStatus')">Submit your proof →</button>
+  </div>`;
+}
+async function freeEditorClaim(){
+  if(!isFreeEditor()) return;
+  const {error}=await sb.rpc('sp_claim_free_verification');
+  if(error) console.warn('Free verification claim:',error);
+}
+function freeProofScreenshotCard(u){
+  if(!isFreeEditor()) return '';
+  return `<div class="card sp-free-proof">
+    <b>${u.proofScreenshot ? '✅ Editing screenshot received' : '📸 Required: editing-timeline screenshot'}</b>
+    <p class="muted" style="font-size:12px; margin:6px 0 10px;">Send a screenshot of the editing project/timeline used for your Sphere promo video. PNG, JPG or WebP, max 4 MB. Only the verification team can review it.</p>
+    ${u.proofScreenshot ? '<p style="color:#15803d;font-size:12px;">Screenshot submitted. You may replace it below.</p>' : ''}
+    <input id="spFreeScreenshot" type="file" accept="image/png,image/jpeg,image/webp" aria-label="Upload screenshot of your Sphere promo video editing timeline" style="width:100%;max-width:100%;font-size:12px;">
+    <button class="btn btn-outline" id="spFreeScreenshotBtn" onclick="sendFreeScreenshot()" style="margin-top:8px;">Upload screenshot</button>
+  </div>`;
+}
+async function sendFreeScreenshot(){
+  if(!isFreeEditor()){alert('This free offer is only for the first 50 editor accounts.');return;}
+  const u=getCurrentUser();
+  const f=document.getElementById('spFreeScreenshot')?.files?.[0];
+  if(!f){alert('Choose a screenshot first.');return;}
+  const exts={'image/png':'png','image/jpeg':'jpg','image/webp':'webp'};
+  if(!exts[f.type] || f.size>4194304 || !f.size){alert('Choose a PNG, JPG or WebP screenshot smaller than 4 MB.');return;}
+  const b=document.getElementById('spFreeScreenshotBtn');if(b){b.disabled=true;b.textContent='Uploading…';}
+  const name=u.id+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,11)+'.'+exts[f.type];
+  let uploaded=false;
+  try{
+    const result=await sb.storage.from('sphere-editor-proof').upload(name,f,{contentType:f.type,upsert:false,cacheControl:'0'});
+    if(result.error) throw result.error;
+    uploaded=true;
+    const {error}=await sb.rpc('sp_submit_proof_screenshot',{p_path:name});
+    if(error) throw error;
+    await freeEditorClaim();
+    await fetchAndSetCurrentUser();
+    alert('Screenshot received ✅ Your ₹29 verification fee is FREE after the promo video and screenshot are submitted.');
+    nav('verificationStatus');
+  }catch(err){
+    if(uploaded) await sb.storage.from('sphere-editor-proof').remove([name]).catch(()=>{});
+    alert('Screenshot upload failed: '+(err.message||String(err)));
+  }finally{if(b){b.disabled=false;b.textContent='Upload screenshot';}}
+}
+function freeVerificationFeeCard(u){
+  const n=Number(FREE_EDITOR_OFFER?.editor_rank||0);
+  const ready=!!(u.proofVideo && u.proofScreenshot);
+  const paid=u.feeStatus==='confirmed';
+  return `<div class="card sp-free-fee" style="border:1.5px solid #15803d;">
+    <b>💳 Verification fee: <span class="sp-free-old">₹29</span> <strong class="sp-free-label">FREE</strong></b>
+    <p style="font-size:12px;margin:5px 0;">Only for the first 50 editors · You are editor #${n}</p>
+    <p class="muted" style="font-size:12px;">${paid ? 'An earlier fee payment is recorded on your account. This offer does not automatically refund past payments.' : ready ? '✅ Promo video and screenshot submitted. No payment needed. The Sphere team will review your work.' : 'No payment required. Send both your Sphere promo video and editing-timeline screenshot to request free verification.'}</p>
+    <p style="font-size:12px;margin-top:8px;">${u.proofVideo ? '✅' : '⬜'} Promo video &nbsp; ${u.proofScreenshot ? '✅' : '⬜'} Screenshot</p>
+  </div>`;
+}
+async function openEditorProofScreenshot(id){
+  const e=(PCV_LIST||[]).find(x=>x.id===id) || (window.__adminProofScreenshots||{})[id];
+  const path=e&&(e.proof_screenshot||e.proof_screenshot_path);
+  if(!path){alert('No screenshot submitted.');return;}
+  const win=window.open('','_blank');
+  try{
+    const {data,error}=await sb.storage.from('sphere-editor-proof').createSignedUrl(path,90);
+    if(error||!data?.signedUrl)throw error||new Error('Could not open screenshot');
+    if(win)win.location.href=data.signedUrl;
+    else {const a=document.createElement('a');a.href=data.signedUrl;a.target='_blank';a.rel='noopener noreferrer';a.click();}
+  }catch(err){if(win)win.close();alert('Could not open screenshot: '+(err.message||String(err)));}
+}
+
 /* ============ ANDROID APP (Sphere APK) ============ */
 const IN_ANDROID_APP = /SphereApp\//.test(navigator.userAgent) && !!window.SphereAndroid;
 if(IN_ANDROID_APP){
@@ -5010,12 +5117,13 @@ function seIcon(name, cls=''){
 
 
 /* ============ HOME — EXACT DESIGN MATCH ============ */
-SCREENS.home = () => {
+SCREENS.home = async () => {
   const user = getCurrentUser();
   if(!user){ nav('authLanding'); return ''; }
   if(user.role !== 'admin' && !cleanIndianPhone(user.phone)){ setTimeout(() => nav('addPhone'), 0); return ''; }
+  if(user.baseRole === 'editor') await loadFreeEditorOffer();
   const page = user.role==='editor' ? editorHomeScreen(user) : clientHomeScreen(user);
-  const top = installBanner() + accountStatusBanner(user);
+  const top = installBanner() + accountStatusBanner(user) + freeEditorBanner(user);
   return page instanceof Promise ? page.then(h => top + h) : top + page;
 };
 
@@ -5768,12 +5876,14 @@ async function sendProofVideo(){
   if(btn){ btn.disabled = false; btn.textContent = 'Send promo video'; }
   if(error){ alert(/function|schema cache/i.test(error.message || '') ? 'Please try again in a minute.' : error.message); return; }
   const u = getCurrentUser(); if(u){ u.proofVideo = url; u.proofVideoAt = new Date().toISOString(); }
+  await freeEditorClaim();
   alert('Promo video sent 🎬 The Sphere team will watch it before your verification call.');
   nav('verificationStatus');
 }
-SCREENS.verificationStatus = () => {
+SCREENS.verificationStatus = async () => {
   const u = getCurrentUser();
   if(!u) return '';
+  await loadFreeEditorOffer();
   if(!u.verified && u.verificationStatus === 'rejected') return verificationRejectedScreen(u);
   if(!u.verified && u.verificationStatus === 'not_applied') return verificationNotAppliedScreen(u);
   const phone = String(u.phone || '').replace(/^\+91/, '');
@@ -5806,6 +5916,7 @@ SCREENS.verificationStatus = () => {
     </div>
 
     ${proofVideoCard(u)}
+    ${freeProofScreenshotCard(u)}
     ${verifyFeeSection(u)}
     <div class="card">
       <b>Verification progress</b>
@@ -7528,7 +7639,7 @@ function editorVerifyCard(user){
     : st === 'rejected' ? ('Reason: ' + esc(user.verificationNote || 'see details') + ' — tap to apply again')
     : !user.proofVideo ? '🎬 Make a short Sphere promo video — it is required to get verified. Tap here'
     : user.feeStatus === 'submitted' ? 'Fee submitted — Sphere is checking your payment'
-    : ('Not verified yet — you can bid on any job. Get the ✔ tick (₹' + VERIFY_FEE + ') so clients trust you more');
+    : (isFreeEditor() ? '🎉 Your first-50 editor verification is FREE — send promo video + screenshot.' : 'Not verified yet — you can bid on any job. Get the ✔ tick (₹' + VERIFY_FEE + ') so clients trust you more');
   const red = st === 'rejected' && !v;
   return `<div class="card se-photo-verify" onclick="nav('verificationStatus')" style="cursor:pointer; display:flex; align-items:center; gap:12px; ${v ? 'background:linear-gradient(135deg,#0f3fcc,#1657ff); color:#fff;' : (red ? 'border:1.5px solid #c62828;' : 'border:1.5px solid var(--blue);')}">
       <div class="mi-icon" style="${v ? 'background:rgba(255,255,255,.2); color:#fff;' : ''}">${v ? editorAsset('verified') : img('/img/editor-v6/verification.svg','🎬')}</div>
@@ -7737,6 +7848,7 @@ function verifyFeeSection(u){
 }
 // older UPI-only version (used when the database is not updated to 015 yet)
 function verifyFeeSectionLegacy(u){
+  if(isFreeEditor()) return freeVerificationFeeCard(u);
   if(u.feeStatus === 'confirmed'){
     return `<div class="card" style="border:1.5px solid #15803d;"><b style="color:#15803d;">💳 Verification fee received ✅</b>
       <p class="muted" style="font-size:12px; margin-top:4px;">Our team will call you for the verification.</p></div>`;
@@ -7780,6 +7892,7 @@ function verificationRejectedScreen(u){
   </div>`;
 }
 function verificationNotAppliedScreen(u){
+  if(isFreeEditor()) return `<div class="vs-hero"><h1>Get the ✔ Verified tick</h1><p>First 50 editors — free verification!</p></div><div class="screen">${freeVerificationFeeCard(u)}<p class="muted" style="font-size:13px;">Fill your editor application, then send a Sphere promo video and editing-timeline screenshot. No ₹29 payment required.</p><button class="btn btn-primary" onclick="nav('editorDetails')">Fill your editor application</button></div>`;
   return `
   <div class="vs-hero"><div class="vs-ic">${UI_ICONS.check}</div><h1>Get the ✔ Verified tick</h1><p>Verified editors get more trust and more work</p></div>
   <div class="screen">
@@ -7819,7 +7932,7 @@ async function editorPublicExtra(e){
 function adminVerifyBlock(e){
   const st = e.verification_status || 'pending';
   const fee = e.verification_fee_status || 'unpaid';
-  const feeLine = fee === 'confirmed' ? '<span style="color:#15803d;">✅ Fee received</span>'
+  const feeLine = fee === 'waived' ? '<span style="color:#15803d;">🎉 First 50 · ₹29 FREE</span>' : fee === 'confirmed' ? '<span style="color:#15803d;">✅ Fee received</span>'
     : fee === 'submitted' ? `<span style="color:#b45309;">⏳ Editor says paid · UTR <b>${esc(e.verification_fee_ref || '-')}</b>${e.verification_fee_at ? ' · ' + fmtDate(e.verification_fee_at) : ''}</span>`
     : `<span style="color:#e67e22;">💳 Not paid yet — or check the screenshot on WhatsApp (${FEE_PHONE})</span>`;
   return `<p style="font-size:12px; margin-bottom:6px;">${verifyStateChip(st)} &nbsp; ${feeLine}</p>
@@ -10316,6 +10429,7 @@ function pcvDetailHtml(e){
     </div>
     <div class="pcv-grid">
       <div>
+        ${e.free_offer_rank ? `<div class="pcv-box"><b>🎉 First 50 editor #${e.free_offer_rank} · FREE</b><p style="font-size:12px;margin-top:6px;">${e.proof_screenshot ? '✅ Screenshot received' : '📸 Screenshot not submitted'} ${e.proof_screenshot ? `<button class="btn-sm" onclick="openEditorProofScreenshot('${esc(e.id)}')">View screenshot</button>` : ''}</p></div>` : ''}
         <div class="pcv-box"><b>🎬 Sphere promo video</b> ${e.proof_video ? `<span class="muted" style="font-size:12px;">sent ${esc(fmtDT(e.proof_at))}</span>` : ''}
           ${e.proof_video ? pcvVideo(e.proof_video, 'Promo video') + `<p class="muted" style="font-size:12px; margin-top:6px;">On the call, ask them to share their screen and show this video's project/timeline — a middleman can't do that.</p>`
             : `<p style="color:#b45309; font-size:13px; margin-top:6px;">Not sent yet — verify only after they send it.</p>`}</div>
@@ -10550,6 +10664,7 @@ async function adminDisputesTab(){
 // ---- 4) Verification
 async function adminVerificationTab(){
   const list = await adminRpc('sp_admin_verifications').catch(() => null);
+  if(list) window.__adminProofScreenshots=Object.fromEntries(list.map(e=>[e.id,e]));
   if(!list) return `<div class="card" style="border:1.5px solid #e67e22;"><p style="font-size:12px;">⚙️ This part needs the latest database update (<b>014_admin_panel.sql</b>).</p></div><button class="btn btn-outline" onclick="nav('adminClassic')">Open classic tools (old verification list)</button>`;
   const arr = v => Array.isArray(v) ? v.join(', ') : (v || '');
   const ids = (list || []).map(e => e.id);
@@ -10567,6 +10682,7 @@ async function adminVerificationTab(){
       <b>${esc(e.name || 'Editor')}</b> ${verifyStateChip(e.status)}
       <p style="font-size:12px; margin:4px 0;">📞 ${e.phone ? `<a href="tel:${esc(e.phone)}">${esc(e.phone)}</a>` : '-'} · ${esc(e.email || '')}</p>
       ${adminVerifyBlock({ verification_status: e.status, verification_fee_status: e.fee_status, verification_fee_ref: e.fee_ref, verification_fee_at: e.fee_at, verification_note: e.note })}
+      ${e.free_offer_rank ? `<p style="font-size:12px;">🎉 First 50 editor #${e.free_offer_rank} · ₹29 FREE</p><p style="font-size:12px;">${e.proof_screenshot ? `<button class="btn-sm" onclick="openEditorProofScreenshot('${esc(e.id)}')">📸 View screenshot</button>` : '📸 Screenshot missing'}</p>` : ''}
       ${reviewHistoryHtml(revOf(e.id))}
       <div class="kv"><span>Categories</span><b>${esc(arr(e.categories)) || '-'}</b></div>
       <div class="kv"><span>Languages</span><b>${esc(arr(e.languages)) || '-'}</b></div>
@@ -10813,6 +10929,7 @@ async function submitFeeUtr(kind){
 async function fillVerifyFee(u){
   const box = document.getElementById('vfeeBox');
   if(!box) return;
+  if(isFreeEditor()){box.innerHTML=freeVerificationFeeCard(u);return;}
   const m = await loadMyMoney();
   if(!m){ box.innerHTML = verifyFeeSectionLegacy(u); return; }
   const price = Number(((m.config || {}).verification || {}).price) || VERIFY_FEE;
