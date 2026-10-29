@@ -47,9 +47,9 @@ import coil.compose.AsyncImage
 import com.syahifilms.sphere.data.*
 
 // ---------------- theme ----------------
-val Blue = Color(0xFF7934E8)
-val BlueSoft = Color(0xFFF8E9FA)
-val Bg = Color(0xFFFFE8F2)
+val Blue = Color(0xFF1657FF)
+val BlueSoft = Color(0xFFE9F0FF)
+val Bg = Color(0xFFE8EDF9)
 val Muted = Color(0xFF6B7280)
 val Danger = Color(0xFFC62828)
 val Success = Color(0xFF2E7D32)
@@ -60,7 +60,7 @@ fun SphereTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = lightColorScheme(
             primary = Blue, onPrimary = Color.White, secondary = Blue,
-            background = Bg, surface = Color(0xFFFEF9FC), surfaceVariant = BlueSoft,
+            background = Bg, surface = Color.White, surfaceVariant = BlueSoft,
             onSurface = WebsiteColors.Plum, onBackground = WebsiteColors.Plum
         ),
         content = content
@@ -161,7 +161,7 @@ fun SphereTopBar(title: String, onBack: (() -> Unit)? = null, actions: @Composab
             }
         },
         actions = actions,
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFF6D5F2))
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFE8EDF9))
     )
 }
 
@@ -205,7 +205,7 @@ fun MainBottomBar(nav: NavHostController, current: String) {
         modifier = Modifier.padding(horizontal=12.dp, vertical=5.dp)
             .clip(RoundedCornerShape(30.dp))
             .border(1.dp, Color.White, RoundedCornerShape(30.dp)),
-        containerColor = Color(0xFFFDF9FF),
+        containerColor = Color.White,
         tonalElevation = 5.dp
     ) {
         items.forEach { (route, label, icon) ->
