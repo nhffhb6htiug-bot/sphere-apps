@@ -40,7 +40,7 @@ function createWorker() {
     fetch,
     caches: {
       open: async () => cache,
-      keys: async () => ['sphere-static-v5'],
+      keys: async () => ['sphere-static-v6'],
       delete: async () => true,
       match: async (request, options) => cache.match(request, options),
     },
@@ -99,6 +99,27 @@ test('hashed Sphere image is fetched only once after warm cache, without changin
   assert.equal((await sw.dispatch(url)).handled, true);
   assert.equal(sw.calls().length, 1);
   assert.ok(sw.cacheKeys().some(k => k.endsWith(url)));
+});
+
+test('concurrent requests for one public image share one fetch and cache a reusable response', async () => {
+  const sw = createWorker();
+  const image = '/img/0cbdc280b5c44e61.webp';
+  const results = await Promise.all([sw.dispatch(image), sw.dispatch(image), sw.dispatch(image)]);
+  assert.ok(results.every(x => x.handled));
+  assert.equal(sw.calls().length, 1, 'parallel callers must not make duplicate network requests');
+  assert.equal(sw.lastResponse()?.ok, true);
+  await sw.dispatch(image);
+  assert.equal(sw.calls().length, 1, 'later calls reuse the public image cache');
+});
+
+test('a failed offline image request leaves no stuck in-flight entry', async () => {
+  const sw = createWorker();
+  const image = '/img/0cbdc280b5c44e61.webp';
+  sw.offline(true);
+  await assert.rejects(sw.dispatch(image));
+  sw.offline(false);
+  await sw.dispatch(image);
+  assert.equal(sw.calls().length, 2, 'the recovered request retries after the prior failure');
 });
 
 test('offline navigation uses cached HTML shell; no private query is stored as cache key', async () => {
