@@ -93,9 +93,26 @@ private fun WebsiteSearchBar(nav: NavHostController, editor: Boolean = false) {
 }
 
 @Composable
+private fun HomeKpi(label: String, value: String, modifier: Modifier = Modifier) {
+    GlassPanel(modifier) {
+        Text(value, color = WebsiteColors.Plum, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+        Text(label, color = WebsiteColors.Muted, fontSize = 10.sp, maxLines = 2)
+    }
+}
+
+@Composable
 private fun ClientHome(nav: NavHostController, me: Profile) {
-    WebsitePremium { nav.go("premium") }
+    val myJobs = load(me.id) { Repo.myClientJobs() }
     WebsiteWelcome(me)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        HomeKpi("My projects", (myJobs.data?.size ?: 0).toString(), Modifier.weight(1f))
+        HomeKpi("In progress", (myJobs.data?.count { it.status in listOf("in-progress", "negotiating", "payment-pending") } ?: 0).toString(), Modifier.weight(1f))
+        HomeKpi("Completed", (myJobs.data?.count { it.status in listOf("approved", "closed") } ?: 0).toString(), Modifier.weight(1f))
+    }
+    Spacer(Modifier.height(8.dp))
+    WebsitePremium { nav.go("premium") }
+    /* legacy welcome no longer needed */
+    // WebsiteWelcome(me)
     GlassPanel(Modifier.fillMaxWidth(), onClick = { nav.go("postJob") }) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Get started",fontWeight=FontWeight.ExtraBold,fontSize=19.sp,
@@ -126,6 +143,8 @@ private fun ClientHome(nav: NavHostController, me: Profile) {
 @Composable
 private fun EditorHome(nav: NavHostController, me: Profile) {
     val promo = load(me.id) { fetchNativeEditorOffer() }
+    val open = load(me.id) { Repo.openJobs() }
+    val mine = load(me.id) { Repo.myEditorJobs().filter { it.status !in listOf("closed", "refunded") } }
     NativeEditorOfferBanner(if (!me.verified) promo.data else null, nav)
     WebsiteWelcome(me, "Find work and manage your creative projects")
     WebsiteSearchBar(nav, editor = true)
@@ -150,6 +169,11 @@ private fun EditorHome(nav: NavHostController, me: Profile) {
                 }
             }
         }
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        HomeKpi("Available work", (open.data?.size ?: 0).toString(), Modifier.weight(1f))
+        HomeKpi("My projects", (mine.data?.size ?: 0).toString(), Modifier.weight(1f))
+        HomeKpi("Verified", if (me.verified) "✔" else "Pending", Modifier.weight(1f))
     }
     EditorShortcutGrid(nav)
     WebsiteSectionTitle("Explore Categories",onAll={nav.go("jobs")})
@@ -183,14 +207,12 @@ private fun EditorHome(nav: NavHostController, me: Profile) {
         }
     }
     WebsiteSectionTitle("Available Work",onAll={nav.go("jobs")})
-    val open = load(Unit) { Repo.openJobs() }
     when {
         open.error != null -> ErrorBox(open.error) { open.reload() }
         open.data == null -> Loading()
         else -> WorkList(me, open.data) { j -> nav.go("project/${j.id}") }
     }
     WebsiteSectionTitle("Your Projects",onAll={nav.go("jobs")})
-    val mine = load(Unit) { Repo.myEditorJobs().filter { it.status !in listOf("closed","refunded") } }
     when {
         mine.error != null -> ErrorBox(mine.error) { mine.reload() }
         mine.data == null -> Loading()
