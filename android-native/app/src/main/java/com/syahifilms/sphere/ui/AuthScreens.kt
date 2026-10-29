@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -295,11 +296,22 @@ fun VerificationScreen(nav: NavHostController) {
             PrimaryButton("Find work") { nav.resetTo("home") }
             return@Page
         }
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(25.dp))
+            .background(Brush.horizontalGradient(listOf(Color(0xFF0F3FCC), Color(0xFF1657FF))))
+            .padding(horizontal = 22.dp, vertical = 25.dp),
+            horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("✅", fontSize = 30.sp)
+            Spacer(Modifier.height(7.dp))
+            Text("Application Submitted", fontWeight = FontWeight.ExtraBold,
+                color = Color.White, fontSize = 22.sp)
+            Text("Your editor profile is under review.", color = Color.White.copy(alpha = 0.90f),
+                fontSize = 13.sp, textAlign = TextAlign.Center)
+        }
         CardBox(border = Blue) {
-            Text("Application submitted ✅", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text("Our verification team will call you on", color = Muted, fontSize = 13.sp)
             Spacer(Modifier.height(6.dp))
-            MutedText("Our verification team will call you on")
-            Text(me.phone.ifBlank { "your number" }, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+            Text(me.phone.ifBlank { "your number" }, fontSize = 22.sp,
+                color = WebsiteColors.Plum, fontWeight = FontWeight.ExtraBold)
             MutedText("Usually within 24–48 hours · 10 AM – 7 PM", 12)
         }
         NativeEditorProofPanel(offer.data) { offer.reload() }
