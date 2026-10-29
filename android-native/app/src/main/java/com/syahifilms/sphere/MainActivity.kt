@@ -1,6 +1,7 @@
 package com.syahifilms.sphere
 
 import android.annotation.SuppressLint
+import android.webkit.JavascriptInterface
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
@@ -22,6 +23,24 @@ import androidx.activity.result.contract.ActivityResultContracts
  */
 class MainActivity : ComponentActivity() {
     private lateinit var browser: WebView
+    private var pendingAuthUrl: String? = null
+    inner class SphereBridge {
+        @JavascriptInterface fun openExternal(url: String) {
+            runOnUiThread {
+                try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                catch (_: Exception) { android.widget.Toast.makeText(this@MainActivity, "Unable to open browser", android.widget.Toast.LENGTH_SHORT).show() }
+            }
+        }
+    }
+    private fun deliverAuth(url: String) {
+        if (!::browser.isInitialized) { pendingAuthUrl = url; return }
+        val quoted = org.json.JSONObject.quote(url)
+        browser.evaluateJavascript("(async()=>{try{const u=new URL($quoted);const h=new URLSearchParams(u.hash.slice(1));const q=u.searchParams;const at=h.get('access_token')||q.get('access_token');const rt=h.get('refresh_token')||q.get('refresh_token');let error;if(at&&rt){({error}=await sb.auth.setSession({access_token:at,refresh_token:rt}));}else if(q.get('code')){({error}=await sb.auth.exchangeCodeForSession(q.get('code')));}else{throw Error(q.get('error_description')||h.get('error_description')||'No authentication tokens returned');}if(error)throw error;const user=await fetchAndSetCurrentUser();if(user)nav(sphereEntryScreen(user));else{const res=await sb.auth.getUser();pendingAuthUser=res.data.user;nav('chooseRole');}}catch(e){alert('Google login failed: '+e.message)}})();", null)
+    }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        intent.data?.takeIf { it.scheme == "sphereapp" && it.host == "auth" }?.let { deliverAuth(it.toString()) }
+    }
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private val filePicker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val uris = if (result.resultCode == RESULT_OK) {
@@ -39,6 +58,7 @@ class MainActivity : ComponentActivity() {
         browser = WebView(this).apply {
             layoutParams = FrameLayout.LayoutParams(-1, -1)
             settings.javaScriptEnabled = true
+            addJavascriptInterface(SphereBridge(), "SphereAndroid")
             settings.domStorageEnabled = true
             settings.databaseEnabled = true
             settings.allowFileAccess = false
@@ -46,7 +66,7 @@ class MainActivity : ComponentActivity() {
             settings.javaScriptCanOpenWindowsAutomatically = false
             settings.setSupportMultipleWindows(false)
             settings.mediaPlaybackRequiresUserGesture = true
-            settings.userAgentString = settings.userAgentString + " SphereAndroid/2.3"
+            settings.userAgentString = settings.userAgentString + " SphereApp/2.3 SphereAndroid/2.3"
             isVerticalScrollBarEnabled = false
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
@@ -86,6 +106,7 @@ class MainActivity : ComponentActivity() {
         setContentView(browser)
         if (savedInstanceState != null) browser.restoreState(savedInstanceState)
         else browser.loadUrl("https://sphere-live.onrender.com/?source=app")
+        pendingAuthUrl?.let { url -> browser.postDelayed({ deliverAuth(url) }, 1500); pendingAuthUrl = null }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 // Let Sphere's SPA navigation handle the Android back key first.
