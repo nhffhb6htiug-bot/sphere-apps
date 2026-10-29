@@ -2404,7 +2404,7 @@ body.sphere-editor-refresh[data-sphere-screen="portfolio"] .se-page-brand img{bo
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.40-portfolio-ai',
+  appVersion: '2.22.41-editor-offer-visibility',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -2737,18 +2737,13 @@ async function loadFreeEditorOffer(){
   return FREE_EDITOR_OFFER;
 }
 function isFreeEditor(){return !!(FREE_EDITOR_OFFER && FREE_EDITOR_OFFER.is_editor && FREE_EDITOR_OFFER.is_free && FREE_EDITOR_OFFER_USER === getCurrentUser()?.id);}
-function rankEnding(n){
-  n=Number(n||0);
-  return n%100>=11&&n%100<=13?'th':n%10===1?'st':n%10===2?'nd':n%10===3?'rd':'th';
-}
 function freeEditorBanner(u){
   const o=FREE_EDITOR_OFFER;
-  if(!u || !o || !o.show_banner || !isFreeEditor() || u.verified) return '';
-  const n=Number(o.editor_rank || 0);
+  // A verified editor using Client mode must never see this editor-only promotion.
+  if(!u || u.role !== 'editor' || !o || !o.show_banner || !isFreeEditor() || u.verified) return '';
   return `<div class="sp-free-banner" role="status">
     <b>🎉 First 50 Editors — FREE Verification</b>
     <p><span class="sp-free-old">₹29</span> <strong>FREE</strong> · Just send your Sphere promo video and editing-timeline screenshot.</p>
-    <p><b>You are the ${n}${rankEnding(n)} editor!</b> · ${Math.max(0,Number(o.remaining)||0)} slots remaining</p>
     <button type="button" onclick="nav('verificationStatus')">Submit your proof →</button>
   </div>`;
 }
@@ -2793,12 +2788,11 @@ async function sendFreeScreenshot(){
   }finally{if(b){b.disabled=false;b.textContent='Upload screenshot';}}
 }
 function freeVerificationFeeCard(u){
-  const n=Number(FREE_EDITOR_OFFER?.editor_rank||0);
   const ready=!!(u.proofVideo && u.proofScreenshot);
   const paid=u.feeStatus==='confirmed';
   return `<div class="card sp-free-fee" style="border:1.5px solid #15803d;">
     <b>💳 Verification fee: <span class="sp-free-old">₹29</span> <strong class="sp-free-label">FREE</strong></b>
-    <p style="font-size:12px;margin:5px 0;">Only for the first 50 editors · You are editor #${n}</p>
+    <p style="font-size:12px;margin:5px 0;">Limited offer for eligible editor accounts</p>
     <p class="muted" style="font-size:12px;">${paid ? 'An earlier fee payment is recorded on your account. This offer does not automatically refund past payments.' : ready ? '✅ Promo video and screenshot submitted. No payment needed. The Sphere team will review your work.' : 'No payment required. Send both your Sphere promo video and editing-timeline screenshot to request free verification.'}</p>
     <p style="font-size:12px;margin-top:8px;">${u.proofVideo ? '✅' : '⬜'} Promo video &nbsp; ${u.proofScreenshot ? '✅' : '⬜'} Screenshot</p>
   </div>`;
@@ -5145,9 +5139,9 @@ SCREENS.home = async () => {
   const user = getCurrentUser();
   if(!user){ nav('authLanding'); return ''; }
   if(user.role !== 'admin' && !cleanIndianPhone(user.phone)){ setTimeout(() => nav('addPhone'), 0); return ''; }
-  if(user.baseRole === 'editor') await loadFreeEditorOffer();
+  if(user.role === 'editor') await loadFreeEditorOffer();
   const page = user.role==='editor' ? editorHomeScreen(user) : clientHomeScreen(user);
-  const top = installBanner() + accountStatusBanner(user) + freeEditorBanner(user);
+  const top = installBanner() + accountStatusBanner(user) + (user.role === 'editor' ? freeEditorBanner(user) : '');
   return page instanceof Promise ? page.then(h => top + h) : top + page;
 };
 
