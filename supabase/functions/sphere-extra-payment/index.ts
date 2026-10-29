@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
     if (isFee && x.status !== "pending") return json({ ok: false, error: "Start the payment again from the app" });
 
     const keyId = Deno.env.get("RAZORPAY_KEY_ID");
-    const secret = Deno.env.get("RAZORPAY_KEY_SECRET") ?? Deno.env.get("RAZORPAY_SECRET");
+    const secret = Deno.env.get("RAZORPAY_KEY_SECRET"); // No legacy merchant secret fallback
     if (!keyId || !secret) return json({ ok: false, error: "Online payment is not set up — use UPI" });
     // For new orders, fail closed when the client and Supabase point to different Razorpay accounts.
     if (action === "create" && expectedKeyId !== keyId)
