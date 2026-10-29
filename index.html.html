@@ -3185,11 +3185,12 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
     navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW', err));
   });
 }
+function isSphereAndroidApk(){ return /SphereApp\/|SphereAndroid\//i.test(navigator.userAgent) || !!window.SphereAndroid; }
 function isStandalone(){
   return IN_ANDROID_APP || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
 }
 function installAppItem(){
-  if(isStandalone()) return '';
+  if(isSphereAndroidApk() || isStandalone()) return '';
   return menuItem('mobile', 'Get the Sphere app', "nav('getApp')", { sub: 'iPhone and Android — opens full screen from your home screen' });
 }
 function deviceOS(){ const h = document.documentElement.classList; return h.contains('os-ios') ? 'ios' : h.contains('os-android') ? 'android' : 'other'; }
@@ -3220,7 +3221,7 @@ function getAppScreen(){
   return head + `<div class="screen" style="padding-top:0;">${cards}<p class="muted" style="font-size:12px; text-align:center;">No download size, no updates to install — new features arrive by themselves.</p></div>`;
 };
 function installBanner(){
-  if(isStandalone()) return '';
+  if(isSphereAndroidApk() || isStandalone()) return '';
   try { if(localStorage.getItem('sphere_install_hide') === '1') return ''; } catch(e){}
   return `<div class="install-banner" id="installBanner">
     <img src="/icon-192.png" alt="">
@@ -3376,7 +3377,7 @@ const SUPPORT = {
   hours: '10 AM – 7 PM (Mon–Sat)'
 };
 const POLICY_LINKS = `<div class="policy-links">
-  <a href="/terms.html" target="_blank">Terms</a>•<a href="/privacy.html" target="_blank">Privacy</a>•<a href="/refund.html" target="_blank">Refund</a>•<a href="/contact.html" target="_blank">Contact</a>•<a href="#" onclick="nav('getApp'); return false;">Get the app</a></div>`;
+  <a href="/terms.html" target="_blank">Terms</a>•<a href="/privacy.html" target="_blank">Privacy</a>•<a href="/refund.html" target="_blank">Refund</a>•<a href="/contact.html" target="_blank">Contact</a>${isSphereAndroidApk() ? '' : `•<a href="#" onclick="nav('getApp'); return false;">Get the app</a>`}</div>`;
 function supportCard(){
   const wa = `https://wa.me/${SUPPORT.whatsapp}?text=${encodeURIComponent('Hi Sphere Support, I need help with:')}`;
   return `<div class="card support-card">
