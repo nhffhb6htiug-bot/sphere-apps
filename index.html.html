@@ -7376,6 +7376,18 @@ async function removeAdmin(email){
   alert('Admin access removed.');
   nav('admin');
 }
+async function adminForceVerifyEditor(id){
+  if(!isAdminUser(getCurrentUser()))return alert('Admin only');
+  if(needPin())return;
+  const reason=prompt('Reason for force verification (min 8 characters; saved in admin audit log):','');
+  if(reason===null)return;
+  if(reason.trim().length<8)return alert('Please enter a clear reason (at least 8 characters).');
+  if(!confirm('Force verify this editor without the normal promo/proof requirements? This will grant a verified badge and be recorded in admin history.'))return;
+  const {data,error}=await sb.rpc('sp_admin_force_verify_editor',{p_editor:id,p_pin:ADMIN_PIN,p_reason:reason.trim()});
+  if(error){alert(error.message);return;}
+  alert('Editor force verified. Code: '+data);
+  nav('admin',{tab:'verification'});
+}
 async function verifyEditor(id){
   if(needPin()) return;
   const { data: code, error } = await sb.rpc('sp_verify_editor', { p_editor: id, p_category: '', p_pin: ADMIN_PIN });
@@ -11045,6 +11057,7 @@ async function adminVerificationTab(){
       ${e.sample ? `<p style="font-size:12px;">🎬 Sample: ${linkOrText(e.sample)}</p>` : ''}${e.portfolio ? `<p style="font-size:12px;">📁 Portfolio: ${linkOrText(e.portfolio)}</p>` : ''}
       <button class="btn btn-outline" style="margin-top:10px;" onclick="nav('adminEditDetails', { userId: '${e.id}' })">✏️ Edit details (from the call)</button>
       <button class="btn btn-primary" style="margin-top:8px;" onclick="verifyEditor('${e.id}')">✔ Verify after call</button>
+      <button class="btn btn-outline" style="margin-top:8px;border-color:#8b5cf6;color:#7137bd;" onclick="adminForceVerifyEditor('${e.id}')">🛡️ Force Verify (Admin Only)</button>
       ${adminVerifyActions({ id: e.id, verification_status: e.status, verification_fee_status: e.fee_status })}
       <button class="btn-sm" style="margin-top:6px;" onclick="nav('adminUser', { userId: '${e.id}' })">👤 Full profile</button>
     </div>`).join('')}
