@@ -9131,6 +9131,11 @@ SCREENS.payment = async () => {
       <p class="muted" style="font-size:12px; margin-top:4px;">${esc((pay && pay.failure_reason) || 'Please try again.')} If any amount was debited, check its status with your payment provider before retrying.</p></div>` : ''}
     <div class="card"><b>What happens next</b>
       <ol class="pay-steps muted"><li>You pay — Sphere holds the money safely</li><li>The editor starts and sends a watermarked preview</li><li>You approve the final video — then the editor is paid</li></ol></div>
+    <div class="card" role="note" style="border:1px solid rgba(93,68,184,.28);background:linear-gradient(135deg,rgba(244,239,255,.96),rgba(234,245,255,.96));border-radius:18px;padding:16px;color:#24213c;box-shadow:0 8px 24px rgba(72,51,131,.08);">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px;"><span aria-hidden="true" style="font-size:22px;">🛡️</span><b style="font-size:15px;color:#392574;">Sphere Payment Protection</b></div>
+      <p style="font-size:13px;line-height:1.6;margin:0 0 8px;">Agar aap <b>actual client</b> hain, project details aur editor confirm karne ke baad hi payment karein. Agar aap kisi aur ke behalf par <b>middleman</b> hain, toh payment se pehle original client ki permission aur project details verify karein.</p>
+      <p style="font-size:13px;line-height:1.6;margin:0;">Sphere payment records, protected project workflow aur dispute support ke through fraud aur scams ka risk kam karne mein madad karta hai. <b>100% fraud-free guarantee nahi hai.</b> Kisi ko bhi app ke bahar advance payment ya OTP/UPI PIN na dein.</p>
+    </div>
     ${razorpayReady ? `
       <button class="btn btn-primary" id="payBtn" onclick="payWithRazorpay('${job.id}')">🔒 Pay ${rupees(amount)} securely</button>
       <div class="pay-safe" style="margin-top:12px;"><span>🛡️</span><span>Card, UPI or netbanking via Razorpay. Sphere never sees your card or UPI PIN.${testMode ? ' <b>(Test mode — no real money)</b>' : ''}</span></div>`
