@@ -106,7 +106,8 @@ class MainActivity : ComponentActivity() {
         setContentView(browser)
         if (savedInstanceState != null) browser.restoreState(savedInstanceState)
         else browser.loadUrl("https://sphere-live.onrender.com/?source=app")
-        pendingAuthUrl?.let { url -> browser.postDelayed({ deliverAuth(url) }, 1500); pendingAuthUrl = null }
+        intent?.data?.takeIf { it.scheme == "sphereapp" && it.host == "auth" }?.let { pendingAuthUrl = it.toString() }
+        pendingAuthUrl?.let { url -> browser.postDelayed({ deliverAuth(url) }, 2500); pendingAuthUrl = null }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 // Let Sphere's SPA navigation handle the Android back key first.
