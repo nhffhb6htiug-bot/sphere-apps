@@ -2338,6 +2338,27 @@ body.sphere-editor-refresh[data-sphere-screen="home"] .se-photo-stat img{
 .sp-free-proof input{display:block;padding:8px 0}
 .sp-free-fee .sp-free-label{font-size:17px}
 @media(min-width:800px){.sp-free-banner{max-width:980px;margin:14px auto}}
+
+/* 2026-10-29 Sphere responsive editor directory and portfolio */
+.sp-editor-directory{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%;max-width:100%;min-width:0}
+.sp-editor-directory .sp-editor-card{box-sizing:border-box;width:100%;min-width:0;max-width:100%;overflow:hidden;padding:12px 10px;overflow-wrap:anywhere}
+.sp-editor-directory .sp-editor-card>b{display:block;font-size:clamp(13px,3.8vw,17px);line-height:1.2;overflow-wrap:anywhere}
+.sp-editor-directory .sp-editor-card .sp-pill{display:inline-flex;max-width:100%;min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.18;font-size:clamp(10px,2.7vw,12px)}
+.sp-editor-directory .sp-editor-card .avatar{margin-left:auto;margin-right:auto;max-width:100%}
+.sp-editor-directory .sp-editor-card p{overflow-wrap:anywhere}
+@media(max-width:340px){.sp-editor-directory{grid-template-columns:minmax(0,1fr)}}
+body.sphere-editor-refresh[data-sphere-screen="home"] .se-ai-entry{display:flex;align-items:center;gap:12px;width:100%;box-sizing:border-box;text-align:left;background:linear-gradient(120deg,#f2eaff,#e8f5ff);border:1px solid rgba(126,88,220,.23);border-radius:18px;padding:11px 14px;margin:0 0 17px;cursor:pointer;color:#26204b}
+.se-ai-entry img{width:43px;height:43px;flex:0 0 43px;object-fit:contain;border-radius:12px}
+.se-ai-entry>span{flex:1;min-width:0}.se-ai-entry b{font-size:14px;display:block}.se-ai-entry small{display:block;font-size:11px;color:#605f83;margin-top:2px}.se-ai-entry>svg{flex-shrink:0}
+.editor-ai-tool-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:2px 0 12px}
+.editor-ai-tool-grid button{min-width:0;white-space:normal;overflow-wrap:anywhere;padding:11px 9px;border-radius:13px;border:1px solid #e2d9fb;background:#f7f3ff;color:#3d2b70;font-size:12px;font-weight:750;text-align:left;cursor:pointer}
+.portfolio-filter-scope{min-width:0;max-width:100%}
+.portfolio-filter-chips{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;padding:2px 0 12px;margin:3px 0 8px;scrollbar-width:thin}
+.portfolio-filter-chips button{flex:0 0 auto;scroll-snap-align:start;border:1px solid #dcd4ee;border-radius:999px;background:#fff;color:#4d4169;font-size:12px;font-weight:700;padding:8px 13px;cursor:pointer}
+.portfolio-filter-chips button.on{background:#6836d7;border-color:#6836d7;color:#fff}
+.portfolio-filter-scope .pf-entry[hidden],.portfolio-filter-scope .pf-no-matches[hidden]{display:none!important}
+.portfolio-filter-scope .pf-no-matches{padding:18px 12px;text-align:center;color:#6d6480}
+body.sphere-editor-refresh[data-sphere-screen="portfolio"] .se-page-brand img{border-radius:11px;object-fit:contain}
 </style>
 <link rel="stylesheet" href="/sphere-dark-theme.css?v=2">
 <link rel="stylesheet" href="/sphere-desktop.css?v=3">
@@ -2380,7 +2401,7 @@ body.sphere-editor-refresh[data-sphere-screen="home"] .se-photo-stat img{
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.39-frontfix1',
+  appVersion: '2.22.40-portfolio-ai',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -5157,6 +5178,11 @@ async function editorHomeScreen(user){
       <button onclick="nav('portfolio')"><span class="se-photo-action-image">${img('/img/editor-v6/portfolio.svg?v=7','🎞️')}</span><b>Portfolio</b><small>Show your edits</small></button>
       <button onclick="nav('editorEarnings')"><span class="se-photo-action-image">${img('/img/editor-v6/earnings.svg?v=7','💰')}</span><b>Earnings</b><small>View payouts</small></button>
     </div>
+    <button type="button" class="se-ai-entry" onclick="nav('sphereAI')" aria-label="Open Sphere AI for editors">
+      ${img('/img/2061cbf3489f11d0.webp','🤖')}
+      <span><b>Sphere AI for Editors</b><small>Video ideas, hooks, bids, captions and client replies</small></span>
+      ${seIcon('arrow-right')}
+    </button>
     <div class="se-section-head se-categories-head"><h2>Explore Categories</h2><button onclick="nav('jobs', {tab:'available'})">See all ${seIcon('arrow-right')}</button></div>
     <div class="se-photo-categories" role="region" aria-label="Swipe left or right to explore all editor categories" tabindex="0">
       ${CATEGORIES.map(c=>`<button type="button" class="se-photo-category" data-category="${esc(c)}" onclick="setWorkFilter(this.dataset.category);document.getElementById('workList')?.scrollIntoView({behavior:'smooth',block:'start'})"><span class="se-photo-category-img">${img(CAT_ICON[c],CAT_EMOJI[c])}</span><b>${esc(c)}</b></button>`).join('')}
@@ -5276,6 +5302,20 @@ function renderAIMessages(){
   if(draftBtn) draftBtn.style.display = (isClientRole(u2) && aiHistory.some(m => m.role === 'user' && !m.failed) && !aiBusy) ? 'block' : 'none';
   setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 30);
 }
+
+function renderEditorAiShortcuts(){
+  const prompts=[
+    ['Video hooks','Give me five original video hooks for a short reel.'],
+    ['Captions','Help me write short captions for an editing portfolio.'],
+    ['Thumbnail text','Suggest strong thumbnail text ideas.'],
+    ['Bid message','Draft a professional bid for a video editing project.'],
+    ['Client reply','Help me politely reply to a client about their project.'],
+    ['Revision reply','Help me write a helpful response to a revision request.']
+  ];
+  return '<div class="editor-ai-tool-grid" aria-label="Sphere AI editor tools">' +
+    prompts.map(([label,prompt])=>'<button type="button" data-prompt="'+esc(prompt)+'" onclick="sendAI(this.dataset.prompt)">'+esc(label)+'</button>').join('') +
+    '</div>';
+}
 SCREENS.sphereAI = () => {
   if(aiBusy && Date.now() - aiBusySince > 60000) aiBusy = false;
   setTimeout(renderAIMessages, 0);
@@ -5283,6 +5323,7 @@ SCREENS.sphereAI = () => {
   <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Sphere AI ✨</h1><p>Your assistant for editing & hiring</p></div>
   <div class="screen" style="padding-top:0; padding-bottom:90px;">
     <div class="ai-chips">${aiChips()}</div>
+    ${getCurrentUser()?.role === 'editor' ? renderEditorAiShortcuts() : ''}
     <div id="aiBox"></div>
     <button class="btn btn-outline" id="aiDraftBtn" style="display:none; margin:6px 0 10px;" onclick="aiDraftJob()">📝 Turn this chat into a job post</button>
     <p class="ai-note">Sphere AI can make mistakes. Don't share passwords, OTPs or bank details.</p>
@@ -5371,7 +5412,7 @@ async function runSmartMatch(){
       <button class="btn btn-outline" onclick="nav('postJob')">+ Post Job</button>`;
     return;
   }
-  box.innerHTML = note + `<h3 style="margin:16px 0 10px;">Top matches</h3><div class="grid2">${renderEditorCards(list.slice(0, 6))}</div>`;
+  box.innerHTML = note + `<h3 style="margin:16px 0 10px;">Top matches</h3><div class="grid2 sp-editor-directory">${renderEditorCards(list.slice(0, 6))}</div>`;
 }
 
 SCREENS.savedList = async () => {
@@ -5387,7 +5428,7 @@ SCREENS.savedList = async () => {
     ${list.length===0
       ? `<p class="muted">You have not saved any editors yet. Tap <b>🤍 Save Editor</b> on an editor's profile.</p>
          <button class="btn btn-outline" style="margin-top:12px;" onclick="nav('allEditors')">Browse editors</button>`
-      : `<div class="grid2">${renderEditorCards(list)}</div>`}
+      : `<div class="grid2 sp-editor-directory">${renderEditorCards(list)}</div>`}
   </div>`;
 };
 async function toggleSaveEditor(editorId){
@@ -5411,7 +5452,7 @@ SCREENS.verifiedEditorsScreen = async () => `
   <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Verified PC</h1><p>Verified editors who edit on a PC / laptop</p></div>
   <div class="screen" style="padding-top:0;">${await (async () => {
     const pc = (await getVerifiedEditors()).filter(u => u.editDevice === 'pc' || u.editDevice === 'both');
-    return pc.length ? `<div class="grid2">${renderEditorCards(pc)}</div>` : '<div class="card cl-empty"><div class="cl-empty-ic">💻</div><b>No PC editors yet</b><p class="muted">Verified editors who edit on a PC will show here.</p></div>';
+    return pc.length ? `<div class="grid2 sp-editor-directory">${renderEditorCards(pc)}</div>` : '<div class="card cl-empty"><div class="cl-empty-ic">💻</div><b>No PC editors yet</b><p class="muted">Verified editors who edit on a PC will show here.</p></div>';
   })()}</div>`;
 
 SCREENS.vaultScreen = async () => {
@@ -5482,6 +5523,35 @@ function youtubeThumb(url){
   const m = String(url || '').match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/);
   return m ? `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg` : null;
 }
+
+/* Portfolio categories: "Other" displays legacy work without changing stored records. */
+const PORTFOLIO_OTHER='Other';
+function portfolioCategoryOf(item){
+  const value=String(item?.category||'').trim();
+  return CATEGORIES.includes(value) ? value : PORTFOLIO_OTHER;
+}
+function renderPortfolioFilters(items, extraLinks){
+  const found=new Set((items||[]).map(portfolioCategoryOf));
+  if(extraLinks)found.add(PORTFOLIO_OTHER);
+  if(!found.size)return '';
+  const opts=['All', ...CATEGORIES.filter(c=>found.has(c)), ...(found.has(PORTFOLIO_OTHER)?[PORTFOLIO_OTHER]:[])];
+  return '<div class="portfolio-filter-chips" role="group" aria-label="Portfolio categories">' +
+    opts.map(cat=>'<button type="button" data-cat="'+esc(cat)+'" class="'+(cat==='All'?'on':'')+'" aria-pressed="'+(cat==='All'?'true':'false')+'" onclick="filterPortfolioCategory(this)">'+esc(cat)+'</button>').join('')+'</div>';
+}
+function filterPortfolioCategory(button){
+  const scope=button.closest('.portfolio-filter-scope');if(!scope)return;
+  const category=button.dataset.cat;
+  scope.querySelectorAll('.portfolio-filter-chips button').forEach(b=>{
+    const active=b===button;b.classList.toggle('on',active);b.setAttribute('aria-pressed',String(active));
+  });
+  let matches=0;
+  scope.querySelectorAll('.pf-entry').forEach(item=>{
+    const show=category==='All'||item.dataset.pfCategory===category;
+    item.hidden=!show;if(show)matches++;
+  });
+  const empty=scope.querySelector('.pf-no-matches');
+  if(empty)empty.hidden=matches>0;
+}
 function renderPortfolio(e, items, editable){
   const tiles = [];
   (items || []).forEach(it => {
@@ -5490,8 +5560,8 @@ function renderPortfolio(e, items, editable){
     const inner = `${it.video_url ? '<div class="play-ic">▶</div>' : ''}<div class="pf-title">${esc(it.title)}</div>`;
     const del = editable ? `<button class="pf-del" onclick="event.preventDefault(); event.stopPropagation(); deletePortfolioItem('${it.id}', ${jsq(it.image_path || '')})">✕</button>` : '';
     tiles.push(it.video_url && /^https?:\/\//i.test(it.video_url)
-      ? `<a class="portfolio-item" href="${esc(it.video_url)}" target="_blank" rel="noopener noreferrer" style="${bg}">${del}${inner}</a>`
-      : `<div class="portfolio-item" style="${bg}" onclick="safeOpen(${jsq(img)})">${del}${inner}</div>`);
+      ? `<a class="portfolio-item pf-entry" data-pf-category="${esc(portfolioCategoryOf(it))}" href="${esc(it.video_url)}" target="_blank" rel="noopener noreferrer" style="${bg}">${del}${inner}</a>`
+      : `<div class="portfolio-item pf-entry" data-pf-category="${esc(portfolioCategoryOf(it))}" style="${bg}" onclick="safeOpen(${jsq(img)})">${del}${inner}</div>`);
   });
   const links = [];
   if(e && e.sample) links.push({ title: 'Sample Video', url: e.sample });
@@ -5499,17 +5569,17 @@ function renderPortfolio(e, items, editable){
   links.filter(l => /^https?:\/\//i.test(l.url)).forEach(l => {
     const th = youtubeThumb(l.url);
     const bg = th ? `background:#000 url('${th}') center/cover;` : 'background:linear-gradient(135deg,#0b3d91,#0e6ba8);';
-    tiles.push(`<a class="portfolio-item" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" style="${bg}">
+    tiles.push(`<a class="portfolio-item pf-entry" data-pf-category="Other" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" style="${bg}">
       <div class="play-ic">▶</div><div class="pf-title">${esc(l.title)}</div></a>`);
   });
   const head = `<div class="section-title" style="padding:0; margin-top:16px;"><h3>Portfolio</h3></div>`;
   if(tiles.length === 0) return head + `<p class="muted">No portfolio items yet.</p>`;
-  return head + `<div class="portfolio-grid" style="margin-bottom:18px;">${tiles.join('')}</div>`;
+  return head + `<div class="portfolio-filter-scope">${renderPortfolioFilters(items, links.length>0)}<div class="portfolio-grid" style="margin-bottom:18px;">${tiles.join('')}</div><p class="pf-no-matches" hidden>No work in this category yet.</p></div>`;
 }
 function renderEditorCards(list){
   if(list.length===0) return `<p class="muted">No editors yet.</p>`;
   return list.map(e=>`
-    <div class="card" onclick="openEditorProfile('${e.id}')">
+    <div class="card sp-editor-card" onclick="openEditorProfile('${e.id}')">
       ${avatarHtml(e)}
       <b>${esc(e.name)}</b> ${e.verified?'<span class="sp-pill ver" title="Verified by Sphere">✔ Verified Editor</span>':''}${proChip(e.id)}
       <p class="muted" style="font-size:12px; margin:4px 0;">${esc(e.category||'')}</p>
@@ -5537,7 +5607,7 @@ SCREENS.categoryDetail = async () => {
   const list = (await getVerifiedEditors()).filter(e=>(e.categories.length ? e.categories : [e.category]).includes(currentCategory));
   return `
   <div class="header"><button class="back-btn" onclick="nav('categories')">‹</button><h1>${esc(currentCategory)}</h1><p>Verified professionals</p></div>
-  <div class="screen" style="padding-top:0;"><div class="grid2">${renderEditorCards(list)}</div></div>`;
+  <div class="screen" style="padding-top:0;"><div class="grid2 sp-editor-directory">${renderEditorCards(list)}</div></div>`;
 };
 
 SCREENS.allEditors = async (data) => {
@@ -5552,7 +5622,7 @@ SCREENS.allEditors = async (data) => {
     <div>${CATEGORIES.map(c=>`<span class="pill" onclick="openCategory('${c}')">${c}</span>`).join('')}</div>
     <div class="search-box" style="margin-top:12px;"><span>🔍</span><input placeholder="Search editors (name, category, language)" value="${esc(q)}"${' type="search" enterkeyhint="search" autocomplete="off"'} onkeydown="if(event.key==='Enter'){ event.preventDefault(); nav('allEditors', { q: this.value }); }"></div>
     ${q ? `<p class="muted" style="font-size:12px; margin-top:8px;">${editors.length} result${editors.length === 1 ? '' : 's'} for “${esc(q)}” · <span class="link" onclick="nav('allEditors')">Clear</span></p>` : ''}
-    ${editors.length ? `<div class="grid2" style="margin-top:16px;">${renderEditorCards(editors)}</div>` : `<div class="card" style="margin-top:14px; text-align:center;"><p>No editors match “${esc(q)}”.</p><p class="muted" style="font-size:12px;">Try a category like Reels, Wedding or Vlog.</p></div>`}
+    ${editors.length ? `<div class="grid2 sp-editor-directory" style="margin-top:16px;">${renderEditorCards(editors)}</div>` : `<div class="card" style="margin-top:14px; text-align:center;"><p>No editors match “${esc(q)}”.</p><p class="muted" style="font-size:12px;">Try a category like Reels, Wedding or Vlog.</p></div>`}
     <div id="ad_editor_list"></div>
   </div>`;
 };
@@ -5611,16 +5681,16 @@ function renderEditorPortfolioList(e, items, editable){
     const image=it.image_path?mediaUrl(it.image_path):youtubeThumb(it.video_url);
     const href=(it.video_url&&/^https?:\/\//i.test(it.video_url))?it.video_url:null;
     const view=href?`window.open(${jsq(href)},'_blank','noopener,noreferrer')`:image?`safeOpen(${jsq(image)})`:'';
-    list.push(`<div class="se-portfolio-row" ${view?`role="button" tabindex="0" onclick="${view}"`:''}>
+    list.push(`<div class="se-portfolio-row pf-entry" data-pf-category="${esc(portfolioCategoryOf(it))}" ${view?`role="button" tabindex="0" onclick="${view}"`:''}>
       <span class="se-portfolio-glyph">${seIcon(it.video_url?'file-text':'image')}</span>
-      <div class="se-portfolio-info"><b>${esc(it.title||'Portfolio work')}</b><small>${it.video_url?'Video / external link':'Image work'} · ${it.created_at?fmtDate(it.created_at):'Portfolio'}</small></div>
+      <div class="se-portfolio-info"><b>${esc(it.title||'Portfolio work')}</b><small>${esc(portfolioCategoryOf(it))} · ${it.video_url?'Video / external link':'Image work'} · ${it.created_at?fmtDate(it.created_at):'Portfolio'}</small></div>
       ${editable?`<button type="button" class="se-del" aria-label="Delete ${esc(it.title||'work')}" onclick="event.stopPropagation();deletePortfolioItem('${it.id}', ${jsq(it.image_path||'')})">${seIcon('trash')}</button>`:''}
       ${view?`<span class="se-row-chevron">${seIcon('external-link')}</span>`:''}
     </div>`);
   });
-  if(e&&e.sample&&/^https?:\/\//i.test(e.sample)) list.push(`<div class="se-portfolio-row" role="button" onclick="window.open(${jsq(e.sample)},'_blank','noopener,noreferrer')"><span class="se-portfolio-glyph">${seIcon('link')}</span><div class="se-portfolio-info"><b>Sample Video</b><small>Open work sample link</small></div>${seIcon('external-link')}</div>`);
-  if(e&&e.portfolio&&/^https?:\/\//i.test(e.portfolio)) list.push(`<div class="se-portfolio-row" role="button" onclick="window.open(${jsq(e.portfolio)},'_blank','noopener,noreferrer')"><span class="se-portfolio-glyph">${seIcon('link')}</span><div class="se-portfolio-info"><b>Portfolio link</b><small>Open external portfolio</small></div>${seIcon('external-link')}</div>`);
-  return `<div class="se-section-head"><h2>My Work</h2><small>${(items||[]).length} saved</small></div><div class="se-portfolio-list">${list.join('')||'<div class="se-empty"><b>Your portfolio is empty</b><p>Add a project to show clients what you create.</p></div>'}</div>`;
+  if(e&&e.sample&&/^https?:\/\//i.test(e.sample)) list.push(`<div class="se-portfolio-row pf-entry" data-pf-category="Other" role="button" onclick="window.open(${jsq(e.sample)},'_blank','noopener,noreferrer')"><span class="se-portfolio-glyph">${seIcon('link')}</span><div class="se-portfolio-info"><b>Sample Video</b><small>Open work sample link</small></div>${seIcon('external-link')}</div>`);
+  if(e&&e.portfolio&&/^https?:\/\//i.test(e.portfolio)) list.push(`<div class="se-portfolio-row pf-entry" data-pf-category="Other" role="button" onclick="window.open(${jsq(e.portfolio)},'_blank','noopener,noreferrer')"><span class="se-portfolio-glyph">${seIcon('link')}</span><div class="se-portfolio-info"><b>Portfolio link</b><small>Open external portfolio</small></div>${seIcon('external-link')}</div>`);
+  return `<div class="se-section-head"><h2>My Work</h2><small>${(items||[]).length} saved</small></div><div class="portfolio-filter-scope">${renderPortfolioFilters(items,!!(e&&(e.sample||e.portfolio)))}<div class="se-portfolio-list">${list.join('')||'<div class="se-empty"><b>Your portfolio is empty</b><p>Add a project to show clients what you create.</p></div>'}</div><p class="pf-no-matches" hidden>No work in this category yet.</p></div>`;
 }
 
 
@@ -5658,11 +5728,12 @@ SCREENS.portfolio = async () => {
   const user=getCurrentUser();
   if(user.role!=='editor') return `<div class="header"><h1>Portfolio</h1><p>This section is for editors</p></div><div class="screen"><p class="muted">To see editors' work, open <span class="link" onclick="nav('allEditors')">All Editors</span>.</p></div>`;
   const items=await loadPortfolio(user.id);
-  return `<div class="se-page-head"><div class="se-page-brand">${img('/img/0cbdc280b5c44e61.webp','🔷')}<b>Sphere</b></div><h1>My Portfolio</h1><p>Showcase your work and attract clients</p></div>
+  return `<div class="se-page-head"><div class="se-page-brand">${img('/icon-192-v2.png','Sphere logo')}<b>Sphere</b></div><h1>My Portfolio</h1><p>Showcase your work and attract clients</p></div>
     <div class="screen se-portfolio-page">
       <details class="se-add-panel" id="seAddWork"><summary>${seIcon('upload')} Add New Work <span>(${items.length}/${MAX_PORTFOLIO_ITEMS})</span></summary>
         <div class="se-add-inner">
           <div class="field"><label>Title</label><input id="pwTitle" maxlength="80" placeholder="Travel Vlog, Brand Edit…"></div>
+          <div class="field"><label>Category</label><select id="pwCategory" required><option value="">Choose category</option>${CATEGORIES.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></div>
           <div class="field"><label>Thumbnail / Photo (upload remains supported)</label><input type="file" id="pwPhoto" accept="image/*"></div>
           <div class="field"><label>Video link (YouTube / Drive) — optional</label><input id="pwVideo" placeholder="https://youtu.be/..."></div>
           <p class="muted" style="font-size:12px;margin-bottom:12px">Portfolio cards display no thumbnails. Uploads and links work as before.</p>
@@ -5687,9 +5758,11 @@ async function loadPortfolio(editorId){
 }
 async function addPortfolioItem(){
   const title = document.getElementById('pwTitle').value.trim();
+  const category = document.getElementById('pwCategory')?.value || '';
   const file = document.getElementById('pwPhoto').files[0];
   const video = document.getElementById('pwVideo').value.trim();
   if(!title){ alert('Enter a title'); return; }
+  if(!CATEGORIES.includes(category)){ alert('Choose a portfolio category'); return; }
   if(video && !/^https?:\/\//i.test(video)){ alert('Video link must start with https://'); return; }
   if(!file && !youtubeThumb(video)){ alert('Choose a photo or add a YouTube link'); return; }
   const btn = document.getElementById('pwBtn');
@@ -5698,7 +5771,7 @@ async function addPortfolioItem(){
     const { count } = await sb.from('sp_portfolio').select('id', { count: 'exact', head: true }).eq('editor_id', currentUser.id);
     if((count || 0) >= MAX_PORTFOLIO_ITEMS) throw new Error(`Max ${MAX_PORTFOLIO_ITEMS} items. Remove an old one first.`);
     const path = file ? await uploadImage(file, 'portfolio', 1280) : null;
-    const { data: pRow, error } = await sb.from('sp_portfolio').insert({ editor_id: currentUser.id, title, image_path: path, video_url: video || null }).select('title').single();
+    const { data: pRow, error } = await sb.from('sp_portfolio').insert({ editor_id: currentUser.id, title, category, image_path: path, video_url: video || null }).select('title').single();
     if(error){ await removeMedia(path); throw error; }
     contactCheck(title, pRow && pRow.title);
     nav('portfolio');
