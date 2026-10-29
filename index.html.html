@@ -1950,6 +1950,50 @@ body:not(.pc-admin) #bottomNav.bottom-nav button .icon svg{
 .sphere-editor-app-back:focus-visible{outline:2px solid #6d37e2;outline-offset:3px}
 
 
+
+/* Earnings screen only: visible back navigation and no overlapping payout cards. */
+body[data-sphere-screen="editorEarnings"] .se-earn-head-row{
+  display:flex;align-items:center;gap:12px;min-width:0;margin-bottom:14px;
+}
+body[data-sphere-screen="editorEarnings"] .se-earn-head-row .se-page-brand{
+  margin:0;min-width:0;
+}
+body[data-sphere-screen="editorEarnings"] .se-earn-back{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  min-width:82px;min-height:44px;padding:0 12px;
+  border:1px solid rgba(190,161,230,.75);border-radius:14px;
+  background:rgba(255,255,255,.92);color:#542d9a;
+  box-shadow:0 3px 12px rgba(66,36,109,.09);
+  font:700 14px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+}
+body[data-sphere-screen="editorEarnings"] .se-earn-back span{font-size:27px;line-height:0;transform:translateY(-1px);}
+body[data-sphere-screen="editorEarnings"] .se-earn-back:focus-visible{outline:2px solid #7139e4;outline-offset:3px;}
+body[data-sphere-screen="editorEarnings"] .se-earn-page{min-width:0;max-width:100%;padding-bottom:24px;}
+body[data-sphere-screen="editorEarnings"] .se-earn-grid{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  align-items:stretch;gap:10px;margin-bottom:22px;
+}
+body[data-sphere-screen="editorEarnings"] .se-earn-grid>div{
+  min-width:0;box-sizing:border-box;overflow-wrap:anywhere;
+}
+body[data-sphere-screen="editorEarnings"] .se-earn-page>.card{
+  position:relative;clear:both;box-sizing:border-box;
+  width:100%;max-width:100%;margin:0 0 16px;
+  background:rgba(255,255,255,.94);
+}
+body[data-sphere-screen="editorEarnings"] .se-earn-page .field,
+body[data-sphere-screen="editorEarnings"] .se-earn-page .field input,
+body[data-sphere-screen="editorEarnings"] .se-earn-page .field select,
+body[data-sphere-screen="editorEarnings"] .se-earn-page .btn{
+  min-width:0;max-width:100%;box-sizing:border-box;
+}
+@media(max-width:370px){
+ body[data-sphere-screen="editorEarnings"] .se-earn-grid{gap:9px;}
+ body[data-sphere-screen="editorEarnings"] .se-earn-grid>div{padding:12px 10px;}
+ body[data-sphere-screen="editorEarnings"] .se-earn-grid strong{font-size:16px;}
+}
+
 /* SPHERE IOS EDGE SWIPE BACK v1 — Apple UI only; Android styles untouched */
 html.os-ios,html.os-ios body{overscroll-behavior-x:none;}
 html.os-ios .sphere-ios-back-cue{
@@ -2970,6 +3014,7 @@ function sphereIosRememberEnteredScreen(screen){
   }
 }
 function sphereIosFallbackScreen(){
+  if(currentScreenName==='editorEarnings') return 'profile';
   if(currentScreenName==='chatInfo') return 'chatThread';
   if(currentScreenName==='chatThread') return 'chatList';
   if(['login','signup','chooseRole','resetPassword'].includes(currentScreenName)) return 'authLanding';
@@ -3033,7 +3078,7 @@ if(document.documentElement.classList.contains('os-ios')){
     if(e.touches.length!==1) return;
     const t=e.touches[0],el=e.target;
     const x=t.clientX;
-    if(x<0 || x>76) return;
+    if(x<0 || x>92) return;
     const interactive=!!(el && el.closest && el.closest('input,textarea,select,button,a,[contenteditable],#bottomNav,.chat-bubble,.msg-quote,.nt-item,.emoji-panel,.attach-sheet,.reply-bar,.media-preview,.img-viewer,[data-no-swipe-back]'));
     // Preserve taps and clicks on controls, including the top-left Back arrow.
     if(interactive) return;
@@ -3064,7 +3109,7 @@ if(document.documentElement.classList.contains('os-ios')){
   },{passive:false});
   document.addEventListener('touchend',e=>{
     if(!swipe) return;
-    const go=swipe.active && swipe.dx>=110 && Math.abs(swipe.dy)<Math.min(44,swipe.dx*.4);
+    const go=swipe.active && swipe.dx>=80 && Math.abs(swipe.dy)<Math.min(44,swipe.dx*.4);
     if(go && e.cancelable)e.preventDefault();
     clearEdge();
     if(go)sphereIosEdgeGoBack();
@@ -5834,6 +5879,20 @@ async function spCancelWithdraw(id){
   const r=await sb.rpc('sp_editor_withdraw_cancel',{p_id:id});
   if(r.error)alert(r.error.message);else nav('editorEarnings');
 }
+/* Earnings page: return to the real previous Sphere screen, or Profile when
+   opened without in-app history (e.g. after a direct PWA launch). */
+function sphereEditorEarningsBack(){
+  if(currentScreenName!=='editorEarnings' || SP_NAV_BACK_IN_PROGRESS || NAV_PENDING)return;
+  const top=SP_NAV_TRAIL[SP_NAV_TRAIL.length-1];
+  const previous=top && top.screen==='editorEarnings' && SP_NAV_TRAIL.length>1
+    ? SP_NAV_TRAIL[SP_NAV_TRAIL.length-2] : null;
+  if(previous && previous.screen && previous.screen!=='editorEarnings'){
+    sphereGoBack();
+  }else{
+    SP_NAV_TRAIL=[];
+    nav('profile');
+  }
+}
 SCREENS.editorEarnings=async()=>{
  const u=getCurrentUser();if(!u||u.role!=='editor')return '';
  const results=await Promise.all([
@@ -5846,7 +5905,7 @@ SCREENS.editorEarnings=async()=>{
  const w=e.data,b=w.bank||{},ok=b.status==='verified',history=Array.isArray(w.history)?w.history:[];
  const entries=(pr.data||[]).map(mapJob).filter(j=>j.status!=='open');
  const extra=(xr.data||[]).filter(x=>x.kind!=='deduction'&&x.status==='pending').reduce((a,x)=>a+Number(x.amount||0),0);
- let html='<div class="se-page-head"><div class="se-page-brand">Sphere</div><h1>Earnings &amp; Withdrawals</h1><p>Track money, bank verification and payouts</p></div><div class="screen se-earn-page">';
+ let html='<div class="se-page-head se-earn-head"><div class="se-earn-head-row"><button type="button" class="se-earn-back" aria-label="Go back" onclick="sphereEditorEarningsBack()"><span aria-hidden="true">‹</span> Back</button><div class="se-page-brand">Sphere</div></div><h1>Earnings &amp; Withdrawals</h1><p>Track money, bank verification and payouts</p></div><div class="screen se-earn-page">';
  html+='<div class="se-earn-hero"><small>Total earned (approved projects)</small><strong>'+rupees(w.total_earned||0)+'</strong><span>Based on actual Sphere project records</span></div>';
  html+='<div class="se-earn-grid"><div><small>Available to request</small><strong>'+rupees(w.available||0)+'</strong></div><div><small>Pending work</small><strong>'+rupees(w.pending_work||0)+'</strong></div><div><small>Requested / processing</small><strong>'+rupees(w.requested||0)+'</strong></div><div><small>Released / paid</small><strong>'+rupees(w.paid_or_released||0)+'</strong></div></div>';
 
