@@ -28,17 +28,23 @@ Daemon will be stopped at the end of the build
 > Task :app:processDebugMainManifest
 > Task :app:processDebugManifest
 > Task :app:javaPreCompileDebug
+> Task :app:processDebugManifestForPackage
 > Task :app:mergeDebugShaders
 > Task :app:compileDebugShaders NO-SOURCE
 > Task :app:generateDebugAssets UP-TO-DATE
 > Task :app:mergeDebugAssets
-> Task :app:processDebugManifestForPackage
-> Task :app:desugarDebugFileDependencies
 > Task :app:compressDebugAssets
+> Task :app:desugarDebugFileDependencies
 > Task :app:processDebugResources
 > Task :app:checkDebugDuplicateClasses
 > Task :app:compileDebugKotlin
 > Task :app:mergeExtDexDebug
+
+> Task :app:compileDebugKotlin
+w: file:///home/runner/work/sphere-apps/sphere-apps/android-native/app/src/main/java/com/syahifilms/sphere/MainActivity.kt:37:16 'var statusBarColor: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/sphere-apps/sphere-apps/android-native/app/src/main/java/com/syahifilms/sphere/MainActivity.kt:38:16 'var navigationBarColor: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/sphere-apps/sphere-apps/android-native/app/src/main/java/com/syahifilms/sphere/MainActivity.kt:43:22 'var databaseEnabled: Boolean' is deprecated. Deprecated in Java.
+
 > Task :app:compileDebugJavaWithJavac NO-SOURCE
 > Task :app:dexBuilderDebug
 > Task :app:mergeDebugGlobalSynthetics
@@ -59,5 +65,5 @@ Unable to strip the following libraries, packaging them as they are: libandroidx
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 3m 15s
+BUILD SUCCESSFUL in 3m 29s
 35 actionable tasks: 35 executed
