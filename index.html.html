@@ -2346,7 +2346,10 @@ body.sphere-editor-refresh[data-sphere-screen="home"] .se-photo-stat img{
 .sp-editor-directory .sp-editor-card .sp-pill{display:inline-flex;max-width:100%;min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.18;font-size:clamp(10px,2.7vw,12px)}
 .sp-editor-directory .sp-editor-card .avatar{margin-left:auto;margin-right:auto;max-width:100%}
 .sp-editor-directory .sp-editor-card p{overflow-wrap:anywhere}
-@media(max-width:340px){.sp-editor-directory{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:480px){.sp-editor-directory{grid-template-columns:minmax(0,1fr)}}
+#verifiedPcList > .sp-editor-card[hidden],.sp-verified-pc-empty[hidden]{display:none!important}
+.sp-verified-pc-scope{width:100%;min-width:0;max-width:100%;box-sizing:border-box;overflow-x:clip}
+.sp-verified-pc-empty{text-align:center;padding:22px 12px;color:#6b6383;font-size:13px}
 body.sphere-editor-refresh[data-sphere-screen="home"] .se-ai-entry{display:flex;align-items:center;gap:12px;width:100%;box-sizing:border-box;text-align:left;background:linear-gradient(120deg,#f2eaff,#e8f5ff);border:1px solid rgba(126,88,220,.23);border-radius:18px;padding:11px 14px;margin:0 0 17px;cursor:pointer;color:#26204b}
 .se-ai-entry img{width:43px;height:43px;flex:0 0 43px;object-fit:contain;border-radius:12px}
 .se-ai-entry>span{flex:1;min-width:0}.se-ai-entry b{font-size:14px;display:block}.se-ai-entry small{display:block;font-size:11px;color:#605f83;margin-top:2px}.se-ai-entry>svg{flex-shrink:0}
@@ -5448,12 +5451,34 @@ async function toggleSaveEditor(editorId){
   }
 }
 
-SCREENS.verifiedEditorsScreen = async () => `
-  <div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Verified PC</h1><p>Verified editors who edit on a PC / laptop</p></div>
-  <div class="screen" style="padding-top:0;">${await (async () => {
-    const pc = (await getVerifiedEditors()).filter(u => u.editDevice === 'pc' || u.editDevice === 'both');
-    return pc.length ? `<div class="grid2 sp-editor-directory">${renderEditorCards(pc)}</div>` : '<div class="card cl-empty"><div class="cl-empty-ic">💻</div><b>No PC editors yet</b><p class="muted">Verified editors who edit on a PC will show here.</p></div>';
-  })()}</div>`;
+function filterVerifiedPc(button){
+  const scope=button.closest('.sp-verified-pc-scope');if(!scope)return;
+  const cat=button.dataset.cat;
+  scope.querySelectorAll('.portfolio-filter-chips button').forEach(b=>{
+    const active=b===button;
+    b.classList.toggle('on',active);
+    b.setAttribute('aria-pressed',String(active));
+  });
+  let matches=0;
+  scope.querySelectorAll('#verifiedPcList > .sp-editor-card').forEach(card=>{
+    const cats=(card.dataset.editorCategories||'').split('|');
+    const show=cat==='All'||cats.includes(cat);
+    card.hidden=!show;
+    if(show)matches++;
+  });
+  const empty=scope.querySelector('.sp-verified-pc-empty');
+  if(empty)empty.hidden=matches>0;
+}
+SCREENS.verifiedEditorsScreen = async () => {
+  const pc=(await getVerifiedEditors()).filter(u=>u.editDevice==='pc'||u.editDevice==='both');
+  const filters='<div class="portfolio-filter-chips" role="group" aria-label="Verified PC editor categories">'+
+    ['All',...CATEGORIES].map((cat,i)=>'<button type="button" data-cat="'+esc(cat)+'" class="'+(i===0?'on':'')+'" aria-pressed="'+(i===0?'true':'false')+'" onclick="filterVerifiedPc(this)">'+esc(cat)+'</button>').join('')+
+    '</div>';
+  return `<div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Verified PC</h1><p>Verified editors who edit on a PC / laptop</p></div>
+    <div class="screen sp-verified-pc-scope" style="padding-top:0;">${pc.length
+      ? `${filters}<div class="grid2 sp-editor-directory" id="verifiedPcList">${renderEditorCards(pc)}</div><div class="sp-verified-pc-empty" hidden>No verified PC editors in this category. Try another category.</div>`
+      : '<div class="card cl-empty"><div class="cl-empty-ic">💻</div><b>No PC editors yet</b><p class="muted">Verified editors who edit on a PC will show here.</p></div>'}</div>`;
+};
 
 SCREENS.vaultScreen = async () => {
   const user = getCurrentUser();
@@ -5579,7 +5604,7 @@ function renderPortfolio(e, items, editable){
 function renderEditorCards(list){
   if(list.length===0) return `<p class="muted">No editors yet.</p>`;
   return list.map(e=>`
-    <div class="card sp-editor-card" onclick="openEditorProfile('${e.id}')">
+    <div class="card sp-editor-card" data-editor-categories="${esc((Array.isArray(e.categories)&&e.categories.length ? e.categories : [e.category]).filter(Boolean).join('|'))}" onclick="openEditorProfile('${e.id}')">
       ${avatarHtml(e)}
       <b>${esc(e.name)}</b> ${e.verified?'<span class="sp-pill ver" title="Verified by Sphere">✔ Verified Editor</span>':''}${proChip(e.id)}
       <p class="muted" style="font-size:12px; margin:4px 0;">${esc(e.category||'')}</p>
