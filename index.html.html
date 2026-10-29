@@ -2340,13 +2340,55 @@ body.sphere-editor-refresh[data-sphere-screen="home"] .se-photo-stat img{
 @media(min-width:800px){.sp-free-banner{max-width:980px;margin:14px auto}}
 
 /* 2026-10-29 Sphere responsive editor directory and portfolio */
-.sp-editor-directory{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%;max-width:100%;min-width:0}
-.sp-editor-directory .sp-editor-card{box-sizing:border-box;width:100%;min-width:0;max-width:100%;overflow:hidden;padding:12px 10px;overflow-wrap:anywhere}
-.sp-editor-directory .sp-editor-card>b{display:block;font-size:clamp(13px,3.8vw,17px);line-height:1.2;overflow-wrap:anywhere}
-.sp-editor-directory .sp-editor-card .sp-pill{display:inline-flex;max-width:100%;min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.18;font-size:clamp(10px,2.7vw,12px)}
-.sp-editor-directory .sp-editor-card .avatar{margin-left:auto;margin-right:auto;max-width:100%}
-.sp-editor-directory .sp-editor-card p{overflow-wrap:anywhere}
-@media(max-width:480px){.sp-editor-directory{grid-template-columns:minmax(0,1fr)}}
+/* Narrow screens: always keep a genuine, minmax(0,1fr) two-column grid.
+   No fixed-width cards: text/badges wrap inside, never beyond the viewport. */
+.sp-editor-directory{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:clamp(6px,2vw,12px);
+  width:100%;max-width:100%;min-width:0;
+  box-sizing:border-box;
+  align-items:stretch;
+}
+.sp-editor-directory .sp-editor-card{
+  box-sizing:border-box;display:flex;flex-direction:column;align-items:center;
+  text-align:center;width:100%;min-width:0;max-width:100%;height:100%;
+  margin:0;padding:12px 8px;overflow:hidden;overflow-wrap:anywhere;
+}
+.sp-editor-directory .sp-editor-card>b{
+  display:block;width:100%;max-width:100%;min-width:0;
+  font-size:clamp(12px,3.6vw,16px);line-height:1.24;overflow-wrap:anywhere;
+  margin-bottom:5px;
+}
+.sp-editor-directory .sp-editor-card .sp-pill{
+  box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;
+  max-width:100%;min-width:0;margin:0 0 4px;padding:4px 7px;
+  white-space:normal;overflow-wrap:anywhere;text-align:center;
+  line-height:1.22;font-size:clamp(9px,2.6vw,11px);
+}
+.sp-editor-directory .sp-editor-card .avatar{
+  width:52px;height:52px;flex:0 0 52px;
+  max-width:100%;margin:0 auto 10px;
+}
+.sp-editor-directory .sp-editor-card p{
+  width:100%;min-width:0;max-width:100%;margin:5px 0 0!important;
+  overflow-wrap:anywhere;word-break:normal;
+  font-size:clamp(10px,2.8vw,13px)!important;line-height:1.35;
+}
+.sp-editor-directory .sp-editor-card .sp-editor-price{
+  font-weight:800;color:var(--blue);margin-top:auto!important;
+  padding-top:10px;font-size:clamp(13px,3.5vw,17px)!important;
+}
+@media(max-width:480px){
+ .sp-editor-directory{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .sp-editor-directory .sp-editor-card{padding:10px 6px;border-radius:16px}
+ .sp-editor-directory .sp-editor-card .avatar{width:48px;height:48px;flex-basis:48px}
+}
+@media(max-width:319px){
+ .sp-editor-directory{gap:6px}
+ .sp-editor-directory .sp-editor-card{padding:8px 4px}
+ .sp-editor-directory .sp-editor-card .avatar{width:42px;height:42px;flex-basis:42px}
+}
 #verifiedPcList > .sp-editor-card[hidden],.sp-verified-pc-empty[hidden]{display:none!important}
 .sp-verified-pc-scope{width:100%;min-width:0;max-width:100%;box-sizing:border-box;overflow-x:clip}
 .sp-verified-pc-empty{text-align:center;padding:22px 12px;color:#6b6383;font-size:13px}
@@ -2404,7 +2446,7 @@ body.sphere-editor-refresh[data-sphere-screen="portfolio"] .se-page-brand img{bo
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.41-editor-offer-visibility',
+  appVersion: '2.22.42-editor-grid-two-column',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -5603,7 +5645,7 @@ function renderEditorCards(list){
       <b>${esc(e.name)}</b> ${e.verified?'<span class="sp-pill ver" title="Verified by Sphere">✔ Verified Editor</span>':''}${proChip(e.id)}
       <p class="muted" style="font-size:12px; margin:4px 0;">${esc(e.category||'')}</p>
       <p class="muted" style="font-size:12px;">${e.experience||0} Yrs Exp • ⭐ ${e.rating||0}</p>
-      <p style="font-weight:800; color:var(--blue); margin-top:6px;">₹${esc(e.price||'-')} /video</p>
+      <p class="sp-editor-price">₹${esc(e.price||'-')} /video</p>
     </div>`).join('');
 }
 
