@@ -1967,6 +1967,7 @@ body[data-sphere-screen="editorEarnings"] .se-earn-back{
   font:700 14px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
   cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
 }
+html.sphere-dark body[data-sphere-screen="editorEarnings"] .se-earn-back{background:var(--card);border-color:var(--border);color:var(--text);}
 body[data-sphere-screen="editorEarnings"] .se-earn-back span{font-size:27px;line-height:0;transform:translateY(-1px);}
 body[data-sphere-screen="editorEarnings"] .se-earn-back:focus-visible{outline:2px solid #7139e4;outline-offset:3px;}
 body[data-sphere-screen="editorEarnings"] .se-earn-page{min-width:0;max-width:100%;padding-bottom:24px;}
@@ -3078,7 +3079,8 @@ if(document.documentElement.classList.contains('os-ios')){
     if(e.touches.length!==1) return;
     const t=e.touches[0],el=e.target;
     const x=t.clientX;
-    if(x<0 || x>92) return;
+    const edgeLimit=currentScreenName==='editorEarnings'?92:76;
+    if(x<0 || x>edgeLimit) return;
     const interactive=!!(el && el.closest && el.closest('input,textarea,select,button,a,[contenteditable],#bottomNav,.chat-bubble,.msg-quote,.nt-item,.emoji-panel,.attach-sheet,.reply-bar,.media-preview,.img-viewer,[data-no-swipe-back]'));
     // Preserve taps and clicks on controls, including the top-left Back arrow.
     if(interactive) return;
@@ -3109,7 +3111,8 @@ if(document.documentElement.classList.contains('os-ios')){
   },{passive:false});
   document.addEventListener('touchend',e=>{
     if(!swipe) return;
-    const go=swipe.active && swipe.dx>=80 && Math.abs(swipe.dy)<Math.min(44,swipe.dx*.4);
+    const requiredDx=currentScreenName==='editorEarnings'?80:110;
+    const go=swipe.active && swipe.dx>=requiredDx && Math.abs(swipe.dy)<Math.min(44,swipe.dx*.4);
     if(go && e.cancelable)e.preventDefault();
     clearEdge();
     if(go)sphereIosEdgeGoBack();
