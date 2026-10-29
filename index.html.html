@@ -5758,32 +5758,85 @@ function renderEditorPortfolioList(e, items, editable){
 
 /* Editor bid screen + submitBid(): see PART 6 below */
 
-SCREENS.editorEarnings = async () => {
-  const u=getCurrentUser(); if(!u || u.role!=='editor') return '';
-  const [sumRes, projectsRes]=await Promise.all([
-    sb.rpc('sp_editor_earnings_summary'),
-    sb.from('sp_jobs').select('*').eq('assigned_editor',u.id).order('created_at',{ascending:false}).limit(50)
-  ]);
-  const x=(!sumRes.error && sumRes.data)?(Array.isArray(sumRes.data)?sumRes.data[0]:sumRes.data):null;
-  const entries=(projectsRes.data||[]).map(mapJob).filter(j=>j.status!=='open');
-  const total=x?Math.max(0,(Number(x.base)||0)+(Number(x.bonus)||0)-(Number(x.deductions)||0)):null;
-  return `<div class="se-page-head"><div class="se-page-brand">${img('/img/0cbdc280b5c44e61.webp','🔷')}<b>Sphere</b></div><h1>Earnings &amp; Payments</h1><p>Your actual completed-work earnings and payout status</p></div>
-  <div class="screen se-earn-page">
-    <div class="se-earn-hero"><small>${x?'Total settled earnings':'Earnings summary unavailable'}</small><strong>${total===null?'—':rupees(total)}</strong><span>${seIcon('shield')} Information from Sphere payments</span></div>
-    ${x?`<div class="se-earn-grid">
-      <div><small>Base earnings</small><strong>${rupees(x.base||0)}</strong></div>
-      <div><small>Bonus earned</small><strong>${rupees(x.bonus||0)}</strong></div>
-      <div><small>Late deductions</small><strong>${rupees(x.deductions||0)}</strong></div>
-      <div><small>Settled projects</small><strong>${Number(x.projects)||0}</strong></div>
-    </div>`:`<div class="card"><p class="muted">Could not load the earnings summary. Your project statuses are shown below.</p></div>`}
-    <div class="se-section-head"><h2>Project payment status</h2><small>${entries.length} projects</small></div>
-    ${entries.length?entries.map(j=>`<div class="se-earning-row" role="button" onclick="currentJobId='${j.id}';nav('projectStatus')">
-      <span class="se-earn-item-icon">${seIcon('wallet')}</span><div><b>${esc(j.title||j.category)}</b><small>${esc(PAYOUT_LABEL[j.payoutStatus]||j.payoutStatus||j.status)}${j.deadline?' · '+fmtDate(j.deadline):''}</small></div><strong>${rupees(j.editorAmount|| (j.lockedAmount ? editorShare(j.lockedAmount):j.budget||0))}</strong>
-    </div>`).join(''):`<div class="se-empty"><b>No project payment records yet</b><p>Payments appear after you start completing projects.</p></div>`}
-    <p class="se-earn-note">Payment figures and status come from Sphere records. No withdrawal action is shown because the existing app does not provide an editor withdrawal button.</p>
-  </div>`;
-};
 
+/* =========== SPHERE EDITOR EARNINGS & WITHDRAWALS =========== */
+let spWalletBusy=false;
+async function spSaveBank(){
+  if(spWalletBusy)return;
+  const h=document.getElementById('spHolder').value.trim();
+  const i=document.getElementById('spIfsc').value.trim().toUpperCase();
+  const n=document.getElementById('spLast4').value.trim();
+  if(h.length<3||!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(i)||!/^\d{4}$/.test(n)){
+    alert('Please enter the holder name, a valid IFSC and only the last 4 account digits.');return;
+  }
+  if(!confirm('Submit masked bank details? Sphere will not collect your complete bank number. Verification requires the authorized Sphere team.'))return;
+  spWalletBusy=true;
+  try{
+    const r=await sb.rpc('sp_editor_bank_submit',{p_holder:h,p_ifsc:i,p_last4:n});
+    if(r.error)throw r.error;
+    alert('Bank request submitted. Verification pending; no money has moved.');
+    nav('editorEarnings');
+  }catch(e){alert('Bank setup: '+e.message)}
+  finally{spWalletBusy=false}
+}
+async function spRequestWithdraw(){
+  if(spWalletBusy)return;
+  if(!confirm('Request withdrawal of available approved project earnings? No money moves until the team approves and pays externally.'))return;
+  spWalletBusy=true;
+  try{
+    const r=await sb.rpc('sp_editor_withdraw_request');
+    if(r.error)throw r.error;
+    alert('Withdrawal requested: '+rupees(r.data.amount)+'. Await approval.');
+    nav('editorEarnings');
+  }catch(e){alert('Withdrawal: '+e.message)}
+  finally{spWalletBusy=false}
+}
+async function spCancelWithdraw(id){
+  if(!confirm('Cancel the pending withdrawal request?'))return;
+  const r=await sb.rpc('sp_editor_withdraw_cancel',{p_id:id});
+  if(r.error)alert(r.error.message);else nav('editorEarnings');
+}
+SCREENS.editorEarnings=async()=>{
+ const u=getCurrentUser();if(!u||u.role!=='editor')return '';
+ const results=await Promise.all([
+   sb.rpc('sp_editor_wallet'),
+   sb.from('sp_jobs').select('*').eq('assigned_editor',u.id).order('created_at',{ascending:false}).limit(40),
+   sb.from('sp_payout_items').select('amount,status,kind').eq('editor_id',u.id).limit(60)
+ ]);
+ const e=results[0],pr=results[1],xr=results[2];
+ if(e.error||!e.data)return '<div class="header"><button class="back-btn" onclick="nav(\'profile\')">‹</button><h1>Earnings</h1></div><div class="screen"><div class="card">Could not load wallet: '+esc(e.error?.message||'Unknown error')+'</div></div>';
+ const w=e.data,b=w.bank||{},ok=b.status==='verified',history=Array.isArray(w.history)?w.history:[];
+ const entries=(pr.data||[]).map(mapJob).filter(j=>j.status!=='open');
+ const extra=(xr.data||[]).filter(x=>x.kind!=='deduction'&&x.status==='pending').reduce((a,x)=>a+Number(x.amount||0),0);
+ let html='<div class="se-page-head"><div class="se-page-brand">Sphere</div><h1>Earnings &amp; Withdrawals</h1><p>Track money, bank verification and payouts</p></div><div class="screen se-earn-page">';
+ html+='<div class="se-earn-hero"><small>Total earned (approved projects)</small><strong>'+rupees(w.total_earned||0)+'</strong><span>Based on actual Sphere project records</span></div>';
+ html+='<div class="se-earn-grid"><div><small>Available to request</small><strong>'+rupees(w.available||0)+'</strong></div><div><small>Pending work</small><strong>'+rupees(w.pending_work||0)+'</strong></div><div><small>Requested / processing</small><strong>'+rupees(w.requested||0)+'</strong></div><div><small>Released / paid</small><strong>'+rupees(w.paid_or_released||0)+'</strong></div></div>';
+ html+='<div class="card"><b>🏦 Bank account setup</b><p style="font-size:12px;margin:8px 0;">Status: <b>'+esc((b.status||'not submitted').toUpperCase())+'</b></p>';
+ if(b.last4)html+='<p class="muted" style="font-size:12px;">'+esc(b.holder)+' · •••• '+esc(b.last4)+' · '+esc(b.ifsc)+'<br>'+(b.route_account_id?'Route linked account approved':'Manual bank transfer verification')+'</p>';
+ html+='<p class="muted" style="font-size:12px;">Only enter your bank holder name, IFSC and last four digits. The authorized team completes actual bank/KYC onboarding through Razorpay. Full account numbers are not stored in Sphere.</p>';
+ html+='<div class="field"><label>Bank account holder name</label><input id="spHolder" maxlength="100" autocomplete="name" placeholder="Name on account" value="'+esc(b.holder||'')+'"></div>';
+ html+='<div class="field"><label>IFSC</label><input id="spIfsc" maxlength="11" autocapitalize="characters" placeholder="ABCD0123456" value="'+esc(b.ifsc||'')+'"></div>';
+ html+='<div class="field"><label>Last FOUR digits only</label><input id="spLast4" maxlength="4" inputmode="numeric" placeholder="1234" value="'+esc(b.last4||'')+'"></div>';
+ html+='<button class="btn btn-outline" onclick="spSaveBank()">'+(ok?'Request bank change':'Submit for bank verification')+'</button></div>';
+ html+='<div class="card"><b>💸 Withdraw approved project earnings</b><p class="muted" style="font-size:12px;">Available: '+rupees(w.available||0)+'. This creates a request, not an instant money transfer.</p>';
+ html+='<button class="btn btn-primary" onclick="spRequestWithdraw()" '+(!ok||Number(w.available||0)<=0?'disabled':'')+'>Request withdrawal · '+rupees(w.available||0)+'</button>';
+ if(!ok)html+='<p class="muted" style="font-size:12px;">Wait until the Sphere team verifies your bank setup to enable requests.</p>';
+ if(extra>0)html+='<p class="muted" style="font-size:12px;">Other paid-revision/bonus payouts awaiting separate processing: '+rupees(extra)+'</p>';
+ html+='</div><div class="se-section-head"><h2>Withdrawal history</h2><small>'+history.length+' requests</small></div>';
+ if(!history.length)html+='<div class="se-empty"><b>No withdrawal requests yet</b><p>Completed approved projects become eligible after bank verification.</p></div>';
+ history.forEach(v=>{
+   html+='<div class="card"><b>'+rupees(v.amount)+' · '+esc(v.status.toUpperCase())+'</b><p class="muted" style="font-size:12px;">'+esc(v.title||'Project')+' · Bank •••• '+esc(v.bank_last4)+' · '+fmtDT(v.requested_at)+(v.reference?' · Ref '+esc(v.reference):'')+'</p>';
+   if(v.reason)html+='<p class="muted">'+esc(v.reason)+'</p>';
+   if(v.status==='requested')html+='<button class="btn-sm" onclick="spCancelWithdraw(\''+v.id+'\')">Cancel request</button>';
+   html+='</div>';
+ });
+ html+='<div class="se-section-head"><h2>Project payment status</h2><small>'+entries.length+' projects</small></div>';
+ entries.forEach(j=>{
+   html+='<div class="se-earning-row" role="button" onclick="currentJobId=\''+j.id+'\';nav(\'projectStatus\')"><span class="se-earn-item-icon">💰</span><div><b>'+esc(j.title||j.category)+'</b><small>'+esc(PAYOUT_LABEL[j.payoutStatus]||j.payoutStatus||j.status)+'</small></div><strong>'+rupees(j.editorAmount||0)+'</strong></div>';
+ });
+ html+='<p class="se-earn-note">Released via Razorpay does not always mean settled in your bank. Admin approval is not a bank transfer. These totals cover project base payouts; bonuses and revisions are handled separately.</p></div>';
+ return html;
+};
 
 /* ============ EDITOR: PORTFOLIO BUILDER ============ */
 SCREENS.portfolio = async () => {
@@ -7038,6 +7091,7 @@ async function savePayoutAccount(editorId){
 async function markPaidManually(jobId){
   const ref = prompt('Enter the UPI / bank transfer reference (UTR) number:');
   if(ref === null) return;
+  if(!/^[A-Za-z0-9/_-]{6,80}$/.test(ref.trim())){alert('Please provide a valid transaction reference.');return;}
   const job = await getJob(jobId);
   if(!job) return;
   const { error } = await sb.from('sp_jobs').update({ payout_status: 'paid-manually', razorpay_transfer_id: ref.trim() || 'manual' }).eq('id', jobId);
@@ -10915,12 +10969,61 @@ async function adminUserAction(userId, action){
 }
 
 // ---- 7) Payments
+
+/* =========== ADMIN WITHDRAWAL & BANK APPROVAL =========== */
+async function spAdminReviewBank(id,approve){
+ if(needPin())return;
+ const route=approve?prompt('Verified Razorpay Route acc_ ID (optional if verified for MANUAL bank transfer):',''):'';
+ if(route===null)return;
+ const reason=approve?'':prompt('Reason for bank rejection (minimum 5 characters):','');
+ if(reason===null)return;
+ if(approve&&!confirm('Confirm bank details were verified through Razorpay or the authorized bank process? This action does not verify an account automatically.'))return;
+ const r=await sb.rpc('sp_admin_bank_review',{p_editor:id,p_approve:approve,p_route:route||'',p_reason:reason||'',p_pin:ADMIN_PIN});
+ if(r.error)alert('Verification: '+r.error.message);
+ else{alert(approve?'Bank approved.':'Bank rejected.');nav('admin',{tab:'payments'})}
+}
+async function spAdminActionWithdraw(id,action){
+ if(needPin())return;
+ let ref='',reason='';
+ if(action==='paid'){
+   ref=prompt('Actual external bank-transfer UTR / reference (required):','');
+   if(ref===null)return;
+   if(!confirm('Did the bank transfer already succeed externally? This does NOT send money.'))return;
+ }else if(action==='reject'){
+   reason=prompt('Rejection reason (min 5 characters):','');
+   if(reason===null)return;
+ }else if(!confirm('Approve the request? No money will move yet.'))return;
+ const r=await sb.rpc('sp_admin_withdraw_action',{p_id:id,p_action:action,p_reference:ref,p_reason:reason,p_pin:ADMIN_PIN});
+ if(r.error)alert('Payout: '+r.error.message);
+ else{alert('Withdrawal '+action+' recorded.');nav('admin',{tab:'payments'})}
+}
+async function spAdminWithdrawSection(){
+ const r=await sb.rpc('sp_admin_withdraw_queue');
+ if(r.error)return '<div class="card"><b>Withdrawal queue unavailable</b><p class="muted">'+esc(r.error.message)+'</p></div>';
+ const banks=r.data?.banks||[],requests=r.data?.withdrawals||[];
+ let h='<h3 style="margin:16px 0 10px;">🏦 Bank verification ('+banks.filter(x=>x.status==='pending').length+' pending)</h3>';
+ banks.filter(x=>x.status==='pending').forEach(b=>{
+   h+='<div class="card"><b>'+esc(b.editor||'Editor')+'</b><p class="muted" style="font-size:12px;">'+esc(b.holder)+' · •••• '+esc(b.last4)+' · IFSC '+esc(b.ifsc)+'</p><p class="muted" style="font-size:12px;">Check details and KYC through an authorized provider. Sphere stores only last 4 digits, not a complete bank account number.</p><button class="btn-sm" onclick="spAdminReviewBank(\''+b.editor_id+'\',true)">Verify bank</button> <button class="btn-sm" onclick="spAdminReviewBank(\''+b.editor_id+'\',false)">Reject</button></div>';
+ });
+ if(!banks.some(x=>x.status==='pending'))h+='<p class="muted">No pending bank requests.</p>';
+ h+='<h3 style="margin:16px 0 10px;">💸 Withdrawal requests ('+requests.filter(x=>x.status==='requested'||x.status==='approved').length+' active)</h3>';
+ requests.forEach(w=>{
+   h+='<div class="card"><b>'+rupees(w.amount)+' · '+esc(w.editor||'Editor')+' · '+esc(w.status.toUpperCase())+'</b><p class="muted" style="font-size:12px;">'+esc(w.title||'Project')+' · '+esc(w.bank_holder)+' · Bank •••• '+esc(w.bank_last4)+' · '+esc(w.bank_ifsc)+(w.reference?' · UTR '+esc(w.reference):'')+'</p>';
+   if(w.reason)h+='<p class="muted">'+esc(w.reason)+'</p>';
+   if(w.status==='requested')h+='<button class="btn-sm" onclick="spAdminActionWithdraw(\''+w.id+'\',\'approve\')">Approve</button> <button class="btn-sm" onclick="spAdminActionWithdraw(\''+w.id+'\',\'reject\')">Reject</button>';
+   if(w.status==='approved')h+='<p class="muted" style="font-size:12px;">Send money outside Sphere via verified bank transfer, then record successful UTR.</p><button class="btn-sm" onclick="spAdminActionWithdraw(\''+w.id+'\',\'paid\')">Record completed transfer</button>';
+   h+='</div>';
+ });
+ if(!requests.length)h+='<p class="muted">No withdrawal requests.</p>';
+ return h;
+}
 async function adminPaymentsTab(){
-  const [d0, xq] = await Promise.all([adminRpc('sp_admin_payments').catch(() => null), loadExtrasQueue()]);
-  if(!d0) return extrasQueueSection(xq) + payoutItemsHtml(await loadCasesQueue()) + `<div class="card" style="border:1.5px solid #e67e22;"><p style="font-size:12px;">⚙️ This part needs the latest database update (<b>014_admin_panel.sql</b>).</p></div>`;
+  const [d0, xq, withdrawHtml] = await Promise.all([adminRpc('sp_admin_payments').catch(() => null), loadExtrasQueue(), spAdminWithdrawSection()]);
+  if(!d0) return withdrawHtml + extrasQueueSection(xq) + payoutItemsHtml(await loadCasesQueue()) + `<div class="card" style="border:1.5px solid #e67e22;"><p style="font-size:12px;">⚙️ This part needs the latest database update (<b>014_admin_panel.sql</b>).</p></div>`;
   const d = d0, bs = d.by_status || {}, t = d.totals || {};
   const pend = (d.payout_items || []).filter(x => x.status === 'pending');
   return `
+    ${withdrawHtml}
     <div class="ad-grid">
       <div class="ad-stat"><b>${bs.paid || 0}</b><span>Paid (held / released)</span></div><div class="ad-stat"><b>${bs.pending || 0}</b><span>Pending</span></div>
       <div class="ad-stat"><b>${bs.failed || 0}</b><span>Failed attempts</span></div><div class="ad-stat"><b>${bs.refunded || 0}</b><span>Refunded</span></div>
