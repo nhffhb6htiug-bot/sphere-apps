@@ -146,8 +146,9 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
                 val caption = text.trim()
                 Repo.sendMedia(me, otherId, bytes, mime, caption)
                 // Preserve the caption if uploading fails or the user types more text.
-                if (text == caption) text = ""
-                messages = Repo.thread(otherId)
+                if (text.trim() == caption) text = ""
+                // A refresh error after a successful send is NOT an upload failure.
+                try { messages = Repo.thread(otherId) } catch (_: Exception) { }
             } catch (e: Exception) { toast(ctx, e.message ?: "Upload failed") }
             sending = false
         }
@@ -214,8 +215,12 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
                     val t = text.trim()
                     scope.launch {
                         sending = true
-                        try { Repo.sendMessage(me, otherId, t); text = ""; messages = Repo.thread(otherId) }
-                        catch (e: Exception) { toast(ctx, e.message ?: "Message not sent") }
+                        try {
+                            Repo.sendMessage(me, otherId, t)
+                            if (text.trim() == t) text = ""
+                            // Polling will pick it up if this read fails; do not claim send failed.
+                            try { messages = Repo.thread(otherId) } catch (_: Exception) { }
+                        } catch (e: Exception) { toast(ctx, e.message ?: "Message not sent") }
                         sending = false
                     }
                 }) { Icon(Icons.AutoMirrored.Filled.Send, "Send", tint = Blue) }
