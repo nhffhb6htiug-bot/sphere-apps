@@ -27,7 +27,9 @@ Deno.serve(async (req) => {
     const { data: { user } } = await admin.auth.getUser(token);
     if (!user) return json({ error: "Please log in first" }, 401);
 
-    const { jobId } = await req.json();
+    const { jobId, expectedKeyId } = await req.json();
+    // Do not create an order with a different merchant account than the app's configured test key.
+    if (expectedKeyId !== keyId) return json({ error: "Razorpay account mismatch. Configure this account's test Key ID and Key Secret in Supabase Edge Function Secrets before testing payments." }, 409);
     const { data: job } = await admin.from("sp_jobs").select("*").eq("id", jobId).maybeSingle();
     if (!job || job.client_id !== user.id) return json({ error: "Job not found" }, 404);
     if (job.status !== "payment-pending" || !job.locked_amount) {
