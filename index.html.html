@@ -1951,6 +1951,15 @@ body:not(.pc-admin) #bottomNav.bottom-nav button .icon svg{
 
 
 
+/* Editor-only withdrawal notice: shared HTML renders on web, PWA, iOS and APK. */
+body.sphere-editor-refresh[data-sphere-screen="editorEarnings"] .se-withdraw-notice{display:flex;align-items:flex-start;gap:12px;padding:15px;margin:0 0 16px;border-radius:19px;border:1px solid rgba(157,115,224,.36);background:linear-gradient(125deg,rgba(245,234,255,.97),rgba(255,248,254,.97));box-shadow:0 4px 16px rgba(85,46,130,.07);color:#322251}
+body.sphere-editor-refresh[data-sphere-screen="editorEarnings"] .se-withdraw-notice-icon{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border-radius:12px;background:#e8d8ff;font-size:20px}
+body.sphere-editor-refresh[data-sphere-screen="editorEarnings"] .se-withdraw-notice strong{font-size:14px}
+body.sphere-editor-refresh[data-sphere-screen="editorEarnings"] .se-withdraw-notice p{font-size:12px;line-height:1.55;margin:6px 0;color:inherit}
+body.sphere-editor-refresh[data-sphere-screen="editorEarnings"] .se-withdraw-notice small{font-size:11px;opacity:.75;line-height:1.4;display:block}
+html.sphere-dark body.sphere-editor-refresh[data-sphere-screen="editorEarnings"] .se-withdraw-notice{background:var(--glass-surface);border-color:var(--border);color:var(--text)}
+html.sphere-dark body.sphere-editor-refresh[data-sphere-screen="editorEarnings"] .se-withdraw-notice-icon{background:#3d3055}
+
 /* Earnings screen only: visible back navigation and no overlapping payout cards. */
 body[data-sphere-screen="editorEarnings"] .se-earn-head-row{
   display:flex;align-items:center;gap:12px;min-width:0;margin-bottom:14px;
@@ -5931,6 +5940,7 @@ SCREENS.editorEarnings=async()=>{
  html+='</div></details>';
  html+='<button class="btn btn-primary" style="margin-top:12px;" onclick="spSaveBank()">'+(ok?'Request payout-method change':'Submit payout method for verification')+'</button>';
  html+='<p class="muted" style="font-size:11px;margin-top:8px;">Never enter UPI PIN, OTP or full bank account number here. QR upload does not send or guarantee payment.</p></div>';
+ html+='<div class="se-withdraw-notice" role="note"><span class="se-withdraw-notice-icon" aria-hidden="true">⏳</span><div><strong>Withdrawal processing time</strong><p>After your withdrawal is approved and the payout is initiated, money usually takes up to 2 working days to reach your UPI-linked bank account or bank account. Weekends, bank holidays and payment-provider processing may cause delays.</p><small>Estimated timeline only — not a guaranteed Razorpay settlement deadline.</small></div></div>';
  html+='<div class="card"><b>💸 Withdraw approved project earnings</b><p class="muted" style="font-size:12px;">Available: '+rupees(w.available||0)+'. This creates a request, not an instant money transfer.</p>';
  html+='<button class="btn btn-primary" onclick="spRequestWithdraw()" '+(!ok||Number(w.available||0)<=0?'disabled':'')+'>Request withdrawal · '+rupees(w.available||0)+'</button>';
  if(!ok)html+='<p class="muted" style="font-size:12px;">Wait until the Sphere team verifies your UPI or bank payout setup to enable requests.</p>';
