@@ -2454,7 +2454,8 @@ const SPHERE_CONFIG = Object.freeze({
   supabaseUrl: (location.hostname === 'sphere-live.onrender.com' ? location.origin + '/sb' : 'https://sphere-api.niteshkumarmatho37.workers.dev'),
   supabaseKey: 'sb_publishable_M8dweSjU8gW45msJ_Gt4Lw_eAm3RALW',   // publishable key: safe to be public
   supabaseProjectRef: 'pwcchgjsgkwrsvbzqspp',
-  razorpayKeyId: 'rzp_live_TtgS9i6oukyfsy',                        // rzp_test_ = test money, rzp_live_ = real money
+  paymentMode: 'live',
+  paymentGatewayEnabled: true, // Checkout public key always comes from the authenticated Razorpay order response,                        // rzp_test_ = test money, rzp_live_ = real money
   googleClientId: '258192736968-ocmgvgkm00t0sglunn6tqgodpf6d4ak2.apps.googleusercontent.com',
   website: 'https://sphere-live.onrender.com',
   // Which modules are built (Parts 1–18). Not used to hide screens — kept for reference / future switches.
@@ -2525,7 +2526,7 @@ window.addEventListener('online', () => {
 });
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storageKey: 'sb-' + SPHERE_CONFIG.supabaseProjectRef + '-auth-token' }, global: { fetch: trackedFetch } });
-const RAZORPAY_KEY_ID = SPHERE_CONFIG.razorpayKeyId;
+// Razorpay public merchant key comes from each server-created order, never from a stale HTML constant.
 
 /* ============ ROLES ============ */
 // Database stores CLIENT / EDITOR / ADMIN. The app works with lowercase.
@@ -7074,7 +7075,7 @@ async function loadSystemStatus(){
   return Object.assign({ ok: true }, data || {});
 }
 function systemStatusCard(sys){
-  const live = String(RAZORPAY_KEY_ID).startsWith('rzp_live_');
+  const live = SPHERE_CONFIG.paymentMode === 'live';
   const row = (k, v) => `<div class="kv"><span>${k}</span><b>${v}</b></div>`;
   if(!sys || !sys.ok){
     return `<details class="card" style="border:1.5px solid #e67e22;"><summary><b>🛠️ System status</b> <span class="muted" style="font-size:12px;">needs setup</span></summary>
@@ -7087,7 +7088,7 @@ function systemStatusCard(sys){
     <div style="margin-top:8px;">
       ${row('App version', esc(SPHERE_CONFIG.appVersion) + ' (' + esc(SPHERE_CONFIG.build) + ')')}
       ${row('Database', 'Connected ✅')}
-      ${row('Payments', live ? 'LIVE — real money' : 'Test mode')}
+      ${row('Payments', live ? 'Live checkout configured (requires successful gateway verification)' : 'Test mode')}
       ${row('Settings', settingsLoaded ? 'Loaded ✅' : 'Using defaults')}
       ${row('Clients', Number(sys.clients) || 0)}
       ${row('Editors', (Number(sys.editors) || 0) + ' (' + (Number(sys.verified_editors) || 0) + ' verified)')}
@@ -8905,8 +8906,8 @@ SCREENS.payment = async () => {
   const ps = paymentState(job, pay);
   const amount = Number(job.lockedAmount || job.budget || 0);
   const ed = people[job.assignedEditor];
-  const razorpayReady = /^rzp_(test|live)_/.test(RAZORPAY_KEY_ID);
-  const testMode = RAZORPAY_KEY_ID.startsWith('rzp_test_');
+  const razorpayReady = !!SPHERE_CONFIG.paymentGatewayEnabled;
+  const testMode = SPHERE_CONFIG.paymentMode !== 'live';
   const head = `<div class="header"><button class="back-btn" onclick="openJob('${job.id}')">‹</button><h1>Payment</h1><p>Project ${projectCode(job)}</p></div>`;
   if(ps === 'paid') return head + `<div class="screen" style="padding-top:0;"><div class="card pay-hero" style="border:1.5px solid #15803d;">
       <p style="font-size:34px;">✅</p><b>Payment received</b><p class="big-price">${rupees(pay && pay.amount ? pay.amount : amount)}</p>
@@ -8960,8 +8961,8 @@ async function payWithRazorpay(jobId){
   const record = (result, order, payment, reason) => sb.rpc('sp_pay_record', { p_job: jobId, p_result: result, p_order: order || null, p_payment: payment || null, p_reason: reason || null }).then(() => {}, () => {});
   try {
     // 2) the server makes the order — the amount comes from the project, never from the app
-    const { data: order, error } = await sb.functions.invoke('create-razorpay-order', { body: { jobId, expectedKeyId: RAZORPAY_KEY_ID } });
-    if(error || !order || !order.id){
+    const { data: order, error } = await sb.functions.invoke('create-razorpay-order', { body: { jobId } });
+    if(error || !order || !order.id || !/^rzp_live_[A-Za-z0-9]+$/.test(String(order.key_id || ''))){
       busy(false);
       const msg = error ? await functionError(error) : 'unknown';
       await record('failed', null, null, 'Could not start: ' + msg);
@@ -8969,7 +8970,7 @@ async function payWithRazorpay(jobId){
       return;
     }
     const rzp = spRazorpay({
-      key: RAZORPAY_KEY_ID,
+      key: order.key_id, // Public Key ID comes from the merchant account that created this order.
       amount: order.amount,
       currency: order.currency,
       name: 'Sphere — Syahi Films',
@@ -9893,11 +9894,11 @@ async function payExtra(extraId, jobId){
   const btn = document.getElementById('xPay_' + extraId); if(btn) btn.disabled = true;
   let order = null;
   try {
-    const { data, error } = await sb.functions.invoke('sphere-extra-payment', { body: { action: 'create', extraId, expectedKeyId: RAZORPAY_KEY_ID } });
+    const { data, error } = await sb.functions.invoke('sphere-extra-payment', { body: { action: 'create', extraId } });
     if(!error && data && data.ok) order = data;
     else if(data && data.paid){ alert('Already paid ✅'); currentJobId = jobId; return nav('projectStatus'); }
   } catch(e) {}
-  if(!order || typeof Razorpay === 'undefined'){
+  if(!order || typeof Razorpay === 'undefined' || !/^rzp_live_[A-Za-z0-9]+$/.test(String(order.key_id || ''))){
     if(btn) btn.disabled = false;
     alert('Payment could not start right now. Please try again in a minute — nothing was charged.');
     const d = btn && btn.parentElement && btn.parentElement.querySelector('details'); if(d) d.open = true;
@@ -9905,7 +9906,7 @@ async function payExtra(extraId, jobId){
   }
   const user = getCurrentUser();
   const rzp = spRazorpay({
-    key: order.key_id || RAZORPAY_KEY_ID, amount: order.amount, currency: order.currency, order_id: order.order_id,
+    key: order.key_id, amount: order.amount, currency: order.currency, order_id: order.order_id,
     name: 'Sphere — Syahi Films', description: 'Extra payment',
     prefill: { name: user?.name || '', email: user?.email || '', contact: user?.phone || '' }, theme: { color: '#1657ff' },
     handler: async function(r){
@@ -11006,10 +11007,10 @@ async function payFee(kind, after, preFee){
   if(error){ if(btn) btn.disabled = false; alert(error.message); return; }
   let order = null;
   try {
-    const { data, error: e2 } = await sb.functions.invoke('sphere-extra-payment', { body: { action: 'create', feeId: f.id, expectedKeyId: RAZORPAY_KEY_ID } });
+    const { data, error: e2 } = await sb.functions.invoke('sphere-extra-payment', { body: { action: 'create', feeId: f.id } });
     if(!e2 && data && data.ok) order = data;
   } catch(e) {}
-  if(!order || typeof Razorpay === 'undefined'){
+  if(!order || typeof Razorpay === 'undefined' || !/^rzp_live_[A-Za-z0-9]+$/.test(String(order.key_id || ''))){
     if(btn) btn.disabled = false;
     if(kind === 'contact_unlock'){ alert('Online payment is not available right now. Please try again a little later — nothing was charged.'); return; }
     alert('Payment could not start right now. Please try again in a minute — nothing was charged.');
@@ -11018,7 +11019,7 @@ async function payFee(kind, after, preFee){
   }
   const user = getCurrentUser();
   const rzp = spRazorpay({
-    key: order.key_id || RAZORPAY_KEY_ID, amount: order.amount, currency: order.currency, order_id: order.order_id,
+    key: order.key_id, amount: order.amount, currency: order.currency, order_id: order.order_id,
     name: 'Sphere — Syahi Films', description: kind === 'details_update' ? 'Details update request' : kind === 'pro' ? 'Editor Pro — 1 month' : kind === 'client_premium' ? 'Sphere Premium — 1 month' : kind === 'contact_unlock' ? 'Chat & Phone Number Access' : 'Editor verification fee (one-time)',
     prefill: { name: user?.name || '', email: user?.email || '', contact: user?.phone || '' }, theme: { color: '#1657ff' },
     handler: async function(r){
