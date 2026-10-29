@@ -38,17 +38,27 @@ Deno.serve(async (req) => {
 
     const amount = Math.round(Number(job.locked_amount) * 100); // rupees -> paise
 
-    // Part 19.4: reuse the open order of this job (same amount, not paid yet)
+    // Never reuse a project order from the previous Razorpay merchant account.
     if (job.razorpay_order_id) {
+      let previous: Response;
       try {
-        const ex = await fetch("https://api.razorpay.com/v1/orders/" + job.razorpay_order_id, {
+        previous = await fetch("https://api.razorpay.com/v1/orders/" + encodeURIComponent(job.razorpay_order_id), {
           headers: { Authorization: "Basic " + btoa(`${keyId}:${keySecret}`) },
         });
-        const o = await ex.json();
-        if (ex.ok && o?.id && o.status !== "paid" && Number(o.amount) === amount) {
-          return json({ id: o.id, amount: o.amount, currency: o.currency ?? "INR" });
-        }
-      } catch (_e) { /* could not check: make a new order below */ }
+      } catch (_e) {
+        return json({ error: "Existing Razorpay order cannot be checked. Retry later; no new order created." }, 503);
+      }
+      if (previous.ok) {
+        const o = await previous.json();
+        if (o?.id !== job.razorpay_order_id || Number(o.amount) !== amount || (o.currency ?? "INR") !== "INR")
+          return json({ error: "Existing payment order does not match. Contact support." }, 409);
+        if (o.status === "paid")
+          return json({ error: "This order may already have been paid. Refresh the project before trying again." }, 409);
+        return json({ id: o.id, amount: o.amount, currency: o.currency ?? "INR" });
+      }
+      // Only an explicit 404 lets an old merchant's unpaid order be replaced.
+      if (previous.status !== 404)
+        return json({ error: "Could not validate the existing order; please try again later." }, 503);
     }
     // commission % comes from Admin Panel → Settings (sp_settings)
     const { data: feeRow } = await admin.from("sp_settings").select("value").eq("key", "platform_fee_percent").maybeSingle();
