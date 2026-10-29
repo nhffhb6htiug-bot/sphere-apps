@@ -16,6 +16,8 @@ assert(/\bSCREENS\.home\s*=/.test(html), "Home route exists");
 assert(/\bSCREENS\.(authLanding|login)\s*=/.test(html), "Login route exists");
 assert(/\bSCREENS\.profile\s*=/.test(html), "Profile route exists");
 assert(/\bSCREENS\.chatList\s*=/.test(html), "Chat list route exists");
+assert(/if\s*\(t\s*&&\s*t\.isConnected\s*&&\s*t\.parentElement\)\s*t\.outerHTML\s*=\s*tickHtml\(m\)/.test(html),
+  "Chat receipt DOM update checks for detached elements before mutation");
 
 const matches = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
 let inlineCount=0;

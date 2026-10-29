@@ -6009,7 +6009,7 @@ function listenForMessages(){
       const m = payload.new;
       if((m.text && m.text.includes('📵')) || (m.mod_status && m.mod_status !== 'ok')){ refreshBubble(m); return; }
       const t = document.querySelector(`.chat-bubble[data-id="${m.id}"] .tick`);
-      if(t) t.outerHTML = tickHtml(m);
+      if(t && t.isConnected && t.parentElement) t.outerHTML = tickHtml(m);
     })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sp_messages', filter: `receiver_id=eq.${me}` }, (payload) => {
       const m = payload.new;

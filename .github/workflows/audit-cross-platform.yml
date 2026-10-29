@@ -9,6 +9,8 @@ on:
       - "android-native/**"
       - "tests/audit-static.mjs"
       - "tests/audit-browser.mjs"
+      - "tests/audit-authenticated.mjs"
+      - "tests/browser/fixtures/chat_mock.js"
       - ".github/workflows/audit-cross-platform.yml"
   workflow_dispatch:
 
@@ -34,6 +36,8 @@ jobs:
         run: npx playwright install --with-deps chromium webkit
       - name: Android, Safari-like, tablet and PC smoke tests
         run: node tests/audit-browser.mjs
+      - name: Logged-in client, editor and admin route matrix (mocked)
+        run: node tests/audit-authenticated.mjs
       - name: Upload screenshots and test report
         if: always()
         uses: actions/upload-artifact@v4
