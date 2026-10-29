@@ -10961,7 +10961,7 @@ SCREENS.adminProject = async (data) => {
     <div class="card">
       ${bidError ? `<p class="muted">Could not load bids: ${esc(bidError)}</p>` :
         bids.length ? bids.map((b,i)=>`<div class="kv" style="align-items:flex-start;gap:10px;">
-          <span style="min-width:0;flex:1;"><b>${i+1}. ${esc(b.editor_name||'Editor')}</b><small style="display:block;">${esc(b.status||'pending')} · ${b.created_at?fmtDT(b.created_at):''}</small>${b.message?`<small style="display:block;white-space:pre-wrap;">${esc(b.message)}</small>`:''}</span>
+          <span style="min-width:0;flex:1;"><b>${i+1}. ${esc(b.editor_name && b.editor_name!=='Editor'?b.editor_name:'Editor '+String(b.editor_id||'').slice(0,8))}</b><small style="display:block;">${esc(b.status||'pending')} · ${b.created_at?fmtDT(b.created_at):''}</small>${b.message?`<small style="display:block;white-space:pre-wrap;">${esc(b.message)}</small>`:''}${b.editor_id?`<button class="btn-sm" style="display:block;margin-top:6px;" onclick="nav('adminUser',{userId:'${esc(b.editor_id)}'})">👤 View editor profile</button>`:''}</span>
           <b style="white-space:nowrap;">${rupees(b.bid_amount||0)}</b>
         </div>`).join('') : '<p class="muted">No bids received yet.</p>'}
     </div>
