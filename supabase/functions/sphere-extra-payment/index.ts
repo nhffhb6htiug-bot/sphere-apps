@@ -69,9 +69,29 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Razorpay account mismatch. Set the new account's test Key ID and Key Secret in Supabase Edge Function Secrets before testing payments." }, 409);
 
     if (action === "create") {
-      // reuse the open order (no new order on every tap — stops order spam and double charges)
+      // Before reusing an order, confirm it belongs to the configured merchant.
+      // Old Razorpay test-account orders are NOT portable when Sphere changes accounts.
       if (x.order_id && x.status === "pending") {
-        return json({ ok: true, order_id: x.order_id, amount: Math.round(Number(x.amount) * 100), currency: "INR", key_id: keyId });
+        let existing: Response;
+        try {
+          existing = await fetch("https://api.razorpay.com/v1/orders/" + encodeURIComponent(x.order_id), {
+            headers: { Authorization: "Basic " + btoa(keyId + ":" + secret) },
+          });
+        } catch (_err) {
+          return json({ ok: false, error: "Cannot confirm the existing payment order right now. Please retry later; do not pay twice." }, 503);
+        }
+        if (existing.ok) {
+          const order = await existing.json();
+          if (order?.id !== x.order_id || Number(order.amount) !== Math.round(Number(x.amount) * 100) || order.currency !== "INR")
+            return json({ ok: false, error: "Existing order does not match this payment. Contact support." }, 409);
+          if (order.status === "paid")
+            return json({ ok: false, error: "This payment may already be paid. Check its status before paying again." }, 409);
+          return json({ ok: true, order_id: order.id, amount: order.amount, currency: order.currency, key_id: keyId });
+        }
+        // An old merchant's order may be invisible to the NEW merchant (404).
+        // Only then create a replacement in the NEW merchant, preserving paid history.
+        if (existing.status !== 404)
+          return json({ ok: false, error: "Unable to validate your existing order. Try later; no new order was created." }, 503);
       }
       const r = await fetch("https://api.razorpay.com/v1/orders", {
         method: "POST",
