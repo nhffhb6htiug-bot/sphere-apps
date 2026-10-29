@@ -49,5 +49,14 @@ assert(repo.includes('sp_final_submit'),"Native final uses secure RPC");
 assert(repo.includes('sp_rating_submit'),"Native rating uses secure RPC");
 assert(!repo.includes('put("status", "delivered")'),"Native cannot directly set delivered status");
 
+// A selected video may be hundreds of MB. Never read it without a byte cap,
+// and do not erase a typed caption if the upload fails.
+const nativeChat = fs.readFileSync("android-native/app/src/main/java/com/syahifilms/sphere/ui/ChatProfileScreens.kt","utf8");
+assert(!nativeChat.includes("it.readBytes()"),"Native chat picker does not read unbounded media");
+assert(/bytesRead\s*>\s*maxMediaBytes/.test(nativeChat) && /50L\s*\*\s*1024\s*\*\s*1024/.test(nativeChat),
+  "Native chat rejects media above 50MB while reading");
+assert(/Repo\.sendMedia\(me, otherId, bytes, mime, caption\)[\s\S]*?if \(text == caption\) text = ""/.test(nativeChat),
+  "Native chat preserves message caption until media upload succeeds");
+
 console.log(JSON.stringify({checks,scriptCount:inlineCount,imagesChecked:imagePaths.length},null,2));
 if(errors.length) process.exitCode=1;
