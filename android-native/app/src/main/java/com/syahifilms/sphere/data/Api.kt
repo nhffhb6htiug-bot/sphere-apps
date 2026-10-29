@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okhttp3.MediaType.Companion.toMediaType
@@ -13,6 +14,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /** Error from the server, with a message that is safe to show to the user. */
@@ -123,10 +125,26 @@ object Api {
             "DELETE" -> b.delete(reqBody)
             else -> b.method(method, reqBody)
         }
-        http.newCall(b.build()).execute().use { res ->
+        val request = b.build()
+        fun executeOnce(): String = http.newCall(request).execute().use { res ->
             val text = res.body?.string() ?: ""
             if (res.code !in 200..299) throw toError(res.code, text)
             text
+        }
+
+        // Only a read-only GET may be retried. Never resend payments, messages,
+        // uploads, token rotations or other write operations after a timeout.
+        if (method != "GET") return@withContext executeOnce()
+        try {
+            executeOnce()
+        } catch (e: IOException) {
+            // Recovered network blips; no retry loops or hammering the API.
+            delay(350L)
+            executeOnce()
+        } catch (e: ApiException) {
+            if (e.status !in listOf(502, 503, 504)) throw e
+            delay(350L)
+            executeOnce()
         }
     }
 

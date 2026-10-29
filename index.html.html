@@ -4253,7 +4253,10 @@ async function getProfilesByIds(ids){
   if(unique.length === 0) return {};
   let data = null;
   try { const r = await sb.rpc('sp_profiles_public', { p_ids: unique }); if(!r.error) data = r.data; } catch(e) {}
-  if(data === null){ const r = await sb.from('profiles').select('*').in('id', unique); data = r.data; }   // before 017
+  // This RPC returns only the details the current account may view.
+  // Never fall back to querying private profiles if it is unavailable.
+  // The existing sanitized public editor view is used for any missing IDs.
+  if(data === null) data = [];
   // people you are not connected to yet: public editor details only (no phone/email)
   const got = new Set((data || []).map(r => r.id));
   const missing = unique.filter(id => !got.has(id));
@@ -4473,7 +4476,7 @@ async function nav(screen, data){
   let k = screen; try { k += '|' + JSON.stringify(data || null); } catch(e) {}
   if(NAV_PENDING === k) return;
   NAV_PENDING = k;
-  const early = setTimeout(() => { if(NAV_PENDING !== k) return; const ck = swrKey(screen, data); if(!(ck && SCREEN_CACHE.has(ck)) && !(screen === 'admin' && currentScreenName === 'admin' && !(data && data.tab === 'classic'))) showLoadOverlay(); }, 180);
+  const early = setTimeout(() => { if(NAV_PENDING !== k) return; const ck = swrKey(screen, data); if(!(ck && screenCacheHas(ck)) && !(screen === 'admin' && currentScreenName === 'admin' && !(data && data.tab === 'classic'))) showLoadOverlay(); }, 180);
   try { return await navInner(screen, data); }
   finally { clearTimeout(early); if(NAV_PENDING === k){ NAV_PENDING = null; hideLoadOverlay(); sphereSyncNavLens(); } }
 }
@@ -4529,7 +4532,7 @@ async function navInner(screen, data){
     if(result instanceof Promise){
       // Main tabs open at once from the last copy (no loader), then the fresh copy replaces it quietly.
       const key = swrKey(screen, data);
-      const cached = key ? SCREEN_CACHE.get(key) : null;
+      const cached = key ? screenCacheGet(key) : null;
       if(cached){ hideLoadOverlay(); app.innerHTML = cached; }
       // Part C: show the loading screen only if the screen is slow (no flash on fast screens)
       const loaderTimer = (cached || adminStay) ? null : setTimeout(() => { if(mySeq === NAV_SEQ) showLoadOverlay(); }, 180);   // admin refresh: keep showing the old page until the new one is ready
@@ -4537,7 +4540,7 @@ async function navInner(screen, data){
       if(loaderTimer) clearTimeout(loaderTimer);
       if(mySeq !== NAV_SEQ) return;            // a newer screen was opened while this one was loading
       hideLoadOverlay();
-      if(key) SCREEN_CACHE.set(key, html);
+      if(key) screenCachePut(key, html);
       if(html !== cached){ const y = cached ? window.scrollY : 0; app.innerHTML = html; if(cached) window.scrollTo(0, y); }
       if(screen === 'admin') adminAfterRender(adminKeep);
       else if(adminSub && adminKeep) window.scrollTo(0, adminKeep.y);
@@ -4558,6 +4561,36 @@ SCREENS.otpLogin = () => otpLoginScreen();
 // Screens that may show their last copy first. Never payments, chats threads or forms.
 const SWR_SCREENS = new Set(['home', 'chatList', 'jobs', 'notifications', 'profile', 'portfolio', 'allEditors']);
 const SCREEN_CACHE = new Map();
+// Bound stale-while-revalidate HTML to avoid growing phone RAM usage as users
+// browse many searches/categories. Entries are account-specific, memory-only,
+// and already cleared during logout / account deletion.
+const SCREEN_CACHE_MAX = 12;
+const SCREEN_CACHE_MAX_BYTES = 180000; // per HTML string, conservative upper bound
+const SCREEN_CACHE_TTL_MS = 120000;    // fresh network still refreshes every visit
+function screenCacheHas(key){
+  const item = key && SCREEN_CACHE.get(key);
+  if(!item) return false;
+  if(Date.now() - item.at > SCREEN_CACHE_TTL_MS){
+    SCREEN_CACHE.delete(key);
+    return false;
+  }
+  return true;
+}
+function screenCacheGet(key){
+  if(!screenCacheHas(key)) return null;
+  const item = SCREEN_CACHE.get(key);
+  SCREEN_CACHE.delete(key);
+  SCREEN_CACHE.set(key, item); // lightweight LRU recency update
+  return item.html;
+}
+function screenCachePut(key, html){
+  if(!key || typeof html !== 'string' || html.length > SCREEN_CACHE_MAX_BYTES) return;
+  SCREEN_CACHE.delete(key);
+  SCREEN_CACHE.set(key, { html, at: Date.now() });
+  while(SCREEN_CACHE.size > SCREEN_CACHE_MAX){
+    SCREEN_CACHE.delete(SCREEN_CACHE.keys().next().value);
+  }
+}
 function swrKey(screen, data){
   if(!SWR_SCREENS.has(screen)) return null;
   const u = getCurrentUser(); if(!u) return null;
