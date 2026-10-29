@@ -1,9 +1,10 @@
-// Sphere PWA service worker v5 — no visual changes.
+// Sphere PWA service worker v6 — no visual changes.
 // Only static public assets may enter Cache Storage. In particular, Supabase
 // responses and account data are never cached, even if proxied by this origin.
-const CACHE = 'sphere-static-v5';
+const CACHE = 'sphere-static-v6';
 const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/favicon.png',
   '/vendor/supabase-2.117.2.js', '/sphere-dark-theme.css', '/sphere-desktop.css'];
+const STATIC_INFLIGHT = new Map();
 const STATIC_ASSETS = /^\/(?:img\/[^?#]+|vendor\/supabase-2\.117\.2\.js|(?:icon|apple-touch-icon|notif-icon|notif-badge|favicon)[^/]*\.(?:png|webp|svg|ico)|sphere-(?:dark-theme|desktop)\.css|manifest\.json)$/i;
 const CACHE_FIRST = /^\/(?:img\/[^?#]+\.(?:webp|png|jpe?g|svg)|vendor\/supabase-2\.117\.2\.js)$/i;
 const PRIVATE_PREFIX = /^\/(?:sb(?:\/|$)|api(?:\/|$)|rest\/v1(?:\/|$)|auth\/v1(?:\/|$)|functions\/v1(?:\/|$)|storage\/v1(?:\/|$))/i;
@@ -45,14 +46,32 @@ self.addEventListener('fetch', (event) => {
   if (!STATIC_ASSETS.test(url.pathname)) return;
 
   if (CACHE_FIRST.test(url.pathname)) {
-    // Original image assets are versioned with the service worker on deploy.
-    // Avoid the old unnecessary network request for every cached image.
-    event.respondWith(caches.match(req).then((cached) => cached || fetch(req).then((res) => {
-      if (res && res.ok) {
-        event.waitUntil(caches.open(CACHE).then((c) => c.put(req, res.clone())).catch(() => {}));
+    // Deduplicate simultaneous requests for the same public hashed asset.
+    // All callers get a fresh Response clone; no authenticated data enters this map.
+    event.respondWith((async () => {
+      const cached = await caches.match(req);
+      if (cached) return cached;
+      const key = url.href;
+      let pending = STATIC_INFLIGHT.get(key);
+      if (!pending) {
+        pending = (async () => {
+          const res = await fetch(req);
+          if (res && res.ok) {
+            // Keep the in-flight promise until cache write is complete to close
+            // the gap between the network response and a visible cache entry.
+            await caches.open(CACHE).then((c) => c.put(req, res.clone())).catch(() => {});
+          }
+          return res;
+        })();
+        STATIC_INFLIGHT.set(key, pending);
+        const current = pending;
+        current.finally(() => {
+          if (STATIC_INFLIGHT.get(key) === current) STATIC_INFLIGHT.delete(key);
+        }).catch(() => {}); // avoid an unhandled rejection during an offline fetch
       }
-      return res;
-    })));
+      const res = await pending;
+      return res && typeof res.clone === 'function' ? res.clone() : res;
+    })());
     return;
   }
 
