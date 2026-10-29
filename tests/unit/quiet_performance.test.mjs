@@ -123,7 +123,7 @@ test('new user can check suspension while old user status request is still runni
     loadAccountStatus: u=>new Promise(resolve=>checks.push({u,resolve})),
     PREMIUM_CACHE:{clear(){}},SCREEN_CACHE:{clear(){}},nav(){},Promise
   };
-  vm.runInNewContext(src+'\\nglobalThis.checkStatus = refreshAccountStatus;',sand);
+  vm.runInNewContext(src+'\nglobalThis.checkStatus = refreshAccountStatus;',sand);
   const before=sand.checkStatus();
   user={id:'account-two',suspended:false};
   const after=sand.checkStatus();
