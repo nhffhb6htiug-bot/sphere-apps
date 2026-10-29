@@ -5523,6 +5523,35 @@ function youtubeThumb(url){
   const m = String(url || '').match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/);
   return m ? `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg` : null;
 }
+
+/* Portfolio categories: "Other" displays legacy work without changing stored records. */
+const PORTFOLIO_OTHER='Other';
+function portfolioCategoryOf(item){
+  const value=String(item?.category||'').trim();
+  return CATEGORIES.includes(value) ? value : PORTFOLIO_OTHER;
+}
+function renderPortfolioFilters(items, extraLinks){
+  const found=new Set((items||[]).map(portfolioCategoryOf));
+  if(extraLinks)found.add(PORTFOLIO_OTHER);
+  if(!found.size)return '';
+  const opts=['All', ...CATEGORIES.filter(c=>found.has(c)), ...(found.has(PORTFOLIO_OTHER)?[PORTFOLIO_OTHER]:[])];
+  return '<div class="portfolio-filter-chips" role="group" aria-label="Portfolio categories">' +
+    opts.map(cat=>'<button type="button" data-cat="'+esc(cat)+'" class="'+(cat==='All'?'on':'')+'" aria-pressed="'+(cat==='All'?'true':'false')+'" onclick="filterPortfolioCategory(this)">'+esc(cat)+'</button>').join('')+'</div>';
+}
+function filterPortfolioCategory(button){
+  const scope=button.closest('.portfolio-filter-scope');if(!scope)return;
+  const category=button.dataset.cat;
+  scope.querySelectorAll('.portfolio-filter-chips button').forEach(b=>{
+    const active=b===button;b.classList.toggle('on',active);b.setAttribute('aria-pressed',String(active));
+  });
+  let matches=0;
+  scope.querySelectorAll('.pf-entry').forEach(item=>{
+    const show=category==='All'||item.dataset.pfCategory===category;
+    item.hidden=!show;if(show)matches++;
+  });
+  const empty=scope.querySelector('.pf-no-matches');
+  if(empty)empty.hidden=matches>0;
+}
 function renderPortfolio(e, items, editable){
   const tiles = [];
   (items || []).forEach(it => {
@@ -5531,8 +5560,8 @@ function renderPortfolio(e, items, editable){
     const inner = `${it.video_url ? '<div class="play-ic">▶</div>' : ''}<div class="pf-title">${esc(it.title)}</div>`;
     const del = editable ? `<button class="pf-del" onclick="event.preventDefault(); event.stopPropagation(); deletePortfolioItem('${it.id}', ${jsq(it.image_path || '')})">✕</button>` : '';
     tiles.push(it.video_url && /^https?:\/\//i.test(it.video_url)
-      ? `<a class="portfolio-item" href="${esc(it.video_url)}" target="_blank" rel="noopener noreferrer" style="${bg}">${del}${inner}</a>`
-      : `<div class="portfolio-item" style="${bg}" onclick="safeOpen(${jsq(img)})">${del}${inner}</div>`);
+      ? `<a class="portfolio-item pf-entry" data-pf-category="${esc(portfolioCategoryOf(it))}" href="${esc(it.video_url)}" target="_blank" rel="noopener noreferrer" style="${bg}">${del}${inner}</a>`
+      : `<div class="portfolio-item pf-entry" data-pf-category="${esc(portfolioCategoryOf(it))}" style="${bg}" onclick="safeOpen(${jsq(img)})">${del}${inner}</div>`);
   });
   const links = [];
   if(e && e.sample) links.push({ title: 'Sample Video', url: e.sample });
@@ -5540,12 +5569,12 @@ function renderPortfolio(e, items, editable){
   links.filter(l => /^https?:\/\//i.test(l.url)).forEach(l => {
     const th = youtubeThumb(l.url);
     const bg = th ? `background:#000 url('${th}') center/cover;` : 'background:linear-gradient(135deg,#0b3d91,#0e6ba8);';
-    tiles.push(`<a class="portfolio-item" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" style="${bg}">
+    tiles.push(`<a class="portfolio-item pf-entry" data-pf-category="Other" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" style="${bg}">
       <div class="play-ic">▶</div><div class="pf-title">${esc(l.title)}</div></a>`);
   });
   const head = `<div class="section-title" style="padding:0; margin-top:16px;"><h3>Portfolio</h3></div>`;
   if(tiles.length === 0) return head + `<p class="muted">No portfolio items yet.</p>`;
-  return head + `<div class="portfolio-grid" style="margin-bottom:18px;">${tiles.join('')}</div>`;
+  return head + `<div class="portfolio-filter-scope">${renderPortfolioFilters(items, links.length>0)}<div class="portfolio-grid" style="margin-bottom:18px;">${tiles.join('')}</div><p class="pf-no-matches" hidden>No work in this category yet.</p></div>`;
 }
 function renderEditorCards(list){
   if(list.length===0) return `<p class="muted">No editors yet.</p>`;
@@ -5652,16 +5681,16 @@ function renderEditorPortfolioList(e, items, editable){
     const image=it.image_path?mediaUrl(it.image_path):youtubeThumb(it.video_url);
     const href=(it.video_url&&/^https?:\/\//i.test(it.video_url))?it.video_url:null;
     const view=href?`window.open(${jsq(href)},'_blank','noopener,noreferrer')`:image?`safeOpen(${jsq(image)})`:'';
-    list.push(`<div class="se-portfolio-row" ${view?`role="button" tabindex="0" onclick="${view}"`:''}>
+    list.push(`<div class="se-portfolio-row pf-entry" data-pf-category="${esc(portfolioCategoryOf(it))}" ${view?`role="button" tabindex="0" onclick="${view}"`:''}>
       <span class="se-portfolio-glyph">${seIcon(it.video_url?'file-text':'image')}</span>
-      <div class="se-portfolio-info"><b>${esc(it.title||'Portfolio work')}</b><small>${it.video_url?'Video / external link':'Image work'} · ${it.created_at?fmtDate(it.created_at):'Portfolio'}</small></div>
+      <div class="se-portfolio-info"><b>${esc(it.title||'Portfolio work')}</b><small>${esc(portfolioCategoryOf(it))} · ${it.video_url?'Video / external link':'Image work'} · ${it.created_at?fmtDate(it.created_at):'Portfolio'}</small></div>
       ${editable?`<button type="button" class="se-del" aria-label="Delete ${esc(it.title||'work')}" onclick="event.stopPropagation();deletePortfolioItem('${it.id}', ${jsq(it.image_path||'')})">${seIcon('trash')}</button>`:''}
       ${view?`<span class="se-row-chevron">${seIcon('external-link')}</span>`:''}
     </div>`);
   });
-  if(e&&e.sample&&/^https?:\/\//i.test(e.sample)) list.push(`<div class="se-portfolio-row" role="button" onclick="window.open(${jsq(e.sample)},'_blank','noopener,noreferrer')"><span class="se-portfolio-glyph">${seIcon('link')}</span><div class="se-portfolio-info"><b>Sample Video</b><small>Open work sample link</small></div>${seIcon('external-link')}</div>`);
-  if(e&&e.portfolio&&/^https?:\/\//i.test(e.portfolio)) list.push(`<div class="se-portfolio-row" role="button" onclick="window.open(${jsq(e.portfolio)},'_blank','noopener,noreferrer')"><span class="se-portfolio-glyph">${seIcon('link')}</span><div class="se-portfolio-info"><b>Portfolio link</b><small>Open external portfolio</small></div>${seIcon('external-link')}</div>`);
-  return `<div class="se-section-head"><h2>My Work</h2><small>${(items||[]).length} saved</small></div><div class="se-portfolio-list">${list.join('')||'<div class="se-empty"><b>Your portfolio is empty</b><p>Add a project to show clients what you create.</p></div>'}</div>`;
+  if(e&&e.sample&&/^https?:\/\//i.test(e.sample)) list.push(`<div class="se-portfolio-row pf-entry" data-pf-category="Other" role="button" onclick="window.open(${jsq(e.sample)},'_blank','noopener,noreferrer')"><span class="se-portfolio-glyph">${seIcon('link')}</span><div class="se-portfolio-info"><b>Sample Video</b><small>Open work sample link</small></div>${seIcon('external-link')}</div>`);
+  if(e&&e.portfolio&&/^https?:\/\//i.test(e.portfolio)) list.push(`<div class="se-portfolio-row pf-entry" data-pf-category="Other" role="button" onclick="window.open(${jsq(e.portfolio)},'_blank','noopener,noreferrer')"><span class="se-portfolio-glyph">${seIcon('link')}</span><div class="se-portfolio-info"><b>Portfolio link</b><small>Open external portfolio</small></div>${seIcon('external-link')}</div>`);
+  return `<div class="se-section-head"><h2>My Work</h2><small>${(items||[]).length} saved</small></div><div class="portfolio-filter-scope">${renderPortfolioFilters(items,!!(e&&(e.sample||e.portfolio)))}<div class="se-portfolio-list">${list.join('')||'<div class="se-empty"><b>Your portfolio is empty</b><p>Add a project to show clients what you create.</p></div>'}</div><p class="pf-no-matches" hidden>No work in this category yet.</p></div>`;
 }
 
 
@@ -5704,6 +5733,7 @@ SCREENS.portfolio = async () => {
       <details class="se-add-panel" id="seAddWork"><summary>${seIcon('upload')} Add New Work <span>(${items.length}/${MAX_PORTFOLIO_ITEMS})</span></summary>
         <div class="se-add-inner">
           <div class="field"><label>Title</label><input id="pwTitle" maxlength="80" placeholder="Travel Vlog, Brand Edit…"></div>
+          <div class="field"><label>Category</label><select id="pwCategory" required><option value="">Choose category</option>${CATEGORIES.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></div>
           <div class="field"><label>Thumbnail / Photo (upload remains supported)</label><input type="file" id="pwPhoto" accept="image/*"></div>
           <div class="field"><label>Video link (YouTube / Drive) — optional</label><input id="pwVideo" placeholder="https://youtu.be/..."></div>
           <p class="muted" style="font-size:12px;margin-bottom:12px">Portfolio cards display no thumbnails. Uploads and links work as before.</p>
@@ -5728,9 +5758,11 @@ async function loadPortfolio(editorId){
 }
 async function addPortfolioItem(){
   const title = document.getElementById('pwTitle').value.trim();
+  const category = document.getElementById('pwCategory')?.value || '';
   const file = document.getElementById('pwPhoto').files[0];
   const video = document.getElementById('pwVideo').value.trim();
   if(!title){ alert('Enter a title'); return; }
+  if(!CATEGORIES.includes(category)){ alert('Choose a portfolio category'); return; }
   if(video && !/^https?:\/\//i.test(video)){ alert('Video link must start with https://'); return; }
   if(!file && !youtubeThumb(video)){ alert('Choose a photo or add a YouTube link'); return; }
   const btn = document.getElementById('pwBtn');
@@ -5739,7 +5771,7 @@ async function addPortfolioItem(){
     const { count } = await sb.from('sp_portfolio').select('id', { count: 'exact', head: true }).eq('editor_id', currentUser.id);
     if((count || 0) >= MAX_PORTFOLIO_ITEMS) throw new Error(`Max ${MAX_PORTFOLIO_ITEMS} items. Remove an old one first.`);
     const path = file ? await uploadImage(file, 'portfolio', 1280) : null;
-    const { data: pRow, error } = await sb.from('sp_portfolio').insert({ editor_id: currentUser.id, title, image_path: path, video_url: video || null }).select('title').single();
+    const { data: pRow, error } = await sb.from('sp_portfolio').insert({ editor_id: currentUser.id, title, category, image_path: path, video_url: video || null }).select('title').single();
     if(error){ await removeMedia(path); throw error; }
     contactCheck(title, pRow && pRow.title);
     nav('portfolio');
