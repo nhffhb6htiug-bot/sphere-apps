@@ -283,6 +283,7 @@ fun EditorDetailsScreen(nav: NavHostController) {
 fun VerificationScreen(nav: NavHostController) {
     val ctx = LocalContext.current
     val me = AppState.me ?: return
+    val offer = load(me.id) { fetchNativeEditorOffer() }
     Page("Verification", onBack = { if (!nav.popBackStack()) nav.resetTo("home") }) {
         if (me.verified) {
             CardBox(border = Success) {
@@ -301,7 +302,9 @@ fun VerificationScreen(nav: NavHostController) {
             Text(me.phone.ifBlank { "your number" }, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
             MutedText("Usually within 24–48 hours · 10 AM – 7 PM", 12)
         }
-        VerifyFeeCard(me)
+        NativeEditorProofPanel(offer.data) { offer.reload() }
+        NativeEditorVerificationFee(me, offer.data, failed = offer.error != null)
+        if (offer.error != null) TextButton(onClick = { offer.reload() }) { Text("Retry offer check") }
         CardBox {
             Text("Verification progress", fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
