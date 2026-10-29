@@ -39,6 +39,6 @@ before insert or update of order_id, utr on public.sp_fee_payments
 for each row execute function public.sp_editor_free_payment_guard();
 revoke all on function public.sp_editor_free_payment_guard() from public,anon,authenticated;
 insert into public.sp_schema_versions(version,name)
-values('054','Secure free verification proofs and block legacy payment orders')
+values('offer50_v3','Secure free verification proofs and block legacy payment orders')
 on conflict (version) do update set applied_at=now();
 commit;
