@@ -4106,7 +4106,7 @@ function verifiedEditorsSection(list){
   if(list === null) return `<div class="card" style="border:1.5px solid #e67e22; margin-top:16px;"><p style="font-size:12px;">⚙️ Verified-editor details need the latest database update (036).</p></div>`;
   return `<h3 style="margin:18px 4px 8px;">✔ Verified editors (${list.length})</h3>
     ${list.length === 0 ? '<p class="muted">No verified editors yet.</p>' : ''}
-    ${list.map(r => `<div class="card" id="vcard_${esc(r.id)}">
+    ${verificationRowsOldest(list).map(r => `<div class="card" id="vcard_${esc(r.id)}">
       <b>${verificationSerial(r.id) ? esc(verificationSerialLabel(r.id)) + ' · ' : ''}${esc(r.name || 'Editor')}</b> <span class="sp-pill ver" title="Verified by Sphere">✔ Verified Editor</span>
       <p style="font-size:12px; margin:4px 0;">Verified by <b>${esc(r.verified_by_name || (r.history && r.history[0] && r.history[0].decision === 'approved' ? r.history[0].by : '—') || '—')}</b>${r.verified_at ? ' · ' + esc(fmtDT(r.verified_at)) : ''}</p>
       ${reviewHistoryHtml(r)}
@@ -7106,7 +7106,7 @@ SCREENS.adminClassic = async () => {
     ${extrasQueueSection(extrasq)}
     <h3 style="margin-bottom:10px;">Pending Verification (${pending.length})</h3>
     ${pending.length===0?'<p class="muted">No pending editors.</p>':''}
-    ${pending.map(e=>{
+    ${verificationRowsOldest(pending).map(e=>{
       const ph = String(e.phone || '').replace(/\D/g, '').slice(-10);
       return `
       <div class="card adm-ed" data-q="${esc(adminKey(e))}">
@@ -7140,7 +7140,7 @@ SCREENS.adminClassic = async () => {
         </div>
       </div>`; }).join('')}
     <h3 style="margin:20px 0 10px;">Verified Editors (${verified.length})</h3>
-    ${verified.map(e=>{ const ph = String(e.phone || '').replace(/\D/g, '').slice(-10); return `<div class="card adm-ed" data-q="${esc(adminKey(e))}">
+    ${verificationRowsOldest(verified).map(e=>{ const ph = String(e.phone || '').replace(/\D/g, '').slice(-10); return `<div class="card adm-ed" data-q="${esc(adminKey(e))}">
       <div class="adm-head">
         ${avatarHtml(toAppUser(e), 'margin:0; width:44px; height:44px;')}
         <div class="adm-title"><b>${verificationSerial(e.id)?'<span class="admin-verify-seq">'+esc(verificationSerialLabel(e.id))+'</span> · ':''}${esc(e.full_name)}</b> <span class="badge">✔ ${esc(e.verification_code)}</span>
@@ -10590,6 +10590,11 @@ function verificationSerialLabel(id){
   const n=verificationSerial(id);
   return n ? 'Verification '+n : 'Verification';
 }
+function verificationRowsOldest(rows){
+  return (rows||[]).slice().sort((a,b)=>
+    (verificationSerial(a.id)||Number.MAX_SAFE_INTEGER)-(verificationSerial(b.id)||Number.MAX_SAFE_INTEGER)
+    || String(a.id||'').localeCompare(String(b.id||'')));
+}
 function verificationWhatsAppButton(p,extraClass='btn-sm'){
   if(!isAdminUser(getCurrentUser()) || !p?.id) return '';
   const contact=ADMIN_VERIFY_CONTACTS.get(String(p.id))||{};
@@ -11116,7 +11121,7 @@ async function adminVerificationTab(){
         <p style="font-size:13px; margin:4px 0;">“${esc(q.note || '')}”</p>
         <button class="btn-sm" onclick="nav('adminEditDetails', { userId: '${esc(q.editor_id)}', requestId: '${esc(q.id)}' })">✏️ Edit details</button></div>`).join('')}</div>` : ''}<p class="muted" style="font-size:12px; margin-bottom:10px;">Paying ₹${VERIFY_FEE} does <b>not</b> approve anyone — verify only after the call / work check.</p>
     ${(list || []).length === 0 ? '<p class="muted">No pending verification requests. 👍</p>' : ''}
-    ${(list || []).slice().sort((a,b)=>(verificationSerial(a.id)||Number.MAX_SAFE_INTEGER)-(verificationSerial(b.id)||Number.MAX_SAFE_INTEGER)).map(e => `<div class="card">
+    ${verificationRowsOldest(list).map(e => `<div class="card">
       <b>${verificationSerial(e.id)?esc(verificationSerialLabel(e.id))+' · ':''}${esc(e.name || 'Editor')}</b> ${verifyStateChip(e.status)}
       <p style="font-size:12px; margin:4px 0;">📞 ${e.phone ? `<a href="tel:${esc(e.phone)}">${esc(e.phone)}</a>` : '-'} · ${esc(e.email || '')}</p>
       <div class="btn-row" style="margin:9px 0;">${verificationWhatsAppButton(e,'btn-sm')}</div>
