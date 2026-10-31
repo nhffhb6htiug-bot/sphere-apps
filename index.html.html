@@ -2506,7 +2506,7 @@ body.sphere-editor-refresh[data-sphere-screen="portfolio"] .se-page-brand img{bo
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.42-editor-grid-two-column',
+  appVersion: '2.22.43-admin-verification-whatsapp',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -4106,12 +4106,13 @@ function verifiedEditorsSection(list){
   if(list === null) return `<div class="card" style="border:1.5px solid #e67e22; margin-top:16px;"><p style="font-size:12px;">⚙️ Verified-editor details need the latest database update (036).</p></div>`;
   return `<h3 style="margin:18px 4px 8px;">✔ Verified editors (${list.length})</h3>
     ${list.length === 0 ? '<p class="muted">No verified editors yet.</p>' : ''}
-    ${list.map(r => `<div class="card" id="vcard_${esc(r.id)}">
-      <b>${esc(r.name || 'Editor')}</b> <span class="sp-pill ver" title="Verified by Sphere">✔ Verified Editor</span>
+    ${verificationRowsOldest(list).map(r => `<div class="card" id="vcard_${esc(r.id)}">
+      <b>${verificationSerial(r.id) ? esc(verificationSerialLabel(r.id)) + ' · ' : ''}${esc(r.name || 'Editor')}</b> <span class="sp-pill ver" title="Verified by Sphere">✔ Verified Editor</span>
       <p style="font-size:12px; margin:4px 0;">Verified by <b>${esc(r.verified_by_name || (r.history && r.history[0] && r.history[0].decision === 'approved' ? r.history[0].by : '—') || '—')}</b>${r.verified_at ? ' · ' + esc(fmtDT(r.verified_at)) : ''}</p>
       ${reviewHistoryHtml(r)}
       ${editorNoteHtml(r)}
       <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+        ${verificationWhatsAppButton(r)}
         <button class="btn-sm" onclick="nav('adminUser', { userId: '${esc(r.id)}' })">👤 Full profile</button>
         <button class="btn-sm" onclick="nav('adminEditDetails', { userId: '${esc(r.id)}' })">✏️ Edit details</button>
         <button class="btn-sm" style="color:#c62828; border-color:#c62828;" onclick="toggleUnverify('${esc(r.id)}')">🚫 Unverify</button></div>
@@ -7052,6 +7053,7 @@ SCREENS.adminClassic = async () => {
     safe(loadSuspicious()), safe(loadSystemStatus()), safe(loadModQueue()), safe(loadExtrasQueue()), safe(loadCasesQueue())
   ]);
   const pending = pendingData || []; const verified = verifiedData || [];
+  setAdminVerificationNumbers([...pending,...verified]);
   const pinSet = pinRes ? pinRes.data : true;
   const meId = (getCurrentUser() || {}).id;
   const payJobs = payRes && payRes.data;
@@ -7104,21 +7106,20 @@ SCREENS.adminClassic = async () => {
     ${extrasQueueSection(extrasq)}
     <h3 style="margin-bottom:10px;">Pending Verification (${pending.length})</h3>
     ${pending.length===0?'<p class="muted">No pending editors.</p>':''}
-    ${pending.map(e=>{
+    ${verificationRowsOldest(pending).map(e=>{
       const ph = String(e.phone || '').replace(/\D/g, '').slice(-10);
-      const wa = `https://wa.me/91${ph}?text=${encodeURIComponent('Hi ' + (e.full_name || '') + ', this is the Sphere team (Syahi Films) calling about your editor verification.')}`;
       return `
       <div class="card adm-ed" data-q="${esc(adminKey(e))}">
         <div class="adm-head">
           ${avatarHtml(toAppUser(e), 'margin:0; width:44px; height:44px;')}
-          <div class="adm-title"><b>${esc(e.full_name)}</b><small style="word-break:break-all;">${esc(e.email)}</small></div>
+          <div class="adm-title"><b>${verificationSerial(e.id)?'<span class="admin-verify-seq">'+esc(verificationSerialLabel(e.id))+'</span> · ':''}${esc(e.full_name)}</b><small style="word-break:break-all;">${esc(e.email)}</small></div>
           <button class="icon-act" title="Collapse" onclick="toggleCard(this)">${UI_ICONS.minus}</button>
         </div>
         <div class="adm-body">
         <div class="vs-call" style="margin:10px 0;"><div class="num" style="font-size:20px;">${ph ? '+91 ' + ph : 'No number'}</div></div>
         ${ph ? `<div class="btn-row" style="margin-bottom:10px;">
           <a class="pill-btn primary" href="tel:+91${ph}">${UI_ICONS.phone} Call editor</a>
-          <a class="pill-btn wa" href="${wa}" target="_blank" rel="noopener">WhatsApp</a></div>` : ''}
+          ${verificationWhatsAppButton(e,'pill-btn wa')}</div>` : ''}
         ${e.verification_note ? `<p style="font-size:12px; color:#c62828; margin-bottom:6px;">Badge removed earlier: ${esc(e.verification_note)}</p>` : ''}
         <div class="card" style="margin:0 0 10px; padding:10px 12px; border:1.5px solid ${e.proof_video_url ? '#15803d' : '#e67e22'};">
           <b style="font-size:13px;">🎬 Sphere promo video</b>
@@ -7139,16 +7140,17 @@ SCREENS.adminClassic = async () => {
         </div>
       </div>`; }).join('')}
     <h3 style="margin:20px 0 10px;">Verified Editors (${verified.length})</h3>
-    ${verified.map(e=>{ const ph = String(e.phone || '').replace(/\D/g, '').slice(-10); return `<div class="card adm-ed" data-q="${esc(adminKey(e))}">
+    ${verificationRowsOldest(verified).map(e=>{ const ph = String(e.phone || '').replace(/\D/g, '').slice(-10); return `<div class="card adm-ed" data-q="${esc(adminKey(e))}">
       <div class="adm-head">
         ${avatarHtml(toAppUser(e), 'margin:0; width:44px; height:44px;')}
-        <div class="adm-title"><b>${esc(e.full_name)}</b> <span class="badge">✔ ${esc(e.verification_code)}</span>
+        <div class="adm-title"><b>${verificationSerial(e.id)?'<span class="admin-verify-seq">'+esc(verificationSerialLabel(e.id))+'</span> · ':''}${esc(e.full_name)}</b> <span class="badge">✔ ${esc(e.verification_code)}</span>
           <small>${esc((e.categories||[]).join(', '))}${e.verified_at ? ' · verified ' + fmtDate(e.verified_at) : ''}</small></div>
         <button class="icon-act danger" title="Remove verification" onclick="openUnverify('${e.id}', this)">${UI_ICONS.userx}</button>
         <button class="icon-act" title="Collapse" onclick="toggleCard(this)">${UI_ICONS.minus}</button>
       </div>
       <div class="adm-body">
         ${ph ? `<div class="kv"><span>Phone</span><b><a href="tel:+91${ph}">+91 ${ph}</a></b></div>` : ''}
+        <div class="btn-row" style="margin:8px 0;">${verificationWhatsAppButton(e,'pill-btn wa')}</div>
         <div class="field" style="margin:10px 0 6px;"><label>Razorpay Route Account ID ${e.razorpay_account_id?'✅':'(pending)'}</label>
           <input id="acc_${e.id}" name="rzp-acc-${e.id}" autocomplete="off" placeholder="acc_XXXXXXXXXXXX" value="${esc(e.razorpay_account_id)}"></div>
         <button class="btn-sm" onclick="savePayoutAccount('${e.id}')">Save Account</button>
@@ -10550,6 +10552,66 @@ function adminErr(error){
   if(/sp_admin_|schema cache|does not exist|Could not find/i.test(m)) return 'This needs the latest database update (014_admin_panel.sql).';
   return m;
 }
+
+/* Admin-only editor verification order and click-to-chat WhatsApp templates.
+   Serial numbers include past verified editors and do not depend on active filter/sort.
+   Existing profile creation date is the stable order key (earliest first).
+   No WhatsApp message is sent until the admin explicitly taps Send in WhatsApp. */
+var ADMIN_VERIFY_SEQUENCE = new Map(), ADMIN_VERIFY_CONTACTS = new Map();
+var ADMIN_VERIFY_LOADED_FOR = '', ADMIN_VERIFY_LOADED_AT = 0;
+function isVerificationApplicant(p){
+  const status=String(p?.verification_status || p?.status || '').toLowerCase();
+  const fee=String(p?.verification_fee_status || p?.fee_status || '').toLowerCase();
+  return !!p && (p.is_verified === true || p.verified === true ||
+    ['pending','rejected','approved'].includes(status) ||
+    ['submitted','confirmed'].includes(fee) || !!p.proof_video_url || !!p.proof_video);
+}
+function setAdminVerificationNumbers(rows){
+  const unique=new Map();
+  (rows||[]).forEach(p=>{ if(p?.id && isVerificationApplicant(p)) unique.set(String(p.id),p); });
+  const ordered=Array.from(unique.values()).sort((a,b)=>{
+    const da=Date.parse(a.created_at||a.joined||'')||0, db=Date.parse(b.created_at||b.joined||'')||0;
+    return (da||Number.MAX_SAFE_INTEGER)-(db||Number.MAX_SAFE_INTEGER) || String(a.id).localeCompare(String(b.id));
+  });
+  ADMIN_VERIFY_SEQUENCE=new Map(ordered.map((p,i)=>[String(p.id),i+1]));
+  ADMIN_VERIFY_CONTACTS=new Map(ordered.map(p=>[String(p.id),{ name:p.full_name||p.name||'Editor', phone:p.phone||'' }]));
+  ADMIN_VERIFY_LOADED_FOR=getCurrentUser()?.id||'';
+  ADMIN_VERIFY_LOADED_AT=Date.now();
+}
+async function loadAdminVerificationNumbers(){
+  const me=getCurrentUser();
+  if(!isAdminUser(me)) return;
+  if(ADMIN_VERIFY_LOADED_FOR===me.id && ADMIN_VERIFY_SEQUENCE.size && Date.now()-ADMIN_VERIFY_LOADED_AT<60000) return;
+  try { setAdminVerificationNumbers(await adminProfiles('EDITOR',null)); }
+  catch(err) { console.warn('Could not load admin verification serials',err); }
+}
+function verificationSerial(id){ return ADMIN_VERIFY_SEQUENCE.get(String(id||''))||null; }
+function verificationSerialLabel(id){
+  const n=verificationSerial(id);
+  return n ? 'Verification '+n : 'Verification';
+}
+function verificationRowsOldest(rows){
+  return (rows||[]).slice().sort((a,b)=>
+    (verificationSerial(a.id)||Number.MAX_SAFE_INTEGER)-(verificationSerial(b.id)||Number.MAX_SAFE_INTEGER)
+    || String(a.id||'').localeCompare(String(b.id||'')));
+}
+function verificationWhatsAppButton(p,extraClass='btn-sm'){
+  if(!isAdminUser(getCurrentUser()) || !p?.id) return '';
+  const contact=ADMIN_VERIFY_CONTACTS.get(String(p.id))||{};
+  const name=String(p.name||p.full_name||contact.name||'Editor').trim().slice(0,100);
+  const digits=String(p.phone||contact.phone||'').replace(/\D/g,'');
+  const phone=/^[6-9]\d{9}$/.test(digits)?'91'+digits:/^91[6-9]\d{9}$/.test(digits)?digits:'';
+  if(!phone) return '<span class="muted" style="font-size:11px;">WhatsApp unavailable: valid number missing</span>';
+  const serial=verificationSerialLabel(p.id);
+  const msg='Hi '+name+',\n\n'+serial+' — Sphere Editor Verification\n\n'
+    +'This is the Sphere team (Syahi Films). We are contacting you about your editor verification request. '
+    +'Please reply when you are available for verification and keep your editing work/proof ready.\n\n'
+    +'Thank you,\nSphere Team';
+  const url='https://wa.me/'+phone+'?text='+encodeURIComponent(msg);
+  return '<a class="'+esc(extraClass)+'" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer" '
+    +'onclick="event.stopPropagation()" title="Open a pre-filled WhatsApp message; review and press Send">💬 WhatsApp · '+esc(serial)+'</a>';
+}
+
 async function adminRpc(fn, args){
   const { data, error } = await sb.rpc(fn, args || {});
   if(error) throw new Error(adminErr(error));
@@ -10580,7 +10642,7 @@ function adminPinCard(pinSet){
    "Phone view" in the sidebar switches back to the normal layout. */
 function pcAdminScreen(s){ return ['admin', 'adminUser', 'adminProject', 'adminEditDetails', 'adminClassic'].includes(s); }
 var PC_SUB_TAB = { adminUser: 'users', adminProject: 'projects', adminEditDetails: 'verification', adminClassic: 'classic' };
-var PC_ADMIN_COUNTS = {}, PCV_LIST = [], PCV_REV = [], PCV_SEL = null, PCV_FILTER = 'waiting', PCV_Q = '', PCV_SORT = 'activity', PCV_CHECK = {};
+var PC_ADMIN_COUNTS = {}, PCV_LIST = [], PCV_REV = [], PCV_SEL = null, PCV_FILTER = 'waiting', PCV_Q = '', PCV_SORT = 'oldest', PCV_CHECK = {};
 /* Desktop admin automatically uses its PC workspace even in 700-900px
  * installed Chrome windows. Explicit Phone View is tab-scoped only. */
 function pcAdminOn(){
@@ -10624,7 +10686,10 @@ function pcAdminWrapSub(screen, html){ return pcAdminShell(PC_SUB_TAB[screen] ||
 
 // ---- Verification desk (PC)
 async function pcVerificationTab(){
-  const list = await adminRpc('sp_admin_verifications').catch(() => null);
+  const [list] = await Promise.all([
+    adminRpc('sp_admin_verifications').catch(() => null),
+    loadAdminVerificationNumbers()
+  ]);
   if(!list) return adminVerificationTab();
   const ids = list.map(e => e.id);
   const [verified, pendingRev, reqs] = await Promise.all([
@@ -10655,7 +10720,8 @@ async function pcVerificationTab(){
       <div class="pcv-search"><input id="pcvSearch" placeholder="Search name, phone, email  ( / )" value="${esc(PCV_Q)}" oninput="PCV_Q=this.value; pcvRenderList()"></div>
       <div class="pcv-sort" style="display:flex; align-items:center; gap:7px; padding:6px 10px;">
         <label for="pcvSort" style="font-size:11px; opacity:.8;">Sort</label>
-        <select id="pcvSort" aria-label="Sort editors by recent activity" onchange="PCV_SORT=this.value;pcvRenderList()" style="flex:1; min-width:0; border:1px solid var(--border); border-radius:7px; padding:5px; background:var(--card, #241b32); color:inherit; font:inherit; font-size:12px;">
+        <select id="pcvSort" aria-label="Sort verification applicants" onchange="PCV_SORT=this.value;pcvRenderList()" style="flex:1; min-width:0; border:1px solid var(--border); border-radius:7px; padding:5px; background:var(--card, #241b32); color:inherit; font:inherit; font-size:12px;">
+          <option value="oldest" ${PCV_SORT === 'oldest' ? 'selected' : ''}>Verification 1 → newest</option>
           <option value="activity" ${PCV_SORT === 'activity' ? 'selected' : ''}>Latest activity</option>
           <option value="login" ${PCV_SORT === 'login' ? 'selected' : ''}>Latest login</option>
           <option value="video" ${PCV_SORT === 'video' ? 'selected' : ''}>Latest video sent</option>
@@ -10674,6 +10740,7 @@ function pcvTime(ts){
   return Number.isFinite(time) ? time : 0;
 }
 function pcvSortTime(e){
+  if(PCV_SORT === 'oldest') return pcvTime(e.joined);
   if(PCV_SORT === 'login') return pcvTime(e.last_login);
   if(PCV_SORT === 'video') return pcvTime(e.proof_at);
   if(PCV_SORT === 'payment') return pcvTime(e.fee_at);
@@ -10688,6 +10755,7 @@ function pcvRecentEvent(e){
     {key:'payment', label:'Payment', time:e.fee_at},
     {key:'joined', label:'Joined', time:e.joined}
   ];
+  if(PCV_SORT === 'oldest') return options.find(x => x.key === 'joined');
   if(PCV_SORT !== 'activity') return options.find(x => x.key === PCV_SORT) || options[0];
   return [{key:'seen',label:'Active',time:e.last_seen}, ...options]
     .sort((a,b) => pcvTime(b.time) - pcvTime(a.time))[0];
@@ -10716,7 +10784,10 @@ function pcvFiltered(){
     if(PCV_FILTER === 'video' && !e.proof_video) return false;
     if(PCV_FILTER === 'rejected' && e.status !== 'rejected') return false;
     return !q || [e.name, e.phone, e.email, (e.categories || []).join(' ')].join(' ').toLowerCase().includes(q);
-  }).sort((a, b) => pcvSortTime(b) - pcvSortTime(a) || String(a.name || '').localeCompare(String(b.name || '')));
+  }).sort((a,b) => PCV_SORT === 'oldest'
+    ? (verificationSerial(a.id) || Number.MAX_SAFE_INTEGER) - (verificationSerial(b.id) || Number.MAX_SAFE_INTEGER)
+      || String(a.id).localeCompare(String(b.id))
+    : pcvSortTime(b) - pcvSortTime(a) || String(a.name || '').localeCompare(String(b.name || '')));
 }
 function pcvItemsHtml(){
   const rows = pcvFiltered();
@@ -10727,8 +10798,8 @@ function pcvItemsHtml(){
       e.proof_video ? '<i class="ok">🎬 video</i>' : '<i>no video</i>'].join('');
     return `<div class="pcv-item ${e.id === PCV_SEL ? 'on' : ''}" data-id="${esc(e.id)}" onclick="pcvSelect('${esc(e.id)}')">
       ${avatarHtml({ avatar: e.avatar }, 'margin:0; width:38px; height:38px; flex:none;')}
-      <div style="min-width:0; flex:1;"><b>${esc(e.name || 'Editor')}</b><small>${esc((e.categories || []).slice(0, 2).join(', ') || e.email || '')}</small><div class="pcv-tags">${tags}</div>${recent}</div>
-      ${e.status === 'rejected' ? '<span title="Rejected">✖</span>' : ''}</div>`; }).join('');
+      <div style="min-width:0; flex:1;"><b>${verificationSerial(e.id) ? esc(verificationSerialLabel(e.id)) + ' · ' : ''}${esc(e.name || 'Editor')}</b><small>${esc((e.categories || []).slice(0, 2).join(', ') || e.email || '')}</small><div class="pcv-tags">${tags}</div>${recent}</div>
+      ${verificationWhatsAppButton(e,'btn-sm')}${e.status === 'rejected' ? '<span title="Rejected">✖</span>' : ''}</div>`; }).join('');
 }
 function pcvRenderList(){ const box = document.getElementById('pcvItems'); if(box) box.innerHTML = pcvItemsHtml(); }
 function pcvSelect(id){
@@ -10752,7 +10823,6 @@ function pcvVideo(url, title){
 }
 function pcvDetailHtml(e){
   const ph = String(e.phone || '').replace(/\D/g, '').slice(-10);
-  const wa = `https://wa.me/91${ph}?text=${encodeURIComponent('Hi ' + (e.name || '') + ', this is the Sphere team (Syahi Films) about your editor verification.')}`;
   const arr = v => Array.isArray(v) ? v.join(', ') : (v || '');
   const c = PCV_CHECK[e.id] || {};
   const ck = (k, l) => `<label class="pcv-ck"><input type="checkbox" ${c[k] ? 'checked' : ''} onchange="pcvTick('${esc(e.id)}','${k}',this.checked)"> ${l}</label>`;
@@ -10760,7 +10830,7 @@ function pcvDetailHtml(e){
   return `
     <div class="pcv-head">
       ${avatarHtml({ avatar: e.avatar }, 'margin:0; width:64px; height:64px; flex:none;')}
-      <div style="flex:1; min-width:0;"><h2>${esc(e.name || 'Editor')} ${verifyStateChip(e.status)}</h2>
+      <div style="flex:1; min-width:0;"><h2>${verificationSerial(e.id)?esc(verificationSerialLabel(e.id))+' · ':''}${esc(e.name || 'Editor')} ${verifyStateChip(e.status)}</h2>
         <p class="muted" style="font-size:13px;">${esc(e.email || '')}${e.joined ? ' · joined ' + esc(fmtDate(e.joined)) : ''} · ${e.works} paid work${e.works === 1 ? '' : 's'}</p></div>
       <button class="btn-sm" onclick="nav('adminUser', { userId: '${esc(e.id)}' })">👤 Full profile</button>
     </div>
@@ -10777,7 +10847,7 @@ function pcvDetailHtml(e){
       <div>
         <div class="pcv-box pcv-call"><div class="num">${ph ? '+91 ' + ph.replace(/(\d{5})(\d{5})/, '$1 $2') : 'No number'}</div>
           ${ph ? `<div class="btn-row" style="flex-wrap:wrap;"><button class="btn-sm" onclick="navigator.clipboard && navigator.clipboard.writeText('+91${ph}').then(() => alert('Number copied'))">📋 Copy</button>
-            <a class="btn-sm" href="${wa}" target="_blank" rel="noopener">💬 WhatsApp</a><a class="btn-sm" href="tel:+91${ph}">📞 Call</a></div>` : ''}</div>
+            ${verificationWhatsAppButton(e)}<a class="btn-sm" href="tel:+91${ph}">📞 Call</a></div>` : ''}</div>
         <div class="pcv-box"><b>💳 Verification fee</b><div style="margin-top:6px;">${adminVerifyBlock({ verification_status: e.status, verification_fee_status: e.fee_status, verification_fee_ref: e.fee_ref, verification_fee_at: e.fee_at, verification_note: e.note })}</div>
           ${e.fee_status === 'submitted' ? `<div class="btn-row"><button class="btn-sm" onclick="edReview('${esc(e.id)}','confirm_fee')">✅ Fee received</button><button class="btn-sm" onclick="edReview('${esc(e.id)}','reject_fee')">❌ Fee not found</button></div>` : ''}</div>
         <div class="pcv-box"><b>🕒 Recent activity</b>
@@ -11033,7 +11103,10 @@ async function adminDisputesTab(){
 
 // ---- 4) Verification
 async function adminVerificationTab(){
-  const list = await adminRpc('sp_admin_verifications').catch(() => null);
+  const [list] = await Promise.all([
+    adminRpc('sp_admin_verifications').catch(() => null),
+    loadAdminVerificationNumbers()
+  ]);
   if(list) window.__adminProofScreenshots=Object.fromEntries(list.map(e=>[e.id,e]));
   if(!list) return `<div class="card" style="border:1.5px solid #e67e22;"><p style="font-size:12px;">⚙️ This part needs the latest database update (<b>014_admin_panel.sql</b>).</p></div><button class="btn btn-outline" onclick="nav('adminClassic')">Open classic tools (old verification list)</button>`;
   const arr = v => Array.isArray(v) ? v.join(', ') : (v || '');
@@ -11048,9 +11121,10 @@ async function adminVerificationTab(){
         <p style="font-size:13px; margin:4px 0;">“${esc(q.note || '')}”</p>
         <button class="btn-sm" onclick="nav('adminEditDetails', { userId: '${esc(q.editor_id)}', requestId: '${esc(q.id)}' })">✏️ Edit details</button></div>`).join('')}</div>` : ''}<p class="muted" style="font-size:12px; margin-bottom:10px;">Paying ₹${VERIFY_FEE} does <b>not</b> approve anyone — verify only after the call / work check.</p>
     ${(list || []).length === 0 ? '<p class="muted">No pending verification requests. 👍</p>' : ''}
-    ${(list || []).map(e => `<div class="card">
-      <b>${esc(e.name || 'Editor')}</b> ${verifyStateChip(e.status)}
+    ${verificationRowsOldest(list).map(e => `<div class="card">
+      <b>${verificationSerial(e.id)?esc(verificationSerialLabel(e.id))+' · ':''}${esc(e.name || 'Editor')}</b> ${verifyStateChip(e.status)}
       <p style="font-size:12px; margin:4px 0;">📞 ${e.phone ? `<a href="tel:${esc(e.phone)}">${esc(e.phone)}</a>` : '-'} · ${esc(e.email || '')}</p>
+      <div class="btn-row" style="margin:9px 0;">${verificationWhatsAppButton(e,'btn-sm')}</div>
       ${adminVerifyBlock({ verification_status: e.status, verification_fee_status: e.fee_status, verification_fee_ref: e.fee_ref, verification_fee_at: e.fee_at, verification_note: e.note })}
       ${e.free_offer_rank ? `<p style="font-size:12px;">🎉 First 50 editor #${e.free_offer_rank} · ₹29 FREE</p><p style="font-size:12px;">${e.proof_screenshot ? `<button class="btn-sm" onclick="openEditorProofScreenshot('${esc(e.id)}')">📸 View screenshot</button>` : '📸 Screenshot missing'}</p>` : ''}
       ${reviewHistoryHtml(revOf(e.id))}
