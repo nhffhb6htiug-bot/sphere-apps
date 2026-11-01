@@ -741,6 +741,11 @@ body.pc-admin{max-width:none; padding-bottom:0; background:#eef1f8;}
 .pcv-video{margin-top:8px;} .pcv-video iframe{width:100%; aspect-ratio:16/9; border:0; border-radius:10px; background:#000; display:block;}
 .pcv-call .num{font-size:22px; font-weight:700; margin-bottom:8px; letter-spacing:.3px;}
 .pcv-call .btn-sm{text-decoration:none;}
+.pcv-call .pcv-call-messaged{margin-top:8px;}
+.pcv-call .pcv-call-messaged:empty{display:none;}
+.pcv-call .pcv-call-message-btn{width:100%;box-sizing:border-box;margin:0!important;
+  display:flex;align-items:center;justify-content:center;min-height:38px;font-weight:700;cursor:pointer;
+  border-radius:11px;white-space:normal;}
 .pcv-ck{display:flex; gap:8px; align-items:flex-start; font-size:13px; margin-top:8px; cursor:pointer;}
 .pcv-ck input{width:auto; margin-top:2px;}
 .pcv-actions{display:grid; gap:8px;}
@@ -2519,7 +2524,7 @@ body.sphere-editor-refresh[data-sphere-screen="portfolio"] .se-page-brand img{bo
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.49-rejected-to-new-button',
+  appVersion: '2.22.50-callbox-messaged-action',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -10666,12 +10671,14 @@ var ADMIN_VERIFY_OUTREACH = new Map(), ADMIN_VERIFICATION_QUEUE = 'new';
 function setAdminOutreach(rows){
   ADMIN_VERIFY_OUTREACH = new Map((rows || []).filter(x => x && x.id).map(x => [String(x.id), x.at]));
 }
-function verificationSentButton(e){
+function verificationSentButton(e, inCallBox=false){
   if(!e || !e.id || !isAdminUser(getCurrentUser()) || e.status === 'rejected' || e.verification_status === 'rejected') return '';
   const sent = ADMIN_VERIFY_OUTREACH.get(String(e.id));
   const mark = !sent;
-  const label = sent ? '↩ Back to New' : '✅ Message Sent';
-  return '<button type="button" class="btn-sm" style="border:1px solid #1c9a68;color:#087751;margin:4px 3px;" onclick="markAdminVerificationSent(&quot;'+esc(e.id)+'&quot;,'+mark+')">'+label+'</button>';
+  const label = sent ? '↩ Back to New' : (inCallBox ? '✅ Messaged' : '✅ Message Sent');
+  const cls = inCallBox ? 'btn-sm pcv-call-message-btn' : 'btn-sm';
+  const hint = sent ? 'Move this editor back to New requests' : 'Mark as messaged after actually sending the WhatsApp message';
+  return '<button type="button" class="'+cls+'" title="'+hint+'" style="border:1px solid #1c9a68;color:#087751;margin:4px 3px;" onclick="markAdminVerificationSent(&quot;'+esc(e.id)+'&quot;,'+mark+')">'+label+'</button>';
 }
 async function markAdminVerificationSent(id, mark){
   if(!isAdminUser(getCurrentUser()) || needPin()) return;
@@ -10948,7 +10955,8 @@ function pcvDetailHtml(e){
       <div>
         <div class="pcv-box pcv-call"><div class="num">${ph ? '+91 ' + ph.replace(/(\d{5})(\d{5})/, '$1 $2') : 'No number'}</div>
           ${ph ? `<div class="btn-row" style="flex-wrap:wrap;"><button class="btn-sm" onclick="navigator.clipboard && navigator.clipboard.writeText('+91${ph}').then(() => alert('Number copied'))">📋 Copy</button>
-            ${verificationWhatsAppButton(e)}<a class="btn-sm" href="tel:+91${ph}">📞 Call</a></div>` : ''}</div>
+            ${verificationWhatsAppButton(e)}<a class="btn-sm" href="tel:+91${ph}">📞 Call</a></div>
+            <div class="pcv-call-messaged">${verificationSentButton(e, true)}</div>` : ''}</div>
         <div class="pcv-box"><b>💬 Contact tracking</b>
           <p class="muted" style="font-size:12px;margin:6px 0;">${ADMIN_VERIFY_OUTREACH.has(String(e.id)) ? 'Message recorded: '+esc(fmtDT(ADMIN_VERIFY_OUTREACH.get(String(e.id)))) : 'WhatsApp opens a draft. After actually sending, tap Message Sent to move this editor out of New requests.'}</p>
           ${verificationSentButton(e)}</div>
