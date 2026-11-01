@@ -2506,7 +2506,7 @@ body.sphere-editor-refresh[data-sphere-screen="portfolio"] .se-page-brand img{bo
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.43-admin-verification-whatsapp',
+  appVersion: '2.22.44-admin-message-queue',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -7396,7 +7396,7 @@ async function verifyEditor(id){
   const { data: code, error } = await sb.rpc('sp_verify_editor', { p_editor: id, p_category: '', p_pin: ADMIN_PIN });
   if(error){ alert(error.message); if(/PIN/i.test(error.message)){ ADMIN_PIN = ''; nav('admin'); } return; }
   alert('Editor verified ✅  Code: ' + code);
-  nav('admin');
+  nav('admin',{tab:'verification'});
 }
 function adminKey(e){
   return [e.full_name, e.email, e.phone, e.verification_code, (e.categories || []).join(' ')].filter(Boolean).join(' ').toLowerCase();
@@ -11151,12 +11151,18 @@ async function adminDisputesTab(){
 
 // ---- 4) Verification
 async function adminVerificationTab(){
-  const [list] = await Promise.all([
+  const [list, outreach] = await Promise.all([
     adminRpc('sp_admin_verifications').catch(() => null),
+    adminRpc('sp_admin_editor_outreach_list').catch(() => null),
     loadAdminVerificationNumbers()
   ]);
   if(list) window.__adminProofScreenshots=Object.fromEntries(list.map(e=>[e.id,e]));
   if(!list) return `<div class="card" style="border:1.5px solid #e67e22;"><p style="font-size:12px;">⚙️ This part needs the latest database update (<b>014_admin_panel.sql</b>).</p></div><button class="btn btn-outline" onclick="nav('adminClassic')">Open classic tools (old verification list)</button>`;
+  if(outreach === null) return '<div class="card">⚠ Could not load message tracking. Refresh before contacting editors.</div>';
+  setAdminOutreach(outreach);
+  const newList = list.filter(e => !ADMIN_VERIFY_OUTREACH.has(String(e.id)));
+  const messagedList = list.filter(e => ADMIN_VERIFY_OUTREACH.has(String(e.id)));
+  const reviewList = ADMIN_VERIFICATION_QUEUE === 'messaged' ? messagedList : newList;
   const arr = v => Array.isArray(v) ? v.join(', ') : (v || '');
   const ids = (list || []).map(e => e.id);
   const verified = await adminRpc('sp_admin_editor_review', { p_ids: null }).catch(() => null);
@@ -11168,11 +11174,14 @@ async function adminVerificationTab(){
       ${reqs.map(q => `<div style="border-top:1px solid var(--border); padding:8px 0;"><b>${esc(q.name || 'Editor')}</b> <span class="muted" style="font-size:11px;">${esc(fmtDate(q.at))}</span>
         <p style="font-size:13px; margin:4px 0;">“${esc(q.note || '')}”</p>
         <button class="btn-sm" onclick="nav('adminEditDetails', { userId: '${esc(q.editor_id)}', requestId: '${esc(q.id)}' })">✏️ Edit details</button></div>`).join('')}</div>` : ''}<p class="muted" style="font-size:12px; margin-bottom:10px;">Paying ₹${VERIFY_FEE} does <b>not</b> approve anyone — verify only after the call / work check.</p>
-    ${(list || []).length === 0 ? '<p class="muted">No pending verification requests. 👍</p>' : ''}
-    ${verificationRowsOldest(list).map(e => `<div class="card">
+    ${verificationQueueTabs(newList.length,messagedList.length)}
+    <p class="muted" style="font-size:12px;margin-bottom:10px;">Newest editors appear first; Verification 1 stays at the bottom. WhatsApp only opens a draft. Mark sent only after sending.</p>
+    ${reviewList.length === 0 ? '<p class="muted">No editors in this list. 👍</p>' : ''}
+    ${verificationRowsNewest(reviewList).map(e => `<div class="card">
       <b>${verificationSerial(e.id)?esc(verificationSerialLabel(e.id))+' · ':''}${esc(e.name || 'Editor')}</b> ${verifyStateChip(e.status)}
       <p style="font-size:12px; margin:4px 0;">📞 ${e.phone ? `<a href="tel:${esc(e.phone)}">${esc(e.phone)}</a>` : '-'} · ${esc(e.email || '')}</p>
-      <div class="btn-row" style="margin:9px 0;">${verificationWhatsAppButton(e,'btn-sm')}</div>
+      <div class="btn-row" style="margin:9px 0;align-items:center;flex-wrap:wrap;">${verificationWhatsAppButton(e,'btn-sm')}${verificationSentButton(e)}</div>
+      ${ADMIN_VERIFY_OUTREACH.has(String(e.id)) ? '<p class="muted" style="font-size:12px;">💬 Messaged '+esc(fmtDT(ADMIN_VERIFY_OUTREACH.get(String(e.id))))+'</p>' : ''}
       ${adminVerifyBlock({ verification_status: e.status, verification_fee_status: e.fee_status, verification_fee_ref: e.fee_ref, verification_fee_at: e.fee_at, verification_note: e.note })}
       ${e.free_offer_rank ? `<p style="font-size:12px;">🎉 First 50 editor #${e.free_offer_rank} · ₹29 FREE</p><p style="font-size:12px;">${e.proof_screenshot ? `<button class="btn-sm" onclick="openEditorProofScreenshot('${esc(e.id)}')">📸 View screenshot</button>` : '📸 Screenshot missing'}</p>` : ''}
       ${reviewHistoryHtml(revOf(e.id))}
