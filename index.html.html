@@ -718,6 +718,17 @@ body.pc-admin{max-width:none; padding-bottom:0; background:#eef1f8;}
 .pcv-item:hover{background:#f8fafc;} .pcv-item.on{background:#eef3ff; border-left-color:#1657ff;}
 .pcv-item b{display:block; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .pcv-item small{display:block; font-size:12px; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+/* Full verification number on a separate line; WhatsApp below, not beside it. */
+.pcv-item{align-items:flex-start;}
+.pcv-item .pcv-entry-main{min-width:0; flex:1;}
+.pcv-item .pcv-serial{display:block; font-size:12px; font-weight:800; line-height:1.4;
+  white-space:normal; overflow:visible; text-overflow:clip; margin:0 0 4px; color:var(--text,#242141);}
+.pcv-item .pcv-name{display:block; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.pcv-item .pcv-entry-actions{display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; min-width:0;}
+.pcv-item .pcv-entry-actions .btn-sm{display:inline-flex; align-items:center; max-width:100%;
+  box-sizing:border-box; white-space:normal; overflow-wrap:anywhere; text-align:left;
+  font-size:11px; padding:5px 8px; text-decoration:none;}
+.pcv-item .pcv-tags{flex-wrap:wrap;}
 .pcv-tags{display:flex; gap:4px; margin-top:4px;} .pcv-tags i{font-style:normal; font-size:10.5px; padding:1px 6px; border-radius:6px; background:#f1f5f9; color:#64748b;}
 .pcv-tags i.ok{background:#dcfce7; color:#15803d;} .pcv-tags i.warn{background:#fef3c7; color:#b45309;}
 .pcv-keys{font-size:11px; padding:10px 12px;}
@@ -2506,7 +2517,7 @@ body.sphere-editor-refresh[data-sphere-screen="portfolio"] .se-page-brand img{bo
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.46-rejected-editor-queue',
+  appVersion: '2.22.47-full-verification-labels',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -10859,8 +10870,13 @@ function pcvItemsHtml(){
       e.proof_video ? '<i class="ok">🎬 video</i>' : '<i>no video</i>'].join('');
     return `<div class="pcv-item ${e.id === PCV_SEL ? 'on' : ''}" data-id="${esc(e.id)}" onclick="pcvSelect('${esc(e.id)}')">
       ${avatarHtml({ avatar: e.avatar }, 'margin:0; width:38px; height:38px; flex:none;')}
-      <div style="min-width:0; flex:1;"><b>${verificationSerial(e.id) ? String(verificationSerial(e.id)) + ' · ' : ''}${esc(e.name || 'Editor')}</b><small>${esc((e.categories || []).slice(0, 2).join(', ') || e.email || '')}</small><div class="pcv-tags">${tags}</div>${recent}</div>
-      ${verificationWhatsAppButton(e,'btn-sm')}${e.status === 'rejected' ? '<span title="Rejected">✖</span>' : ''}</div>`; }).join('');
+      <div class="pcv-entry-main">
+        <span class="pcv-serial">${esc(verificationSerialLabel(e.id))}</span>
+        <b class="pcv-name">${esc(e.name || 'Editor')}</b>
+        <small>${esc((e.categories || []).slice(0, 2).join(', ') || e.email || '')}</small>
+        <div class="pcv-tags">${tags}</div>${recent}
+        <div class="pcv-entry-actions">${verificationWhatsAppButton(e,'btn-sm')}${e.status === 'rejected' ? '<span title="Rejected">✖ Rejected</span>' : ''}</div>
+      </div></div>`; }).join('');
 }
 function pcvRenderList(){ const box = document.getElementById('pcvItems'); if(box) box.innerHTML = pcvItemsHtml(); }
 function pcvSelect(id){
