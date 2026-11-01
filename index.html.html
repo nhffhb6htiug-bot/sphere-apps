@@ -729,6 +729,8 @@ body.pc-admin{max-width:none; padding-bottom:0; background:#eef1f8;}
   box-sizing:border-box; white-space:normal; overflow-wrap:anywhere; text-align:left;
   font-size:11px; padding:5px 8px; text-decoration:none;}
 .pcv-item .pcv-tags{flex-wrap:wrap;}
+.pcv-item .pcv-entry-actions .pcv-to-new{border:1px solid #9770e6; background:rgba(130,78,205,.17); color:inherit; border-radius:10px; font-weight:700; cursor:pointer;}
+.pcv-item .pcv-entry-actions .pcv-to-new:hover{background:rgba(130,78,205,.30);}
 .pcv-tags{display:flex; gap:4px; margin-top:4px;} .pcv-tags i{font-style:normal; font-size:10.5px; padding:1px 6px; border-radius:6px; background:#f1f5f9; color:#64748b;}
 .pcv-tags i.ok{background:#dcfce7; color:#15803d;} .pcv-tags i.warn{background:#fef3c7; color:#b45309;}
 .pcv-keys{font-size:11px; padding:10px 12px;}
@@ -2517,7 +2519,7 @@ body.sphere-editor-refresh[data-sphere-screen="portfolio"] .se-page-brand img{bo
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.48-legacy-pending-verification-numbers',
+  appVersion: '2.22.49-rejected-to-new-button',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -8313,7 +8315,24 @@ async function edReview(id, action){
   } else if(!confirm({ confirm_fee: 'Mark the ₹' + VERIFY_FEE + ' fee as received?', reopen: 'Re-open this application?' }[action])) return;
   const { error } = await sb.rpc('sp_ed_review', { p_editor: id, p_action: action, p_note: note, p_pin: ADMIN_PIN });
   if(error){ alert(error.message); if(/PIN/i.test(error.message)){ ADMIN_PIN = ''; nav('admin'); } return; }
-  alert({ confirm_fee: 'Fee marked as received ✅', reject_fee: 'Editor asked to pay again', reject: 'Application rejected — the editor has been told', reopen: 'Application re-opened' }[action]);
+  if(action === 'reopen'){
+    // Reopening must place editors in New, not back in Messaged.
+    // Clear any previous WhatsApp outreach tracking after reopening succeeds.
+    try{
+      await adminRpc('sp_admin_editor_outreach_set', {p_editor:id, p_mark:false, p_pin:ADMIN_PIN});
+      ADMIN_VERIFY_OUTREACH.delete(String(id));
+    }catch(e){
+      PCV_FILTER = 'messaged';
+      ADMIN_VERIFICATION_QUEUE = 'messaged';
+      alert('Application re-opened, but moving it to New failed: ' + e.message + '. Please check the Messaged queue.');
+      nav('admin', { tab: 'verification' });
+      return;
+    }
+    PCV_FILTER = 'waiting';
+    ADMIN_VERIFICATION_QUEUE = 'new';
+    PCV_SEL = id;
+  }
+  alert({ confirm_fee: 'Fee marked as received ✅', reject_fee: 'Editor asked to pay again', reject: 'Application rejected — the editor has been told', reopen: 'Moved to New requests ✅' }[action]);
   nav('admin', { tab: 'verification' });
 }
 
@@ -10878,7 +10897,9 @@ function pcvItemsHtml(){
         <b class="pcv-name">${esc(e.name || 'Editor')}</b>
         <small>${esc((e.categories || []).slice(0, 2).join(', ') || e.email || '')}</small>
         <div class="pcv-tags">${tags}</div>${recent}
-        <div class="pcv-entry-actions">${verificationWhatsAppButton(e,'btn-sm')}${e.status === 'rejected' ? '<span title="Rejected">✖ Rejected</span>' : ''}</div>
+        <div class="pcv-entry-actions">${e.status === 'rejected'
+          ? `<button type="button" class="btn-sm pcv-to-new" onclick="event.stopPropagation(); edReview('${esc(e.id)}','reopen')" title="Move this editor back to New requests">↩ New</button>`
+          : verificationWhatsAppButton(e,'btn-sm')}</div>
       </div></div>`; }).join('');
 }
 function pcvRenderList(){ const box = document.getElementById('pcvItems'); if(box) box.innerHTML = pcvItemsHtml(); }
