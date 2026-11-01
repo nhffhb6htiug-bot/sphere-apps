@@ -2524,7 +2524,7 @@ body.sphere-editor-refresh[data-sphere-screen="portfolio"] .se-page-brand img{bo
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.50-callbox-messaged-action',
+  appVersion: '2.22.51-stay-on-verification-queue',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -10636,10 +10636,10 @@ async function markAdminVerificationSent(id, mark){
   if(mark && !confirm('Did you actually SEND the WhatsApp message? Opening WhatsApp alone does not send it.')) return;
   try{
     await adminRpc('sp_admin_editor_outreach_set', {p_editor:id, p_mark:!!mark, p_pin:ADMIN_PIN});
-    if(pcAdminOn()){
-      PCV_FILTER = mark ? 'messaged' : 'waiting';
-      PCV_SEL = id;
-    } else ADMIN_VERIFICATION_QUEUE = mark ? 'messaged' : 'new';
+    // Stay on the current queue. Marking "Messaged" removes the editor from New;
+    // the admin can open Messaged explicitly to find them again.
+    // Likewise, "Back to New" removes an editor from the open Messaged list.
+    PCV_SEL = null;
     nav('admin',{tab:'verification'});
   }catch(e){ alert('Could not save message status: '+e.message); }
 }
