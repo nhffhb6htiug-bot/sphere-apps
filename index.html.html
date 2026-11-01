@@ -4384,55 +4384,9 @@ async function refreshAccountStatus(){
 document.addEventListener('visibilitychange', () => { if(!document.hidden) refreshAccountStatus(); });
 if(!STATUS_TIMER) STATUS_TIMER = setInterval(refreshAccountStatus, 60000);
 // ---- v2.22.24: details checked on the verification call; editors change them only via a ₹29 update request ----
-function detailsAreLocked(u){ return !!u && u.baseRole === 'editor' && (u.verified || (u.detailsLocked && u.verificationStatus === 'pending')); }
+// Editors can update their own details for free. Verification is a separate process.
+function detailsAreLocked(u){ return false; }
 const DEVICE_LABEL = { mobile: '📱 Mobile', pc: '💻 PC / Laptop', both: '📱 + 💻 Both' };
-function editorDetailsLockedHtml(u){
-  const arr = v => (Array.isArray(v) ? v.join(', ') : (v || '')) || '—';
-  setTimeout(loadMyDetailRequest, 0);
-  return `<div class="screen">
-    <button type="button" class="sphere-editor-app-back" onclick="sphereGoBack()" aria-label="Back to previous page" title="Back">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
-    </button>
-    <h2>Editor details</h2>
-    <div class="card" style="border:1.5px solid #15803d;"><b>✔ Checked by Sphere</b>
-      <p class="muted" style="font-size:12px; margin-top:4px;">These details were checked on your verification call, so they can't be changed here.</p></div>
-    <div class="card">
-      <div class="kv"><span>Experience</span><b>${u.experience != null && u.experience !== '' ? esc(String(u.experience)) + ' yrs' : '—'}</b></div>
-      <div class="kv"><span>Price</span><b>${esc(u.price || '—')}</b></div>
-      <div class="kv"><span>Categories</span><b>${esc(arr(u.categories))}</b></div>
-      <div class="kv"><span>Languages</span><b>${esc(arr(u.languages))}</b></div>
-      <div class="kv"><span>Skills</span><b>${esc(arr(u.skills))}</b></div>
-      <div class="kv"><span>Where you edit</span><b>${u.editDevice ? DEVICE_LABEL[u.editDevice] || esc(u.editDevice) : '—'}</b></div>
-    </div>
-    ${u.editDevice ? '' : `<div class="card"><b>Where do you edit?</b><p class="muted" style="font-size:12px; margin:2px 0 8px;">Choose once — clients use it to find PC editors.</p>
-      <select id="lkDevice"><option value="">Choose…</option><option value="mobile">📱 Mobile</option><option value="pc">💻 PC / Laptop</option><option value="both">📱 + 💻 Both</option></select>
-      <button class="btn btn-primary" style="margin-top:8px;" onclick="saveFirstDevice()">Save</button></div>`}
-    <div class="card" id="detReqBox"><b>Need to change something?</b>
-      <p class="muted" style="font-size:12px; margin:4px 0 8px;">Send an update request (₹${VERIFY_FEE}). The Sphere team will call you, check it and update your details.</p>
-      <button class="btn btn-outline" id="feePayBtn" onclick="askDetailsUpdate()">✏️ Request an update (₹${VERIFY_FEE})</button></div>
-  </div>`;
-}
-async function loadMyDetailRequest(){
-  const u = getCurrentUser(); if(!u) return;
-  const { data } = await sb.from('sp_detail_requests').select('id,status,note,created_at').eq('editor_id', u.id).eq('status', 'open').limit(1);
-  const box = document.getElementById('detReqBox');
-  if(box && data && data.length) box.innerHTML = `<b>⏳ Update request sent</b><p class="muted" style="font-size:12px; margin-top:4px;">“${esc(data[0].note || '')}” — the Sphere team will call you.</p>`;
-}
-async function saveFirstDevice(){
-  const v = (document.getElementById('lkDevice') || {}).value || '';
-  if(!v){ alert('Choose Mobile, PC or Both'); return; }
-  const { error } = await profileUpdate({ edit_device: v });
-  if(error){ alert(error.message); return; }
-  await fetchAndSetCurrentUser(); nav('editorDetails');
-}
-async function askDetailsUpdate(){
-  const note = prompt('What do you want to change? (for example: experience is now 3 years, price 800–1500)');
-  if(note === null) return;
-  if(note.trim().length < 5){ alert('Please write what you want to change.'); return; }
-  const { error } = await sb.rpc('sp_detail_request_draft', { p_note: note.trim() });
-  if(error){ alert(error.message); return; }
-  await payFee('details_update', 'editorDetails');
-}
 // admin: edit the details checked on the call
 async function adminEditDetailsScreen(d){
   d = d || {};
@@ -8156,7 +8110,7 @@ SCREENS.editorProfileEdit = () => {
       <div class="av-pick" id="eeAvail">${Object.entries(AVAILABILITY).map(([k, a]) => `<button type="button" data-v="${k}" class="${u.availability === k ? 'on' : ''}" onclick="document.querySelectorAll('#eeAvail button').forEach(b => b.classList.toggle('on', b === this))"><span class="av-dot" style="background:${a.color};"></span>${a.label}</button>`).join('')}</div></div>
     <div class="field"><label>Categories / specializations</label>
       ${pickChips('eeCats', CATEGORIES, u.categories || [])}
-      ${u.verified ? '<p class="muted" style="font-size:12px; margin-top:6px;">⚠️ Changing categories removes your ✔ tick until Sphere checks you again.</p>' : ''}</div>
+      <p class="muted" style="font-size:12px; margin-top:6px;">Profile updates are free. Sphere may review updated specialties.</p></div>
     <div class="field"><label>Languages you edit in</label>${pickChips('eeLangs', LANGUAGES, u.languages || [])}</div>
     <div class="field"><label>Skills / Software</label><input id="eeSkills" value="${esc(u.skills)}" placeholder="Premiere Pro, After Effects, DaVinci…"></div>
     <div class="field"><label>Experience (years)</label><input id="eeExp" type="number" min="0" max="50" value="${esc(u.experience)}"></div>
@@ -8175,9 +8129,7 @@ async function saveEditorProfile(){
   const bio = document.getElementById('eeBio').value.trim();
   const availBtn = document.querySelector('#eeAvail button.on');
   const sameCats = cats.slice().sort().join('|') === (u.categories || []).slice().sort().join('|');
-  if(u.verified && !sameCats && u.baseRole !== 'admin'){
-    if(!confirm('You changed your categories. Your ✔ tick will be removed until the Sphere team checks you again. Continue?')) return;
-  }
+  
   const exp = document.getElementById('eeExp').value;
   const price = document.getElementById('eePrice').value;
   const changes = {
@@ -8191,7 +8143,6 @@ async function saveEditorProfile(){
     portfolio_url: document.getElementById('eePortfolio').value.trim() || null,
     sample_video_url: document.getElementById('eeSample').value.trim() || null
   };
-  if(u.verified && !sameCats && u.baseRole !== 'admin') changes.is_verified = false;
   const btn = document.getElementById('eeSave'); if(btn) btn.disabled = true;
   const { error, skipped } = await profileUpdate(changes);
   if(btn) btn.disabled = false;
