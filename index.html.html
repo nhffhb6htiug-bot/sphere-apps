@@ -2506,7 +2506,7 @@ body.sphere-editor-refresh[data-sphere-screen="portfolio"] .se-page-brand img{bo
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.43-admin-verification-whatsapp',
+  appVersion: '2.22.44-admin-message-queue',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -7054,6 +7054,12 @@ SCREENS.adminClassic = async () => {
   ]);
   const pending = pendingData || []; const verified = verifiedData || [];
   setAdminVerificationNumbers([...pending,...verified]);
+  const classicOutreach = await adminRpc('sp_admin_editor_outreach_list').catch(() => null);
+  if(classicOutreach !== null) setAdminOutreach(classicOutreach);
+  const classicApplicants = pending.filter(e => ['pending','rejected'].includes(String(e.verification_status||'pending')));
+  const classicNew = classicApplicants.filter(e => !ADMIN_VERIFY_OUTREACH.has(String(e.id)));
+  const classicMessaged = classicApplicants.filter(e => ADMIN_VERIFY_OUTREACH.has(String(e.id)));
+  const classicReview = classicOutreach === null ? [] : (ADMIN_VERIFICATION_QUEUE === 'messaged' ? classicMessaged : classicNew);
   const pinSet = pinRes ? pinRes.data : true;
   const meId = (getCurrentUser() || {}).id;
   const payJobs = payRes && payRes.data;
@@ -7104,9 +7110,11 @@ SCREENS.adminClassic = async () => {
     ${modQueueSection(modq)}
     ${casesQueueSection(casesq)}
     ${extrasQueueSection(extrasq)}
-    <h3 style="margin-bottom:10px;">Pending Verification (${pending.length})</h3>
-    ${pending.length===0?'<p class="muted">No pending editors.</p>':''}
-    ${verificationRowsOldest(pending).map(e=>{
+    <h3 style="margin-bottom:10px;">Editor verification queue</h3>
+    ${classicOutreach === null ? '<p class="muted">⚠ Could not load message tracking. Refresh before contacting editors.</p>' : verificationQueueTabs(classicNew.length, classicMessaged.length)}
+    <p class="muted" style="font-size:12px;margin-bottom:10px;">Newest applications first; Verification 1 stays at the bottom.</p>
+    ${classicReview.length===0 && classicOutreach !== null ? '<p class="muted">No editors in this queue.</p>' : ''}
+    ${verificationRowsNewest(classicReview).map(e=>{
       const ph = String(e.phone || '').replace(/\D/g, '').slice(-10);
       return `
       <div class="card adm-ed" data-q="${esc(adminKey(e))}">
@@ -7119,7 +7127,7 @@ SCREENS.adminClassic = async () => {
         <div class="vs-call" style="margin:10px 0;"><div class="num" style="font-size:20px;">${ph ? '+91 ' + ph : 'No number'}</div></div>
         ${ph ? `<div class="btn-row" style="margin-bottom:10px;">
           <a class="pill-btn primary" href="tel:+91${ph}">${UI_ICONS.phone} Call editor</a>
-          ${verificationWhatsAppButton(e,'pill-btn wa')}</div>` : ''}
+          ${verificationWhatsAppButton(e,'pill-btn wa')}${verificationSentButton(e)}</div>` : ''}
         ${e.verification_note ? `<p style="font-size:12px; color:#c62828; margin-bottom:6px;">Badge removed earlier: ${esc(e.verification_note)}</p>` : ''}
         <div class="card" style="margin:0 0 10px; padding:10px 12px; border:1.5px solid ${e.proof_video_url ? '#15803d' : '#e67e22'};">
           <b style="font-size:13px;">🎬 Sphere promo video</b>
@@ -7396,7 +7404,7 @@ async function verifyEditor(id){
   const { data: code, error } = await sb.rpc('sp_verify_editor', { p_editor: id, p_category: '', p_pin: ADMIN_PIN });
   if(error){ alert(error.message); if(/PIN/i.test(error.message)){ ADMIN_PIN = ''; nav('admin'); } return; }
   alert('Editor verified ✅  Code: ' + code);
-  nav('admin');
+  nav('admin',{tab:'verification'});
 }
 function adminKey(e){
   return [e.full_name, e.email, e.phone, e.verification_code, (e.categories || []).join(' ')].filter(Boolean).join(' ').toLowerCase();
@@ -10590,6 +10598,11 @@ function verificationSerialLabel(id){
   const n=verificationSerial(id);
   return n ? 'Verification '+n : 'Verification';
 }
+function verificationRowsNewest(rows){
+  return (rows||[]).slice().sort((a,b)=>
+    (verificationSerial(b.id)||0)-(verificationSerial(a.id)||0)
+    || String(b.id||'').localeCompare(String(a.id||'')));
+}
 function verificationRowsOldest(rows){
   return (rows||[]).slice().sort((a,b)=>
     (verificationSerial(a.id)||Number.MAX_SAFE_INTEGER)-(verificationSerial(b.id)||Number.MAX_SAFE_INTEGER)
@@ -10610,6 +10623,38 @@ function verificationWhatsAppButton(p,extraClass='btn-sm'){
   const url='https://wa.me/'+phone+'?text='+encodeURIComponent(msg);
   return '<a class="'+esc(extraClass)+'" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer" '
     +'onclick="event.stopPropagation()" title="Open a pre-filled WhatsApp message; review and press Send">💬 WhatsApp · '+esc(serial)+'</a>';
+}
+
+
+/* Admin outreach queue: messages are only marked sent after explicit confirmation. */
+var ADMIN_VERIFY_OUTREACH = new Map(), ADMIN_VERIFICATION_QUEUE = 'new';
+function setAdminOutreach(rows){
+  ADMIN_VERIFY_OUTREACH = new Map((rows || []).filter(x => x && x.id).map(x => [String(x.id), x.at]));
+}
+function verificationSentButton(e){
+  if(!e || !e.id || !isAdminUser(getCurrentUser())) return '';
+  const sent = ADMIN_VERIFY_OUTREACH.get(String(e.id));
+  const mark = !sent;
+  const label = sent ? '↩ Back to New' : '✅ Message Sent';
+  return '<button type="button" class="btn-sm" style="border:1px solid #1c9a68;color:#087751;margin:4px 3px;" onclick="markAdminVerificationSent(&quot;'+esc(e.id)+'&quot;,'+mark+')">'+label+'</button>';
+}
+async function markAdminVerificationSent(id, mark){
+  if(!isAdminUser(getCurrentUser()) || needPin()) return;
+  if(mark && !confirm('Did you actually SEND the WhatsApp message? Opening WhatsApp alone does not send it.')) return;
+  try{
+    await adminRpc('sp_admin_editor_outreach_set', {p_editor:id, p_mark:!!mark, p_pin:ADMIN_PIN});
+    if(pcAdminOn()){
+      PCV_FILTER = mark ? 'messaged' : 'waiting';
+      PCV_SEL = id;
+    } else ADMIN_VERIFICATION_QUEUE = mark ? 'messaged' : 'new';
+    nav('admin',{tab:'verification'});
+  }catch(e){ alert('Could not save message status: '+e.message); }
+}
+function verificationQueueTabs(newCount, messagedCount){
+  return '<div class="pcv-chips" role="tablist" aria-label="Editor verification message queue" style="margin:12px 0">'+
+    '<button role="tab" aria-selected="'+(ADMIN_VERIFICATION_QUEUE==='new')+'" class="'+(ADMIN_VERIFICATION_QUEUE==='new'?'on':'')+'" onclick="ADMIN_VERIFICATION_QUEUE=&quot;new&quot;;nav(&quot;admin&quot;,{tab:&quot;verification&quot;})">📥 New requests ('+newCount+')</button>'+
+    '<button role="tab" aria-selected="'+(ADMIN_VERIFICATION_QUEUE==='messaged')+'" class="'+(ADMIN_VERIFICATION_QUEUE==='messaged'?'on':'')+'" onclick="ADMIN_VERIFICATION_QUEUE=&quot;messaged&quot;;nav(&quot;admin&quot;,{tab:&quot;verification&quot;})">💬 Messaged ('+messagedCount+')</button>'+
+    '</div>';
 }
 
 async function adminRpc(fn, args){
@@ -10642,7 +10687,7 @@ function adminPinCard(pinSet){
    "Phone view" in the sidebar switches back to the normal layout. */
 function pcAdminScreen(s){ return ['admin', 'adminUser', 'adminProject', 'adminEditDetails', 'adminClassic'].includes(s); }
 var PC_SUB_TAB = { adminUser: 'users', adminProject: 'projects', adminEditDetails: 'verification', adminClassic: 'classic' };
-var PC_ADMIN_COUNTS = {}, PCV_LIST = [], PCV_REV = [], PCV_SEL = null, PCV_FILTER = 'waiting', PCV_Q = '', PCV_SORT = 'oldest', PCV_CHECK = {};
+var PC_ADMIN_COUNTS = {}, PCV_LIST = [], PCV_REV = [], PCV_SEL = null, PCV_FILTER = 'waiting', PCV_Q = '', PCV_SORT = 'newest', PCV_CHECK = {};
 /* Desktop admin automatically uses its PC workspace even in 700-900px
  * installed Chrome windows. Explicit Phone View is tab-scoped only. */
 function pcAdminOn(){
@@ -10686,11 +10731,14 @@ function pcAdminWrapSub(screen, html){ return pcAdminShell(PC_SUB_TAB[screen] ||
 
 // ---- Verification desk (PC)
 async function pcVerificationTab(){
-  const [list] = await Promise.all([
+  const [list, outreach] = await Promise.all([
     adminRpc('sp_admin_verifications').catch(() => null),
+    adminRpc('sp_admin_editor_outreach_list').catch(() => null),
     loadAdminVerificationNumbers()
   ]);
   if(!list) return adminVerificationTab();
+  if(outreach === null) return '<div class="card">⚠ Could not load message tracking. Refresh before contacting editors.</div>';
+  setAdminOutreach(outreach);
   const ids = list.map(e => e.id);
   const [verified, pendingRev, reqs] = await Promise.all([
     adminRpc('sp_admin_editor_review', { p_ids: null }).catch(() => null),
@@ -10698,14 +10746,15 @@ async function pcVerificationTab(){
     adminRpc('sp_admin_detail_requests').catch(() => [])]);
   PCV_LIST = list; PCV_REV = pendingRev || [];
   const n = {
-    waiting: list.filter(e => e.status !== 'rejected').length,
-    paid: list.filter(e => e.fee_status === 'submitted' || e.fee_status === 'confirmed').length,
-    video: list.filter(e => e.proof_video).length,
-    rejected: list.filter(e => e.status === 'rejected').length,
+    waiting: list.filter(e => e.status !== 'rejected' && !ADMIN_VERIFY_OUTREACH.has(String(e.id))).length,
+    messaged: list.filter(e => ADMIN_VERIFY_OUTREACH.has(String(e.id))).length,
+    paid: list.filter(e => !ADMIN_VERIFY_OUTREACH.has(String(e.id)) && (e.fee_status === 'submitted' || e.fee_status === 'confirmed')).length,
+    video: list.filter(e => !ADMIN_VERIFY_OUTREACH.has(String(e.id)) && e.proof_video).length,
+    rejected: list.filter(e => !ADMIN_VERIFY_OUTREACH.has(String(e.id)) && e.status === 'rejected').length,
     verified: (verified || []).length };
   const hiddenRows = await adminRpc('sp_admin_hidden_projects').catch(()=>[]);
   const chip = (k, l) => `<button class="${PCV_FILTER === k ? 'on' : ''}" onclick="PCV_FILTER='${k}'; nav('admin', { tab: 'verification' })">${l} <span>${n[k]}</span></button>`;
-  const chips = `<div class="pcv-chips">${chip('waiting', 'Waiting')}${chip('paid', '₹29 paid')}${chip('video', 'Promo video sent')}${chip('rejected', 'Rejected')}${chip('verified', '✔ Verified')}</div>`;
+  const chips = `<div class="pcv-chips">${chip('waiting', '📥 New')}${chip('messaged', '💬 Messaged')}${chip('paid', '₹29 paid')}${chip('video', 'Promo video sent')}${chip('rejected', 'Rejected')}${chip('verified', '✔ Verified')}</div>`;
   const reqBox = (reqs || []).length ? `<div class="card" style="border:1.5px solid #1657ff;"><b>✏️ Update requests (${reqs.length})</b>
       <p class="muted" style="font-size:12px; margin:2px 0 6px;">Paid ₹${VERIFY_FEE}. Call the editor, check, then edit their details.</p>
       ${reqs.map(q => `<div style="border-top:1px solid var(--border); padding:8px 0; display:flex; gap:10px; align-items:center;"><div style="flex:1;"><b>${esc(q.name || 'Editor')}</b> <span class="muted" style="font-size:11px;">${esc(fmtDate(q.at))}</span>
@@ -10721,7 +10770,8 @@ async function pcVerificationTab(){
       <div class="pcv-sort" style="display:flex; align-items:center; gap:7px; padding:6px 10px;">
         <label for="pcvSort" style="font-size:11px; opacity:.8;">Sort</label>
         <select id="pcvSort" aria-label="Sort verification applicants" onchange="PCV_SORT=this.value;pcvRenderList()" style="flex:1; min-width:0; border:1px solid var(--border); border-radius:7px; padding:5px; background:var(--card, #241b32); color:inherit; font:inherit; font-size:12px;">
-          <option value="oldest" ${PCV_SORT === 'oldest' ? 'selected' : ''}>Verification 1 → newest</option>
+          <option value="newest" ${PCV_SORT === 'newest' ? 'selected' : ''}>Newest → Verification 1</option>
+           <option value="oldest" ${PCV_SORT === 'oldest' ? 'selected' : ''}>Verification 1 → newest</option>
           <option value="activity" ${PCV_SORT === 'activity' ? 'selected' : ''}>Latest activity</option>
           <option value="login" ${PCV_SORT === 'login' ? 'selected' : ''}>Latest login</option>
           <option value="video" ${PCV_SORT === 'video' ? 'selected' : ''}>Latest video sent</option>
@@ -10740,7 +10790,7 @@ function pcvTime(ts){
   return Number.isFinite(time) ? time : 0;
 }
 function pcvSortTime(e){
-  if(PCV_SORT === 'oldest') return pcvTime(e.joined);
+  if(PCV_SORT === 'oldest' || PCV_SORT === 'newest') return pcvTime(e.joined);
   if(PCV_SORT === 'login') return pcvTime(e.last_login);
   if(PCV_SORT === 'video') return pcvTime(e.proof_at);
   if(PCV_SORT === 'payment') return pcvTime(e.fee_at);
@@ -10755,7 +10805,7 @@ function pcvRecentEvent(e){
     {key:'payment', label:'Payment', time:e.fee_at},
     {key:'joined', label:'Joined', time:e.joined}
   ];
-  if(PCV_SORT === 'oldest') return options.find(x => x.key === 'joined');
+  if(PCV_SORT === 'oldest' || PCV_SORT === 'newest') return options.find(x => x.key === 'joined');
   if(PCV_SORT !== 'activity') return options.find(x => x.key === PCV_SORT) || options[0];
   return [{key:'seen',label:'Active',time:e.last_seen}, ...options]
     .sort((a,b) => pcvTime(b.time) - pcvTime(a.time))[0];
@@ -10779,13 +10829,15 @@ function pcvRecentLabel(e){
 function pcvFiltered(){
   const q = String(PCV_Q || '').trim().toLowerCase();
   return (PCV_LIST || []).filter(e => {
+    const sent=ADMIN_VERIFY_OUTREACH.has(String(e.id));
+    if(PCV_FILTER === 'messaged' ? !sent : sent) return false;
     if(PCV_FILTER === 'waiting' && e.status === 'rejected') return false;
     if(PCV_FILTER === 'paid' && !(e.fee_status === 'submitted' || e.fee_status === 'confirmed')) return false;
     if(PCV_FILTER === 'video' && !e.proof_video) return false;
     if(PCV_FILTER === 'rejected' && e.status !== 'rejected') return false;
     return !q || [e.name, e.phone, e.email, (e.categories || []).join(' ')].join(' ').toLowerCase().includes(q);
-  }).sort((a,b) => PCV_SORT === 'oldest'
-    ? (verificationSerial(a.id) || Number.MAX_SAFE_INTEGER) - (verificationSerial(b.id) || Number.MAX_SAFE_INTEGER)
+  }).sort((a,b) => (PCV_SORT === 'oldest' || PCV_SORT === 'newest')
+    ? (PCV_SORT === 'newest' ? (verificationSerial(b.id)||0)-(verificationSerial(a.id)||0) : (verificationSerial(a.id)||0)-(verificationSerial(b.id)||0))
       || String(a.id).localeCompare(String(b.id))
     : pcvSortTime(b) - pcvSortTime(a) || String(a.name || '').localeCompare(String(b.name || '')));
 }
@@ -10794,7 +10846,8 @@ function pcvItemsHtml(){
   if(!rows.length) return '<p class="muted" style="padding:14px;">No editors match.</p>';
   return rows.map(e => {
     const recent = pcvRecentLabel(e);
-    const tags = [e.fee_status === 'confirmed' ? '<i class="ok">₹29 ✓</i>' : e.fee_status === 'submitted' ? '<i class="warn">₹29 check</i>' : '<i>unpaid</i>',
+    const tags = [ADMIN_VERIFY_OUTREACH.has(String(e.id)) ? '<i class="ok">💬 Messaged</i>' : '',
+      e.fee_status === 'confirmed' ? '<i class="ok">₹29 ✓</i>' : e.fee_status === 'submitted' ? '<i class="warn">₹29 check</i>' : '<i>unpaid</i>',
       e.proof_video ? '<i class="ok">🎬 video</i>' : '<i>no video</i>'].join('');
     return `<div class="pcv-item ${e.id === PCV_SEL ? 'on' : ''}" data-id="${esc(e.id)}" onclick="pcvSelect('${esc(e.id)}')">
       ${avatarHtml({ avatar: e.avatar }, 'margin:0; width:38px; height:38px; flex:none;')}
@@ -10848,6 +10901,9 @@ function pcvDetailHtml(e){
         <div class="pcv-box pcv-call"><div class="num">${ph ? '+91 ' + ph.replace(/(\d{5})(\d{5})/, '$1 $2') : 'No number'}</div>
           ${ph ? `<div class="btn-row" style="flex-wrap:wrap;"><button class="btn-sm" onclick="navigator.clipboard && navigator.clipboard.writeText('+91${ph}').then(() => alert('Number copied'))">📋 Copy</button>
             ${verificationWhatsAppButton(e)}<a class="btn-sm" href="tel:+91${ph}">📞 Call</a></div>` : ''}</div>
+        <div class="pcv-box"><b>💬 Contact tracking</b>
+          <p class="muted" style="font-size:12px;margin:6px 0;">${ADMIN_VERIFY_OUTREACH.has(String(e.id)) ? 'Message recorded: '+esc(fmtDT(ADMIN_VERIFY_OUTREACH.get(String(e.id)))) : 'WhatsApp opens a draft. After actually sending, tap Message Sent to move this editor out of New requests.'}</p>
+          ${verificationSentButton(e)}</div>
         <div class="pcv-box"><b>💳 Verification fee</b><div style="margin-top:6px;">${adminVerifyBlock({ verification_status: e.status, verification_fee_status: e.fee_status, verification_fee_ref: e.fee_ref, verification_fee_at: e.fee_at, verification_note: e.note })}</div>
           ${e.fee_status === 'submitted' ? `<div class="btn-row"><button class="btn-sm" onclick="edReview('${esc(e.id)}','confirm_fee')">✅ Fee received</button><button class="btn-sm" onclick="edReview('${esc(e.id)}','reject_fee')">❌ Fee not found</button></div>` : ''}</div>
         <div class="pcv-box"><b>🕒 Recent activity</b>
@@ -11103,12 +11159,18 @@ async function adminDisputesTab(){
 
 // ---- 4) Verification
 async function adminVerificationTab(){
-  const [list] = await Promise.all([
+  const [list, outreach] = await Promise.all([
     adminRpc('sp_admin_verifications').catch(() => null),
+    adminRpc('sp_admin_editor_outreach_list').catch(() => null),
     loadAdminVerificationNumbers()
   ]);
   if(list) window.__adminProofScreenshots=Object.fromEntries(list.map(e=>[e.id,e]));
   if(!list) return `<div class="card" style="border:1.5px solid #e67e22;"><p style="font-size:12px;">⚙️ This part needs the latest database update (<b>014_admin_panel.sql</b>).</p></div><button class="btn btn-outline" onclick="nav('adminClassic')">Open classic tools (old verification list)</button>`;
+  if(outreach === null) return '<div class="card">⚠ Could not load message tracking. Refresh before contacting editors.</div>';
+  setAdminOutreach(outreach);
+  const newList = list.filter(e => !ADMIN_VERIFY_OUTREACH.has(String(e.id)));
+  const messagedList = list.filter(e => ADMIN_VERIFY_OUTREACH.has(String(e.id)));
+  const reviewList = ADMIN_VERIFICATION_QUEUE === 'messaged' ? messagedList : newList;
   const arr = v => Array.isArray(v) ? v.join(', ') : (v || '');
   const ids = (list || []).map(e => e.id);
   const verified = await adminRpc('sp_admin_editor_review', { p_ids: null }).catch(() => null);
@@ -11120,11 +11182,14 @@ async function adminVerificationTab(){
       ${reqs.map(q => `<div style="border-top:1px solid var(--border); padding:8px 0;"><b>${esc(q.name || 'Editor')}</b> <span class="muted" style="font-size:11px;">${esc(fmtDate(q.at))}</span>
         <p style="font-size:13px; margin:4px 0;">“${esc(q.note || '')}”</p>
         <button class="btn-sm" onclick="nav('adminEditDetails', { userId: '${esc(q.editor_id)}', requestId: '${esc(q.id)}' })">✏️ Edit details</button></div>`).join('')}</div>` : ''}<p class="muted" style="font-size:12px; margin-bottom:10px;">Paying ₹${VERIFY_FEE} does <b>not</b> approve anyone — verify only after the call / work check.</p>
-    ${(list || []).length === 0 ? '<p class="muted">No pending verification requests. 👍</p>' : ''}
-    ${verificationRowsOldest(list).map(e => `<div class="card">
+    ${verificationQueueTabs(newList.length,messagedList.length)}
+    <p class="muted" style="font-size:12px;margin-bottom:10px;">Newest editors appear first; Verification 1 stays at the bottom. WhatsApp only opens a draft. Mark sent only after sending.</p>
+    ${reviewList.length === 0 ? '<p class="muted">No editors in this list. 👍</p>' : ''}
+    ${verificationRowsNewest(reviewList).map(e => `<div class="card">
       <b>${verificationSerial(e.id)?esc(verificationSerialLabel(e.id))+' · ':''}${esc(e.name || 'Editor')}</b> ${verifyStateChip(e.status)}
       <p style="font-size:12px; margin:4px 0;">📞 ${e.phone ? `<a href="tel:${esc(e.phone)}">${esc(e.phone)}</a>` : '-'} · ${esc(e.email || '')}</p>
-      <div class="btn-row" style="margin:9px 0;">${verificationWhatsAppButton(e,'btn-sm')}</div>
+      <div class="btn-row" style="margin:9px 0;align-items:center;flex-wrap:wrap;">${verificationWhatsAppButton(e,'btn-sm')}${verificationSentButton(e)}</div>
+      ${ADMIN_VERIFY_OUTREACH.has(String(e.id)) ? '<p class="muted" style="font-size:12px;">💬 Messaged '+esc(fmtDT(ADMIN_VERIFY_OUTREACH.get(String(e.id))))+'</p>' : ''}
       ${adminVerifyBlock({ verification_status: e.status, verification_fee_status: e.fee_status, verification_fee_ref: e.fee_ref, verification_fee_at: e.fee_at, verification_note: e.note })}
       ${e.free_offer_rank ? `<p style="font-size:12px;">🎉 First 50 editor #${e.free_offer_rank} · ₹29 FREE</p><p style="font-size:12px;">${e.proof_screenshot ? `<button class="btn-sm" onclick="openEditorProofScreenshot('${esc(e.id)}')">📸 View screenshot</button>` : '📸 Screenshot missing'}</p>` : ''}
       ${reviewHistoryHtml(revOf(e.id))}
