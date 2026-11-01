@@ -10590,6 +10590,11 @@ function verificationSerialLabel(id){
   const n=verificationSerial(id);
   return n ? 'Verification '+n : 'Verification';
 }
+function verificationRowsNewest(rows){
+  return (rows||[]).slice().sort((a,b)=>
+    (verificationSerial(b.id)||0)-(verificationSerial(a.id)||0)
+    || String(b.id||'').localeCompare(String(a.id||'')));
+}
 function verificationRowsOldest(rows){
   return (rows||[]).slice().sort((a,b)=>
     (verificationSerial(a.id)||Number.MAX_SAFE_INTEGER)-(verificationSerial(b.id)||Number.MAX_SAFE_INTEGER)
@@ -10610,6 +10615,38 @@ function verificationWhatsAppButton(p,extraClass='btn-sm'){
   const url='https://wa.me/'+phone+'?text='+encodeURIComponent(msg);
   return '<a class="'+esc(extraClass)+'" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer" '
     +'onclick="event.stopPropagation()" title="Open a pre-filled WhatsApp message; review and press Send">💬 WhatsApp · '+esc(serial)+'</a>';
+}
+
+
+/* Admin outreach queue: messages are only marked sent after explicit confirmation. */
+var ADMIN_VERIFY_OUTREACH = new Map(), ADMIN_VERIFICATION_QUEUE = 'new';
+function setAdminOutreach(rows){
+  ADMIN_VERIFY_OUTREACH = new Map((rows || []).filter(x => x && x.id).map(x => [String(x.id), x.at]));
+}
+function verificationSentButton(e){
+  if(!e || !e.id || !isAdminUser(getCurrentUser())) return '';
+  const sent = ADMIN_VERIFY_OUTREACH.get(String(e.id));
+  const mark = !sent;
+  const label = sent ? '↩ Back to New' : '✅ Message Sent';
+  return '<button type="button" class="btn-sm" style="border:1px solid #1c9a68;color:#087751;margin:4px 3px;" onclick="markAdminVerificationSent(&quot;'+esc(e.id)+'&quot;,'+mark+')">'+label+'</button>';
+}
+async function markAdminVerificationSent(id, mark){
+  if(!isAdminUser(getCurrentUser()) || needPin()) return;
+  if(mark && !confirm('Did you actually SEND the WhatsApp message? Opening WhatsApp alone does not send it.')) return;
+  try{
+    await adminRpc('sp_admin_editor_outreach_set', {p_editor:id, p_mark:!!mark, p_pin:ADMIN_PIN});
+    if(pcAdminOn()){
+      PCV_FILTER = mark ? 'messaged' : 'waiting';
+      PCV_SEL = id;
+    } else ADMIN_VERIFICATION_QUEUE = mark ? 'messaged' : 'new';
+    nav('admin',{tab:'verification'});
+  }catch(e){ alert('Could not save message status: '+e.message); }
+}
+function verificationQueueTabs(newCount, messagedCount){
+  return '<div class="pcv-chips" role="tablist" aria-label="Editor verification message queue" style="margin:12px 0">'+
+    '<button role="tab" aria-selected="'+(ADMIN_VERIFICATION_QUEUE==='new')+'" class="'+(ADMIN_VERIFICATION_QUEUE==='new'?'on':'')+'" onclick="ADMIN_VERIFICATION_QUEUE=&quot;new&quot;;nav(&quot;admin&quot;,{tab:&quot;verification&quot;})">📥 New requests ('+newCount+')</button>'+
+    '<button role="tab" aria-selected="'+(ADMIN_VERIFICATION_QUEUE==='messaged')+'" class="'+(ADMIN_VERIFICATION_QUEUE==='messaged'?'on':'')+'" onclick="ADMIN_VERIFICATION_QUEUE=&quot;messaged&quot;;nav(&quot;admin&quot;,{tab:&quot;verification&quot;})">💬 Messaged ('+messagedCount+')</button>'+
+    '</div>';
 }
 
 async function adminRpc(fn, args){
