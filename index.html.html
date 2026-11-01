@@ -7054,6 +7054,12 @@ SCREENS.adminClassic = async () => {
   ]);
   const pending = pendingData || []; const verified = verifiedData || [];
   setAdminVerificationNumbers([...pending,...verified]);
+  const classicOutreach = await adminRpc('sp_admin_editor_outreach_list').catch(() => null);
+  if(classicOutreach !== null) setAdminOutreach(classicOutreach);
+  const classicApplicants = pending.filter(e => ['pending','rejected'].includes(String(e.verification_status||'pending')));
+  const classicNew = classicApplicants.filter(e => !ADMIN_VERIFY_OUTREACH.has(String(e.id)));
+  const classicMessaged = classicApplicants.filter(e => ADMIN_VERIFY_OUTREACH.has(String(e.id)));
+  const classicReview = classicOutreach === null ? [] : (ADMIN_VERIFICATION_QUEUE === 'messaged' ? classicMessaged : classicNew);
   const pinSet = pinRes ? pinRes.data : true;
   const meId = (getCurrentUser() || {}).id;
   const payJobs = payRes && payRes.data;
@@ -7104,9 +7110,11 @@ SCREENS.adminClassic = async () => {
     ${modQueueSection(modq)}
     ${casesQueueSection(casesq)}
     ${extrasQueueSection(extrasq)}
-    <h3 style="margin-bottom:10px;">Pending Verification (${pending.length})</h3>
-    ${pending.length===0?'<p class="muted">No pending editors.</p>':''}
-    ${verificationRowsOldest(pending).map(e=>{
+    <h3 style="margin-bottom:10px;">Editor verification queue</h3>
+    ${classicOutreach === null ? '<p class="muted">⚠ Could not load message tracking. Refresh before contacting editors.</p>' : verificationQueueTabs(classicNew.length, classicMessaged.length)}
+    <p class="muted" style="font-size:12px;margin-bottom:10px;">Newest applications first; Verification 1 stays at the bottom.</p>
+    ${classicReview.length===0 && classicOutreach !== null ? '<p class="muted">No editors in this queue.</p>' : ''}
+    ${verificationRowsNewest(classicReview).map(e=>{
       const ph = String(e.phone || '').replace(/\D/g, '').slice(-10);
       return `
       <div class="card adm-ed" data-q="${esc(adminKey(e))}">
@@ -7119,7 +7127,7 @@ SCREENS.adminClassic = async () => {
         <div class="vs-call" style="margin:10px 0;"><div class="num" style="font-size:20px;">${ph ? '+91 ' + ph : 'No number'}</div></div>
         ${ph ? `<div class="btn-row" style="margin-bottom:10px;">
           <a class="pill-btn primary" href="tel:+91${ph}">${UI_ICONS.phone} Call editor</a>
-          ${verificationWhatsAppButton(e,'pill-btn wa')}</div>` : ''}
+          ${verificationWhatsAppButton(e,'pill-btn wa')}${verificationSentButton(e)}</div>` : ''}
         ${e.verification_note ? `<p style="font-size:12px; color:#c62828; margin-bottom:6px;">Badge removed earlier: ${esc(e.verification_note)}</p>` : ''}
         <div class="card" style="margin:0 0 10px; padding:10px 12px; border:1.5px solid ${e.proof_video_url ? '#15803d' : '#e67e22'};">
           <b style="font-size:13px;">🎬 Sphere promo video</b>
