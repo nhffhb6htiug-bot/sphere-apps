@@ -10679,7 +10679,7 @@ function adminPinCard(pinSet){
    "Phone view" in the sidebar switches back to the normal layout. */
 function pcAdminScreen(s){ return ['admin', 'adminUser', 'adminProject', 'adminEditDetails', 'adminClassic'].includes(s); }
 var PC_SUB_TAB = { adminUser: 'users', adminProject: 'projects', adminEditDetails: 'verification', adminClassic: 'classic' };
-var PC_ADMIN_COUNTS = {}, PCV_LIST = [], PCV_REV = [], PCV_SEL = null, PCV_FILTER = 'waiting', PCV_Q = '', PCV_SORT = 'oldest', PCV_CHECK = {};
+var PC_ADMIN_COUNTS = {}, PCV_LIST = [], PCV_REV = [], PCV_SEL = null, PCV_FILTER = 'waiting', PCV_Q = '', PCV_SORT = 'newest', PCV_CHECK = {};
 /* Desktop admin automatically uses its PC workspace even in 700-900px
  * installed Chrome windows. Explicit Phone View is tab-scoped only. */
 function pcAdminOn(){
@@ -10723,11 +10723,14 @@ function pcAdminWrapSub(screen, html){ return pcAdminShell(PC_SUB_TAB[screen] ||
 
 // ---- Verification desk (PC)
 async function pcVerificationTab(){
-  const [list] = await Promise.all([
+  const [list, outreach] = await Promise.all([
     adminRpc('sp_admin_verifications').catch(() => null),
+    adminRpc('sp_admin_editor_outreach_list').catch(() => null),
     loadAdminVerificationNumbers()
   ]);
   if(!list) return adminVerificationTab();
+  if(outreach === null) return '<div class="card">⚠ Could not load message tracking. Refresh before contacting editors.</div>';
+  setAdminOutreach(outreach);
   const ids = list.map(e => e.id);
   const [verified, pendingRev, reqs] = await Promise.all([
     adminRpc('sp_admin_editor_review', { p_ids: null }).catch(() => null),
@@ -10735,14 +10738,15 @@ async function pcVerificationTab(){
     adminRpc('sp_admin_detail_requests').catch(() => [])]);
   PCV_LIST = list; PCV_REV = pendingRev || [];
   const n = {
-    waiting: list.filter(e => e.status !== 'rejected').length,
-    paid: list.filter(e => e.fee_status === 'submitted' || e.fee_status === 'confirmed').length,
-    video: list.filter(e => e.proof_video).length,
-    rejected: list.filter(e => e.status === 'rejected').length,
+    waiting: list.filter(e => e.status !== 'rejected' && !ADMIN_VERIFY_OUTREACH.has(String(e.id))).length,
+    messaged: list.filter(e => ADMIN_VERIFY_OUTREACH.has(String(e.id))).length,
+    paid: list.filter(e => !ADMIN_VERIFY_OUTREACH.has(String(e.id)) && (e.fee_status === 'submitted' || e.fee_status === 'confirmed')).length,
+    video: list.filter(e => !ADMIN_VERIFY_OUTREACH.has(String(e.id)) && e.proof_video).length,
+    rejected: list.filter(e => !ADMIN_VERIFY_OUTREACH.has(String(e.id)) && e.status === 'rejected').length,
     verified: (verified || []).length };
   const hiddenRows = await adminRpc('sp_admin_hidden_projects').catch(()=>[]);
   const chip = (k, l) => `<button class="${PCV_FILTER === k ? 'on' : ''}" onclick="PCV_FILTER='${k}'; nav('admin', { tab: 'verification' })">${l} <span>${n[k]}</span></button>`;
-  const chips = `<div class="pcv-chips">${chip('waiting', 'Waiting')}${chip('paid', '₹29 paid')}${chip('video', 'Promo video sent')}${chip('rejected', 'Rejected')}${chip('verified', '✔ Verified')}</div>`;
+  const chips = `<div class="pcv-chips">${chip('waiting', '📥 New')}${chip('messaged', '💬 Messaged')}${chip('paid', '₹29 paid')}${chip('video', 'Promo video sent')}${chip('rejected', 'Rejected')}${chip('verified', '✔ Verified')}</div>`;
   const reqBox = (reqs || []).length ? `<div class="card" style="border:1.5px solid #1657ff;"><b>✏️ Update requests (${reqs.length})</b>
       <p class="muted" style="font-size:12px; margin:2px 0 6px;">Paid ₹${VERIFY_FEE}. Call the editor, check, then edit their details.</p>
       ${reqs.map(q => `<div style="border-top:1px solid var(--border); padding:8px 0; display:flex; gap:10px; align-items:center;"><div style="flex:1;"><b>${esc(q.name || 'Editor')}</b> <span class="muted" style="font-size:11px;">${esc(fmtDate(q.at))}</span>
@@ -10758,7 +10762,8 @@ async function pcVerificationTab(){
       <div class="pcv-sort" style="display:flex; align-items:center; gap:7px; padding:6px 10px;">
         <label for="pcvSort" style="font-size:11px; opacity:.8;">Sort</label>
         <select id="pcvSort" aria-label="Sort verification applicants" onchange="PCV_SORT=this.value;pcvRenderList()" style="flex:1; min-width:0; border:1px solid var(--border); border-radius:7px; padding:5px; background:var(--card, #241b32); color:inherit; font:inherit; font-size:12px;">
-          <option value="oldest" ${PCV_SORT === 'oldest' ? 'selected' : ''}>Verification 1 → newest</option>
+          <option value="newest" ${PCV_SORT === 'newest' ? 'selected' : ''}>Newest → Verification 1</option>
+           <option value="oldest" ${PCV_SORT === 'oldest' ? 'selected' : ''}>Verification 1 → newest</option>
           <option value="activity" ${PCV_SORT === 'activity' ? 'selected' : ''}>Latest activity</option>
           <option value="login" ${PCV_SORT === 'login' ? 'selected' : ''}>Latest login</option>
           <option value="video" ${PCV_SORT === 'video' ? 'selected' : ''}>Latest video sent</option>
@@ -10777,7 +10782,7 @@ function pcvTime(ts){
   return Number.isFinite(time) ? time : 0;
 }
 function pcvSortTime(e){
-  if(PCV_SORT === 'oldest') return pcvTime(e.joined);
+  if(PCV_SORT === 'oldest' || PCV_SORT === 'newest') return pcvTime(e.joined);
   if(PCV_SORT === 'login') return pcvTime(e.last_login);
   if(PCV_SORT === 'video') return pcvTime(e.proof_at);
   if(PCV_SORT === 'payment') return pcvTime(e.fee_at);
@@ -10792,7 +10797,7 @@ function pcvRecentEvent(e){
     {key:'payment', label:'Payment', time:e.fee_at},
     {key:'joined', label:'Joined', time:e.joined}
   ];
-  if(PCV_SORT === 'oldest') return options.find(x => x.key === 'joined');
+  if(PCV_SORT === 'oldest' || PCV_SORT === 'newest') return options.find(x => x.key === 'joined');
   if(PCV_SORT !== 'activity') return options.find(x => x.key === PCV_SORT) || options[0];
   return [{key:'seen',label:'Active',time:e.last_seen}, ...options]
     .sort((a,b) => pcvTime(b.time) - pcvTime(a.time))[0];
@@ -10816,13 +10821,15 @@ function pcvRecentLabel(e){
 function pcvFiltered(){
   const q = String(PCV_Q || '').trim().toLowerCase();
   return (PCV_LIST || []).filter(e => {
+    const sent=ADMIN_VERIFY_OUTREACH.has(String(e.id));
+    if(PCV_FILTER === 'messaged' ? !sent : sent) return false;
     if(PCV_FILTER === 'waiting' && e.status === 'rejected') return false;
     if(PCV_FILTER === 'paid' && !(e.fee_status === 'submitted' || e.fee_status === 'confirmed')) return false;
     if(PCV_FILTER === 'video' && !e.proof_video) return false;
     if(PCV_FILTER === 'rejected' && e.status !== 'rejected') return false;
     return !q || [e.name, e.phone, e.email, (e.categories || []).join(' ')].join(' ').toLowerCase().includes(q);
-  }).sort((a,b) => PCV_SORT === 'oldest'
-    ? (verificationSerial(a.id) || Number.MAX_SAFE_INTEGER) - (verificationSerial(b.id) || Number.MAX_SAFE_INTEGER)
+  }).sort((a,b) => (PCV_SORT === 'oldest' || PCV_SORT === 'newest')
+    ? (PCV_SORT === 'newest' ? (verificationSerial(b.id)||0)-(verificationSerial(a.id)||0) : (verificationSerial(a.id)||0)-(verificationSerial(b.id)||0))
       || String(a.id).localeCompare(String(b.id))
     : pcvSortTime(b) - pcvSortTime(a) || String(a.name || '').localeCompare(String(b.name || '')));
 }
@@ -10831,7 +10838,8 @@ function pcvItemsHtml(){
   if(!rows.length) return '<p class="muted" style="padding:14px;">No editors match.</p>';
   return rows.map(e => {
     const recent = pcvRecentLabel(e);
-    const tags = [e.fee_status === 'confirmed' ? '<i class="ok">₹29 ✓</i>' : e.fee_status === 'submitted' ? '<i class="warn">₹29 check</i>' : '<i>unpaid</i>',
+    const tags = [ADMIN_VERIFY_OUTREACH.has(String(e.id)) ? '<i class="ok">💬 Messaged</i>' : '',
+      e.fee_status === 'confirmed' ? '<i class="ok">₹29 ✓</i>' : e.fee_status === 'submitted' ? '<i class="warn">₹29 check</i>' : '<i>unpaid</i>',
       e.proof_video ? '<i class="ok">🎬 video</i>' : '<i>no video</i>'].join('');
     return `<div class="pcv-item ${e.id === PCV_SEL ? 'on' : ''}" data-id="${esc(e.id)}" onclick="pcvSelect('${esc(e.id)}')">
       ${avatarHtml({ avatar: e.avatar }, 'margin:0; width:38px; height:38px; flex:none;')}
@@ -10885,6 +10893,9 @@ function pcvDetailHtml(e){
         <div class="pcv-box pcv-call"><div class="num">${ph ? '+91 ' + ph.replace(/(\d{5})(\d{5})/, '$1 $2') : 'No number'}</div>
           ${ph ? `<div class="btn-row" style="flex-wrap:wrap;"><button class="btn-sm" onclick="navigator.clipboard && navigator.clipboard.writeText('+91${ph}').then(() => alert('Number copied'))">📋 Copy</button>
             ${verificationWhatsAppButton(e)}<a class="btn-sm" href="tel:+91${ph}">📞 Call</a></div>` : ''}</div>
+        <div class="pcv-box"><b>💬 Contact tracking</b>
+          <p class="muted" style="font-size:12px;margin:6px 0;">${ADMIN_VERIFY_OUTREACH.has(String(e.id)) ? 'Message recorded: '+esc(fmtDT(ADMIN_VERIFY_OUTREACH.get(String(e.id)))) : 'WhatsApp opens a draft. After actually sending, tap Message Sent to move this editor out of New requests.'}</p>
+          ${verificationSentButton(e)}</div>
         <div class="pcv-box"><b>💳 Verification fee</b><div style="margin-top:6px;">${adminVerifyBlock({ verification_status: e.status, verification_fee_status: e.fee_status, verification_fee_ref: e.fee_ref, verification_fee_at: e.fee_at, verification_note: e.note })}</div>
           ${e.fee_status === 'submitted' ? `<div class="btn-row"><button class="btn-sm" onclick="edReview('${esc(e.id)}','confirm_fee')">✅ Fee received</button><button class="btn-sm" onclick="edReview('${esc(e.id)}','reject_fee')">❌ Fee not found</button></div>` : ''}</div>
         <div class="pcv-box"><b>🕒 Recent activity</b>
