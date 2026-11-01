@@ -2517,7 +2517,7 @@ body.sphere-editor-refresh[data-sphere-screen="portfolio"] .se-page-brand img{bo
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.47-full-verification-labels',
+  appVersion: '2.22.48-legacy-pending-verification-numbers',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -10583,7 +10583,10 @@ var ADMIN_VERIFY_LOADED_FOR = '', ADMIN_VERIFY_LOADED_AT = 0;
 function isVerificationApplicant(p){
   const status=String(p?.verification_status || p?.status || '').toLowerCase();
   const fee=String(p?.verification_fee_status || p?.fee_status || '').toLowerCase();
-  return !!p && (p.is_verified === true || p.verified === true ||
+  // The admin verification RPC treats a NULL verification_status as pending.
+  // Include those legacy editor profiles in serial numbering as well.
+  const legacyPending=String(p?.role || '').trim().toUpperCase()==='EDITOR' && p?.verification_status === null;
+  return !!p && (p.is_verified === true || p.verified === true || legacyPending ||
     ['pending','rejected','approved'].includes(status) ||
     ['submitted','confirmed'].includes(fee) || !!p.proof_video_url || !!p.proof_video);
 }
