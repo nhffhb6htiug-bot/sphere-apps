@@ -2506,7 +2506,7 @@ body.sphere-editor-refresh[data-sphere-screen="portfolio"] .se-page-brand img{bo
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.45-admin-list-numbers',
+  appVersion: '2.22.46-rejected-editor-queue',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -7056,10 +7056,12 @@ SCREENS.adminClassic = async () => {
   setAdminVerificationNumbers([...pending,...verified]);
   const classicOutreach = await adminRpc('sp_admin_editor_outreach_list').catch(() => null);
   if(classicOutreach !== null) setAdminOutreach(classicOutreach);
-  const classicApplicants = pending.filter(e => ['pending','rejected'].includes(String(e.verification_status||'pending')));
+  const classicApplicants = pending.filter(e => String(e.verification_status||'pending') === 'pending');
+  const classicRejected = pending.filter(e => e.verification_status === 'rejected');
   const classicNew = classicApplicants.filter(e => !ADMIN_VERIFY_OUTREACH.has(String(e.id)));
   const classicMessaged = classicApplicants.filter(e => ADMIN_VERIFY_OUTREACH.has(String(e.id)));
-  const classicReview = classicOutreach === null ? [] : (ADMIN_VERIFICATION_QUEUE === 'messaged' ? classicMessaged : classicNew);
+  const classicReview = classicOutreach === null ? [] :
+    (ADMIN_VERIFICATION_QUEUE === 'rejected' ? classicRejected : ADMIN_VERIFICATION_QUEUE === 'messaged' ? classicMessaged : classicNew);
   const pinSet = pinRes ? pinRes.data : true;
   const meId = (getCurrentUser() || {}).id;
   const payJobs = payRes && payRes.data;
@@ -7111,7 +7113,7 @@ SCREENS.adminClassic = async () => {
     ${casesQueueSection(casesq)}
     ${extrasQueueSection(extrasq)}
     <h3 style="margin-bottom:10px;">Editor verification queue</h3>
-    ${classicOutreach === null ? '<p class="muted">⚠ Could not load message tracking. Refresh before contacting editors.</p>' : verificationQueueTabs(classicNew.length, classicMessaged.length)}
+    ${classicOutreach === null ? '<p class="muted">⚠ Could not load message tracking. Refresh before contacting editors.</p>' : verificationQueueTabs(classicNew.length, classicMessaged.length, classicRejected.length)}
     <p class="muted" style="font-size:12px;margin-bottom:10px;">Newest applications first; Verification 1 stays at the bottom.</p>
     ${classicReview.length===0 && classicOutreach !== null ? '<p class="muted">No editors in this queue.</p>' : ''}
     ${verificationRowsNewest(classicReview).map(e=>{
@@ -7143,7 +7145,7 @@ SCREENS.adminClassic = async () => {
         <div class="kv"><span>Sample</span><b>${linkOrText(e.sample_video_url)}</b></div>
         <div class="kv"><span>Portfolio</span><b>${linkOrText(e.portfolio_url)}</b></div>
         <button class="btn btn-outline" style="margin-bottom:8px;" onclick="nav('adminEditDetails', { userId: '${e.id}' })">✏️ Edit details (from the call)</button>
-        <button class="btn btn-primary" onclick="verifyEditor('${e.id}')">✔ Verify after call</button>
+        ${e.verification_status === 'rejected' ? '' : `<button class="btn btn-primary" onclick="verifyEditor('${e.id}')">✔ Verify after call</button>`}
         ${adminVerifyActions(e)}
         </div>
       </div>`; }).join('')}
@@ -8301,7 +8303,7 @@ async function edReview(id, action){
   const { error } = await sb.rpc('sp_ed_review', { p_editor: id, p_action: action, p_note: note, p_pin: ADMIN_PIN });
   if(error){ alert(error.message); if(/PIN/i.test(error.message)){ ADMIN_PIN = ''; nav('admin'); } return; }
   alert({ confirm_fee: 'Fee marked as received ✅', reject_fee: 'Editor asked to pay again', reject: 'Application rejected — the editor has been told', reopen: 'Application re-opened' }[action]);
-  nav('admin');
+  nav('admin', { tab: 'verification' });
 }
 
 /* ============ PART 5: JOB POSTING + AI REQUIREMENTS ============
@@ -10632,7 +10634,7 @@ function setAdminOutreach(rows){
   ADMIN_VERIFY_OUTREACH = new Map((rows || []).filter(x => x && x.id).map(x => [String(x.id), x.at]));
 }
 function verificationSentButton(e){
-  if(!e || !e.id || !isAdminUser(getCurrentUser())) return '';
+  if(!e || !e.id || !isAdminUser(getCurrentUser()) || e.status === 'rejected' || e.verification_status === 'rejected') return '';
   const sent = ADMIN_VERIFY_OUTREACH.get(String(e.id));
   const mark = !sent;
   const label = sent ? '↩ Back to New' : '✅ Message Sent';
@@ -10650,10 +10652,11 @@ async function markAdminVerificationSent(id, mark){
     nav('admin',{tab:'verification'});
   }catch(e){ alert('Could not save message status: '+e.message); }
 }
-function verificationQueueTabs(newCount, messagedCount){
-  return '<div class="pcv-chips" role="tablist" aria-label="Editor verification message queue" style="margin:12px 0">'+
+function verificationQueueTabs(newCount, messagedCount, rejectedCount){
+  return '<div class="pcv-chips" role="tablist" aria-label="Editor verification queue" style="margin:12px 0">'+
     '<button role="tab" aria-selected="'+(ADMIN_VERIFICATION_QUEUE==='new')+'" class="'+(ADMIN_VERIFICATION_QUEUE==='new'?'on':'')+'" onclick="ADMIN_VERIFICATION_QUEUE=&quot;new&quot;;nav(&quot;admin&quot;,{tab:&quot;verification&quot;})">📥 New requests ('+newCount+')</button>'+
     '<button role="tab" aria-selected="'+(ADMIN_VERIFICATION_QUEUE==='messaged')+'" class="'+(ADMIN_VERIFICATION_QUEUE==='messaged'?'on':'')+'" onclick="ADMIN_VERIFICATION_QUEUE=&quot;messaged&quot;;nav(&quot;admin&quot;,{tab:&quot;verification&quot;})">💬 Messaged ('+messagedCount+')</button>'+
+    '<button role="tab" aria-selected="'+(ADMIN_VERIFICATION_QUEUE==='rejected')+'" class="'+(ADMIN_VERIFICATION_QUEUE==='rejected'?'on':'')+'" onclick="ADMIN_VERIFICATION_QUEUE=&quot;rejected&quot;;nav(&quot;admin&quot;,{tab:&quot;verification&quot;})">✖ Rejected ('+rejectedCount+')</button>'+
     '</div>';
 }
 
@@ -10747,10 +10750,10 @@ async function pcVerificationTab(){
   PCV_LIST = list; PCV_REV = pendingRev || [];
   const n = {
     waiting: list.filter(e => e.status !== 'rejected' && !ADMIN_VERIFY_OUTREACH.has(String(e.id))).length,
-    messaged: list.filter(e => ADMIN_VERIFY_OUTREACH.has(String(e.id))).length,
-    paid: list.filter(e => !ADMIN_VERIFY_OUTREACH.has(String(e.id)) && (e.fee_status === 'submitted' || e.fee_status === 'confirmed')).length,
-    video: list.filter(e => !ADMIN_VERIFY_OUTREACH.has(String(e.id)) && e.proof_video).length,
-    rejected: list.filter(e => !ADMIN_VERIFY_OUTREACH.has(String(e.id)) && e.status === 'rejected').length,
+    messaged: list.filter(e => e.status !== 'rejected' && ADMIN_VERIFY_OUTREACH.has(String(e.id))).length,
+    paid: list.filter(e => e.status !== 'rejected' && !ADMIN_VERIFY_OUTREACH.has(String(e.id)) && (e.fee_status === 'submitted' || e.fee_status === 'confirmed')).length,
+    video: list.filter(e => e.status !== 'rejected' && !ADMIN_VERIFY_OUTREACH.has(String(e.id)) && e.proof_video).length,
+    rejected: list.filter(e => e.status === 'rejected').length,
     verified: (verified || []).length };
   const hiddenRows = await adminRpc('sp_admin_hidden_projects').catch(()=>[]);
   const chip = (k, l) => `<button class="${PCV_FILTER === k ? 'on' : ''}" onclick="PCV_FILTER='${k}'; nav('admin', { tab: 'verification' })">${l} <span>${n[k]}</span></button>`;
@@ -10830,8 +10833,12 @@ function pcvFiltered(){
   const q = String(PCV_Q || '').trim().toLowerCase();
   return (PCV_LIST || []).filter(e => {
     const sent=ADMIN_VERIFY_OUTREACH.has(String(e.id));
-    if(PCV_FILTER === 'messaged' ? !sent : sent) return false;
-    if(PCV_FILTER === 'waiting' && e.status === 'rejected') return false;
+    if(PCV_FILTER === 'rejected') {
+      if(e.status !== 'rejected') return false;
+    } else {
+      if(e.status === 'rejected') return false;
+      if(PCV_FILTER === 'messaged' ? !sent : sent) return false;
+    }
     if(PCV_FILTER === 'paid' && !(e.fee_status === 'submitted' || e.fee_status === 'confirmed')) return false;
     if(PCV_FILTER === 'video' && !e.proof_video) return false;
     if(PCV_FILTER === 'rejected' && e.status !== 'rejected') return false;
@@ -10846,7 +10853,8 @@ function pcvItemsHtml(){
   if(!rows.length) return '<p class="muted" style="padding:14px;">No editors match.</p>';
   return rows.map(e => {
     const recent = pcvRecentLabel(e);
-    const tags = [ADMIN_VERIFY_OUTREACH.has(String(e.id)) ? '<i class="ok">💬 Messaged</i>' : '',
+    const tags = [e.status === 'rejected' ? '<i class="warn">✖ Rejected</i>' :
+      (ADMIN_VERIFY_OUTREACH.has(String(e.id)) ? '<i class="ok">💬 Messaged</i>' : ''),
       e.fee_status === 'confirmed' ? '<i class="ok">₹29 ✓</i>' : e.fee_status === 'submitted' ? '<i class="warn">₹29 check</i>' : '<i>unpaid</i>',
       e.proof_video ? '<i class="ok">🎬 video</i>' : '<i>no video</i>'].join('');
     return `<div class="pcv-item ${e.id === PCV_SEL ? 'on' : ''}" data-id="${esc(e.id)}" onclick="pcvSelect('${esc(e.id)}')">
@@ -10922,7 +10930,7 @@ function pcvDetailHtml(e){
           ${ck('fee', '₹' + VERIFY_FEE + ' fee received')}${ck('details', 'Details are correct (edit if not)')}</div>
         <div class="pcv-actions">
           <button class="btn btn-outline" onclick="nav('adminEditDetails', { userId: '${esc(e.id)}' })">✏️ Edit details</button>
-          <button class="btn btn-primary" onclick="pcvVerify('${esc(e.id)}')">✔ Verify editor</button>
+          ${e.status === 'rejected' ? '' : `<button class="btn btn-primary" onclick="pcvVerify('${esc(e.id)}')">✔ Verify editor</button>`}
           ${e.status === 'rejected' ? `<button class="btn btn-outline" onclick="edReview('${esc(e.id)}','reopen')">↩️ Re-open</button>`
             : `<button class="btn btn-outline" style="color:#c62828; border-color:#c62828;" onclick="edReview('${esc(e.id)}','reject')">✖ Reject</button>`}
         </div>
@@ -11168,9 +11176,12 @@ async function adminVerificationTab(){
   if(!list) return `<div class="card" style="border:1.5px solid #e67e22;"><p style="font-size:12px;">⚙️ This part needs the latest database update (<b>014_admin_panel.sql</b>).</p></div><button class="btn btn-outline" onclick="nav('adminClassic')">Open classic tools (old verification list)</button>`;
   if(outreach === null) return '<div class="card">⚠ Could not load message tracking. Refresh before contacting editors.</div>';
   setAdminOutreach(outreach);
-  const newList = list.filter(e => !ADMIN_VERIFY_OUTREACH.has(String(e.id)));
-  const messagedList = list.filter(e => ADMIN_VERIFY_OUTREACH.has(String(e.id)));
-  const reviewList = ADMIN_VERIFICATION_QUEUE === 'messaged' ? messagedList : newList;
+  const activeList = list.filter(e => e.status !== 'rejected');
+  const rejectedList = list.filter(e => e.status === 'rejected');
+  const newList = activeList.filter(e => !ADMIN_VERIFY_OUTREACH.has(String(e.id)));
+  const messagedList = activeList.filter(e => ADMIN_VERIFY_OUTREACH.has(String(e.id)));
+  const reviewList = ADMIN_VERIFICATION_QUEUE === 'rejected' ? rejectedList :
+    ADMIN_VERIFICATION_QUEUE === 'messaged' ? messagedList : newList;
   const arr = v => Array.isArray(v) ? v.join(', ') : (v || '');
   const ids = (list || []).map(e => e.id);
   const verified = await adminRpc('sp_admin_editor_review', { p_ids: null }).catch(() => null);
@@ -11182,7 +11193,7 @@ async function adminVerificationTab(){
       ${reqs.map(q => `<div style="border-top:1px solid var(--border); padding:8px 0;"><b>${esc(q.name || 'Editor')}</b> <span class="muted" style="font-size:11px;">${esc(fmtDate(q.at))}</span>
         <p style="font-size:13px; margin:4px 0;">“${esc(q.note || '')}”</p>
         <button class="btn-sm" onclick="nav('adminEditDetails', { userId: '${esc(q.editor_id)}', requestId: '${esc(q.id)}' })">✏️ Edit details</button></div>`).join('')}</div>` : ''}<p class="muted" style="font-size:12px; margin-bottom:10px;">Paying ₹${VERIFY_FEE} does <b>not</b> approve anyone — verify only after the call / work check.</p>
-    ${verificationQueueTabs(newList.length,messagedList.length)}
+    ${verificationQueueTabs(newList.length,messagedList.length,rejectedList.length)}
     <p class="muted" style="font-size:12px;margin-bottom:10px;">Newest editors appear first; Verification 1 stays at the bottom. WhatsApp only opens a draft. Mark sent only after sending.</p>
     ${reviewList.length === 0 ? '<p class="muted">No editors in this list. 👍</p>' : ''}
     ${verificationRowsNewest(reviewList).map(e => `<div class="card">
@@ -11201,8 +11212,8 @@ async function adminVerificationTab(){
       ${e.bio ? `<p style="font-size:12px; margin:6px 0;">${esc(e.bio)}</p>` : ''}
       ${e.sample ? `<p style="font-size:12px;">🎬 Sample: ${linkOrText(e.sample)}</p>` : ''}${e.portfolio ? `<p style="font-size:12px;">📁 Portfolio: ${linkOrText(e.portfolio)}</p>` : ''}
       <button class="btn btn-outline" style="margin-top:10px;" onclick="nav('adminEditDetails', { userId: '${e.id}' })">✏️ Edit details (from the call)</button>
-      <button class="btn btn-primary" style="margin-top:8px;" onclick="verifyEditor('${e.id}')">✔ Verify after call</button>
-      <button class="btn btn-outline" style="margin-top:8px;border-color:#8b5cf6;color:#7137bd;" onclick="adminForceVerifyEditor('${e.id}')">🛡️ Force Verify (Admin Only)</button>
+      ${e.status === 'rejected' ? '' : `<button class="btn btn-primary" style="margin-top:8px;" onclick="verifyEditor('${e.id}')">✔ Verify after call</button>
+      <button class="btn btn-outline" style="margin-top:8px;border-color:#8b5cf6;color:#7137bd;" onclick="adminForceVerifyEditor('${e.id}')">🛡️ Force Verify (Admin Only)</button>`}
       ${adminVerifyActions({ id: e.id, verification_status: e.status, verification_fee_status: e.fee_status })}
       <button class="btn-sm" style="margin-top:6px;" onclick="nav('adminUser', { userId: '${e.id}' })">👤 Full profile</button>
     </div>`).join('')}
