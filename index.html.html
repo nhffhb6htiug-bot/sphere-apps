@@ -6961,6 +6961,46 @@ async function functionError(error){
 }
 /* payWithRazorpay(): see PART 7 below */
 
+/* Project-aware Top 3 editor suggestions (client-only, lazy loaded). */
+function sphereMatchScore(editor, job){
+  const cat = String(job.category || '').toLowerCase().trim();
+  const description = String([job.title, job.desc].filter(Boolean).join(' ')).toLowerCase();
+  const categories = (Array.isArray(editor.categories) ? editor.categories : [editor.category]).filter(Boolean).map(v=>String(v).toLowerCase().trim());
+  const skills = String(editor.skills || '').toLowerCase();
+  const bio = String(editor.bio || '').toLowerCase();
+  let score = 0;
+  if(cat && categories.includes(cat)) score += 100;
+  else if(cat && categories.some(c => c.includes(cat) || cat.includes(c))) score += 60;
+  const words = [...new Set(description.match(/[a-z]{4,}/g) || [])].filter(w=>!['video','edit','editing','project','need','want','with','from','this','that','have','make'].includes(w));
+  score += Math.min(30, words.filter(w=>skills.includes(w) || bio.includes(w) || categories.some(c=>c.includes(w))).length * 6);
+  const price = Number(editor.price);
+  const budget = Number(job.budget);
+  if(price > 0 && budget > 0 && price <= budget) score += 12;
+  score += Math.min(8, Math.max(0, Number(editor.rating) || 0) * 1.6);
+  if(String(editor.availability || '').toLowerCase().includes('available')) score += 8;
+  return score;
+}
+async function loadSuggestedEditorsForJob(job){
+  const boxId = 'sphere-suggest-' + job.id;
+  const box = document.getElementById(boxId);
+  if(!box || currentJobId !== job.id || !isClientRole(getCurrentUser()) || job.clientId !== getCurrentUser().id) return;
+  try {
+    const editors = await getVerifiedEditors();
+    const target = document.getElementById(boxId);
+    if(!target || currentJobId !== job.id || !isClientRole(getCurrentUser())) return;
+    const top = editors.filter(e=>e.verified && e.id !== job.clientId)
+      .map(e=>({editor:e, score:sphereMatchScore(e,job)}))
+      .sort((a,b)=>b.score-a.score || String(a.editor.name||'').localeCompare(String(b.editor.name||'')))
+      .slice(0,3);
+    target.innerHTML = top.length ? top.map(({editor:e}) => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border, #e5e7eb);">
+        ${avatarHtml(e,'width:42px;height:42px;flex-shrink:0;')}
+        <div style="flex:1;min-width:0;"><b style="font-size:13px;">${esc(e.name)}</b> <span class="sp-pill ver">✔ Verified</span>
+          <p class="muted" style="font-size:12px;margin:3px 0;">${esc(catsLabel(e))} · ⭐ ${Number(e.rating)||0}</p></div>
+        <button class="btn btn-outline" style="padding:8px 10px;font-size:12px;" onclick="openEditorProfile('${esc(e.id)}')">View</button>
+      </div>`).join('') : '<p class="muted">No verified editors available right now.</p>';
+  }catch(e){ const target=document.getElementById(boxId); if(target) target.innerHTML='<p class="muted">Suggestions unavailable. You can still browse editors and receive bids.</p>'; }
+}
 /* ============ PROJECT STATUS ============ */
 const STATUS_STEPS = ['open','negotiating','payment-pending','in-progress','delivered','approved','closed'];
 SCREENS.projectStatus = async () => {
@@ -6977,10 +7017,12 @@ SCREENS.projectStatus = async () => {
   const isEditor = user.role==='editor' && job.assignedEditor===user.id;
   const otherId = isClient ? job.assignedEditor : (isEditor ? job.clientId : null);
   const amount = job.lockedAmount || job.budget;
+  if(isClient && !job.assignedEditor && job.status === 'open') setTimeout(()=>loadSuggestedEditorsForJob(job), 100);
   return `
   <div class="header"><button class="back-btn" onclick="nav('jobs')">‹</button><h1>Project Status</h1><p>${esc(job.category)}</p></div>
   <div class="screen" style="padding-top:0;">
     ${isClient ? clientStatusLine(job) : ''}
+    ${isClient && !job.assignedEditor && job.status === 'open' ? `<div class="card"><b>✨ Suggested Editors</b><p class="muted" style="font-size:12px;margin:5px 0 8px;">Top 3 verified editors matched to your project. Bidding remains open.</p><div id="sphere-suggest-${esc(job.id)}"><p class="muted">Finding suitable editors…</p></div></div>` : ''}
     ${await projectSummaryCard(job, user, isClient, isEditor)}
     ${await projectWorkSection(job, user, isClient, isEditor)}
     <div class="status-track">
