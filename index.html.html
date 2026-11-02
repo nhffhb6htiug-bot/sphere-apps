@@ -6566,18 +6566,23 @@ SCREENS.chatList = async () => {
 };
 
 SCREENS.chatThread = async () => {
-  await loadHiddenMsgs();
   const user = getCurrentUser();
   if(!currentChatWith){ setTimeout(() => nav('chatList'), 0); return ''; }
-  const other = (await getProfilesByIds([currentChatWith]))[currentChatWith];
-  const st = await chatState(currentChatWith);
+  // Independent lookups run together instead of keeping chat on a blank screen.
+  const [, profiles, st] = await Promise.all([
+    loadHiddenMsgs(), getProfilesByIds([currentChatWith]), chatState(currentChatWith)
+  ]);
+  const other = profiles[currentChatWith];
   let q = sb.from('sp_messages').select('*')
     .or(`and(sender_id.eq.${user.id},receiver_id.eq.${currentChatWith}),and(sender_id.eq.${currentChatWith},receiver_id.eq.${user.id})`);
   if(st.clearedAt) q = q.gt('created_at', st.clearedAt);
   if(currentChatJob) q = q.eq('job_id', currentChatJob);
-  let { data, error } = await q.order('created_at', { ascending: true }).limit(500);
+  const [messages, chatJob] = await Promise.all([
+    q.order('created_at', { ascending: true }).limit(500),
+    currentChatJob ? getJob(currentChatJob) : Promise.resolve(null)
+  ]);
+  const { data, error } = messages;
   if(error && currentChatJob && /job_id|column|schema cache/i.test(error.message || '')){ currentChatJob = null; return SCREENS.chatThread(); }
-  const chatJob = currentChatJob ? await getJob(currentChatJob) : null;
   if(chatJob && ![chatJob.clientId, chatJob.assignedEditor].includes(currentChatWith)){ currentChatJob = null; return SCREENS.chatThread(); }   // project tag does not belong to this chat
   if(error) console.error(error);
   listenForMessages();
