@@ -2557,7 +2557,7 @@ body.sphere-editor-refresh[data-sphere-screen="portfolio"] .se-page-brand img{bo
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.56-navbar-active-sync',
+  appVersion: '2.22.57-get-started-arrow',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -7892,8 +7892,8 @@ function clientEmptyState(kind){
   if(kind === 'active') return `<div class="card cl-empty"><div class="cl-empty-ic">🎬</div><b>No active projects</b>
     <p>Post a job and verified editors will send you bids.</p>
     <div class="cl-row"><button class="btn btn-primary" onclick="nav('postJob')">Post a job</button><button class="btn btn-outline" onclick="nav('allEditors')">Browse editors</button></div></div>`;
-  if(emptyMin()) return `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Get started</h3><button class="sec-min" aria-label="Show get started" onclick="toggleEmptyMin()">➕</button></div>`;
-  return `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Get started</h3><button class="sec-min" aria-label="Hide get started" onclick="toggleEmptyMin()">➖</button></div><div class="card cl-empty"><div class="cl-empty-ic">🎬</div><b>No projects yet</b>
+  if(emptyMin()) return `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Get started</h3><button class="sec-min" aria-label="Show get started" aria-expanded="false" onclick="toggleEmptyMin()">→</button></div>`;
+  return `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Get started</h3><button class="sec-min" aria-label="Hide get started" aria-expanded="true" onclick="toggleEmptyMin()">↑</button></div><div class="card cl-empty"><div class="cl-empty-ic">🎬</div><b>No projects yet</b>
     <p>Your first project is one step away. Post a job, or find an editor you like and hire them directly.</p>
     <div class="cl-row"><button class="btn btn-primary" onclick="nav('postJob')">Post a job</button><button class="btn btn-outline" onclick="nav('allEditors')">Browse editors</button></div></div>`;
 }
