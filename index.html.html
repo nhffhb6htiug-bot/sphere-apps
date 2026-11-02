@@ -8612,6 +8612,23 @@ SCREENS.postJob = async (data) => {
         <p class="muted" style="font-size:11px; margin-top:6px;">Up to ${MAX_RAW_FILES} files, ${MAX_RAW_MB} MB each. Bigger videos? Add a link below.</p></div>
       <div class="field"><label>Raw files link (optional)</label><input id="jobFiles" placeholder="Google Drive / WeTransfer link"></div>
 
+      <details class="card" id="pjBriefBuilder" style="margin-top:18px;">
+        <summary style="cursor:pointer;"><b>✨ Smart Project Brief Builder</b><p class="muted" style="font-size:12px;margin-top:4px;">Answer 5 questions — Sphere creates a clear brief for your editor.</p></summary>
+        <div style="margin-top:14px;">
+          <div class="field"><label>1. Video type</label><select id="pbbType"><option value="">Select video type</option>${CATEGORIES.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></div>
+          <div class="field"><label>2. Video duration</label><input id="pbbDuration" maxlength="50" placeholder="e.g. 30 seconds / 5 minutes"></div>
+          <div class="field"><label>3. Editing style</label><input id="pbbStyle" maxlength="180" placeholder="e.g. Cinematic, fast cuts, subtitles"></div>
+          <div class="field"><label>4. Budget (₹)</label><input id="pbbBudget" type="number" inputmode="numeric" min="1" placeholder="e.g. 1500"></div>
+          <div class="field"><label>5. Deadline</label><input id="pbbDeadline" type="date" min="${todayIST()}"></div>
+          <button type="button" class="btn btn-outline" onclick="pjBuildSmartBrief()">✨ Generate Project Brief</button>
+          <div id="pbbResult" style="display:none;margin-top:12px;">
+            <label for="pbbPreview" style="font-weight:600;">Generated brief — review or edit</label>
+            <textarea id="pbbPreview" maxlength="2000" style="min-height:170px;margin-top:7px;"></textarea>
+            <button type="button" class="btn btn-primary" style="margin-top:10px;" onclick="pjUseSmartBrief()">Use this brief in my job</button>
+          </div>
+        </div>
+      </details>
+
       <button class="btn btn-primary" onclick="pjReview()">Review job →</button>
       <button class="btn btn-outline" style="margin-top:10px;" onclick="pjSaveDraft()">Save as draft</button>
     </div>
@@ -8627,6 +8644,42 @@ SCREENS.postJob = async (data) => {
   </div>`;
 };
 
+function pjBuildSmartBrief(){
+  const value=id=>String(document.getElementById(id)?.value||'').trim();
+  const type=value('pbbType'), duration=value('pbbDuration'), style=value('pbbStyle');
+  const budget=Number(value('pbbBudget')), deadline=value('pbbDeadline');
+  if(!type || !duration || !style || !Number.isFinite(budget) || budget<=0 || !deadline){
+    alert('Please answer all 5 questions first.'); return;
+  }
+  if(deadline < todayIST()){ alert('Please choose today or a future deadline.'); return; }
+  const lines=[
+    'Project: '+type+' video editing',
+    'Video duration: '+duration,
+    'Editing style: '+style,
+    'Budget: ₹'+budget.toLocaleString('en-IN'),
+    'Deadline: '+deadline,
+    'Requirements: Edit the video according to the style above and share a preview for review before final delivery.'
+  ];
+  const preview=document.getElementById('pbbPreview'), result=document.getElementById('pbbResult');
+  if(preview) preview.value=lines.join('\\n');
+  if(result) result.style.display='';
+}
+function pjUseSmartBrief(){
+  const preview=document.getElementById('pbbPreview'), desc=document.getElementById('jobDesc');
+  if(!preview || !desc || !preview.value.trim()) return;
+  if(desc.value.trim() && desc.value.trim()!==preview.value.trim() && !confirm('Replace the current project details with this generated brief?')) return;
+  desc.value=preview.value.trim();
+  const set=(id,v)=>{ const el=document.getElementById(id); if(el && v) el.value=v; };
+  set('pjLength',document.getElementById('pbbDuration')?.value.trim());
+  set('pjStyle',document.getElementById('pbbStyle')?.value.trim());
+  set('jobBudget',document.getElementById('pbbBudget')?.value);
+  set('jobDeadline',document.getElementById('pbbDeadline')?.value);
+  const type=document.getElementById('pbbType')?.value;
+  if(type) set('jobCat',type);
+  const title=document.getElementById('pjTitle');
+  if(title && !title.value.trim()) title.value=(type+' video editing').slice(0,80);
+  alert('Brief added to your job. Review the details, then post when ready.');
+}
 function pjShowStep(n){
   [1, 2, 3].forEach(i => {
     const box = document.getElementById('pjStep' + i), bar = document.getElementById('pjS' + i);
