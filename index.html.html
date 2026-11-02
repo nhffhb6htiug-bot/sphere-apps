@@ -436,6 +436,7 @@ h1,h2,h3{color:var(--text);}
 .sp-card .sp-row{display:flex; gap:10px; align-items:center; margin-top:4px;}
 .sp-card img{width:46px; height:46px; border-radius:10px; object-fit:cover; flex:none;}
 /* PART 14: admin panel */
+.admin-verify-mobile-row[hidden],#admin-ver-empty[hidden]{display:none!important;}
 /* Mobile / Phone View Admin: one compact ⋮ control reveals every section, one per line. */
 .header.admin-panel-heading{z-index:40; padding-right:70px;}
 .admin-actions-menu{position:absolute;top:12px;right:15px;z-index:50;}
@@ -10671,12 +10672,28 @@ async function markAdminVerificationSent(id, mark){
     nav('admin',{tab:'verification'});
   }catch(e){ alert('Could not save message status: '+e.message); }
 }
-function verificationQueueTabs(newCount, messagedCount, rejectedCount){
+function verificationQueueTabs(newCount, messagedCount, rejectedCount, instant=false){
+  const action = k => instant
+    ? 'adminVerificationQuickQueue(&quot;'+k+'&quot;,this)'
+    : 'ADMIN_VERIFICATION_QUEUE=&quot;'+k+'&quot;;nav(&quot;admin&quot;,{tab:&quot;verification&quot;})';
   return '<div class="pcv-chips" role="tablist" aria-label="Editor verification queue" style="margin:12px 0">'+
-    '<button role="tab" aria-selected="'+(ADMIN_VERIFICATION_QUEUE==='new')+'" class="'+(ADMIN_VERIFICATION_QUEUE==='new'?'on':'')+'" onclick="ADMIN_VERIFICATION_QUEUE=&quot;new&quot;;nav(&quot;admin&quot;,{tab:&quot;verification&quot;})">📥 New requests ('+newCount+')</button>'+
-    '<button role="tab" aria-selected="'+(ADMIN_VERIFICATION_QUEUE==='messaged')+'" class="'+(ADMIN_VERIFICATION_QUEUE==='messaged'?'on':'')+'" onclick="ADMIN_VERIFICATION_QUEUE=&quot;messaged&quot;;nav(&quot;admin&quot;,{tab:&quot;verification&quot;})">💬 Messaged ('+messagedCount+')</button>'+
-    '<button role="tab" aria-selected="'+(ADMIN_VERIFICATION_QUEUE==='rejected')+'" class="'+(ADMIN_VERIFICATION_QUEUE==='rejected'?'on':'')+'" onclick="ADMIN_VERIFICATION_QUEUE=&quot;rejected&quot;;nav(&quot;admin&quot;,{tab:&quot;verification&quot;})">✖ Rejected ('+rejectedCount+')</button>'+
+    '<button role="tab" aria-selected="'+(ADMIN_VERIFICATION_QUEUE==='new')+'" class="'+(ADMIN_VERIFICATION_QUEUE==='new'?'on':'')+'" onclick="'+action('new')+'">📥 New requests ('+newCount+')</button>'+
+    '<button role="tab" aria-selected="'+(ADMIN_VERIFICATION_QUEUE==='messaged')+'" class="'+(ADMIN_VERIFICATION_QUEUE==='messaged'?'on':'')+'" onclick="'+action('messaged')+'">💬 Messaged ('+messagedCount+')</button>'+
+    '<button role="tab" aria-selected="'+(ADMIN_VERIFICATION_QUEUE==='rejected')+'" class="'+(ADMIN_VERIFICATION_QUEUE==='rejected'?'on':'')+'" onclick="'+action('rejected')+'">✖ Rejected ('+rejectedCount+')</button>'+
     '</div>';
+}
+// Mobile tabs toggle already-rendered rows immediately; server checks still run
+// on actual approval/reject/message actions and on opening the admin screen.
+function adminVerificationQuickQueue(k, pressed){
+  const rows = document.querySelectorAll('.admin-verify-mobile-row');
+  ADMIN_VERIFICATION_QUEUE = k;
+  rows.forEach(row => { row.hidden = row.dataset.queue !== k; });
+  const empty = document.getElementById('admin-ver-empty');
+  if(empty) empty.hidden = Array.from(rows).some(row => row.dataset.queue === k);
+  document.querySelectorAll('.pcv-chips button').forEach(btn => {
+    btn.classList.toggle('on', btn === pressed);
+    btn.setAttribute('aria-selected', String(btn === pressed));
+  });
 }
 
 async function adminRpc(fn, args){
@@ -11276,10 +11293,10 @@ async function adminVerificationTab(){
       ${reqs.map(q => `<div style="border-top:1px solid var(--border); padding:8px 0;"><b>${esc(q.name || 'Editor')}</b> <span class="muted" style="font-size:11px;">${esc(fmtDate(q.at))}</span>
         <p style="font-size:13px; margin:4px 0;">“${esc(q.note || '')}”</p>
         <button class="btn-sm" onclick="nav('adminEditDetails', { userId: '${esc(q.editor_id)}', requestId: '${esc(q.id)}' })">✏️ Edit details</button></div>`).join('')}</div>` : ''}<p class="muted" style="font-size:12px; margin-bottom:10px;">Paying ₹${VERIFY_FEE} does <b>not</b> approve anyone — verify only after the call / work check.</p>
-    ${verificationQueueTabs(newList.length,messagedList.length,rejectedList.length)}
+    ${verificationQueueTabs(newList.length,messagedList.length,rejectedList.length,true)}
     <p class="muted" style="font-size:12px;margin-bottom:10px;">Newest editors appear first; Verification 1 stays at the bottom. WhatsApp only opens a draft. Mark sent only after sending.</p>
-    ${reviewList.length === 0 ? '<p class="muted">No editors in this list. 👍</p>' : ''}
-    ${verificationRowsNewest(reviewList).map(e => `<div class="card">
+    <p id="admin-ver-empty" class="muted" ${reviewList.length ? 'hidden' : ''}>No editors in this list. 👍</p>
+    ${verificationRowsNewest(list).map(e => `<div class="card admin-verify-mobile-row" data-queue="${e.status === 'rejected' ? 'rejected' : ADMIN_VERIFY_OUTREACH.has(String(e.id)) ? 'messaged' : 'new'}" ${reviewList.some(x=>x.id===e.id) ? '' : 'hidden'}>
       <b>${verificationSerial(e.id)?esc(verificationSerialLabel(e.id))+' · ':''}${esc(e.name || 'Editor')}</b> ${verifyStateChip(e.status)}
       <p style="font-size:12px; margin:4px 0;">📞 ${e.phone ? `<a href="tel:${esc(e.phone)}">${esc(e.phone)}</a>` : '-'} · ${esc(e.email || '')}</p>
       <div class="btn-row" style="margin:9px 0;align-items:center;flex-wrap:wrap;">${verificationWhatsAppButton(e,'btn-sm')}${verificationSentButton(e)}</div>
