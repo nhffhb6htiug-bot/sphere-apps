@@ -5,13 +5,24 @@ const path = require('node:path');
 const { minify } = require('html-minifier-terser');
 const root = path.resolve(__dirname, '..');
 const out = path.join(root, 'dist');
-async function copyAssets(from, to) {
-  for (const entry of await fs.readdir(from, { withFileTypes: true })) {
-    if (['.git','node_modules','dist','.github','scripts','supabase','docs'].includes(entry.name)) continue;
-    if (from===root && (entry.name==='index.html.html'|| entry.name==='index.html' || entry.name==='package.json'||entry.name==='package-lock.json')) continue;
-    const a=path.join(from,entry.name), b=path.join(to,entry.name);
-    if(entry.isDirectory()){ await fs.mkdir(b,{recursive:true}); await copyAssets(a,b); }
-    else if(entry.isFile()) await fs.copyFile(a,b);
+// Publish only required public assets, never repository source, backups or migrations.
+const publicRoots = new Set(['img','vendor']);
+const publicFiles = new Set([
+  'manifest.json','favicon.png','apple-touch-icon-v2.png','icon-192.png',
+  'sphere-dark-theme.css','sphere-desktop.css','verify-fee-qr.png',
+  'terms.html','privacy.html','refund.html','contact.html',
+  'robots.txt','sitemap.xml','sw.js','service-worker.js'
+]);
+async function copyAssets(){
+  for(const file of publicFiles){
+    const source=path.join(root,file);
+    try { if((await fs.stat(source)).isFile()) await fs.copyFile(source,path.join(out,file)); }
+    catch(e){ if(e.code!=='ENOENT')throw e; }
+  }
+  for(const dir of publicRoots){
+    const source=path.join(root,dir);
+    try { await fs.cp(source,path.join(out,dir),{recursive:true,filter:p=>!/(^|\\/)(\\.git|\\.env|node_modules)(\\/|$)/.test(p)}); }
+    catch(e){ if(e.code!=='ENOENT')throw e; }
   }
 }
 async function main(){
@@ -32,7 +43,7 @@ async function main(){
   });
   await fs.rm(out,{recursive:true,force:true});
   await fs.mkdir(out,{recursive:true});
-  await copyAssets(root,out);
+  await copyAssets();
   await fs.writeFile(path.join(out,'index.html'),html);
   console.log('Production build:',original.length,'→',html.length,'bytes; no source maps.');
 }
