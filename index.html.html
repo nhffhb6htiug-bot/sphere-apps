@@ -4737,11 +4737,14 @@ function sphereMoveNavLens(button, immediate=false){
   lens.classList.add('ready');
   if(first || immediate) requestAnimationFrame(()=>{if(lens.isConnected) lens.style.transition='';});
 }
+// The navigation target can change before an async page finishes loading.
+// Highlight the screen that is ACTUALLY displayed, never a pending route.
+let SP_NAV_RENDERED_SCREEN = 'splash';
 // Exactly one source of truth for BOTH the active nav tab and the glass lens.
 // Never move the lens on pointerdown: a touch can be canceled by a swipe,
 // permission gate, another navigation or an interrupted click.
 function sphereSyncNavLens(immediate=false){
-  const current = currentScreenName;
+  const current = SP_NAV_RENDERED_SCREEN;
   const target = bottomNav.classList.contains('hidden')
     ? null : bottomNav.querySelector('button[data-nav="'+current+'"]');
   bottomNav.querySelectorAll('button[data-nav]').forEach(button=>{
@@ -4825,7 +4828,12 @@ async function navInner(screen, data){
       // Main tabs open at once from the last copy (no loader), then the fresh copy replaces it quietly.
       const key = swrKey(screen, data);
       const cached = key ? screenCacheGet(key) : null;
-      if(cached){ hideLoadOverlay(); app.innerHTML = cached; }
+      if(cached){
+        hideLoadOverlay();
+        app.innerHTML = cached;
+        SP_NAV_RENDERED_SCREEN = screen;
+        sphereSyncNavLens();
+      }
       // Part C: show the loading screen only if the screen is slow (no flash on fast screens)
       const loaderTimer = (cached || adminStay) ? null : setTimeout(() => { if(mySeq === NAV_SEQ) showLoadOverlay(); }, 180);   // admin refresh: keep showing the old page until the new one is ready
       const html = await result;
@@ -4834,12 +4842,14 @@ async function navInner(screen, data){
       hideLoadOverlay();
       if(key) screenCachePut(key, html);
       if(html !== cached){ const y = cached ? window.scrollY : 0; app.innerHTML = html; if(cached) window.scrollTo(0, y); }
+      SP_NAV_RENDERED_SCREEN = screen;
       if(screen === 'admin') adminAfterRender(adminKeep);
       else if(adminSub && adminKeep) window.scrollTo(0, adminKeep.y);
       if(netIsDown()) netNotice();
     } else {
       hideLoadOverlay();
       app.innerHTML = result;
+      SP_NAV_RENDERED_SCREEN = screen;
     }
   }
   // After async screen rendering, re-align the glass highlight with the actual page.
