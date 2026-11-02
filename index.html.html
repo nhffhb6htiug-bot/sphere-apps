@@ -7022,6 +7022,7 @@ SCREENS.projectStatus = async () => {
   <div class="header"><button class="back-btn" onclick="nav('jobs')">‹</button><h1>Project Status</h1><p>${esc(job.category)}</p></div>
   <div class="screen" style="padding-top:0;">
     ${isClient ? clientStatusLine(job) : ''}
+    ${(isClient || isEditor) && job.assignedEditor ? sphereProgressTracker(job, false) : ''}
     ${isClient && !job.assignedEditor && job.status === 'open' ? `<div class="card"><b>✨ Suggested Editors</b><p class="muted" style="font-size:12px;margin:5px 0 8px;">Top 3 verified editors matched to your project. Bidding remains open.</p><div id="sphere-suggest-${esc(job.id)}"><p class="muted">Finding suitable editors…</p></div></div>` : ''}
     ${await projectSummaryCard(job, user, isClient, isEditor)}
     ${await projectWorkSection(job, user, isClient, isEditor)}
@@ -7940,6 +7941,38 @@ function clientEmptyState(kind){
     <div class="cl-row"><button class="btn btn-primary" onclick="nav('postJob')">Post a job</button><button class="btn btn-outline" onclick="nav('allEditors')">Browse editors</button></div></div>`;
 }
 
+// Five-step client progress tracker backed by the real project workflow.
+// Editors advance this through the existing preview, revision and delivery actions.
+function sphereProgressStep(job){
+  const w=WORK_CACHE[job.id];
+  if(['delivered','approved','closed'].includes(job.status)) return 4;
+  if(job.status==='in-progress'){
+    if(w && w.phase==='preview') return 2;
+    return 1;
+  }
+  if(job.assignedEditor || ['negotiating','payment-pending'].includes(job.status)) return 0;
+  return -1;
+}
+function sphereProgressTracker(job, compact){
+  const stages=['Accepted','Editing','Preview','Revision','Delivered'];
+  const step=sphereProgressStep(job);
+  const w=WORK_CACHE[job.id];
+  const revision = w && /revision/i.test(String(w.phase || ''));
+  const active = revision && job.status==='in-progress' ? 3 : step;
+  return `<div class="card" style="margin:12px 0;padding:14px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">
+      <div style="min-width:0;"><b style="font-size:14px;">Project Progress</b><p class="muted" style="font-size:12px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(job.title||job.category||'Project')}</p></div>
+      <button class="btn btn-outline" style="padding:7px 10px;font-size:12px;flex-shrink:0;" onclick="openJob('${esc(job.id)}')">View</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px;">
+      ${stages.map((name,i)=>`<div style="min-width:0;text-align:center;">
+        <div style="height:5px;border-radius:4px;background:${i<=active?'var(--blue,#1657ff)':'var(--border,#dbe1ed)'};margin-bottom:7px;"></div>
+        <span style="font-size:10px;font-weight:${i===active?700:400};color:${i<=active?'var(--text,#111827)':'var(--muted,#64748b)'};overflow-wrap:anywhere;">${name}</span>
+      </div>`).join('')}
+    </div>
+    <p class="muted" style="font-size:11px;margin-top:9px;">${active===4?'Final video delivered':active===2?'Preview available for review':active===3?'Revision in progress':active===1?'Editor is working on the project':'Editor selected · waiting for work to begin'} · Updates follow project activity automatically.</p>
+  </div>`;
+}
 // ---- Home dashboard (fills in after the home screen shows, so Home stays fast)
 function clientDashSkeleton(user){
   const first = esc(String((user && user.name) || '').split(' ')[0] || 'there');
@@ -7964,10 +7997,12 @@ async function renderClientDashboard(){
     el.innerHTML = CLIENT_DASH_CACHE.html = `${premiumRow()}<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first}${premiumBadgeSlot(user.id)} 👋</b><span>Welcome to Sphere</span></div></div>${clientEmptyState('all')}`;
     return;
   }
+  const tracked = res.items.find(x => x.job.assignedEditor && ['negotiating','payment-pending','in-progress','delivered'].includes(x.job.status));
   const needs = res.items.filter(x => x.action).slice(0, 3);
   const recent = res.items.filter(x => !x.action && x.key !== 'expired' && x.key !== 'cancelled').slice(0, 3);   // expired / cancelled stay in Projects only   // expired jobs are not shown on Home (still in Projects)
   el.innerHTML = CLIENT_DASH_CACHE.html = `${premiumRow()}
     <div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first}${premiumBadgeSlot(user.id)} 👋</b><span>${st.active ? 'Here is how your projects are going' : 'All your projects are finished'}</span></div></div>
+    ${tracked ? sphereProgressTracker(tracked.job, true) : ''}
     <div class="cl-stats">
       <div class="cl-stat" onclick="nav('jobs', { tab: 'active' })"><b>${st.active}</b><span>Active</span></div>
       <div class="cl-stat ${st.needYou ? 'warn' : ''}" onclick="nav('jobs', { tab: 'active' })"><b>${st.needYou}</b><span>Need you</span></div>
