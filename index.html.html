@@ -389,6 +389,12 @@ h1,h2,h3{color:var(--text);}
 
 .chat-bubble{max-width:76%; padding:6px 10px 4px; border-radius:14px; margin-bottom:5px; font-size:13.5px; line-height:1.35; word-wrap:break-word;}
 .chat-bubble audio{height:34px; max-width:210px;}
+.chat-bubble.chat-pending{opacity:.78;}
+.chat-bubble.chat-pending .tick{display:none;}
+.chat-bubble .chat-send-status{display:block;font-size:10px;opacity:.85;margin-top:4px;text-align:right;}
+.chat-bubble.chat-failed{outline:1px solid #ef4444;}
+.chat-bubble.chat-failed .chat-send-status{color:#b91c1c;opacity:1;cursor:pointer;font-weight:700;}
+.chat-send-notice{padding:7px 12px;margin:0 10px 4px;background:#fff4da;color:#75450b;border-radius:9px;font-size:12px;}
 .chat-head{position:fixed; top:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; z-index:60; display:flex; align-items:center; gap:10px; padding:10px 8px; padding-top:calc(10px + env(safe-area-inset-top, 0px)); background:linear-gradient(135deg,#0f3fcc,#1657ff); color:#fff; box-shadow:0 2px 10px rgba(0,0,0,.12);}
 .chat-head .ch-back, .chat-head .ch-more{background:transparent; border:none; color:#fff; font-size:24px; line-height:1; cursor:pointer; padding:4px 8px;}
 .chat-head .ch-back, .chat-head .ch-more{min-width:44px; height:44px; padding:0; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; -webkit-tap-highlight-color:transparent;}
@@ -2551,7 +2557,7 @@ body.sphere-editor-refresh[data-sphere-screen="portfolio"] .se-page-brand img{bo
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.54-admin-speed',
+  appVersion: '2.22.55-chat-fast-send',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -6696,12 +6702,21 @@ function roleLine(p){
   return 'Client';
 }
 
-async function insertMessage(row){
+async function insertMessage(row, sendCtx=null){
   const user = getCurrentUser();
-  const base = { sender_id: user.id, receiver_id: currentChatWith, text: '' };
-  if(currentChatJob) base.job_id = currentChatJob;
-  if(REPLY_TO && !('reply_to' in row)) row = Object.assign({}, row, { reply_to: REPLY_TO.id });
+  if(!user || (sendCtx && sendCtx.senderId !== user.id)) return null;
+  const target = sendCtx ? sendCtx.receiverId : currentChatWith;
+  const job = sendCtx ? sendCtx.jobId : currentChatJob;
+  const base = { sender_id: user.id, receiver_id: target, text: '' };
+  if(job) base.job_id = job;
+  if(!sendCtx && REPLY_TO && !('reply_to' in row)) row = Object.assign({}, row, { reply_to: REPLY_TO.id });
   let { data, error } = await sb.from('sp_messages').insert(Object.assign({}, base, row)).select().single();
+  let alreadySaved = false;
+  if(error && error.code === '23505' && sendCtx && row.id){
+    // Network retries always use the same UUID: fetch the original instead of duplicating.
+    const existing = await sb.from('sp_messages').select('*').eq('id',row.id).maybeSingle();
+    if(!existing.error && existing.data){ data = existing.data; error = null; alreadySaved = true; }
+  }
   if(error && row.reply_to && /reply_to|column|schema cache/i.test(error.message || '')){
     const r2 = Object.assign({}, row); delete r2.reply_to;   // database without replies yet (034): send as a normal message
     ({ data, error } = await sb.from('sp_messages').insert(Object.assign({}, base, r2)).select().single());
@@ -6718,33 +6733,121 @@ async function insertMessage(row){
     else if(!dbErr(error)) alert('This message could not be sent. Please try again.');
     return null;
   }
-  const box = document.getElementById('chatBox');
+  const sameThread = currentScreenName === 'chatThread' && currentChatWith === target && (!job || job === currentChatJob);
+  const box = sameThread ? document.getElementById('chatBox') : null;
   if(box){
-    if(box.querySelector('p.muted.center-text')) box.innerHTML = '';
-    box.insertAdjacentHTML('beforeend', withDay(data, user.id));
+    const pending = sendCtx && box.querySelector('.chat-bubble[data-id="'+sendCtx.tempId+'"]');
+    if(pending){
+      pending.outerHTML = bubbleHtml(data, user.id); // Always use the SERVER-MODERATED version.
+      MSG_INDEX.delete(String(sendCtx.tempId));
+    } else if(!box.querySelector('.chat-bubble[data-id="'+data.id+'"]')){
+      if(box.querySelector('p.muted.center-text')) box.innerHTML = '';
+      box.insertAdjacentHTML('beforeend', withDay(data, user.id));
+    }
     scrollChat();
   }
-  notify(currentChatWith, 'New Message', `${user.name}: ${msgPreview(data).slice(0, 80)}`, { job_id: currentChatJob || null, category: 'messages' });
+  if(!alreadySaved) notify(target, 'New Message', `${user.name}: ${msgPreview(data).slice(0, 80)}`, { job_id: job || null, category: 'messages' });
   if(data.mod_status === 'held'){
-    alert('⏳ Your message is being checked by Sphere.\n\nIt looks like it may ask to talk or pay outside Sphere. It will be delivered if it is fine. Keep all talks and payments inside Sphere.');
+    if(sameThread) chatSendNotice('⏳ Sphere is checking this message before delivery.');
     sb.functions.invoke('sphere-moderate', { body: { messageId: String(data.id) } }).then(() => {}, () => {});
-  } else if(row.text) contactCheck(row.text, data.text);
+  } else if(row.text && data.text !== row.text && sameThread){
+    chatSendNotice('📵 Contact details were hidden by Sphere for safety.');
+  }
   return data;
 }
 
-let SENDING = false;
-async function sendMsg(){
-  const input = document.getElementById('chatInput'); if(!input) return;
-  const text = input.value.trim();
-  if(!text || SENDING) return;                       // repeated taps never send twice
-  SENDING = true; const btn = document.getElementById('sendBtn'); if(btn) btn.disabled = true;
-  try {
-    const ok = await insertMessage({ text });
-    if(ok){ input.value = ''; clearReply(); }        // clear only after it was really sent
-  } finally {
-    SENDING = false; if(btn) btn.disabled = false;
-    try { input.focus({ preventScroll: true }); } catch(e) { input.focus(); }   // keyboard stays open
+// Optimistic text chat: instant local bubble, sequential server delivery, no duplicates.
+// Server triggers remain authoritative: only confirmed, moderated messages are delivered.
+let CHAT_SEND_TAIL = Promise.resolve();
+const CHAT_SEND_QUEUE = new Map();
+let CHAT_DRAFT_ID = 0;
+function chatClientUuid(){
+  const c = window.crypto;
+  if(c && typeof c.randomUUID === 'function') return c.randomUUID();
+  if(c && typeof c.getRandomValues === 'function'){
+    const a=new Uint8Array(16); c.getRandomValues(a); a[6]=(a[6]&15)|64; a[8]=(a[8]&63)|128;
+    const h=Array.from(a,x=>x.toString(16).padStart(2,'0')).join('');
+    return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
   }
+  return null;
+}
+function chatSendNotice(message){
+  const bar=document.querySelector('.chat-input-bar');
+  if(!bar) return;
+  let node=document.getElementById('chat-send-notice');
+  if(!node){ node=document.createElement('div'); node.id='chat-send-notice';
+    node.className='chat-send-notice'; bar.parentNode.insertBefore(node,bar); }
+  node.textContent=message;
+  clearTimeout(chatSendNotice.timer);
+  chatSendNotice.timer=setTimeout(()=>{ if(node.isConnected) node.remove(); },5500);
+}
+function chatPendingStatus(tempId,status){
+  const item=CHAT_SEND_QUEUE.get(tempId);
+  const node=document.querySelector('.chat-bubble[data-id="'+tempId+'"]');
+  if(!node || !item) return;
+  const label=node.querySelector('.chat-send-status');
+  node.classList.toggle('chat-pending', status!=='failed');
+  node.classList.toggle('chat-failed', status==='failed');
+  if(label){
+    if(status==='failed'){
+      label.textContent='Not sent · Tap to retry';
+      label.onclick=()=>retryChatPending(tempId);
+      label.title='Retry this message';
+    } else {label.textContent='Sending…';label.onclick=null;label.removeAttribute('title');}
+  }
+}
+function enqueueChatSend(tempId){
+  const task=async()=>{
+    const entry=CHAT_SEND_QUEUE.get(tempId);
+    if(!entry || entry.status!=='queued') return;
+    entry.status='sending';
+    chatPendingStatus(tempId,'sending');
+    let ok=null;
+    try {ok=await insertMessage(entry.row,entry.ctx);} catch(e){console.warn('Chat send failed',e);}
+    if(ok){
+      CHAT_SEND_QUEUE.delete(tempId);
+      MSG_INDEX.delete(String(tempId));
+    } else {
+      entry.status='failed'; chatPendingStatus(tempId,'failed');
+    }
+  };
+  CHAT_SEND_TAIL=CHAT_SEND_TAIL.then(task,task);
+}
+function retryChatPending(tempId){
+  const entry=CHAT_SEND_QUEUE.get(tempId);
+  if(!entry || entry.status!=='failed')return;
+  if(!getCurrentUser() || getCurrentUser().id!==entry.ctx.senderId)return;
+  entry.status='queued';
+  chatPendingStatus(tempId,'queued');
+  enqueueChatSend(tempId);
+}
+function sendMsg(){
+  const input=document.getElementById('chatInput');
+  const user=getCurrentUser();
+  if(!input || !user || !currentChatWith) return;
+  const text=input.value.trim();
+  if(!text) return;
+  const id=chatClientUuid();  // Client UUID also makes manual retries idempotent.
+  const tempId='pending-'+(++CHAT_DRAFT_ID);
+  const ctx={tempId,senderId:user.id,receiverId:currentChatWith,jobId:currentChatJob};
+  const row={text};
+  if(id) row.id=id;
+  if(REPLY_TO)row.reply_to=REPLY_TO.id;
+  CHAT_SEND_QUEUE.set(tempId,{row,ctx,status:'queued'});
+  input.value='';
+  clearReply();
+  const box=document.getElementById('chatBox');
+  if(box && currentScreenName==='chatThread'){
+    if(box.querySelector('p.muted.center-text'))box.innerHTML='';
+    const preview={id:tempId,text,created_at:new Date().toISOString(),
+      sender_id:user.id,receiver_id:ctx.receiverId,reply_to:row.reply_to||null,job_id:ctx.jobId};
+    box.insertAdjacentHTML('beforeend',withDay(preview,user.id));
+    const bubble=box.querySelector('.chat-bubble[data-id="'+tempId+'"]');
+    if(bubble){bubble.classList.add('chat-pending');bubble.insertAdjacentHTML('beforeend','<small class="chat-send-status">Sending…</small>');}
+    scrollChat();
+  }
+  enqueueChatSend(tempId);
+  try {input.focus({preventScroll:true});} catch(e) {input.focus();}
 }
 
 async function uploadChatFile(blobOrFile, ext, type){
