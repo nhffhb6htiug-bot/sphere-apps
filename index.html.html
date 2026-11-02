@@ -2550,7 +2550,7 @@ body.sphere-editor-refresh[data-sphere-screen="portfolio"] .se-page-brand img{bo
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.53-admin-three-dots-menu',
+  appVersion: '2.22.54-admin-speed',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -7448,6 +7448,7 @@ async function setAdminPin(changing){
   const { error } = await sb.rpc('sp_set_admin_pin', { p_new: n1, p_old: old });
   if(error){ alert(error.message); return; }
   alert('Admin PIN saved ✅');
+  adminInvalidateOverview();
   nav('admin');
 }
 
@@ -10742,7 +10743,7 @@ function pcAdminShell(tab, inner, opts){
     </aside>
     <main class="pca-main">
       ${opts.sub ? '' : `<div class="pca-top"><div><h1>${label}</h1><span class="muted">${esc(today)}</span></div>
-        <button class="btn-sm" onclick="SCREEN_CACHE.clear(); nav('admin', { tab: '${tab}' })">⟳ Refresh</button></div>`}
+        <button class="btn-sm" onclick="adminInvalidateOverview(); SCREEN_CACHE.clear(); nav('admin', { tab: '${tab}' })">⟳ Refresh</button></div>`}
       ${opts.pin || ''}
       <div class="pca-body tab-${esc(tab)}${opts.sub ? ' sub' : ''}">${inner}</div>
     </main>
@@ -10752,19 +10753,19 @@ function pcAdminWrapSub(screen, html){ return pcAdminShell(PC_SUB_TAB[screen] ||
 
 // ---- Verification desk (PC)
 async function pcVerificationTab(){
-  const [list, outreach] = await Promise.all([
+  // Fetch all independent verification datasets at once; only the per-editor
+  // history lookup has to wait for the editor IDs.
+  const [list, outreach, , verified, reqs] = await Promise.all([
     adminRpc('sp_admin_verifications').catch(() => null),
     adminRpc('sp_admin_editor_outreach_list').catch(() => null),
-    loadAdminVerificationNumbers()
-  ]);
+    loadAdminVerificationNumbers(),
+    adminRpc('sp_admin_editor_review', { p_ids: null }).catch(() => null),
+    adminRpc('sp_admin_detail_requests').catch(() => [])]);
   if(!list) return adminVerificationTab();
   if(outreach === null) return '<div class="card">⚠ Could not load message tracking. Refresh before contacting editors.</div>';
   setAdminOutreach(outreach);
   const ids = list.map(e => e.id);
-  const [verified, pendingRev, reqs] = await Promise.all([
-    adminRpc('sp_admin_editor_review', { p_ids: null }).catch(() => null),
-    ids.length ? adminRpc('sp_admin_editor_review', { p_ids: ids }).catch(() => []) : Promise.resolve([]),
-    adminRpc('sp_admin_detail_requests').catch(() => [])]);
+  const pendingRev = ids.length ? await adminRpc('sp_admin_editor_review', { p_ids: ids }).catch(() => []) : [];
   PCV_LIST = list; PCV_REV = pendingRev || [];
   const n = {
     waiting: list.filter(e => e.status !== 'rejected' && !ADMIN_VERIFY_OUTREACH.has(String(e.id))).length,
@@ -10773,8 +10774,7 @@ async function pcVerificationTab(){
     video: list.filter(e => e.status !== 'rejected' && !ADMIN_VERIFY_OUTREACH.has(String(e.id)) && e.proof_video).length,
     rejected: list.filter(e => e.status === 'rejected').length,
     verified: (verified || []).length };
-  const hiddenRows = await adminRpc('sp_admin_hidden_projects').catch(()=>[]);
-  const chip = (k, l) => `<button class="${PCV_FILTER === k ? 'on' : ''}" onclick="PCV_FILTER='${k}'; nav('admin', { tab: 'verification' })">${l} <span>${n[k]}</span></button>`;
+  const chip = (k, l) => `<button class="${PCV_FILTER === k ? 'on' : ''}" onclick="pcvSwitchFilter('${k}',this)">${l} <span>${n[k]}</span></button>`;
   const chips = `<div class="pcv-chips">${chip('waiting', '📥 New')}${chip('messaged', '💬 Messaged')}${chip('paid', '₹29 paid')}${chip('video', 'Promo video sent')}${chip('rejected', 'Rejected')}${chip('verified', '✔ Verified')}</div>`;
   const reqBox = (reqs || []).length ? `<div class="card" style="border:1.5px solid #1657ff;"><b>✏️ Update requests (${reqs.length})</b>
       <p class="muted" style="font-size:12px; margin:2px 0 6px;">Paid ₹${VERIFY_FEE}. Call the editor, check, then edit their details.</p>
@@ -10888,6 +10888,28 @@ function pcvItemsHtml(){
       </div></div>`; }).join('');
 }
 function pcvRenderList(){ const box = document.getElementById('pcvItems'); if(box) box.innerHTML = pcvItemsHtml(); }
+// New/Messaged/Rejected/Paid/Video tabs only filter rows we already fetched.
+// No RPC and no four-second re-render. Verified uses its separate layout.
+function pcvSwitchFilter(k, button){
+  if(PCV_FILTER === k) return;
+  const previous = PCV_FILTER;
+  PCV_FILTER = k;
+  if(k === 'verified' || previous === 'verified' || !document.getElementById('pcvItems')){
+    nav('admin', {tab:'verification'});
+    return;
+  }
+  document.querySelectorAll('.pcv-chips > button').forEach(b => b.classList.toggle('on', b === button));
+  const shown = pcvFiltered();
+  if(!shown.some(e => e.id === PCV_SEL)) PCV_SEL = shown.length ? shown[0].id : null;
+  pcvRenderList();
+  const detail = document.getElementById('pcvDetail');
+  if(detail){
+    const selected = shown.find(e => e.id === PCV_SEL);
+    detail.innerHTML = selected ? pcvDetailHtml(selected) :
+      '<div class="pcv-empty"><b>Nothing here 👍</b><p class="muted">No editors in this list.</p></div>';
+    detail.scrollTop = 0;
+  }
+}
 function pcvSelect(id){
   const e = (PCV_LIST || []).find(x => x.id === id); if(!e) return;
   PCV_SEL = id;
@@ -10988,19 +11010,42 @@ window.addEventListener('resize', () => {
   }, 250);
 });
 
+// Admin navigation: small, in-memory, account-scoped cache for the non-sensitive
+// overview counters. Admin permissions and action RPCs still execute on the server.
+let ADMIN_OVERVIEW_FAST = { uid: null, at: 0, data: null, promise: null };
+function adminInvalidateOverview(){ ADMIN_OVERVIEW_FAST = { uid: null, at: 0, data: null, promise: null }; }
+function adminOverviewFast(uid){
+  const state = ADMIN_OVERVIEW_FAST;
+  if(state.uid === uid && state.data && Date.now() - state.at < 10000) return Promise.resolve(state.data);
+  if(state.uid === uid && state.promise) return state.promise;
+  const promise = adminRpc('sp_admin_overview').then(data => {
+    if(ADMIN_OVERVIEW_FAST.uid === uid){ ADMIN_OVERVIEW_FAST.data = data; ADMIN_OVERVIEW_FAST.at = Date.now(); }
+    return data;
+  }).catch(e => ({ _error: e.message })).finally(() => {
+    if(ADMIN_OVERVIEW_FAST.uid === uid && ADMIN_OVERVIEW_FAST.promise === promise) ADMIN_OVERVIEW_FAST.promise = null;
+  });
+  ADMIN_OVERVIEW_FAST = {uid, at: 0, data: null, promise};
+  return promise;
+}
+
 SCREENS.admin = async (data) => {
   const u = getCurrentUser();
   if(!isAdminUser(u)) return `<div class="header"><button class="back-btn" onclick="nav('home')">‹</button><h1>Access Denied</h1></div><div class="screen center-text" style="padding-top:60px;"><p class="muted">🚫 This page is for admins only.</p></div>`;
   if(data && data.tab) adminTab = data.tab;
   if(adminTab === 'classic'){ adminTab = 'overview'; return SCREENS.adminClassic(); }
-  const [{ data: pinSet }, ov] = await Promise.all([sb.rpc('sp_admin_pin_status').then(r => r, () => ({ data: true })), adminRpc('sp_admin_overview').catch(e => ({ _error: e.message }))]);
+  // Start the selected tab immediately instead of waiting for overview + PIN calls.
+  const activeTab = adminTab;
+  const overviewTask = adminOverviewFast(u.id);
+  const pinTask = sb.rpc('sp_admin_pin_status').then(r => r, () => ({ data: true }));
+  const tabRenderer = ({ overview: adminOverviewTab, projects: adminProjectsTab, disputes: adminDisputesTab, verification: pcAdminOn() ? pcVerificationTab : adminVerificationTab, moderation: adminModerationTab,
+                       users: adminUsersTab, payments: adminPaymentsTab, money: adminMonetizationTab, audit: adminAuditTab }[activeTab] || adminOverviewTab);
+  const bodyTask = (activeTab === 'overview'
+    ? overviewTask.then(ov => tabRenderer(ov))
+    : Promise.resolve().then(() => tabRenderer()))
+    .catch(e => `<div class="card"><p style="color:#c62828;">${esc(e.message || e)}</p></div>`);
+  const [{ data: pinSet }, ov, body] = await Promise.all([pinTask, overviewTask, bodyTask]);
   const p = (ov && !ov._error && ov.pending) || {};
   const counts = { disputes: p.disputes, verification: p.verifications, moderation: (p.held_messages || 0) + (p.suspicious_users || 0), payments: (p.payouts || 0) + (p.upi_extras || 0) + (p.refunds || 0), money: p.fees };
-  let body = '';
-  try {
-    body = await ({ overview: adminOverviewTab, projects: adminProjectsTab, disputes: adminDisputesTab, verification: pcAdminOn() ? pcVerificationTab : adminVerificationTab, moderation: adminModerationTab,
-                    users: adminUsersTab, payments: adminPaymentsTab, money: adminMonetizationTab, audit: adminAuditTab }[adminTab] || adminOverviewTab)(ov);
-  } catch(e) { body = `<div class="card"><p style="color:#c62828;">${esc(e.message || e)}</p></div>`; }
   PC_ADMIN_COUNTS = counts;
   if(pcAdminOn()) return pcAdminShell(adminTab, body, { pin: ADMIN_PIN ? '' : adminPinCard(pinSet) });
   const wide = (window.innerWidth >= 700 && document.documentElement.classList.contains('os-other')) ? `<button class="btn-sm" style="float:right; margin-top:-34px;" onclick="pcAdminSetPhoneView(false)">🖥 PC view</button>` : '';
@@ -11064,9 +11109,11 @@ async function sphereAdminProjectVisibility(jobId, action){
   }catch(e){alert(label+' failed: '+(e.message||e));}
 }
 async function adminProjectsTab(){
-  const rows = await adminRpc('sp_admin_projects', { p_filter: adminProjFilter, p_search: adminProjSearch || null, p_limit: 60, p_offset: 0 }).catch(() => null);
+  const [rows, hiddenRows] = await Promise.all([
+    adminRpc('sp_admin_projects', { p_filter: adminProjFilter, p_search: adminProjSearch || null, p_limit: 60, p_offset: 0 }).catch(() => null),
+    adminRpc('sp_admin_hidden_projects').catch(()=>[])
+  ]);
   if(!rows) return `<div class="card" style="border:1.5px solid #e67e22;"><p style="font-size:12px;">⚙️ This part needs the latest database update (<b>014_admin_panel.sql</b>).</p></div>`;
-  const hiddenRows = await adminRpc('sp_admin_hidden_projects').catch(()=>[]);
   const metricsRows = (rows||[]).length ? await adminRpc('sp_admin_project_metrics',{p_jobs:rows.map(x=>x.id)}).catch(()=>[]) : [];
   const metrics = Object.fromEntries((metricsRows||[]).map(x=>[x.job_id,x]));
   const totalBids=(metricsRows||[]).reduce((a,x)=>a+Number(x.bids||0),0);
@@ -11191,8 +11238,10 @@ async function adminProjectAction(jobId, action){
 
 // ---- 3) Disputes
 async function adminDisputesTab(){
-  const q = await loadCasesQueue();
-  const done = await adminRpc('sp_admin_audit_list', { p_limit: 30, p_action: 'case_decision' }).catch(() => []);
+  const [q, done] = await Promise.all([
+    loadCasesQueue(),
+    adminRpc('sp_admin_audit_list', { p_limit: 30, p_action: 'case_decision' }).catch(() => [])
+  ]);
   return casesQueueSection(Object.assign({}, q, { payouts: [] })) +
     `<p class="muted" style="font-size:12px; margin:6px 0 12px;">Open a case file to see the complaint, requirements vs submitted previews, revisions and chat, then decide: release, full refund or send back to fix. AI notes are advice only.</p>
     <h3 style="margin:16px 0 10px;">Recent decisions</h3>
@@ -11201,10 +11250,12 @@ async function adminDisputesTab(){
 
 // ---- 4) Verification
 async function adminVerificationTab(){
-  const [list, outreach] = await Promise.all([
+  const [list, outreach, , verified, reqs] = await Promise.all([
     adminRpc('sp_admin_verifications').catch(() => null),
     adminRpc('sp_admin_editor_outreach_list').catch(() => null),
-    loadAdminVerificationNumbers()
+    loadAdminVerificationNumbers(),
+    adminRpc('sp_admin_editor_review', { p_ids: null }).catch(() => null),
+    adminRpc('sp_admin_detail_requests').catch(() => [])
   ]);
   if(list) window.__adminProofScreenshots=Object.fromEntries(list.map(e=>[e.id,e]));
   if(!list) return `<div class="card" style="border:1.5px solid #e67e22;"><p style="font-size:12px;">⚙️ This part needs the latest database update (<b>014_admin_panel.sql</b>).</p></div><button class="btn btn-outline" onclick="nav('adminClassic')">Open classic tools (old verification list)</button>`;
@@ -11218,10 +11269,8 @@ async function adminVerificationTab(){
     ADMIN_VERIFICATION_QUEUE === 'messaged' ? messagedList : newList;
   const arr = v => Array.isArray(v) ? v.join(', ') : (v || '');
   const ids = (list || []).map(e => e.id);
-  const verified = await adminRpc('sp_admin_editor_review', { p_ids: null }).catch(() => null);
   const pendingRev = ids.length ? await adminRpc('sp_admin_editor_review', { p_ids: ids }).catch(() => []) : [];
   const revOf = id => (pendingRev || []).find(r => r.id === id);
-  const reqs = await adminRpc('sp_admin_detail_requests').catch(() => []);
   return `${(reqs || []).length ? `<div class="card" style="border:1.5px solid #1657ff;"><b>✏️ Update requests (${reqs.length})</b>
       <p class="muted" style="font-size:12px; margin:2px 0 8px;">Paid ₹${VERIFY_FEE}. Call the editor, check, then edit their details.</p>
       ${reqs.map(q => `<div style="border-top:1px solid var(--border); padding:8px 0;"><b>${esc(q.name || 'Editor')}</b> <span class="muted" style="font-size:11px;">${esc(fmtDate(q.at))}</span>
