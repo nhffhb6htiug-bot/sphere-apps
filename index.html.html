@@ -6429,8 +6429,36 @@ function withDay(m, meId){
   lastChatDay = k;
   return sep + bubbleHtml(m, meId);
 }
-function scrollChat(){ setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 30); }
+function scrollChat(force=false){
+  setTimeout(()=>{
+    const distance=document.documentElement.scrollHeight-window.innerHeight-window.scrollY;
+    if(force || distance<420) window.scrollTo({top:document.documentElement.scrollHeight,behavior:force?'auto':'smooth'});
+  },35);
+}
 
+function sphereToggleChatSearch(){
+  const pane=document.getElementById('sphere-chat-search');
+  if(!pane)return;
+  pane.style.display=pane.style.display==='none'?'block':'none';
+  if(pane.style.display==='block')document.getElementById('sphere-chat-query')?.focus();
+  else sphereSearchMessages('');
+}
+function sphereSearchMessages(value){
+  const q=String(value||'').trim().toLocaleLowerCase();
+  const box=document.getElementById('chatBox'), count=document.getElementById('sphere-chat-count');
+  if(!box)return;
+  const bubbles=Array.from(box.querySelectorAll('.chat-bubble'));
+  let matches=0,first=null;
+  bubbles.forEach(b=>{
+    const content=b.querySelector('.ch-text,.msg-text,.bubble-text')||b;
+    const found=!!q && String(content.textContent||'').toLocaleLowerCase().includes(q);
+    b.style.outline=found?'2px solid var(--blue,#1657ff)':'';
+    b.style.outlineOffset=found?'2px':'';
+    if(found){ matches++;if(!first)first=b; }
+  });
+  if(count)count.textContent=q?(matches+' match'+(matches===1?'':'es')+' in loaded messages'):'';
+  if(first)first.scrollIntoView({behavior:'smooth',block:'center'});
+}
 // ---- delivered / seen ----
 async function markDelivered(){
   if(!currentUser) return;
@@ -6611,6 +6639,7 @@ SCREENS.chatThread = async () => {
   if(chatJob && ![chatJob.clientId, chatJob.assignedEditor].includes(currentChatWith)){ currentChatJob = null; return SCREENS.chatThread(); }   // project tag does not belong to this chat
   if(error) console.error(error);
   listenForMessages();
+  sphereRestoreOutbox();
   markRead(currentChatWith);
   lastChatDay = '';
   THREAD_SINCE = (data && data.length) ? data[data.length - 1].created_at : new Date(Date.now() - 60000).toISOString();
@@ -6627,12 +6656,17 @@ SCREENS.chatThread = async () => {
   </div>
   <div class="chat-menu" id="chatMenu" onclick="event.stopPropagation()">
     ${chatJob ? `<div onclick="openJob('${chatJob.id}')">📁 Open project</div><div onclick="currentChatJob = null; nav('chatThread')">💬 All messages with ${other ? esc(String(other.name || '').split(' ')[0]) : 'this person'}</div>` : ''}
+    <div onclick="sphereToggleChatSearch()">🔎 Search messages</div>
     <div onclick="nav('chatInfo')">👤 View info</div>
     <div onclick="nav('chatInfo')">🖼️ Media, photos & videos</div>
     <div onclick="clearChat('${currentChatWith}')">🧹 Clear chat</div>
     <div class="danger" onclick="setBlocked('${currentChatWith}', ${!st.iBlocked})">${st.iBlocked ? '✅ Unblock' : '🚫 Block'}</div>
     <div class="danger" onclick="openReport(null, '', '${currentChatWith}')">🚩 Report</div>
     <div onclick="nav('support')">🆘 Help</div>
+  </div>
+  <div id="sphere-chat-search" style="display:none;padding:8px 14px;background:var(--card,#fff);">
+    <input id="sphere-chat-query" type="search" placeholder="Search messages in this chat…" aria-label="Search this conversation" style="width:100%;padding:10px;border:1px solid var(--border,#ddd);border-radius:10px;" oninput="sphereSearchMessages(this.value)">
+    <p id="sphere-chat-count" class="muted" style="font-size:12px;margin:5px 0;"></p>
   </div>
   <div class="screen" id="chatBox" style="padding-top:calc(104px + env(safe-area-inset-top, 0px)); padding-bottom:84px;">${body || '<p class="muted center-text" style="margin-top:20px;">Say hi 👋</p>'}</div>
   ${st.iBlocked ? `<div class="blocked-bar" onclick="setBlocked('${currentChatWith}', false)">You blocked this contact. <b style="color:var(--blue);">Tap to unblock.</b></div>` : `
@@ -6788,6 +6822,32 @@ async function insertMessage(row, sendCtx=null){
 
 // Optimistic text chat: instant local bubble, sequential server delivery, no duplicates.
 // Server triggers remain authoritative: only confirmed, moderated messages are delivered.
+// Offline recovery is scoped to the signed-in account and uses the existing
+// stable message UUID, so a retry cannot create a second server message.
+const SPHERE_CHAT_OUTBOX_KEY='sphere_chat_outbox_v1';
+function sphereReadOutbox(){
+  try {const x=JSON.parse(localStorage.getItem(SPHERE_CHAT_OUTBOX_KEY)||'[]');return Array.isArray(x)?x.slice(0,100):[];}catch(e){return [];}
+}
+function sphereStoreOutbox(){
+  try{
+    const user=getCurrentUser();
+    const existing=sphereReadOutbox().filter(x=>!user || x.ctx.senderId!==user.id);
+    const mine=[...CHAT_SEND_QUEUE.values()].filter(x=>x.ctx && user && x.ctx.senderId===user.id)
+      .map(x=>({row:x.row,ctx:x.ctx})).filter(x=>x.row && x.row.id && x.row.text);
+    localStorage.setItem(SPHERE_CHAT_OUTBOX_KEY,JSON.stringify([...existing,...mine].slice(-100)));
+  }catch(e){console.warn('Outbox persistence unavailable',e);}
+}
+function sphereRestoreOutbox(){
+  const user=getCurrentUser();if(!user || !navigator.onLine)return;
+  sphereReadOutbox().filter(x=>x.ctx && x.ctx.senderId===user.id && x.row && x.row.id && x.row.text).forEach(x=>{
+    if([...CHAT_SEND_QUEUE.values()].some(e=>e.row.id===x.row.id))return;
+    const tempId='recovered-'+(++CHAT_DRAFT_ID);
+    const ctx={...x.ctx,tempId};
+    CHAT_SEND_QUEUE.set(tempId,{row:x.row,ctx,status:'queued'});
+    enqueueChatSend(tempId);
+  });
+}
+window.addEventListener('online',()=>{sphereRestoreOutbox();for(const [id,x] of CHAT_SEND_QUEUE){if(x.status==='failed'){x.status='queued';enqueueChatSend(id);}}});
 let CHAT_SEND_TAIL = Promise.resolve();
 const CHAT_SEND_QUEUE = new Map();
 let CHAT_DRAFT_ID = 0;
@@ -6830,15 +6890,17 @@ function enqueueChatSend(tempId){
   const task=async()=>{
     const entry=CHAT_SEND_QUEUE.get(tempId);
     if(!entry || entry.status!=='queued') return;
+    if(!navigator.onLine){entry.status='failed';chatPendingStatus(tempId,'failed');return;}
     entry.status='sending';
     chatPendingStatus(tempId,'sending');
     let ok=null;
     try {ok=await insertMessage(entry.row,entry.ctx);} catch(e){console.warn('Chat send failed',e);}
     if(ok){
       CHAT_SEND_QUEUE.delete(tempId);
+      sphereStoreOutbox();
       MSG_INDEX.delete(String(tempId));
     } else {
-      entry.status='failed'; chatPendingStatus(tempId,'failed');
+      entry.status='failed'; sphereStoreOutbox(); chatPendingStatus(tempId,'failed');
     }
   };
   CHAT_SEND_TAIL=CHAT_SEND_TAIL.then(task,task);
@@ -6864,6 +6926,7 @@ function sendMsg(){
   if(id) row.id=id;
   if(REPLY_TO)row.reply_to=REPLY_TO.id;
   CHAT_SEND_QUEUE.set(tempId,{row,ctx,status:'queued'});
+  sphereStoreOutbox();
   input.value='';
   clearReply();
   const box=document.getElementById('chatBox');
