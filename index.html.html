@@ -436,11 +436,19 @@ h1,h2,h3{color:var(--text);}
 .sp-card .sp-row{display:flex; gap:10px; align-items:center; margin-top:4px;}
 .sp-card img{width:46px; height:46px; border-radius:10px; object-fit:cover; flex:none;}
 /* PART 14: admin panel */
-.ad-tabs{display:flex; gap:6px; overflow-x:auto; padding:2px 0 10px; margin-bottom:6px; scrollbar-width:none;}
-.ad-tabs::-webkit-scrollbar{display:none;}
-.ad-tabs button{flex:none; padding:8px 12px; border-radius:18px; border:1px solid var(--border); background:#fff; font-size:12px; font-weight:700; cursor:pointer; color:var(--text);}
+/* Admin mobile/phone-view navigation: all 10 sections visible in exactly three rows (4 + 3 + 3). */
+.ad-tabs{display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:7px;
+  overflow:visible; padding:4px 0 12px; margin-bottom:6px;}
+.ad-tabs button{grid-column:span 3; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:4px; min-width:0; min-height:56px; box-sizing:border-box; padding:7px 3px;
+  border-radius:14px; border:1px solid var(--border); background:var(--card,#fff);
+  font-size:12px; font-weight:700; line-height:1.2; cursor:pointer; color:var(--text);}
+.ad-tabs button:nth-child(n+5){grid-column:span 4;}
+.ad-tabs .ad-tab-label{display:block; max-width:100%; min-width:0; text-align:center;
+  font-size:clamp(10px,2.7vw,12px); overflow-wrap:anywhere; white-space:normal; hyphens:auto;}
 .ad-tabs button.on{background:#111827; border-color:#111827; color:#fff;}
-.ad-tabs .n{display:inline-block; min-width:16px; padding:0 5px; margin-left:4px; border-radius:9px; background:#c62828; color:#fff; font-size:10px;}
+.ad-tabs .n{display:inline-flex; align-items:center; justify-content:center; min-width:16px;
+  padding:1px 5px; border-radius:9px; background:#c62828; color:#fff; font-size:10px; line-height:1.2;}
 .ad-grid{display:grid; grid-template-columns:repeat(2, 1fr); gap:8px; margin-bottom:12px;}
 .ad-stat{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px;}
 .ad-stat b{display:block; font-size:22px;} .ad-stat span{font-size:11px; color:var(--muted);}
@@ -2524,7 +2532,7 @@ body.sphere-editor-refresh[data-sphere-screen="portfolio"] .se-page-brand img{bo
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.51-stay-on-verification-queue',
+  appVersion: '2.22.52-mobile-admin-3rows',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -4336,10 +4344,11 @@ async function otpVerify(){
     if(authUser){ pendingAuthUser = authUser; nav('chooseRole'); }
   } finally { OTP.busy = false; }
 }
-// Admin Panel: same tab → same scroll position; new tab → stay at the tab bar; the open tab is centred in the bar
+// Admin Panel: preserve page scroll when navigating tabs. Only horizontally
+// centre an active tab if the container actually scrolls horizontally.
 function adminAfterRender(keep){
   const strip = document.querySelector('.ad-tabs');
-  if(strip){
+  if(strip && getComputedStyle(strip).display !== 'grid'){
     if(keep) strip.scrollLeft = keep.x;
     const on = strip.querySelector('.on');
     if(on){
@@ -10981,7 +10990,7 @@ SCREENS.admin = async (data) => {
   <div class="header"><button class="back-btn" onclick="nav('profile')">‹</button><h1>Admin Panel</h1><p>Sphere by Syahi Films</p>${wide}</div>
   <div class="screen" style="padding-top:0;">
     ${adminPinCard(pinSet)}
-    <div class="ad-tabs">${ADMIN_TABS.map(([k, l]) => `<button class="${adminTab === k ? 'on' : ''}" onclick="${k === 'classic' ? "nav('adminClassic')" : `nav('admin', { tab: '${k}' })`}">${l}${counts[k] ? `<span class="n">${counts[k]}</span>` : ''}</button>`).join('')}</div>
+    <div class="ad-tabs" aria-label="Admin sections">${ADMIN_TABS.map(([k, l]) => `<button class="${adminTab === k ? 'on' : ''}" ${adminTab === k ? 'aria-current="page"' : ''} onclick="${k === 'classic' ? "nav('adminClassic')" : `nav('admin', { tab: '${k}' })`}"><span class="ad-tab-label">${l}</span>${counts[k] ? `<span class="n">${counts[k]}</span>` : ''}</button>`).join('')}</div>
     ${body}
   </div>`;
 };
