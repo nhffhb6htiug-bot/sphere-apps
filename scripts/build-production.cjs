@@ -21,7 +21,7 @@ async function copyAssets(){
   }
   for(const dir of publicRoots){
     const source=path.join(root,dir);
-    try { await fs.cp(source,path.join(out,dir),{recursive:true,filter:p=>!/(^|\\/)(\\.git|\\.env|node_modules)(\\/|$)/.test(p)}); }
+    try { await fs.cp(source,path.join(out,dir),{recursive:true,filter:p=>!path.relative(root,p).split(path.sep).some(part=>part==='.git'||part==='node_modules'||part.startsWith('.env'))}); }
     catch(e){ if(e.code!=='ENOENT')throw e; }
   }
 }
