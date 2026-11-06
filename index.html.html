@@ -4878,6 +4878,8 @@ async function navInner(screen, data){
       SP_NAV_RENDERED_SCREEN = screen;
     }
   }
+  // Convert admin-only emoji labels to compact, scalable SVG icons after navigation.
+  if(mySeq === NAV_SEQ && /^admin(?:$|[A-Z])/.test(screen)) sphereAdminPaintIcons();
   // After async screen rendering, re-align the glass highlight with the actual page.
   if(mySeq === NAV_SEQ) sphereSyncNavLens();
 }
@@ -10904,6 +10906,133 @@ async function ratingHistoryHtml(editorId, limit){
     return `<div class="card"><b>⭐ Client ratings</b> <span class="muted" style="font-size:12px;">${data.length} project${data.length === 1 ? '' : 's'} · average ${avg > 0 ? '+' : ''}${avg} (−3 … +3)</span>
       ${data.slice(0, limit || 5).map(r => `<div style="margin-top:8px;">${ratingChip(r.score)} <span class="muted" style="font-size:11px;">${esc(r.category || '')} · ${fmtDate(r.created_at)}</span>${r.feedback ? `<p style="font-size:13px; margin-top:2px;">“${esc(r.feedback)}”</p>` : ''}</div>`).join('')}</div>`;
   } catch(e) { return ''; }
+}
+
+/* Admin-only professional SVG icon theme.
+   Transform the rendered admin UI (including small dynamic verification updates)
+   rather than editing button labels/onclick handlers or changing non-admin screens. */
+const SPHERE_ADMIN_ICONS = Object.freeze({
+  '📊':'chart','📈':'chart','📁':'folder','📂':'folder','🗂':'files','🗂️':'files',
+  '⚖️':'scale','🛡️':'shield','👥':'users','💳':'card','💰':'wallet','💸':'wallet',
+  '📜':'file-text','🧰':'tools','🛠':'tools','🛠️':'tools','✅':'check-circle','✔':'check-circle',
+  '✔️':'check-circle','☑':'check-circle','☑️':'check-circle','✓':'check-circle','👍':'check-circle',
+  '❌':'x-circle','✖':'x-circle','✖️':'x-circle','⛔':'ban','🚫':'ban','🔴':'alert-circle',
+  '⚠':'alert-triangle','⚠️':'alert-triangle','🔐':'lock','🔒':'lock','🔓':'unlock',
+  '📱':'mobile','📲':'mobile','🖥':'monitor','🖥️':'monitor','📥':'inbox','💬':'message-circle',
+  '✏️':'pencil','✏':'pencil','🕒':'clock','⏰':'clock','⏳':'clock','🎬':'clapper',
+  '🎞':'clapper','🎞️':'clapper','📸':'camera','📷':'camera','📎':'paperclip',
+  '⭐':'star','🌟':'star','🏆':'award','🎉':'sparkles','🎊':'sparkles',
+  '🧾':'receipt','↩':'undo','↩️':'undo','🔁':'refresh','🔄':'refresh',
+  '📞':'phone','✉':'mail','✉️':'mail','📝':'file-text','📋':'clipboard',
+  '⚙':'settings','⚙️':'settings','👁':'eye','👁️':'eye','👀':'eye','🔎':'search',
+  '🔍':'search','👤':'user','🧑‍💼':'user','📵':'ban','🔗':'link',
+  '🏁':'flag','🆕':'sparkles','🟢':'check-circle','⚪':'circle',
+  '🔔':'bell','📣':'megaphone','💼':'briefcase','🚀':'rocket',
+  '👉':'arrow-right','👋':'user','➕':'plus','⬜':'square','↗':'external-link',
+  '❗':'alert-circle','❕':'alert-circle','💡':'sparkles'
+});
+const SPHERE_ADMIN_ICON_PATHS = Object.freeze({
+  chart:'<path d="M4 19V5m0 14h16M8 16v-5m5 5V8m5 8V4"/>',
+  folder:'<path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10H3Z"/>',
+  files:'<rect x="7" y="6" width="13" height="15" rx="2"/><path d="M17 6V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12"/>',
+  scale:'<path d="M12 3v18M5 6h14M7 6l-4 7h8L7 6Zm10 0-4 7h8l-4-7ZM8 21h8"/>',
+  users:'<circle cx="9" cy="8" r="3"/><path d="M2 20v-2a6 6 0 0 1 12 0v2H2Zm14-15a3 3 0 0 1 0 6m1 5a5 5 0 0 1 5 4"/>',
+  card:'<rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20m-15 5h4"/>',
+  tools:'<path d="M14.8 6.6a5 5 0 0 0-6.4 6.4l-5.8 5.8a2 2 0 0 0 2.8 2.8l5.8-5.8a5 5 0 0 0 6.4-6.4l-3.5 3.5-2.5-2.5Z"/>',
+  'x-circle':'<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/>',
+  'alert-circle':'<circle cx="12" cy="12" r="9"/><path d="M12 7v6m0 4h.01"/>',
+  'alert-triangle':'<path d="m10.2 4.3-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.8-2.7l-8-14a2 2 0 0 0-3.6 0Z"/><path d="M12 9v5m0 3h.01"/>',
+  ban:'<circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/>',
+  lock:'<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+  unlock:'<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0"/>',
+  mobile:'<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+  monitor:'<rect x="2" y="3" width="20" height="15" rx="2"/><path d="M8 22h8m-4-4v4"/>',
+  inbox:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 13h5l2 3h4l2-3h5"/>',
+  pencil:'<path d="m4 16 11-11 4 4-11 11-5 1 1-5Zm9-9 4 4"/>',
+  clapper:'<rect x="3" y="8" width="18" height="13" rx="2"/><path d="M3 8V4l17-2 1 6H3Zm4-5 3 5m4-6 3 6M9 12l6 3-6 3Z"/>',
+  camera:'<path d="M8 5h8l2 3h3v11H3V8h3l2-3Z"/><circle cx="12" cy="13" r="3"/>',
+  paperclip:'<path d="m8 12 6-6a4 4 0 0 1 6 6l-9 9a6 6 0 0 1-9-9l9-9"/>',
+  star:'<path d="m12 2 3 6.3 7 .9-5 5 1.2 7L12 18l-6.2 3.2L7 14.2l-5-5 7-.9Z"/>',
+  award:'<circle cx="12" cy="8" r="6"/><path d="m8 13-2 9 6-3 6 3-2-9"/>',
+  receipt:'<path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2Zm3 6h6m-6 4h6"/>',
+  undo:'<path d="M9 14 4 9l5-5M4 9h9a7 7 0 0 1 0 14"/>',
+  refresh:'<path d="M20 7v5h-5M4 17v-5h5m-3-3A7 7 0 0 1 18 6l2 1M4 17l2 1a7 7 0 0 0 12-3"/>',
+  phone:'<path d="M6 3 3 6c0 8 7 15 15 15l3-3-5-5-3 2a11 11 0 0 1-4-4l2-3-5-5Z"/>',
+  mail:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+  clipboard:'<rect x="5" y="5" width="14" height="17" rx="2"/><rect x="9" y="2" width="6" height="5" rx="1"/><path d="M9 12h6m-6 4h6"/>',
+  eye:'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+  flag:'<path d="M5 22V3m0 1c6-3 8 3 15 0v12c-7 3-9-3-15 0"/>',
+  circle:'<circle cx="12" cy="12" r="9"/>',
+  megaphone:'<path d="M3 10h5l12-6v16L8 14H3v-4Zm5 4 2 7h4l-3-6"/>',
+  rocket:'<path d="M9 15 6 18l-2 2 5-1 3-3M9 15c2-7 6-11 13-13 0 7-4 11-11 13L9 15Zm6-6 2 2M4 11l-1-5 5 1"/>',
+  plus:'<path d="M12 4v16M4 12h16"/>',
+  square:'<rect x="4" y="4" width="16" height="16" rx="2"/>'
+});
+const SPHERE_ADMIN_EMOJI_RE = /(?:\p{Extended_Pictographic})(?:[\uFE0E\uFE0F\u{1F3FB}-\u{1F3FF}]|\u200D\p{Extended_Pictographic}\uFE0F?)*/gu;
+function sphereAdminIconize(root){
+  if(!root || !/^admin(?:$|[A-Z])/.test(currentScreenName)) return;
+  const nodes=[];
+  if(root.nodeType===3) nodes.push(root);
+  else {
+    const walk=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+    while(walk.nextNode()) nodes.push(walk.currentNode);
+  }
+  for(const textNode of nodes){
+    const raw=textNode.nodeValue||'';
+    if(!SPHERE_ADMIN_EMOJI_RE.test(raw)){SPHERE_ADMIN_EMOJI_RE.lastIndex=0;continue;}
+    SPHERE_ADMIN_EMOJI_RE.lastIndex=0;
+    const parent=textNode.parentElement;
+    if(!parent || parent.closest('script,style,textarea,select,option,pre,code,[contenteditable="true"],.sphere-admin-glyph')) continue;
+    const segments=[...raw.matchAll(SPHERE_ADMIN_EMOJI_RE)];
+    if(!segments.length)continue;
+    const frag=document.createDocumentFragment();
+    let pos=0,used=false;
+    for(const m of segments){
+      const glyphName=SPHERE_ADMIN_ICONS[m[0]] || SPHERE_ADMIN_ICONS[m[0].replace(/\uFE0F/g,'')] || 'sparkles';
+      const glyph=SPHERE_ADMIN_ICON_PATHS[glyphName] || SE_PATHS[glyphName];
+      if(!glyph)continue;
+      frag.appendChild(document.createTextNode(raw.slice(pos,m.index)));
+      const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+      svg.setAttribute('class','sphere-admin-glyph');
+      svg.setAttribute('viewBox','0 0 24 24');
+      svg.setAttribute('fill','none');
+      svg.setAttribute('stroke','currentColor');
+      svg.setAttribute('stroke-width','1.85');
+      svg.setAttribute('stroke-linecap','round');
+      svg.setAttribute('stroke-linejoin','round');
+      svg.setAttribute('role','img');
+      svg.setAttribute('aria-label',glyphName.replace(/-/g,' '));
+      svg.innerHTML=glyph;
+      frag.appendChild(svg);
+      pos=m.index+m[0].length;
+      used=true;
+    }
+    SPHERE_ADMIN_EMOJI_RE.lastIndex=0;
+    if(used){
+      frag.appendChild(document.createTextNode(raw.slice(pos)));
+      textNode.replaceWith(frag);
+    }
+  }
+}
+let SPHERE_ADMIN_ICON_WATCHER=null;
+function sphereAdminPaintIcons(){
+  if(!/^admin(?:$|[A-Z])/.test(currentScreenName)) return;
+  if(!document.getElementById('sphere-admin-icon-css')){
+    const style=document.createElement('style');
+    style.id='sphere-admin-icon-css';
+    style.textContent='.sphere-admin-glyph{display:inline-block;width:1.08em;height:1.08em;vertical-align:-.16em;flex-shrink:0;stroke:currentColor;margin-inline-end:.14em}.pca .sphere-admin-glyph{width:1.06em;height:1.06em}.pca-side button .sphere-admin-glyph{width:18px;height:18px;vertical-align:-.22em;margin-inline-end:.45em}.sphere-admin-glyph[aria-label="alert triangle"],.sphere-admin-glyph[aria-label="alert circle"]{stroke:#c28a26}';
+    document.head.appendChild(style);
+  }
+  sphereAdminIconize(app);
+  if(!SPHERE_ADMIN_ICON_WATCHER && typeof MutationObserver!=='undefined'){
+    SPHERE_ADMIN_ICON_WATCHER=new MutationObserver(records=>{
+      if(!/^admin(?:$|[A-Z])/.test(currentScreenName)) return;
+      const added=[];
+      for(const record of records)for(const node of record.addedNodes)if(node.nodeType===1 || node.nodeType===3)added.push(node);
+      for(const node of added)if(node.isConnected)sphereAdminIconize(node);
+    });
+    SPHERE_ADMIN_ICON_WATCHER.observe(app,{childList:true,subtree:true});
+  }
 }
 
 /* ============ PART 14: ADMIN PANEL ============
