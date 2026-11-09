@@ -187,8 +187,8 @@ html.sphere-dark .sp-screen-progress-ring{border-color:rgba(255,174,218,.25);bor
 @media(prefers-reduced-motion:reduce){.sp-screen-progress-ring{animation:none;}}
 
 /* Brand intro shown ONLY inside the Home navbar icon, exactly four small cycles. */
-body:not(.pc-admin) #bottomNav .sp-nav-brand-intro{display:block;position:relative;width:28px;
-  height:28px;flex:0 0 28px;pointer-events:none;}
+body:not(.pc-admin) #bottomNav .sp-nav-brand-intro{display:block;position:relative;width:32px;
+  height:32px;flex:0 0 32px;pointer-events:none;}
 body:not(.pc-admin) #bottomNav .sp-nav-brand-intro img{position:absolute;inset:0;
   width:100%;height:100%;max-width:none;object-fit:contain;border-radius:0;box-shadow:none;}
 body:not(.pc-admin) #bottomNav .sp-nav-brand-intro .sp-nav-intro-l{
@@ -4761,34 +4761,60 @@ function renderBottomNav(){
   }
   sphereMaybePlayNavIntro(user);
 }
-// First-time brand impression, four movements total on the Home navigation ICON.
-// The marker belongs to this account on this device so refresh/navigation never repeats it.
-let SP_NAV_INTRO_STARTED=false;
+// Show Sphere's moving mark in the Home navbar exactly FOUR times, once per
+// account on this device. The old implementation marked it seen BEFORE the images
+// loaded, so some users never saw it. v2 intentionally gives those users one try.
+const SP_NAV_INTRO_ASSETS=[
+  '/img/9ece3f8b524f9a90.png',
+  '/img/1560873923651e31.png',
+  '/img/efb581c20c6ad2b6.png'
+];
+let SP_NAV_INTRO_STATE='idle';
 function sphereMaybePlayNavIntro(user){
-  if(SP_NAV_INTRO_STARTED||!user||!user.id||bottomNav.classList.contains('hidden'))return;
+  if(SP_NAV_INTRO_STATE!=='idle'||!user||!user.id||
+     bottomNav.classList.contains('hidden')||currentScreenName!=='home')return;
   if(window.matchMedia&&window.matchMedia('(min-width:700px)').matches)return;
-  const key='sphere_first_nav_brand_4_v1:'+user.id;
-  try{if(localStorage.getItem(key)==='yes')return;}catch(e){}
-  const icon=bottomNav.querySelector('button[data-nav="home"] .icon');
-  if(!icon)return;
-  SP_NAV_INTRO_STARTED=true;
-  try{localStorage.setItem(key,'yes');}catch(e){}
-  const prior=icon.innerHTML;
-  const reduceMotion=window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches;
-  if(reduceMotion)return;
-  icon.innerHTML='<span class="sp-nav-brand-intro" aria-hidden="true">'
-    +'<img class="sp-nav-intro-l" src="/img/9ece3f8b524f9a90.png" alt="">'
-    +'<img src="/img/1560873923651e31.png" alt="">'
-    +'<img class="sp-nav-intro-r" src="/img/efb581c20c6ad2b6.png" alt="">'
-    +'</span>';
-  let restored=false;
-  function restore(){
-    if(restored)return;
-    restored=true;
-    if(icon.isConnected&&icon.querySelector('.sp-nav-brand-intro'))icon.innerHTML=prior;
-  }
-  icon.querySelector('.sp-nav-intro-l').addEventListener('animationend',restore,{once:true});
-  setTimeout(restore,3400);
+  if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches)return;
+  const key='sphere_first_nav_brand_4_v2:'+user.id;
+  try{if(localStorage.getItem(key)==='complete')return;}catch(e){}
+  if(!bottomNav.querySelector('button[data-nav="home"] .icon'))return;
+  SP_NAV_INTRO_STATE='preloading';
+  // Preload each part FIRST so the animation really appears four times on slow
+  // connections instead of being marked complete before any image is visible.
+  Promise.all(SP_NAV_INTRO_ASSETS.map(src=>new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>resolve(true);img.onerror=()=>resolve(false);
+    img.src=src;
+  }))).then(loaded=>{
+    if(!loaded.every(Boolean)){SP_NAV_INTRO_STATE='idle';return;}
+    const icon=bottomNav.querySelector('button[data-nav="home"] .icon');
+    if(!icon||bottomNav.classList.contains('hidden')||currentScreenName!=='home'){
+      SP_NAV_INTRO_STATE='idle';return;
+    }
+    const ordinaryIcon=icon.innerHTML;
+    SP_NAV_INTRO_STATE='playing';
+    icon.innerHTML='<span class="sp-nav-brand-intro" aria-hidden="true">'
+      +'<img class="sp-nav-intro-l" src="'+SP_NAV_INTRO_ASSETS[0]+'" alt="">'
+      +'<img src="'+SP_NAV_INTRO_ASSETS[1]+'" alt="">'
+      +'<img class="sp-nav-intro-r" src="'+SP_NAV_INTRO_ASSETS[2]+'" alt="">'
+      +'</span>';
+    const left=icon.querySelector('.sp-nav-intro-l');
+    let completed=false;
+    function finish(){
+      if(completed)return;
+      completed=true;
+      const displayed=icon.isConnected&&!!icon.querySelector('.sp-nav-brand-intro');
+      if(displayed){
+        icon.innerHTML=ordinaryIcon;
+        try{localStorage.setItem(key,'complete');}catch(e){}
+      }
+      SP_NAV_INTRO_STATE=displayed?'done':'idle';
+    }
+    // Four CSS iterations at .78 s each. On slow devices retain a small
+    // fallback; neither touch nor scroll events are intercepted.
+    if(left)left.addEventListener('animationend',finish,{once:true});
+    setTimeout(finish,3600);
+  }).catch(()=>{SP_NAV_INTRO_STATE='idle';});
 }
 
 /* SPHERE DESKTOP ADAPTER v1 — no changes to native mobile routing or icons. */
