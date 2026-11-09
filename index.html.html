@@ -1932,16 +1932,29 @@ body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home 
   font-size:18px;
 }
 body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .sec-min{
-  width:56px;
-  height:56px;
-  min-width:56px;
-  font-size:40px;
-  font-weight:750;
+  width:60px;
+  height:60px;
+  min-width:60px;
+  font-size:42px;
+  font-weight:900;
   line-height:1;
   display:inline-flex;
   align-items:center;
   justify-content:center;
   flex-shrink:0;
+  padding:0;
+}
+body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home .sec-min svg{
+  display:block;
+  width:41px;
+  height:41px;
+  flex-shrink:0;
+  stroke:currentColor;
+  stroke-width:3.8;
+  stroke-linejoin:round;
+  stroke-linecap:round;
+  fill:none;
+  pointer-events:none;
 }
 /* Keep panels short: original icons/illustrations stay unchanged. */
 body[data-sphere-screen="home"]:not(.sphere-editor-refresh) .sphere-client-home > .section-title{
@@ -8238,8 +8251,8 @@ function clientEmptyState(kind){
   if(kind === 'active') return `<div class="card cl-empty"><div class="cl-empty-ic">🎬</div><b>No active projects</b>
     <p>Post a job and verified editors will send you bids.</p>
     <div class="cl-row"><button class="btn btn-primary" onclick="nav('postJob')">Post a job</button><button class="btn btn-outline" onclick="nav('allEditors')">Browse editors</button></div></div>`;
-  if(emptyMin()) return `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Get started</h3><button class="sec-min" aria-label="Show get started" aria-expanded="false" onclick="toggleEmptyMin()">→</button></div>`;
-  return `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Get started</h3><button class="sec-min" aria-label="Hide get started" aria-expanded="true" onclick="toggleEmptyMin()">↑</button></div><div class="card cl-empty"><div class="cl-empty-ic">🎬</div><b>No projects yet</b>
+  if(emptyMin()) return `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Get started</h3><button class="sec-min" aria-label="Show get started" aria-expanded="false" onclick="toggleEmptyMin()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M13 4l8 8-8 8"/></svg></button></div>`;
+  return `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Get started</h3><button class="sec-min" aria-label="Hide get started" aria-expanded="true" onclick="toggleEmptyMin()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21V3M4 11l8-8 8 8"/></svg></button></div><div class="card cl-empty"><div class="cl-empty-ic">🎬</div><b>No projects yet</b>
     <p>Your first project is one step away. Post a job, or find an editor you like and hire them directly.</p>
     <div class="cl-row"><button class="btn btn-primary" onclick="nav('postJob')">Post a job</button><button class="btn btn-outline" onclick="nav('allEditors')">Browse editors</button></div></div>`;
 }
