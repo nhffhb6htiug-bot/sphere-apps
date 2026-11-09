@@ -1,7 +1,7 @@
-// Sphere PWA service worker v6 — no visual changes.
+// Sphere PWA service worker v7 — mobile refresh rollout; cached offline shell refreshed.
 // Only static public assets may enter Cache Storage. In particular, Supabase
 // responses and account data are never cached, even if proxied by this origin.
-const CACHE = 'sphere-v4t-admin-svg-icons';;
+const CACHE = 'sphere-mobile-refresh-v7';
 const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/favicon.png',
   '/vendor/supabase-2.117.2.js', '/sphere-dark-theme.css', '/sphere-desktop.css'];
 const STATIC_INFLIGHT = new Map();
