@@ -387,3 +387,50 @@
     color:#d7b5ff!important;
   }
 }
+
+/* Cross-platform parity — Nov 2026.
+   Desktop Home uses this left sidebar, not the phone's hidden bottom navbar.
+   Animate its FIRST four logo cycles only, then return to the standard icon. */
+@media(min-width:700px){
+  html.sphere-desktop #sphereDesktopNav .sd-link[aria-label="Home"] .sp-nav-brand-intro{
+    display:block;position:relative;width:24px;height:24px;flex:0 0 24px;
+    overflow:visible;pointer-events:none;
+  }
+  html.sphere-desktop #sphereDesktopNav .sp-nav-brand-intro img{
+    position:absolute;inset:0;width:100%;height:100%;max-width:none;
+    border-radius:0;object-fit:contain;box-shadow:none;
+  }
+  html.sphere-desktop #sphereDesktopNav .sp-nav-intro-l{
+    animation:spNavIntroLeft .78s ease-in-out 4;
+  }
+  html.sphere-desktop #sphereDesktopNav .sp-nav-intro-r{
+    animation:spNavIntroRight .78s ease-in-out 4;
+  }
+  html.sphere-desktop body.sphere-desktop-shell .sp-screen-progress{
+    left:calc(50% + var(--sd-rail)/2); /* center of actual page, not sidebar */
+  }
+  html.sphere-desktop body[data-sphere-screen="home"] .sphere-client-home .cl-dash>.section-title{
+    min-height:70px;
+    flex-wrap:wrap;
+  }
+  html.sphere-desktop body[data-sphere-screen="home"] .sphere-client-home .sec-min{
+    width:60px;min-width:60px;height:60px;display:inline-flex;
+    align-items:center;justify-content:center;
+  }
+  html.sphere-desktop body[data-sphere-screen="home"] .sphere-client-home .sec-min svg{
+    width:41px;height:41px;stroke:currentColor;stroke-width:3.8;
+    stroke-linecap:round;stroke-linejoin:round;fill:none;
+  }
+  html.sphere-desktop.sphere-dark body.sphere-desktop-shell #sphereDesktopNav{
+    background:linear-gradient(165deg,#29192f 0%,#211729 43%,#15101d 100%)!important;
+    border-right-color:#634369!important;
+  }
+  html.sphere-desktop.sphere-dark #sphereDesktopNav .sd-link.active,
+  html.sphere-desktop.sphere-dark #sphereDesktopNav .sd-link[aria-current=page]{
+    background:#482643!important;color:#ffc5e9!important;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  html.sphere-desktop #sphereDesktopNav .sp-nav-intro-l,
+  html.sphere-desktop #sphereDesktopNav .sp-nav-intro-r{animation:none!important;}
+}
