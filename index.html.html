@@ -3446,7 +3446,7 @@ const GA_ANDROID = '<svg viewBox="0 0 24 24" fill="#fff"><path d="M17.6 9.48l1.8
 const GA_SHARE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#007aff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M12 3v13"/><path d="m7 8 5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
 function gaIphoneCard(mine){
   return `<div class="ga-card ${mine ? 'mine' : ''}"><div class="ga-top"><div class="ga-logo" style="background:#111;">${GA_APPLE}</div><div><b>iPhone</b><small>Add Sphere to your Home Screen</small></div></div>
-    <ol class="ga-steps"><li><span>Open <b>sphere-live.onrender.com</b> in <b>Safari</b></span></li>
+    <ol class="ga-steps"><li><span>Open <b>sphere.syahi.online</b> in <b>Safari</b></span></li>
       <li><span>Tap the Share button ${GA_SHARE} at the bottom</span></li>
       <li><span>Scroll and tap <b>Add to Home Screen</b>, then <b>Add</b></span></li></ol>
     <div class="ga-soon">${GA_APPLE.replace('fill="#fff"', 'fill="#111" width="18" height="18"')}<span><b>App Store</b> — coming soon</span></div></div>`;
@@ -3454,7 +3454,7 @@ function gaIphoneCard(mine){
 function gaAndroidCard(mine){
   return `<div class="ga-card ${mine ? 'mine' : ''}"><div class="ga-top"><div class="ga-logo" style="background:#3ddc84;">${GA_ANDROID}</div><div><b>Android</b><small>Install Sphere in one tap</small></div></div>
     ${mine ? `<button class="btn btn-primary" style="margin:4px 0 8px;" onclick="installApp()">Install Sphere</button>` : ''}
-    <ol class="ga-steps"><li><span>Open <b>sphere-live.onrender.com</b> in <b>Chrome</b></span></li>
+    <ol class="ga-steps"><li><span>Open <b>sphere.syahi.online</b> in <b>Chrome</b></span></li>
       <li><span>Tap <b>Install</b>${mine ? ' above' : ''} — or menu ⋮ → <b>Install app</b></span></li>
       <li><span>Sphere opens from your home screen, full screen</span></li></ol>
     <div class="ga-soon">${GA_ANDROID.replace('fill="#fff"', 'fill="#3ddc84" width="18" height="18"')}<span><b>Google Play</b> — coming soon</span></div></div>`;
