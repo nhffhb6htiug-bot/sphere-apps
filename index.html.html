@@ -176,8 +176,8 @@ h1,h2,h3{color:var(--text);}
 
 /* Lightweight in-place navigation progress: current screen remains visible.
    No modal, glass blur, full-screen mask, moving brand image or Sphere label. */
-.sp-screen-progress{position:fixed;top:calc(16px + env(safe-area-inset-top,0px));left:50%;
-  transform:translateX(-50%);z-index:9100;display:none;align-items:center;justify-content:center;
+.sp-screen-progress{position:fixed;top:50%;left:50%;
+  transform:translate(-50%,-50%);z-index:9100;display:none;align-items:center;justify-content:center;
   width:32px;height:32px;pointer-events:none;}
 .sp-screen-progress.on{display:flex;}
 .sp-screen-progress-ring{width:28px;height:28px;box-sizing:border-box;border-radius:50%;
@@ -200,6 +200,22 @@ body:not(.pc-admin) #bottomNav .sp-nav-brand-intro .sp-nav-intro-r{
 @media(prefers-reduced-motion:reduce){
   body:not(.pc-admin) #bottomNav .sp-nav-brand-intro .sp-nav-intro-l,
   body:not(.pc-admin) #bottomNav .sp-nav-brand-intro .sp-nav-intro-r{animation:none;}}
+/* On the very first app launch only: four logo motions at the center of splash. */
+.splash-wrap .sp-launch-brand-intro{position:relative;display:block;width:120px;height:120px;
+  margin:0 auto 16px;flex-shrink:0;}
+.splash-wrap .sp-launch-brand-intro img{
+  position:absolute;inset:0;width:100%!important;height:100%!important;
+  max-width:none!important;margin:0!important;border-radius:0!important;
+  object-fit:contain;box-shadow:none!important;}
+.splash-wrap .sp-launch-brand-intro .sp-launch-intro-l{
+  animation:spLaunchIntroLeft .78s ease-in-out 4;}
+.splash-wrap .sp-launch-brand-intro .sp-launch-intro-r{
+  animation:spLaunchIntroRight .78s ease-in-out 4;}
+@keyframes spLaunchIntroLeft{0%,100%{transform:translate(0,0)}50%{transform:translate(-18px,16px)}}
+@keyframes spLaunchIntroRight{0%,100%{transform:translate(0,0)}50%{transform:translate(18px,-16px)}}
+@media(prefers-reduced-motion:reduce){
+  .splash-wrap .sp-launch-brand-intro .sp-launch-intro-l,
+  .splash-wrap .sp-launch-brand-intro .sp-launch-intro-r{animation:none;}}
 .home-search-bottom{display:flex; align-items:center; gap:10px;  padding:13px 16px; background:#fff; border:1px solid var(--border); border-radius:18px; box-shadow:0 4px 14px rgba(30,64,175,.08); margin:18px 16px 6px; box-sizing:border-box;}
 .home-search-bottom input{flex:1; border:none; outline:none; font-size:15px; background:transparent; min-width:0;}
 .sr-row{display:flex; align-items:center; gap:12px; padding:12px 14px; margin-top:8px; cursor:pointer;}
@@ -5077,9 +5093,29 @@ let IS_RECOVERY = /type=recovery/.test(window.location.hash);
 sb.auth.onAuthStateChange((event) => {
   if(event === 'PASSWORD_RECOVERY'){ IS_RECOVERY = true; setTimeout(() => nav('resetPassword'), 0); }
 });
+// Device-local splash impression. It is never replayed on refresh or later launches.
+const SP_LAUNCH_INTRO_KEY='sphere_launch_brand_4_once_v1';
+let SP_LAUNCH_INTRO_USED=false;
+function sphereFirstLaunchIntro(){
+  if(SP_LAUNCH_INTRO_USED)return false;
+  SP_LAUNCH_INTRO_USED=true;
+  try{
+    if(localStorage.getItem(SP_LAUNCH_INTRO_KEY)==='yes')return false;
+    // Persist the fact before showing animation, so refresh cannot restart it.
+    localStorage.setItem(SP_LAUNCH_INTRO_KEY,'yes');
+  }catch(e){return false;}
+  if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches)return false;
+  return true;
+}
+const SP_LAUNCH_BRAND_HTML='<div class="sp-launch-brand-intro" aria-hidden="true">'
+  +'<img class="sp-launch-intro-l" src="/img/9ece3f8b524f9a90.png" alt="">'
+  +'<img src="/img/1560873923651e31.png" alt="">'
+  +'<img class="sp-launch-intro-r" src="/img/efb581c20c6ad2b6.png" alt="">'
+  +'</div>';
 SCREENS.splash = () => {
   let hasSavedPage=false;
   try{hasSavedPage=!!sessionStorage.getItem(SP_PAGE_RESUME_KEY);}catch(e){}
+  const showIntro=!hasSavedPage&&sphereFirstLaunchIntro();
   setTimeout(async ()=>{
     if(IS_RECOVERY){ nav('resetPassword'); return; }
     const user = await fetchAndSetCurrentUser();
@@ -5091,9 +5127,9 @@ SCREENS.splash = () => {
     const { data:{ user: authUser } } = await sb.auth.getUser();
     if(authUser){ pendingAuthUser = authUser; nav('chooseRole'); return; }
     nav('onboard1');
-  }, hasSavedPage?0:1400);
+  }, hasSavedPage?0:(showIntro?3200:1400));
   return `<div class="splash-wrap">
-    ${SPHERE_LOADER_SVG.replace('class="sp-loader"', 'class="sp-loader sp-loader-big"')}
+    ${showIntro ? SP_LAUNCH_BRAND_HTML : SPHERE_LOADER_SVG.replace('class="sp-loader"', 'class="sp-loader sp-loader-big"')}
     <h1>Sphere</h1>
     <p class="muted">Connecting Editors & Clients</p>
   </div>`;
