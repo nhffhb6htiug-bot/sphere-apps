@@ -49,6 +49,8 @@
 html{color-scheme:light; background:var(--bg);}
 /* v2.22.32: stop the iPhone rubber-band only on iPhone — on Android it blocked scrolling */
 html.os-ios, html.os-ios body{overscroll-behavior-y:none;}
+/* Android pull gesture must not make Chrome reload the whole app. */
+html.os-android,html.os-android body{overscroll-behavior-y:contain;}
 html,body{width:100%; overflow-x:hidden; color-scheme:light;}
 body{
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
@@ -3018,6 +3020,50 @@ let SP_NAV_USER_KEY = null;
 let SP_NAV_BACK_IN_PROGRESS = false;
 let SP_LAST_EXIT_BACK = 0;
 let SP_BACK_HINT_TIMER = null;
+
+// Last visited screen is tab-local and bound to the signed-in account.
+// No credentials, banking details, messages or drafts are persisted here.
+const SP_RESUME_KEY='sphere_resume_v1';
+const SP_RESUME_SCREENS=new Set(['home','chatList','chatThread','jobs','portfolio','profile','notifications','verificationStatus','editorEarnings','allEditors','settingsScreen','admin']);
+const SP_REFRESH_SCREENS=new Set(['home','chatList','jobs','portfolio','profile','notifications','verificationStatus','editorEarnings','allEditors','admin']);
+function sphereSaveResume(screen,data){
+  if(screen==='splash')return;
+  try{
+    const u=getCurrentUser();
+    if(!u){sessionStorage.removeItem(SP_RESUME_KEY);return;}
+    if(screen==='chatInfo')screen='chatThread';
+    if(['postJob','projectStatus','applications','payment','previewPlayer'].includes(screen))screen='jobs';
+    if(['editorProfileEdit','editProfile'].includes(screen))screen='profile';
+    if(!SP_RESUME_SCREENS.has(screen)){sessionStorage.removeItem(SP_RESUME_KEY);return;}
+    const tab=data&&typeof data.tab==='string'&&/^[a-z0-9_-]{1,40}$/i.test(data.tab)?data.tab:null;
+    const chatWith=screen==='chatThread'?String(currentChatWith||''):'';
+    if(screen==='chatThread'&&!/^[a-z0-9_-]{8,80}$/i.test(chatWith))screen='chatList';
+    const chatJob=screen==='chatThread'?String(currentChatJob||''):'';
+    sessionStorage.setItem(SP_RESUME_KEY,JSON.stringify({
+      uid:u.id,role:u.role,screen,tab,
+      chatWith:screen==='chatThread'?chatWith:null,
+      chatJob:screen==='chatThread'&&/^[a-z0-9_-]{8,80}$/i.test(chatJob)?chatJob:null,
+      at:Date.now()
+    }));
+  }catch(e){}
+}
+function sphereResumeRoute(user){
+  try{
+    const raw=sessionStorage.getItem(SP_RESUME_KEY);if(!raw||!user)return null;
+    const r=JSON.parse(raw),now=Date.now();
+    if(!r||r.uid!==user.id||r.role!==user.role||!SP_RESUME_SCREENS.has(r.screen)||
+       typeof r.at!=='number'||now-r.at>86400000||r.at>now+60000){
+      sessionStorage.removeItem(SP_RESUME_KEY);return null;
+    }
+    if(r.screen==='chatThread'){
+      if(!/^[a-z0-9_-]{8,80}$/i.test(String(r.chatWith||'')))return {screen:'chatList'};
+      currentChatWith=r.chatWith;
+      currentChatJob=/^[a-z0-9_-]{8,80}$/i.test(String(r.chatJob||''))?r.chatJob:null;
+    }
+    const data=typeof r.tab==='string'&&/^[a-z0-9_-]{1,40}$/i.test(r.tab)?{tab:r.tab}:undefined;
+    return {screen:r.screen,data};
+  }catch(e){return null;}
+}
 function sphereRememberNav(screen, data){
   if(screen === 'splash') return;
   const u = getCurrentUser();
@@ -4794,15 +4840,17 @@ let NAV_LAST_DATA = '';
 const SUSPENDED_OK = ['suspended', 'support', 'authLanding', 'login', 'signup', 'onboard1', 'splash'];
 // v2.22.28: tapping the same thing again while it is still opening no longer restarts it (that made people tap 3-4 times)
 let NAV_PENDING = null;
-async function nav(screen, data){
+async function nav(screen, data, opts){
+  const softRefresh=!!(opts&&opts.softRefresh&&screen===currentScreenName);
   let k = screen; try { k += '|' + JSON.stringify(data || null); } catch(e) {}
   if(NAV_PENDING === k) return;
   NAV_PENDING = k;
-  const early = setTimeout(() => { if(NAV_PENDING !== k) return; const ck = swrKey(screen, data); if(!(ck && screenCacheHas(ck)) && !(screen === 'admin' && currentScreenName === 'admin' && !(data && data.tab === 'classic'))) showLoadOverlay(); }, 180);
-  try { return await navInner(screen, data); }
-  finally { clearTimeout(early); if(NAV_PENDING === k){ NAV_PENDING = null; hideLoadOverlay(); sphereSyncNavLens(); } }
+  const early = softRefresh ? null : setTimeout(() => { if(NAV_PENDING !== k) return; const ck = swrKey(screen, data); if(!(ck && screenCacheHas(ck)) && !(screen === 'admin' && currentScreenName === 'admin' && !(data && data.tab === 'classic'))) showLoadOverlay(); }, 180);
+  try { return await navInner(screen, data, softRefresh); }
+  finally { if(early) clearTimeout(early); if(NAV_PENDING === k){ NAV_PENDING = null; hideLoadOverlay(); sphereSyncNavLens(); } }
 }
-async function navInner(screen, data){
+async function navInner(screen, data, softRefresh=false){
+  const softScrollY=softRefresh?window.scrollY:0;
   if(currentUser && currentUser.suspended && !SUSPENDED_OK.includes(screen)) screen = 'suspended';
   if(getCurrentUser() && PUSH_TRIED_FOR !== getCurrentUser().id && pushSupported() && Notification.permission === 'granted'){ PUSH_TRIED_FOR = getCurrentUser().id; setTimeout(ensurePush, 500); }
   if(PENDING_OPEN && screen === 'home' && getCurrentUser()){ const to = PENDING_OPEN; PENDING_OPEN = null; setTimeout(() => nav(to), 0); }
@@ -4839,7 +4887,7 @@ async function navInner(screen, data){
 
   const pcAdmin = pcAdminScreen(screen) && pcAdminOn();
   document.body.classList.toggle('pc-admin', pcAdmin); PC_ADMIN_WAS = pcAdminOn();
-  if(!adminStay) window.scrollTo(0,0);
+  if(!adminStay&&!softRefresh) window.scrollTo(0,0);
   const visibleScreens = ['home','chatList','jobs','portfolio','profile'];
   bottomNav.classList.toggle('hidden', !visibleScreens.includes(screen));
   renderBottomNav();
@@ -4853,7 +4901,7 @@ async function navInner(screen, data){
     if(result instanceof Promise){
       // Main tabs open at once from the last copy (no loader), then the fresh copy replaces it quietly.
       const key = swrKey(screen, data);
-      const cached = key ? screenCacheGet(key) : null;
+      const cached = !softRefresh && key ? screenCacheGet(key) : null;
       if(cached){
         hideLoadOverlay();
         app.innerHTML = cached;
@@ -4861,13 +4909,13 @@ async function navInner(screen, data){
         sphereSyncNavLens();
       }
       // Part C: show the loading screen only if the screen is slow (no flash on fast screens)
-      const loaderTimer = (cached || adminStay) ? null : setTimeout(() => { if(mySeq === NAV_SEQ) showLoadOverlay(); }, 180);   // admin refresh: keep showing the old page until the new one is ready
+      const loaderTimer = (cached || adminStay || softRefresh) ? null : setTimeout(() => { if(mySeq === NAV_SEQ) showLoadOverlay(); }, 180);   // admin refresh: keep showing the old page until the new one is ready
       const html = await result;
       if(loaderTimer) clearTimeout(loaderTimer);
       if(mySeq !== NAV_SEQ) return;            // a newer screen was opened while this one was loading
       hideLoadOverlay();
       if(key) screenCachePut(key, html);
-      if(html !== cached){ const y = cached ? window.scrollY : 0; app.innerHTML = html; if(cached) window.scrollTo(0, y); }
+      if(html !== cached){ const y=softRefresh?softScrollY:(cached?window.scrollY:0); app.innerHTML=html; if(cached||softRefresh)window.scrollTo(0,y); }
       SP_NAV_RENDERED_SCREEN = screen;
       if(screen === 'admin') adminAfterRender(adminKeep);
       else if(adminSub && adminKeep) window.scrollTo(0, adminKeep.y);
@@ -4875,13 +4923,14 @@ async function navInner(screen, data){
     } else {
       hideLoadOverlay();
       app.innerHTML = result;
+      if(softRefresh)window.scrollTo(0,softScrollY);
       SP_NAV_RENDERED_SCREEN = screen;
     }
   }
   // Convert admin-only emoji labels to compact, scalable SVG icons after navigation.
   if(mySeq === NAV_SEQ && /^admin(?:$|[A-Z])/.test(screen)) sphereAdminPaintIcons();
   // After async screen rendering, re-align the glass highlight with the actual page.
-  if(mySeq === NAV_SEQ) sphereSyncNavLens();
+  if(mySeq === NAV_SEQ){sphereSyncNavLens();sphereSaveResume(screen,data);}
 }
 
 const SCREENS = {};
@@ -4938,7 +4987,7 @@ SCREENS.splash = () => {
   setTimeout(async ()=>{
     if(IS_RECOVERY){ nav('resetPassword'); return; }
     const user = await fetchAndSetCurrentUser();
-    if(user){ nav(sphereEntryScreen(user)); return; }
+    if(user){ const saved=(!PENDING_CHAT&&!PENDING_OPEN)?sphereResumeRoute(user):null; nav(saved?saved.screen:sphereEntryScreen(user),saved&&saved.data); return; }
     const { data:{ user: authUser } } = await sb.auth.getUser();
     if(authUser){ pendingAuthUser = authUser; nav('chooseRole'); return; }
     nav('onboard1');
@@ -7905,6 +7954,7 @@ function accountStatusBanner(u){
 // Everything that belongs to the logged-in account is cleared on logout / session end
 let loggingOut = false;
 function clearSessionState(){
+  try{sessionStorage.removeItem(SP_RESUME_KEY);}catch(e){}
   if(msgChannel){ try { sb.removeChannel(msgChannel); } catch(e){} msgChannel = null; }
   RT_OK = { msg: false, notif: false }; if(rtPollTimer){ clearInterval(rtPollTimer); rtPollTimer = null; }
   currentUser = null;
@@ -12858,6 +12908,67 @@ async function appErrorsCard(){
   if(err){ alert('Google login error: ' + err); }
 })();
 try { localStorage.removeItem('sphereDB'); } catch(e) {}
+
+// Pull down at the top of a data screen to fetch fresh server data. No page reload.
+// Chat threads and editable forms are intentionally left alone (realtime + draft safety).
+(function spherePullRefresh(){
+  if(!document.documentElement.classList.contains('os-android'))return;
+  let drag=null,busy=false,pill=null,timer=null;
+  function message(t){
+    if(!pill){
+      pill=document.createElement('div');pill.id='sphere-refresh-status';pill.setAttribute('role','status');
+      pill.style.cssText='position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:10015;padding:9px 15px;border-radius:24px;background:#202b4c;color:#fff;box-shadow:0 6px 18px #0003;font:600 12px Arial,sans-serif;pointer-events:none;white-space:nowrap';
+      document.body.appendChild(pill);
+    }
+    clearTimeout(timer);pill.textContent=t;
+  }
+  function hide(){clearTimeout(timer);if(pill){pill.remove();pill=null;}}
+  function brief(t){message(t);timer=setTimeout(hide,1100);}
+  function nestedScroll(el){
+    for(let n=el;n&&n!==document.body&&n!==document.documentElement;n=n.parentElement){
+      if(n.scrollHeight>n.clientHeight+4){
+        const y=getComputedStyle(n).overflowY;
+        if(y==='auto'||y==='scroll')return true;
+      }
+    }
+    return false;
+  }
+  async function refresh(){
+    if(busy||NAV_PENDING||!getCurrentUser()||!SP_REFRESH_SCREENS.has(currentScreenName))return;
+    busy=true;const screen=currentScreenName,last=SP_NAV_TRAIL[SP_NAV_TRAIL.length-1];
+    message('↻ Updating data…');
+    try{
+      await nav(screen,last&&last.screen===screen?last.data:undefined,{softRefresh:true});
+      if(currentScreenName===screen)brief('✓ Data updated');else hide();
+    }catch(e){console.warn('Sphere refresh',e);brief('Could not update — try again');}
+    finally{busy=false;}
+  }
+  window.sphereRefreshData=refresh;
+  document.addEventListener('touchstart',e=>{
+    drag=null;
+    if(e.touches.length!==1||busy||NAV_PENDING||!getCurrentUser()||!SP_REFRESH_SCREENS.has(currentScreenName)||window.scrollY>1)return;
+    const t=e.target;
+    if(t&&t.closest&&t.closest('input,textarea,select,[contenteditable],.sp-dlg-wrap,.media-preview,.img-viewer,.sp-load-ov,#bottomNav'))return;
+    if(nestedScroll(t))return;
+    drag={x:e.touches[0].clientX,y:e.touches[0].clientY,dy:0,pulling:false};
+  },{passive:true});
+  document.addEventListener('touchmove',e=>{
+    if(!drag||e.touches.length!==1)return;
+    const dx=e.touches[0].clientX-drag.x,dy=e.touches[0].clientY-drag.y;
+    if(dy< -7||Math.abs(dx)>Math.max(18,dy*1.2)){drag=null;hide();return;}
+    if(dy>10&&window.scrollY<2){
+      drag.pulling=true;drag.dy=dy;
+      if(e.cancelable)e.preventDefault();
+      message(dy>=76?'↻ Release to update':'↓ Pull for latest data');
+    }
+  },{passive:false});
+  document.addEventListener('touchend',()=>{
+    if(!drag)return;
+    const go=drag.pulling&&drag.dy>=76;drag=null;
+    if(go)refresh();else hide();
+  },{passive:true});
+  document.addEventListener('touchcancel',()=>{drag=null;if(!busy)hide();},{passive:true});
+})();
 nav('splash');
 </script>
 </body>
