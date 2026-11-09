@@ -238,21 +238,17 @@ h1,h2,h3{color:var(--text);}
 .msg-banner b{font-size:13px;} .msg-banner span{font-size:13px; opacity:.85; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .reply-bar[hidden], .emoji-panel[hidden], .attach-sheet[hidden], .mp-err[hidden], .mp-prog[hidden]{display:none !important;}
 .sp-loading{display:flex; flex-direction:column; align-items:center; padding-top:110px; gap:6px;}
-.sp-loader{position:relative; width:130px; height:130px; margin:18px;}
-.sp-loader img{position:absolute; inset:0; width:100%; height:100%;}
-.sp-loader-big{width:210px; height:210px; margin:0 auto 18px;}
-.splash-wrap .sp-loader-big{display:block; position:relative; flex-shrink:0;}
-.splash-wrap .sp-loader-big img{position:absolute; inset:0; width:100% !important; height:100% !important; max-width:none !important; margin:0 !important; border-radius:0 !important; box-shadow:none !important; animation-duration:.9s;}
-.sp-loader-big .sp-l{animation-name:spLoadLb;} .sp-loader-big .sp-r{animation-name:spLoadRb;}
-@keyframes spLoadLb{0%,100%{transform:translate(0,0)} 50%{transform:translate(-28px,28px)}}
-@keyframes spLoadRb{0%,100%{transform:translate(0,0)} 50%{transform:translate(28px,-28px)}}
+/* Small circular loader; no moving Sphere logo pieces. */
+.sp-loader{position:relative;width:50px;height:50px;margin:12px auto;flex-shrink:0;}
+.sp-loader::before{content:"";display:block;width:100%;height:100%;box-sizing:border-box;
+  border:4px solid rgba(129,102,205,.20);border-top-color:var(--blue,#8056d8);
+  border-radius:50%;animation:spCircleSpin .85s linear infinite;}
+.sp-loader-big{width:62px;height:62px;margin:0 auto 16px;}
+.splash-wrap .sp-loader-big{display:block;position:relative;flex-shrink:0;}
+@keyframes spCircleSpin{to{transform:rotate(360deg)}}
 .sp-name{font-size:30px; font-weight:800; letter-spacing:.5px; line-height:1.1; margin-top:2px;
   background:linear-gradient(90deg,#0a3fe0,#1e7ff0 55%,#12c8f5); -webkit-background-clip:text; background-clip:text; color:transparent;}
-.sp-l{animation:spLoadL .9s ease-in-out infinite;}
-.sp-r{animation:spLoadR .9s ease-in-out infinite;}
-@keyframes spLoadL{0%,100%{transform:translate(0,0)} 50%{transform:translate(-18px,18px)}}
-@keyframes spLoadR{0%,100%{transform:translate(0,0)} 50%{transform:translate(18px,-18px)}}
-@media (prefers-reduced-motion: reduce){ .sp-l,.sp-r{animation:none;} }
+@media (prefers-reduced-motion: reduce){.sp-loader::before{animation:none;border-top-color:var(--blue,#8056d8);}}
 .phone-locked{font-size:18px; letter-spacing:2px; filter:blur(3px); user-select:none; margin:6px 0;}
 .phone-prefix{display:flex; align-items:center; padding:0 12px; border:1px solid var(--border); border-right:none; border-radius:12px 0 0 12px; background:#f2f2f2; font-weight:600; font-size:14px; color:#111;}
 .field .phone-wrap input{border-radius:0 12px 12px 0; flex:1; min-width:0;}
@@ -3724,13 +3720,8 @@ function loadOverlayEl(){
 }
 function showLoadOverlay(){ loadOverlayEl().classList.add('on'); }
 function hideLoadOverlay(){ const el = document.getElementById('spLoadOv'); if(el) el.classList.remove('on'); }
-// Loading screen: the REAL Sphere logo cut into its 3 parts (left curve, play button, right curve).
-// The play button stays; the two curves slide out diagonally and back. At rest they form the exact logo.
-const SPHERE_LOADER_SVG = '<div class="sp-loader" aria-hidden="true">'
-  + '<img class="sp-l" alt="" src="/img/9ece3f8b524f9a90.png">'
-  + '<img alt="" src="/img/1560873923651e31.png">'
-  + '<img class="sp-r" alt="" src="/img/efb581c20c6ad2b6.png">'
-  + '</div>';
+// Shared circular indicator for splash and transitions, not an animated brand logo.
+const SPHERE_LOADER_SVG = '<div class="sp-loader" aria-hidden="true"></div>';
 // Part B: Sphere's own message box instead of the browser's "The page at … says" popup.
 // Technical errors are turned into plain words; the original text stays under "Details".
 const SP_DLG_Q = [];
