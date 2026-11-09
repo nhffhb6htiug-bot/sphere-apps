@@ -12,9 +12,9 @@ html.sphere-dark body.pc-admin{
  --se-blue:#b18aff;--se-navy:#eee9fa;--se-ink:#eeeaf7;--se-line:#413748;--se-muted:#b8afc6;
  --sh-ink:#eeeaf7;--sh-violet:#b795ff;--text:#f0ebf8;--muted:#b6adc5;
  --card:#241a2b;--border:#58405f;
- background:#100c16 radial-gradient(ellipse 85% 45% at 12% 9%,rgba(238,87,164,.18),transparent 72%),
+ background:radial-gradient(ellipse 85% 45% at 12% 9%,rgba(238,87,164,.18),transparent 72%),
  radial-gradient(ellipse 78% 43% at 92% 74%,rgba(188,76,161,.12),transparent 75%),
- linear-gradient(155deg,#1b1221,#100c16 53%,#1a1023 100%)!important;
+ linear-gradient(155deg,#1b1221,#100c16 53%,#1a1023 100%) #100c16!important;
  color:#f0ebf8!important;}
 html.sphere-dark body .screen,html.sphere-dark body .sphere-client-home,html.sphere-dark body .cl-dash,
 html.sphere-dark body .se-home,html.sphere-dark body .pca{color:#eeeaf7!important;}
