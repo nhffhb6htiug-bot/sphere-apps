@@ -420,3 +420,23 @@ html.sphere-dark body .chat-head .ch-back:focus-visible {
   outline:2px solid #ffd0ee!important;
   outline-offset:3px;
 }
+
+/* iOS Safari / installed iOS PWA: native controls must use the same dark
+   appearance as the pink-black Sphere cards. Does not change light mode. */
+html.sphere-dark body{color-scheme:dark!important;}
+html.sphere-dark body .se-earn-back,
+html.sphere-dark body .header .back-btn,
+html.sphere-dark body .sphere-editor-app-back,
+html.sphere-dark body .chat-head .ch-back{
+  color:#fff!important;-webkit-text-fill-color:#fff!important;
+}
+html.sphere-dark body .se-earn-back span{color:#fff!important;}
+/* Avoid an oversized transparent drawing surface on narrow iOS screens. */
+@media(max-width:480px){
+  html.sphere-dark body .sphere-client-home .cl-dash>.section-title{
+    box-sizing:border-box;min-width:0;max-width:100%;
+  }
+  html.sphere-dark body .sphere-client-home .sec-min svg{
+    display:block;max-width:100%;max-height:100%;
+  }
+}
