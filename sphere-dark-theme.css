@@ -1,17 +1,20 @@
 /* SPHERE DARK THEME v1 — opt-in only; light UI remains unchanged */
-html.sphere-dark{color-scheme:dark!important;background:#09090e!important;
- --blue:#b48bff;--blue-dark:#8a58e9;--bg:#0b0a10;--text:#f0ebf8;--muted:#b6adc5;
- --card:#1b1822;--border:#403647;--glass-line:#45394f;
- --glass-shadow:0 7px 19px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.06);
- --glass-surface:linear-gradient(145deg,#241e2e,#1a1822 72%,#201b28);}
+html.sphere-dark{color-scheme:dark!important;background:#0f0b16!important;
+ --blue:#c69aff;--blue-dark:#a563eb;--pink:#f57ac3;--pink-soft:#eaa0d0;
+ --bg:#100c16;--text:#f4eefa;--muted:#c4b7ce;
+ --card:#241a2b;--border:#58405f;--glass-line:#584363;
+ --glass-shadow:0 6px 16px rgba(10,4,16,.22),inset 0 1px 0 rgba(255,255,255,.06);
+ --glass-surface:linear-gradient(145deg,#2b2134,#201a29 70%,#2b1b31);}
 html.sphere-dark body,html.sphere-dark body:not([data-sphere-screen="home"]),
 html.sphere-dark body.sphere-editor-refresh,
 html.sphere-dark body[data-sphere-screen="home"]:not(.sphere-editor-refresh),
 html.sphere-dark body.pc-admin{
  --se-blue:#b18aff;--se-navy:#eee9fa;--se-ink:#eeeaf7;--se-line:#413748;--se-muted:#b8afc6;
  --sh-ink:#eeeaf7;--sh-violet:#b795ff;--text:#f0ebf8;--muted:#b6adc5;
- --card:#1b1822;--border:#403647;
- background:#0b0a10 linear-gradient(150deg,#14111c,#0b0a10 46%,#15111d 92%)!important;
+ --card:#241a2b;--border:#58405f;
+ background:#100c16 radial-gradient(ellipse 85% 45% at 12% 9%,rgba(238,87,164,.18),transparent 72%),
+ radial-gradient(ellipse 78% 43% at 92% 74%,rgba(188,76,161,.12),transparent 75%),
+ linear-gradient(155deg,#1b1221,#100c16 53%,#1a1023 100%)!important;
  color:#f0ebf8!important;}
 html.sphere-dark body .screen,html.sphere-dark body .sphere-client-home,html.sphere-dark body .cl-dash,
 html.sphere-dark body .se-home,html.sphere-dark body .pca{color:#eeeaf7!important;}
@@ -47,7 +50,7 @@ html.sphere-dark body .pca .card,
 html.sphere-dark body .sh-glass-panel,html.sphere-dark body .sphere-client-home .sh-glass-panel{
  background:var(--glass-surface)!important;border-color:var(--glass-line)!important;
  color:var(--text)!important;box-shadow:var(--glass-shadow)!important;}
-html.sphere-dark body .menu-item.highlight{background:linear-gradient(135deg,#312441,#1c1926)!important;border-color:#7655a2!important;}
+html.sphere-dark body .menu-item.highlight{background:linear-gradient(135deg,#42233e,#241b30)!important;border-color:#975688!important;}
 html.sphere-dark body .cl-dash>.section-title,
 html.sphere-dark body .sphere-client-home .cl-dash>.section-title,
 html.sphere-dark body .se-add-panel.se-details-panel>summary{
@@ -110,7 +113,8 @@ html.sphere-dark body .bid-sort button.on,html.sphere-dark body .pcv-chips butto
  background:linear-gradient(110deg,#713ace,#9951c5)!important;color:#fff!important;
  border-color:#a782e3!important;}
 html.sphere-dark body .btn-primary,html.sphere-dark body .prem-pill,html.sphere-dark body .se-small-cta{
- color:#fff!important;background:linear-gradient(110deg,#7138d4,#9851c8,#b55c9b)!important;border-color:#ab7ed8!important;}
+ color:#fff!important;background:linear-gradient(110deg,#7439bc,#aa4fbb,#cc579a)!important;
+ border-color:#c574bb!important;}
 html.sphere-dark body .btn-dark{background:#43344f!important;color:#fff!important;}
 html.sphere-dark body .phone-prefix,html.sphere-dark body .tl-item i,
 html.sphere-dark body .bid-chip,html.sphere-dark body .pj-ai,html.sphere-dark body .pj-tag,
@@ -138,8 +142,9 @@ html.sphere-dark body #bottomNav.bottom-nav::after{opacity:.34;}
 html.sphere-dark body #bottomNav.bottom-nav button{color:#bdb1cc!important;}
 html.sphere-dark body #bottomNav.bottom-nav button.active{color:#dfc5ff!important;}
 html.sphere-dark body #bottomNav.bottom-nav .sphere-liquid-lens{
- background:linear-gradient(145deg,rgba(96,61,134,.62),rgba(72,47,97,.73))!important;
- border-color:#8f6ab3!important;box-shadow:inset 0 1px 1px rgba(255,255,255,.23),0 5px 15px rgba(0,0,0,.32)!important;}
+ background:linear-gradient(120deg,rgba(218,81,166,.64),rgba(120,67,146,.76),rgba(230,92,157,.62))!important;
+ border-color:#c477bc!important;
+ box-shadow:inset 0 1px 1px rgba(255,255,255,.20),0 4px 13px rgba(164,51,137,.23)!important;}
 html.sphere-dark body .sp-dlg,html.sphere-dark body .msg-menu,
 html.sphere-dark body .media-preview,
 html.sphere-dark body .img-viewer{
@@ -285,4 +290,102 @@ html.sphere-dark body input:-webkit-autofill:focus{
 }
 @media(prefers-reduced-motion:reduce){
   html.sphere-dark body .sp-load-card .sp-loader img{animation:none!important;}
+}
+
+
+/* ========== Sphere dark mode v3 — soft moving pink, mobile layout stability ==========
+   Motion is confined to tiny existing accents: NEVER intercept touch/scroll or
+   animate the entire page background, which can make budget phones stutter. */
+html.sphere-dark body #bottomNav.bottom-nav button.active{color:#ffc3e6!important;}
+html.sphere-dark body .se-home-top .se-brand span,
+html.sphere-dark body .sphere-theme-icon{
+ background:linear-gradient(125deg,#4b2853,#6d315f,#472c65)!important;
+ color:#ffbde3!important;border-color:rgba(235,127,195,.43)!important;
+}
+html.sphere-dark body #bottomNav.bottom-nav .sphere-liquid-lens{
+ animation:sphereDarkPinkGlow 9s ease-in-out infinite;
+}
+@keyframes sphereDarkPinkGlow{
+  0%,100%{opacity:.78}
+  50%{opacity:1}
+}
+html.sphere-dark body .se-home-top .se-brand span{
+ background-size:180% 180%!important;
+ animation:sphereDarkAccentFlow 16s ease-in-out infinite;
+}
+@keyframes sphereDarkAccentFlow{
+  0%,100%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+}
+/* Fix the narrow-phone dark UI without touching light mode's geometry. */
+@media(max-width:540px){
+  html.sphere-dark body .screen,
+  html.sphere-dark body .header,
+  html.sphere-dark body .se-home,
+  html.sphere-dark body .sphere-client-home,
+  html.sphere-dark body .cl-dash,
+  html.sphere-dark body .se-page-head,
+  html.sphere-dark body .pca,
+  html.sphere-dark body .card,
+  html.sphere-dark body .sh-glass-panel,
+  html.sphere-dark body .se-job-card,
+  html.sphere-dark body .cl-proj,
+  html.sphere-dark body .se-portfolio-row,
+  html.sphere-dark body .se-earning-row{
+    box-sizing:border-box;
+    min-width:0;
+    max-width:100%;
+  }
+  html.sphere-dark body .card,
+  html.sphere-dark body .menu-item,
+  html.sphere-dark body .se-job-card,
+  html.sphere-dark body .se-portfolio-row,
+  html.sphere-dark body .cl-proj{
+    overflow-wrap:anywhere;
+  }
+  html.sphere-dark body .field input,
+  html.sphere-dark body .field select,
+  html.sphere-dark body .field textarea,
+  html.sphere-dark body .search-box,
+  html.sphere-dark body .se-search,
+  html.sphere-dark body textarea,
+  html.sphere-dark body select{
+    box-sizing:border-box;
+    max-width:100%;
+    min-width:0;
+  }
+  html.sphere-dark body #bottomNav.bottom-nav{
+    box-sizing:border-box;
+    max-width:calc(100vw - 24px);
+  }
+  html.sphere-dark body #bottomNav.bottom-nav button{
+    min-width:0;
+  }
+  /* Large-area backdrop blurs can show blank/torn panels on some Android GPUs. */
+  html.sphere-dark body .sphere-client-home .sh-glass-panel,
+  html.sphere-dark body .sh-glass-panel,
+  html.sphere-dark body .sp-load-ov{
+    -webkit-backdrop-filter:none!important;
+    backdrop-filter:none!important;
+  }
+  html.sphere-dark body .sp-load-ov{background:rgba(16,10,24,.92)!important;}
+}
+@media(max-width:370px){
+  html.sphere-dark body .sphere-theme-card{
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  html.sphere-dark body .sphere-theme-copy{flex:1 1 calc(100% - 55px);}
+  html.sphere-dark body .sphere-theme-apply{
+    flex:1 1 100%;
+    white-space:normal;
+    text-align:center;
+  }
+}
+/* Conserve battery and respect phone accessibility settings. */
+@media(prefers-reduced-motion:reduce){
+  html.sphere-dark body #bottomNav.bottom-nav .sphere-liquid-lens,
+  html.sphere-dark body .se-home-top .se-brand span{
+    animation:none!important;
+  }
 }
