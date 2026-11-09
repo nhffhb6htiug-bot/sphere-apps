@@ -3018,6 +3018,93 @@ let SP_NAV_USER_KEY = null;
 let SP_NAV_BACK_IN_PROGRESS = false;
 let SP_LAST_EXIT_BACK = 0;
 let SP_BACK_HINT_TIMER = null;
+
+// Restore the currently opened Sphere page after an ordinary browser/PWA/APK reload.
+// Store navigation context only (no auth tokens, messages, unsent form text or payment data).
+// This does not register any touch, scroll or swipe listeners.
+const SP_PAGE_RESUME_KEY='sphere_page_resume_v1';
+const SP_PAGE_RESUME_TTL=86400000; // 24 hours, limited to the same browser tab/session.
+const SP_CONTEXT_JOB_PAGES=new Set(['projectStatus','applications','payment','ratings','previewPlayer','jobBidScreen']);
+const SP_CONTEXT_CHAT_PAGES=new Set(['chatThread','chatInfo']);
+const SP_CONTEXT_USER_PAGES=new Set(['editorProfile']);
+const SP_SAFE_ROUTE_FIELDS=new Set(['tab','sort','q','fileId','draftId','presetEditor','userId','jobId','requestId','disputeId','more','keep']);
+function sphereSafeRouteData(data) {
+  if(!data || typeof data!=='object'||Array.isArray(data))return null;
+  const result={};
+  for(const [key,value] of Object.entries(data)) {
+    if(!SP_SAFE_ROUTE_FIELDS.has(key))continue;
+    if(typeof value==='boolean' && (key==='more'||key==='keep'))result[key]=value;
+    if(typeof value==='string' && value.length<=100 &&
+       (key==='q'||/^[a-z0-9 _-]+$/i.test(value)))result[key]=value;
+  }
+  return Object.keys(result).length?result:null;
+}
+function sphereRememberReloadPage(screen,data) {
+  if(screen==='splash'||!getCurrentUser())return;
+  if(!Object.prototype.hasOwnProperty.call(ROUTE_ACCESS,screen) ||
+     ['public','auth'].includes(routeAccess(screen)))return;
+  try {
+    const u=getCurrentUser();
+    const validUuid=x=>typeof x==='string' && UUID_RE.test(x);
+    const ctx={};
+    if(SP_CONTEXT_JOB_PAGES.has(screen) && validUuid(currentJobId))ctx.jobId=currentJobId;
+    if(SP_CONTEXT_CHAT_PAGES.has(screen) && validUuid(currentChatWith)){
+      ctx.chatWith=currentChatWith;
+      if(validUuid(currentChatJob))ctx.chatJob=currentChatJob;
+    }
+    if(SP_CONTEXT_USER_PAGES.has(screen) && validUuid(currentEditorId))ctx.editorId=currentEditorId;
+    if(screen==='categoryDetail' && CATEGORIES.includes(currentCategory))ctx.category=currentCategory;
+    if(screen==='admin' && typeof adminTab==='string')ctx.adminTab=adminTab;
+    if(screen==='report'){
+      if(validUuid(reportJobId))ctx.reportJobId=reportJobId;
+      if(validUuid(reportUserId))ctx.reportUserId=reportUserId;
+    }
+    const record={uid:u.id,role:u.role,screen,data:sphereSafeRouteData(data),ctx,at:Date.now()};
+    sessionStorage.setItem(SP_PAGE_RESUME_KEY,JSON.stringify(record));
+  }catch(e){}
+}
+function sphereGetReloadPage(user) {
+  if(!user)return null;
+  try {
+    const raw=sessionStorage.getItem(SP_PAGE_RESUME_KEY);
+    if(!raw)return null;
+    const page=JSON.parse(raw),now=Date.now();
+    if(!page||page.uid!==user.id||page.role!==user.role ||
+       !Object.prototype.hasOwnProperty.call(ROUTE_ACCESS,page.screen) ||
+       ['public','auth'].includes(routeAccess(page.screen)) ||
+       !Number.isFinite(page.at)||now-page.at>SP_PAGE_RESUME_TTL||page.at>now+60000){
+      sessionStorage.removeItem(SP_PAGE_RESUME_KEY);return null;
+    }
+    const ctx=page.ctx||{};
+    const validUuid=x=>typeof x==='string' && UUID_RE.test(x);
+    const data=sphereSafeRouteData(page.data)||undefined;
+    if(SP_CONTEXT_JOB_PAGES.has(page.screen)){
+      if(!validUuid(ctx.jobId))return {screen:'jobs'};
+      currentJobId=ctx.jobId;
+    }
+    if(SP_CONTEXT_CHAT_PAGES.has(page.screen)){
+      if(!validUuid(ctx.chatWith))return {screen:'chatList'};
+      currentChatWith=ctx.chatWith;
+      currentChatJob=validUuid(ctx.chatJob)?ctx.chatJob:null;
+    }
+    if(SP_CONTEXT_USER_PAGES.has(page.screen)){
+      if(!validUuid(ctx.editorId))return {screen:'allEditors'};
+      currentEditorId=ctx.editorId;
+    }
+    if(page.screen==='categoryDetail'){
+      if(!CATEGORIES.includes(ctx.category))return {screen:'categories'};
+      currentCategory=ctx.category;
+    }
+    if(page.screen==='admin' && typeof ctx.adminTab==='string' &&
+       /^[a-z_-]{1,30}$/i.test(ctx.adminTab))adminTab=ctx.adminTab;
+    if(page.screen==='report'){
+      reportJobId=validUuid(ctx.reportJobId)?ctx.reportJobId:null;
+      reportUserId=validUuid(ctx.reportUserId)?ctx.reportUserId:null;
+    }
+    return {screen:page.screen,data};
+  }catch(e){return null;}
+}
+
 function sphereRememberNav(screen, data){
   if(screen === 'splash') return;
   const u = getCurrentUser();
@@ -4881,7 +4968,7 @@ async function navInner(screen, data){
   // Convert admin-only emoji labels to compact, scalable SVG icons after navigation.
   if(mySeq === NAV_SEQ && /^admin(?:$|[A-Z])/.test(screen)) sphereAdminPaintIcons();
   // After async screen rendering, re-align the glass highlight with the actual page.
-  if(mySeq === NAV_SEQ) sphereSyncNavLens();
+  if(mySeq === NAV_SEQ){ sphereSyncNavLens(); sphereRememberReloadPage(screen,data); }
 }
 
 const SCREENS = {};
@@ -4935,14 +5022,20 @@ sb.auth.onAuthStateChange((event) => {
   if(event === 'PASSWORD_RECOVERY'){ IS_RECOVERY = true; setTimeout(() => nav('resetPassword'), 0); }
 });
 SCREENS.splash = () => {
+  let hasSavedPage=false;
+  try{hasSavedPage=!!sessionStorage.getItem(SP_PAGE_RESUME_KEY);}catch(e){}
   setTimeout(async ()=>{
     if(IS_RECOVERY){ nav('resetPassword'); return; }
     const user = await fetchAndSetCurrentUser();
-    if(user){ nav(sphereEntryScreen(user)); return; }
+    if(user){
+      const resume=(!PENDING_CHAT&&!PENDING_OPEN)?sphereGetReloadPage(user):null;
+      nav(resume?resume.screen:sphereEntryScreen(user),resume&&resume.data);
+      return;
+    }
     const { data:{ user: authUser } } = await sb.auth.getUser();
     if(authUser){ pendingAuthUser = authUser; nav('chooseRole'); return; }
     nav('onboard1');
-  }, 1400);
+  }, hasSavedPage?0:1400);
   return `<div class="splash-wrap">
     ${SPHERE_LOADER_SVG.replace('class="sp-loader"', 'class="sp-loader sp-loader-big"')}
     <h1>Sphere</h1>
@@ -7905,6 +7998,7 @@ function accountStatusBanner(u){
 // Everything that belongs to the logged-in account is cleared on logout / session end
 let loggingOut = false;
 function clearSessionState(){
+  try{sessionStorage.removeItem(SP_PAGE_RESUME_KEY);}catch(e){}
   if(msgChannel){ try { sb.removeChannel(msgChannel); } catch(e){} msgChannel = null; }
   RT_OK = { msg: false, notif: false }; if(rtPollTimer){ clearInterval(rtPollTimer); rtPollTimer = null; }
   currentUser = null;
