@@ -49,8 +49,6 @@
 html{color-scheme:light; background:var(--bg);}
 /* v2.22.32: stop the iPhone rubber-band only on iPhone — on Android it blocked scrolling */
 html.os-ios, html.os-ios body{overscroll-behavior-y:none;}
-/* Android pull gesture must not make Chrome reload the whole app. */
-html.os-android,html.os-android body{overscroll-behavior-y:contain;}
 html,body{width:100%; overflow-x:hidden; color-scheme:light;}
 body{
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
@@ -2517,23 +2515,6 @@ body.sphere-editor-refresh[data-sphere-screen="home"] .se-ai-entry{display:flex;
 .portfolio-filter-scope .pf-entry[hidden],.portfolio-filter-scope .pf-no-matches[hidden]{display:none!important}
 .portfolio-filter-scope .pf-no-matches{padding:18px 12px;text-align:center;color:#6d6480}
 body.sphere-editor-refresh[data-sphere-screen="portfolio"] .se-page-brand img{border-radius:11px;object-fit:contain}
-
-/* Phone-only data refresh affordance: stays outside screens, never restarts Sphere. */
-html.os-android #sphere-mobile-data-refresh{
-  position:fixed;right:14px;bottom:calc(92px + env(safe-area-inset-bottom,0px));
-  width:43px;height:43px;z-index:70;border-radius:50%;border:1px solid rgba(88,90,148,.16);
-  background:rgba(255,255,255,.94);color:#1657ff;
-  box-shadow:0 4px 18px rgba(20,35,100,.20);display:flex;
-  align-items:center;justify-content:center;cursor:pointer;
-  touch-action:manipulation;-webkit-tap-highlight-color:transparent;
-}
-html.os-android #sphere-mobile-data-refresh[hidden]{display:none!important}
-html.os-android #sphere-mobile-data-refresh:focus-visible{outline:2px solid #1657ff;outline-offset:2px}
-html.os-android #sphere-mobile-data-refresh.busy{opacity:.6;pointer-events:none}
-html.os-android #sphere-mobile-data-refresh.busy svg{animation:sphere-spin-refresh .9s linear infinite}
-html.os-android #sphere-mobile-data-refresh svg{width:21px;height:21px}
-@keyframes sphere-spin-refresh{to{transform:rotate(360deg)}}
-@media(min-width:700px){#sphere-mobile-data-refresh{display:none!important}}
 </style>
 <link rel="stylesheet" href="/sphere-dark-theme.css?v=2">
 <link rel="stylesheet" href="/sphere-desktop.css?v=3">
@@ -2576,7 +2557,7 @@ html.os-android #sphere-mobile-data-refresh svg{width:21px;height:21px}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.60-mobile-scroll-hotfix',
+  appVersion: '2.22.58-instagram-oauth-guide',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -3037,50 +3018,6 @@ let SP_NAV_USER_KEY = null;
 let SP_NAV_BACK_IN_PROGRESS = false;
 let SP_LAST_EXIT_BACK = 0;
 let SP_BACK_HINT_TIMER = null;
-
-// Last visited screen is tab-local and bound to the signed-in account.
-// No credentials, banking details, messages or drafts are persisted here.
-const SP_RESUME_KEY='sphere_resume_v1';
-const SP_RESUME_SCREENS=new Set(['home','chatList','chatThread','jobs','portfolio','profile','notifications','verificationStatus','editorEarnings','allEditors','settingsScreen','admin']);
-const SP_REFRESH_SCREENS=new Set(['home','chatList','chatThread','jobs','portfolio','profile','notifications','verificationStatus','editorEarnings','allEditors','admin']);
-function sphereSaveResume(screen,data){
-  if(screen==='splash')return;
-  try{
-    const u=getCurrentUser();
-    if(!u){sessionStorage.removeItem(SP_RESUME_KEY);return;}
-    if(screen==='chatInfo')screen='chatThread';
-    if(['postJob','projectStatus','applications','payment','previewPlayer'].includes(screen))screen='jobs';
-    if(['editorProfileEdit','editProfile'].includes(screen))screen='profile';
-    if(!SP_RESUME_SCREENS.has(screen)){sessionStorage.removeItem(SP_RESUME_KEY);return;}
-    const tab=data&&typeof data.tab==='string'&&/^[a-z0-9_-]{1,40}$/i.test(data.tab)?data.tab:null;
-    const chatWith=screen==='chatThread'?String(currentChatWith||''):'';
-    if(screen==='chatThread'&&!/^[a-z0-9_-]{8,80}$/i.test(chatWith))screen='chatList';
-    const chatJob=screen==='chatThread'?String(currentChatJob||''):'';
-    sessionStorage.setItem(SP_RESUME_KEY,JSON.stringify({
-      uid:u.id,role:u.role,screen,tab,
-      chatWith:screen==='chatThread'?chatWith:null,
-      chatJob:screen==='chatThread'&&/^[a-z0-9_-]{8,80}$/i.test(chatJob)?chatJob:null,
-      at:Date.now()
-    }));
-  }catch(e){}
-}
-function sphereResumeRoute(user){
-  try{
-    const raw=sessionStorage.getItem(SP_RESUME_KEY);if(!raw||!user)return null;
-    const r=JSON.parse(raw),now=Date.now();
-    if(!r||r.uid!==user.id||r.role!==user.role||!SP_RESUME_SCREENS.has(r.screen)||
-       typeof r.at!=='number'||now-r.at>86400000||r.at>now+60000){
-      sessionStorage.removeItem(SP_RESUME_KEY);return null;
-    }
-    if(r.screen==='chatThread'){
-      if(!/^[a-z0-9_-]{8,80}$/i.test(String(r.chatWith||'')))return {screen:'chatList'};
-      currentChatWith=r.chatWith;
-      currentChatJob=/^[a-z0-9_-]{8,80}$/i.test(String(r.chatJob||''))?r.chatJob:null;
-    }
-    const data=typeof r.tab==='string'&&/^[a-z0-9_-]{1,40}$/i.test(r.tab)?{tab:r.tab}:undefined;
-    return {screen:r.screen,data};
-  }catch(e){return null;}
-}
 function sphereRememberNav(screen, data){
   if(screen === 'splash') return;
   const u = getCurrentUser();
@@ -3322,7 +3259,7 @@ window.addEventListener('load', () => {
 });
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(err => console.warn('SW', err));
+    navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW', err));
   });
 }
 function isSphereAndroidApk(){ return /SphereApp\/|SphereAndroid\//i.test(navigator.userAgent) || !!window.SphereAndroid; }
@@ -4857,17 +4794,15 @@ let NAV_LAST_DATA = '';
 const SUSPENDED_OK = ['suspended', 'support', 'authLanding', 'login', 'signup', 'onboard1', 'splash'];
 // v2.22.28: tapping the same thing again while it is still opening no longer restarts it (that made people tap 3-4 times)
 let NAV_PENDING = null;
-async function nav(screen, data, opts){
-  const softRefresh=!!(opts&&opts.softRefresh&&screen===currentScreenName);
+async function nav(screen, data){
   let k = screen; try { k += '|' + JSON.stringify(data || null); } catch(e) {}
   if(NAV_PENDING === k) return;
   NAV_PENDING = k;
-  const early = softRefresh ? null : setTimeout(() => { if(NAV_PENDING !== k) return; const ck = swrKey(screen, data); if(!(ck && screenCacheHas(ck)) && !(screen === 'admin' && currentScreenName === 'admin' && !(data && data.tab === 'classic'))) showLoadOverlay(); }, 180);
-  try { return await navInner(screen, data, softRefresh); }
-  finally { if(early) clearTimeout(early); if(NAV_PENDING === k){ NAV_PENDING = null; hideLoadOverlay(); sphereSyncNavLens(); } }
+  const early = setTimeout(() => { if(NAV_PENDING !== k) return; const ck = swrKey(screen, data); if(!(ck && screenCacheHas(ck)) && !(screen === 'admin' && currentScreenName === 'admin' && !(data && data.tab === 'classic'))) showLoadOverlay(); }, 180);
+  try { return await navInner(screen, data); }
+  finally { clearTimeout(early); if(NAV_PENDING === k){ NAV_PENDING = null; hideLoadOverlay(); sphereSyncNavLens(); } }
 }
-async function navInner(screen, data, softRefresh=false){
-  const softScrollY=softRefresh?window.scrollY:0;
+async function navInner(screen, data){
   if(currentUser && currentUser.suspended && !SUSPENDED_OK.includes(screen)) screen = 'suspended';
   if(getCurrentUser() && PUSH_TRIED_FOR !== getCurrentUser().id && pushSupported() && Notification.permission === 'granted'){ PUSH_TRIED_FOR = getCurrentUser().id; setTimeout(ensurePush, 500); }
   if(PENDING_OPEN && screen === 'home' && getCurrentUser()){ const to = PENDING_OPEN; PENDING_OPEN = null; setTimeout(() => nav(to), 0); }
@@ -4904,7 +4839,7 @@ async function navInner(screen, data, softRefresh=false){
 
   const pcAdmin = pcAdminScreen(screen) && pcAdminOn();
   document.body.classList.toggle('pc-admin', pcAdmin); PC_ADMIN_WAS = pcAdminOn();
-  if(!adminStay&&!softRefresh) window.scrollTo(0,0);
+  if(!adminStay) window.scrollTo(0,0);
   const visibleScreens = ['home','chatList','jobs','portfolio','profile'];
   bottomNav.classList.toggle('hidden', !visibleScreens.includes(screen));
   renderBottomNav();
@@ -4918,7 +4853,7 @@ async function navInner(screen, data, softRefresh=false){
     if(result instanceof Promise){
       // Main tabs open at once from the last copy (no loader), then the fresh copy replaces it quietly.
       const key = swrKey(screen, data);
-      const cached = !softRefresh && key ? screenCacheGet(key) : null;
+      const cached = key ? screenCacheGet(key) : null;
       if(cached){
         hideLoadOverlay();
         app.innerHTML = cached;
@@ -4926,13 +4861,13 @@ async function navInner(screen, data, softRefresh=false){
         sphereSyncNavLens();
       }
       // Part C: show the loading screen only if the screen is slow (no flash on fast screens)
-      const loaderTimer = (cached || adminStay || softRefresh) ? null : setTimeout(() => { if(mySeq === NAV_SEQ) showLoadOverlay(); }, 180);   // admin refresh: keep showing the old page until the new one is ready
+      const loaderTimer = (cached || adminStay) ? null : setTimeout(() => { if(mySeq === NAV_SEQ) showLoadOverlay(); }, 180);   // admin refresh: keep showing the old page until the new one is ready
       const html = await result;
       if(loaderTimer) clearTimeout(loaderTimer);
       if(mySeq !== NAV_SEQ) return;            // a newer screen was opened while this one was loading
       hideLoadOverlay();
       if(key) screenCachePut(key, html);
-      if(html !== cached){ const y=softRefresh?softScrollY:(cached?window.scrollY:0); app.innerHTML=html; if(cached||softRefresh)window.scrollTo(0,y); }
+      if(html !== cached){ const y = cached ? window.scrollY : 0; app.innerHTML = html; if(cached) window.scrollTo(0, y); }
       SP_NAV_RENDERED_SCREEN = screen;
       if(screen === 'admin') adminAfterRender(adminKeep);
       else if(adminSub && adminKeep) window.scrollTo(0, adminKeep.y);
@@ -4940,14 +4875,13 @@ async function navInner(screen, data, softRefresh=false){
     } else {
       hideLoadOverlay();
       app.innerHTML = result;
-      if(softRefresh)window.scrollTo(0,softScrollY);
       SP_NAV_RENDERED_SCREEN = screen;
     }
   }
   // Convert admin-only emoji labels to compact, scalable SVG icons after navigation.
   if(mySeq === NAV_SEQ && /^admin(?:$|[A-Z])/.test(screen)) sphereAdminPaintIcons();
   // After async screen rendering, re-align the glass highlight with the actual page.
-  if(mySeq === NAV_SEQ){sphereSyncNavLens();sphereSaveResume(screen,data);sphereSyncMobileRefreshButton();}
+  if(mySeq === NAV_SEQ) sphereSyncNavLens();
 }
 
 const SCREENS = {};
@@ -5004,7 +4938,7 @@ SCREENS.splash = () => {
   setTimeout(async ()=>{
     if(IS_RECOVERY){ nav('resetPassword'); return; }
     const user = await fetchAndSetCurrentUser();
-    if(user){ const saved=(!PENDING_CHAT&&!PENDING_OPEN)?sphereResumeRoute(user):null; nav(saved?saved.screen:sphereEntryScreen(user),saved&&saved.data); return; }
+    if(user){ nav(sphereEntryScreen(user)); return; }
     const { data:{ user: authUser } } = await sb.auth.getUser();
     if(authUser){ pendingAuthUser = authUser; nav('chooseRole'); return; }
     nav('onboard1');
@@ -7971,7 +7905,6 @@ function accountStatusBanner(u){
 // Everything that belongs to the logged-in account is cleared on logout / session end
 let loggingOut = false;
 function clearSessionState(){
-  try{sessionStorage.removeItem(SP_RESUME_KEY);}catch(e){}
   if(msgChannel){ try { sb.removeChannel(msgChannel); } catch(e){} msgChannel = null; }
   RT_OK = { msg: false, notif: false }; if(rtPollTimer){ clearInterval(rtPollTimer); rtPollTimer = null; }
   currentUser = null;
@@ -12925,74 +12858,6 @@ async function appErrorsCard(){
   if(err){ alert('Google login error: ' + err); }
 })();
 try { localStorage.removeItem('sphereDB'); } catch(e) {}
-
-// Sphere mobile data refresh v2.22.59: same route, latest content, no full app restart.
-// Works in Android Chrome/PWA and in the existing Sphere Android WebView build.
-// Chat messages are appended through catchUpChat() without clearing drafts.
-let sphereMobileRefreshBusy=false;
-let sphereRefreshStatusTimer=null;
-function sphereRefreshFeedback(text,transient=false){
-  let notice=document.getElementById('sphere-refresh-status');
-  if(!notice){
-    notice=document.createElement('div');
-    notice.id='sphere-refresh-status';
-    notice.setAttribute('role','status');notice.setAttribute('aria-live','polite');
-    notice.style.cssText='position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:10015;padding:9px 15px;border-radius:24px;background:#202b4c;color:#fff;box-shadow:0 6px 18px #0003;font:600 12px Arial,sans-serif;pointer-events:none;white-space:nowrap';
-    document.body.appendChild(notice);
-  }
-  clearTimeout(sphereRefreshStatusTimer);notice.textContent=text;
-  if(transient)sphereRefreshStatusTimer=setTimeout(()=>{notice.remove();},1500);
-}
-function sphereHideRefreshFeedback(){
-  clearTimeout(sphereRefreshStatusTimer);
-  const notice=document.getElementById('sphere-refresh-status');if(notice)notice.remove();
-}
-function sphereSyncMobileRefreshButton(){
-  if(!document.documentElement.classList.contains('os-android'))return;
-  let btn=document.getElementById('sphere-mobile-data-refresh');
-  if(!btn){
-    btn=document.createElement('button');btn.type='button';btn.id='sphere-mobile-data-refresh';
-    btn.setAttribute('aria-label','Refresh current Sphere data');
-    btn.setAttribute('title','Refresh data without reopening Sphere');
-    btn.innerHTML='<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.35 5.65"/><path d="M20 4v7h-7"/></svg>';
-    btn.addEventListener('click',()=>sphereRefreshData());
-    document.body.appendChild(btn);
-  }
-  btn.hidden=!getCurrentUser()||!SP_REFRESH_SCREENS.has(currentScreenName);
-  btn.classList.toggle('busy',sphereMobileRefreshBusy);
-  btn.disabled=sphereMobileRefreshBusy;
-}
-async function sphereRefreshData(){
-  if(sphereMobileRefreshBusy||NAV_PENDING||!getCurrentUser()||!SP_REFRESH_SCREENS.has(currentScreenName))return false;
-  sphereMobileRefreshBusy=true;
-  const screen=currentScreenName;
-  sphereSyncMobileRefreshButton();
-  sphereRefreshFeedback('↻ Updating data…');
-  try{
-    if(screen==='chatThread'){
-      // Realtime-safe catch-up; do not rebuild the message composer or erase typing.
-      await catchUpChat();
-      await Promise.resolve(refreshChatBadge());
-    }else{
-      const last=SP_NAV_TRAIL[SP_NAV_TRAIL.length-1];
-      const data=last&&last.screen===screen?last.data:undefined;
-      await nav(screen,data,{softRefresh:true});
-    }
-    if(currentScreenName===screen)sphereRefreshFeedback('✓ Data updated',true);
-    else sphereHideRefreshFeedback();
-    return true;
-  }catch(e){
-    console.warn('Sphere mobile refresh:',e);
-    sphereRefreshFeedback('Could not update — try again',true);
-    return false;
-  }finally{
-    sphereMobileRefreshBusy=false;
-    sphereSyncMobileRefreshButton();
-  }
-}
-window.sphereRefreshData=sphereRefreshData;
-// Mobile stability hotfix: never intercept document touches or preventDefault.
-// The visible refresh button updates data while native vertical scrolling stays untouched.
 nav('splash');
 </script>
 </body>
