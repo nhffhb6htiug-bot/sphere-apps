@@ -1,7 +1,7 @@
-// Sphere PWA service worker v16 — reliable first-time Home navbar brand motion.
+// Sphere PWA service worker v17 — bold Get Started SVG arrow.
 // Only static public assets may enter Cache Storage. In particular, Supabase
 // responses and account data are never cached, even if proxied by this origin.
-const CACHE = 'sphere-navbar-brand-v16';
+const CACHE = 'sphere-bold-start-arrow-v17';
 const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/favicon.png',
   '/vendor/supabase-2.117.2.js', '/sphere-dark-theme.css', '/sphere-desktop.css'];
 const STATIC_INFLIGHT = new Map();
