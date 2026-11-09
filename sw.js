@@ -1,7 +1,7 @@
-// Sphere PWA service worker v8 — mobile scroll recovery; refresh cached offline shell.
+// Sphere PWA service worker v9 — persist current screen on reload; fresh cached shell.
 // Only static public assets may enter Cache Storage. In particular, Supabase
 // responses and account data are never cached, even if proxied by this origin.
-const CACHE = 'sphere-scroll-recovery-v8';
+const CACHE = 'sphere-page-resume-v9';
 const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/favicon.png',
   '/vendor/supabase-2.117.2.js', '/sphere-dark-theme.css', '/sphere-desktop.css'];
 const STATIC_INFLIGHT = new Map();
