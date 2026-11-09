@@ -50,7 +50,7 @@ html{color-scheme:light; background:var(--bg);}
 /* v2.22.32: stop the iPhone rubber-band only on iPhone — on Android it blocked scrolling */
 html.os-ios, html.os-ios body{overscroll-behavior-y:none;}
 /* Android pull gesture must not make Chrome reload the whole app. */
-html.os-android,html.os-android body{overscroll-behavior-y:none;}
+html.os-android,html.os-android body{overscroll-behavior-y:contain;}
 html,body{width:100%; overflow-x:hidden; color-scheme:light;}
 body{
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
@@ -2576,7 +2576,7 @@ html.os-android #sphere-mobile-data-refresh svg{width:21px;height:21px}
 // Only PUBLIC keys belong in this file. Secrets (Razorpay secret, Gemini key,
 // service-role key) stay in Supabase → Edge Functions → Secrets.
 const SPHERE_CONFIG = Object.freeze({
-  appVersion: '2.22.59-mobile-refresh',
+  appVersion: '2.22.60-mobile-scroll-hotfix',
   build: 'app-wide-search',
   // All traffic goes through Sphere's Cloudflare proxy (works even where ISPs block *.supabase.co)
   // On the live site the app talks to Supabase through its OWN address (/sb, a Render rewrite) —
@@ -12991,49 +12991,8 @@ async function sphereRefreshData(){
   }
 }
 window.sphereRefreshData=sphereRefreshData;
-(function sphereInstallPhonePullRefresh(){
-  if(!document.documentElement.classList.contains('os-android'))return;
-  let drag=null;
-  function scrollTop(){return Math.max(window.scrollY||0,document.scrollingElement?.scrollTop||0);}
-  function nestedScrollBusy(target){
-    // Vertical lists only block the gesture if they are scrolled away from the top.
-    for(let node=target;node&&node!==document.body&&node!==document.documentElement;node=node.parentElement){
-      if(node.scrollHeight>node.clientHeight+4){
-        const overflow=getComputedStyle(node).overflowY;
-        if((overflow==='auto'||overflow==='scroll')&&node.scrollTop>3)return true;
-      }
-    }
-    return false;
-  }
-  const ignores='input,textarea,select,[contenteditable],.sp-dlg-wrap,.media-preview,.img-viewer,.sp-load-ov,#bottomNav,#sphere-mobile-data-refresh';
-  document.addEventListener('touchstart',e=>{
-    drag=null;
-    if(e.touches.length!==1||sphereMobileRefreshBusy||NAV_PENDING||!getCurrentUser()||
-       !SP_REFRESH_SCREENS.has(currentScreenName)||scrollTop()>4)return;
-    if(e.target?.closest?.(ignores)||nestedScrollBusy(e.target))return;
-    const t=e.touches[0];
-    drag={x:t.clientX,y:t.clientY,distance:0,pulling:false};
-  },{passive:true});
-  document.addEventListener('touchmove',e=>{
-    if(!drag||e.touches.length!==1)return;
-    const t=e.touches[0],dx=t.clientX-drag.x,dy=t.clientY-drag.y;
-    if(dy < -9 || Math.abs(dx)>Math.max(20,Math.abs(dy)*1.3)){
-      drag=null;sphereHideRefreshFeedback();return;
-    }
-    if(dy>8&&scrollTop()<=4){
-      drag.pulling=true;drag.distance=Math.max(drag.distance,dy);
-      if(e.cancelable)e.preventDefault(); // prevent Chrome's hard reload
-      sphereRefreshFeedback(drag.distance>=65?'↻ Release to update':'↓ Pull to refresh');
-    }
-  },{passive:false});
-  function end(){
-    if(!drag)return;
-    const trigger=drag.pulling&&drag.distance>=65;drag=null;
-    if(trigger)void sphereRefreshData();else sphereHideRefreshFeedback();
-  }
-  document.addEventListener('touchend',end,{passive:true});
-  document.addEventListener('touchcancel',()=>{drag=null;if(!sphereMobileRefreshBusy)sphereHideRefreshFeedback();},{passive:true});
-})();
+// Mobile stability hotfix: never intercept document touches or preventDefault.
+// The visible refresh button updates data while native vertical scrolling stays untouched.
 nav('splash');
 </script>
 </body>
