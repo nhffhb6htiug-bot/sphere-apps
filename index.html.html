@@ -2575,8 +2575,8 @@ body.sphere-editor-refresh[data-sphere-screen="home"] .se-ai-entry{display:flex;
 .portfolio-filter-scope .pf-no-matches{padding:18px 12px;text-align:center;color:#6d6480}
 body.sphere-editor-refresh[data-sphere-screen="portfolio"] .se-page-brand img{border-radius:11px;object-fit:contain}
 </style>
-<link rel="stylesheet" href="/sphere-dark-theme.css?v=4">
-<link rel="stylesheet" href="/sphere-desktop.css?v=3">
+<link rel="stylesheet" href="/sphere-dark-theme.css?v=5">
+<link rel="stylesheet" href="/sphere-desktop.css?v=4">
 </head>
 <body>
 <div class="wco-drag"></div>
@@ -3082,7 +3082,31 @@ let SP_BACK_HINT_TIMER = null;
 // Store navigation context only (no auth tokens, messages, unsent form text or payment data).
 // This does not register any touch, scroll or swipe listeners.
 const SP_PAGE_RESUME_KEY='sphere_page_resume_v1';
-const SP_PAGE_RESUME_TTL=86400000; // 24 hours, limited to the same browser tab/session.
+const SP_IOS_RESUME_FALLBACK_KEY='sphere_ios_page_resume_v1';
+// Keep the account-scoped route for at most 24h. iOS home-screen PWAs can
+// discard sessionStorage when suspended; only route metadata may fall back
+// to localStorage on iOS (never credentials, chat contents or form drafts).
+const SP_PAGE_RESUME_TTL=86400000;
+function sphereGetSavedRouteRaw(){
+  try{
+    const inTab=sessionStorage.getItem(SP_PAGE_RESUME_KEY);
+    if(inTab)return inTab;
+  }catch(e){}
+  if(document.documentElement.classList.contains('os-ios')){
+    try{return localStorage.getItem(SP_IOS_RESUME_FALLBACK_KEY);}catch(e){}
+  }
+  return null;
+}
+function sphereSaveRouteRaw(value){
+  try{sessionStorage.setItem(SP_PAGE_RESUME_KEY,value);}catch(e){}
+  if(document.documentElement.classList.contains('os-ios')){
+    try{localStorage.setItem(SP_IOS_RESUME_FALLBACK_KEY,value);}catch(e){}
+  }
+}
+function sphereClearSavedRoute(){
+  try{sessionStorage.removeItem(SP_PAGE_RESUME_KEY);}catch(e){}
+  try{localStorage.removeItem(SP_IOS_RESUME_FALLBACK_KEY);}catch(e){}
+}
 const SP_CONTEXT_JOB_PAGES=new Set(['projectStatus','applications','payment','ratings','previewPlayer','jobBidScreen']);
 const SP_CONTEXT_CHAT_PAGES=new Set(['chatThread','chatInfo']);
 const SP_CONTEXT_USER_PAGES=new Set(['editorProfile']);
@@ -3119,20 +3143,20 @@ function sphereRememberReloadPage(screen,data) {
       if(validUuid(reportUserId))ctx.reportUserId=reportUserId;
     }
     const record={uid:u.id,role:u.role,screen,data:sphereSafeRouteData(data),ctx,at:Date.now()};
-    sessionStorage.setItem(SP_PAGE_RESUME_KEY,JSON.stringify(record));
+    sphereSaveRouteRaw(JSON.stringify(record));
   }catch(e){}
 }
 function sphereGetReloadPage(user) {
   if(!user)return null;
   try {
-    const raw=sessionStorage.getItem(SP_PAGE_RESUME_KEY);
+    const raw=sphereGetSavedRouteRaw();
     if(!raw)return null;
     const page=JSON.parse(raw),now=Date.now();
     if(!page||page.uid!==user.id||page.role!==user.role ||
        !Object.prototype.hasOwnProperty.call(ROUTE_ACCESS,page.screen) ||
        ['public','auth'].includes(routeAccess(page.screen)) ||
        !Number.isFinite(page.at)||now-page.at>SP_PAGE_RESUME_TTL||page.at>now+60000){
-      sessionStorage.removeItem(SP_PAGE_RESUME_KEY);return null;
+      sphereClearSavedRoute();return null;
     }
     const ctx=page.ctx||{};
     const validUuid=x=>typeof x==='string' && UUID_RE.test(x);
@@ -3405,7 +3429,7 @@ window.addEventListener('load', () => {
 });
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW', err));
+    navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'}).catch(err => console.warn('SW', err));
   });
 }
 function isSphereAndroidApk(){ return /SphereApp\/|SphereAndroid\//i.test(navigator.userAgent) || !!window.SphereAndroid; }
@@ -4786,7 +4810,9 @@ let SP_NAV_INTRO_STATE='idle';
 function sphereMaybePlayNavIntro(user){
   if(SP_NAV_INTRO_STATE!=='idle'||!user||!user.id||
      bottomNav.classList.contains('hidden')||currentScreenName!=='home')return;
-  if(window.matchMedia&&window.matchMedia('(min-width:700px)').matches)return;
+  // Wider iPads still use the phone-style bottom nav. Only true desktop
+  // workspaces substitute a left rail for it.
+  if(document.documentElement.classList.contains('sphere-desktop'))return;
   if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches)return;
   const key='sphere_first_nav_brand_4_v2:'+user.id;
   try{if(localStorage.getItem(key)==='complete')return;}catch(e){}
@@ -4844,6 +4870,50 @@ function sphereDesktopScreenTitle(name){
   };
   return titles[name]||String(name||'Sphere').replace(/([A-Z])/g,' $1').replace(/^./,x=>x.toUpperCase());
 }
+// PC has a left sidebar rather than the mobile bottom navigation.
+// Run the same four-cycle logo mark once on its Home navigation icon.
+let SP_PC_NAV_INTRO_STATE='idle';
+function sphereMaybePlayDesktopIntro(user){
+  if(SP_PC_NAV_INTRO_STATE!=='idle'||!user||!user.id||
+     currentScreenName!=='home'||!document.documentElement.classList.contains('sphere-desktop'))return;
+  if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches)return;
+  const key='sphere_first_pc_nav_brand_4_v1:'+user.id;
+  try{if(localStorage.getItem(key)==='complete')return;}catch(e){}
+  const side=document.getElementById('sphereDesktopNav');
+  const target=side&&side.querySelector('.sd-link[aria-label="Home"] .sd-link-icon');
+  if(!target)return;
+  SP_PC_NAV_INTRO_STATE='preloading';
+  Promise.all(SP_NAV_INTRO_ASSETS.map(src=>new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>resolve(true);img.onerror=()=>resolve(false);
+    img.src=src;
+  }))).then(loaded=>{
+    if(!loaded.every(Boolean)){SP_PC_NAV_INTRO_STATE='idle';return;}
+    const dest=side.querySelector('.sd-link[aria-label="Home"] .sd-link-icon');
+    if(!dest||currentScreenName!=='home'||side.hidden){SP_PC_NAV_INTRO_STATE='idle';return;}
+    const regular=dest.innerHTML;
+    SP_PC_NAV_INTRO_STATE='playing';
+    dest.innerHTML='<span class="sp-nav-brand-intro" aria-hidden="true">'
+      +'<img class="sp-nav-intro-l" src="'+SP_NAV_INTRO_ASSETS[0]+'" alt="">'
+      +'<img src="'+SP_NAV_INTRO_ASSETS[1]+'" alt="">'
+      +'<img class="sp-nav-intro-r" src="'+SP_NAV_INTRO_ASSETS[2]+'" alt="">'
+      +'</span>';
+    let finished=false;
+    function finish(){
+      if(finished)return;finished=true;
+      const displayed=dest.isConnected&&!!dest.querySelector('.sp-nav-brand-intro');
+      if(displayed){
+        dest.innerHTML=regular;
+        try{localStorage.setItem(key,'complete');}catch(e){}
+      }
+      SP_PC_NAV_INTRO_STATE=displayed?'done':'idle';
+    }
+    const left=dest.querySelector('.sp-nav-intro-l');
+    if(left)left.addEventListener('animationend',finish,{once:true});
+    setTimeout(finish,3600);
+  }).catch(()=>{SP_PC_NAV_INTRO_STATE='idle';});
+}
+
 /* SPHERE DESKTOP v3: keep the original Sphere mobile content and tab icons.
    Only the navigation container adapts to screen size; Admin remains role-gated. */
 function sphereEntryScreen(user){
@@ -4933,6 +5003,7 @@ function sphereDesktopRender(){
     +'<div class="sd-user"><span class="sd-avatar" aria-hidden="true">'
     +esc(nick.slice(0,1).toUpperCase()||'S')+'</span>'
     +'<span class="sd-user-text"><b>'+esc(nick)+'</b><small>'+role+'</small></span></div>';
+  sphereMaybePlayDesktopIntro(user);
 }
 // Coalesce resize storms (desktop dragging, iPad rotation, virtual keyboard)
 // into a single layout pass per animation frame. The original UI is unchanged.
@@ -5153,7 +5224,7 @@ const SP_LAUNCH_BRAND_HTML='<div class="sp-launch-brand-intro" aria-hidden="true
   +'</div>';
 SCREENS.splash = () => {
   let hasSavedPage=false;
-  try{hasSavedPage=!!sessionStorage.getItem(SP_PAGE_RESUME_KEY);}catch(e){}
+  try{hasSavedPage=!!sphereGetSavedRouteRaw();}catch(e){}
   const showIntro=!hasSavedPage&&sphereFirstLaunchIntro();
   setTimeout(async ()=>{
     if(IS_RECOVERY){ nav('resetPassword'); return; }
@@ -8129,7 +8200,7 @@ function accountStatusBanner(u){
 // Everything that belongs to the logged-in account is cleared on logout / session end
 let loggingOut = false;
 function clearSessionState(){
-  try{sessionStorage.removeItem(SP_PAGE_RESUME_KEY);}catch(e){}
+  sphereClearSavedRoute();
   if(msgChannel){ try { sb.removeChannel(msgChannel); } catch(e){} msgChannel = null; }
   RT_OK = { msg: false, notif: false }; if(rtPollTimer){ clearInterval(rtPollTimer); rtPollTimer = null; }
   currentUser = null;
