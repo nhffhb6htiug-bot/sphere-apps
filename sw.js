@@ -1,7 +1,7 @@
-// Sphere PWA service worker v11 — dark mode back arrow and Get Started sizing.
+// Sphere PWA service worker v12 — larger Get Started arrow on phones.
 // Only static public assets may enter Cache Storage. In particular, Supabase
 // responses and account data are never cached, even if proxied by this origin.
-const CACHE = 'sphere-back-arrow-v11';
+const CACHE = 'sphere-start-arrow-v12';
 const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/favicon.png',
   '/vendor/supabase-2.117.2.js', '/sphere-dark-theme.css', '/sphere-desktop.css'];
 const STATIC_INFLIGHT = new Map();
