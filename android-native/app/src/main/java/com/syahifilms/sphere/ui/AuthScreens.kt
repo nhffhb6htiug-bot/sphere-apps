@@ -39,23 +39,34 @@ fun SplashScreen(nav: NavHostController) {
     var attempt by remember { mutableIntStateOf(0) }
     LaunchedEffect(attempt) {
         error = null
-        delay(500)
+        delay(1100)
         if (!Api.isLoggedIn) { nav.resetTo("welcome"); return@LaunchedEffect }
-        try { routeAfterLogin(nav) } catch (e: Exception) { error = "No internet connection" }
+        try { routeAfterLogin(nav) }
+        catch (e: Exception) { error = "Unable to connect. Check your internet and try again." }
     }
     Box(
-        Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF0F3FCC), Blue))),
+        Modifier.fillMaxSize().background(
+            Brush.verticalGradient(
+                listOf(Color(0xFFE7C5F8), Color(0xFFFFE7DA), Color(0xFFEEDCFF))
+            )
+        ),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Image(painterResource(R.drawable.logo), null, Modifier.size(96.dp).clip(CircleShape).background(Color.White).padding(14.dp))
-            Spacer(Modifier.height(14.dp))
-            Text("Sphere", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
-            Text("by Syahi Films", color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp)
+            CircularProgressIndicator(
+                modifier = Modifier.size(62.dp),
+                color = Color(0xFF7539E9),
+                trackColor = Color(0x337539E9),
+                strokeWidth = 4.dp
+            )
+            Spacer(Modifier.height(28.dp))
+            Text("Sphere", color = Color(0xFF7435E3), fontSize = 38.sp, fontWeight = FontWeight.ExtraBold)
+            Spacer(Modifier.height(12.dp))
+            Text("Connecting Editors & Clients", color = Color(0xFF667188), fontSize = 15.sp, textAlign = TextAlign.Center)
             if (error != null) {
                 Spacer(Modifier.height(20.dp))
-                Text(error ?: "", color = Color.White)
-                TextButton(onClick = { attempt++ }) { Text("Try again", color = Color.White, fontWeight = FontWeight.Bold) }
+                Text(error ?: "", color = Color(0xFF554477), fontSize = 13.sp, textAlign = TextAlign.Center)
+                TextButton(onClick = { attempt++ }) { Text("Try again", color = Color(0xFF7435E3), fontWeight = FontWeight.Bold) }
             }
         }
     }
