@@ -6,19 +6,43 @@ plugins {
 
 android {
     namespace = "com.syahifilms.sphere"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.syahifilms.sphere"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 9
-        versionName = "2.2.5"
+        targetSdk = 36
+        versionCode = 10
+        versionName = "2.2.6"
+    }
+
+    // Release bundle is signed only when the OWNER configures all four
+    // SPHERE_RELEASE_* environment variables in GitHub Actions secrets.
+    val releaseKeyFile = System.getenv("SPHERE_RELEASE_KEYSTORE_PATH")
+    val releaseStorePassword = System.getenv("SPHERE_RELEASE_STORE_PASSWORD")
+    val releaseKeyAlias = System.getenv("SPHERE_RELEASE_KEY_ALIAS")
+    val releaseKeyPassword = System.getenv("SPHERE_RELEASE_KEY_PASSWORD")
+    val hasReleaseSigning = listOf(
+        releaseKeyFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword
+    ).all { !it.isNullOrBlank() }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("sphereRelease") {
+                storeFile = file(releaseKeyFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("sphereRelease")
+            }
         }
     }
     compileOptions {
@@ -53,7 +77,6 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("io.coil-kt:coil-svg:2.7.0")
 
-    // Google sign-in inside the app (no browser)
     implementation("androidx.credentials:credentials:1.3.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
