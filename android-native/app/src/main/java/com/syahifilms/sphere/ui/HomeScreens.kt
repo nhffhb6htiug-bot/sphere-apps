@@ -129,6 +129,21 @@ private fun ClientHome(nav: NavHostController, me: Profile) {
     WebsiteToolGrid { route -> nav.go(route) }
     Spacer(Modifier.height(14.dp))
     WebsiteServiceGrid { route -> nav.go(route) }
+
+    // Keep the shortcut cards first. Show all client projects only after
+    // Explore, Tools & Resources and Sphere Services, in the same page scroll.
+    WebsiteSectionTitle("Recent projects", onAll = { nav.go("jobs") })
+    when {
+        myJobs.error != null -> ErrorBox(myJobs.error) { myJobs.reload() }
+        myJobs.data == null -> Loading()
+        myJobs.data.isEmpty() -> GlassPanel(Modifier.fillMaxWidth(), onClick = { nav.go("postJob") }) {
+            Text("No projects yet", fontWeight = FontWeight.Bold, color = WebsiteColors.Plum)
+            MutedText("Post your first job to find a video editor.", 12)
+        }
+        else -> myJobs.data
+            .filter { it.status !in listOf("expired", "cancelled") }
+            .forEach { job -> JobCard(job) { nav.go("project/${job.id}") } }
+    }
     WebsiteSearchBar(nav)
     if (me.role == "admin") {
         CardBox(onClick = { nav.go("profile") }, border = Orange) {
