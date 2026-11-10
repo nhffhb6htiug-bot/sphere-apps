@@ -4,6 +4,15 @@ import android.annotation.SuppressLint
 import android.webkit.JavascriptInterface
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.res.ColorStateList
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
+import android.view.Gravity
+import android.view.View
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.TextView
 import android.net.Uri
 import android.os.Bundle
 import android.webkit.CookieManager
@@ -26,9 +35,85 @@ import kotlinx.coroutines.launch
  */
 class MainActivity : ComponentActivity() {
     private lateinit var browser: WebView
+    private lateinit var splashOverlay: FrameLayout
+    private lateinit var splashProgress: ProgressBar
+    private lateinit var splashMessage: TextView
+    private lateinit var splashRetry: Button
+    private var primaryPageFailed = false
     private var pendingAuthUrl: String? = null
     private var googleLoginInProgress = false
     private var googleBrowserFallbackUrl: String? = null
+
+    private fun createSplashOverlay(): FrameLayout {
+        val purple = Color.rgb(117, 57, 233)
+        val bg = GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            intArrayOf(Color.rgb(231, 197, 248), Color.rgb(255, 231, 218), Color.rgb(238, 220, 255))
+        )
+        return FrameLayout(this).apply {
+            background = bg
+            isClickable = true
+            val stack = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(24, 24, 24, 24)
+            }
+            splashProgress = ProgressBar(
+                this@MainActivity, null, android.R.attr.progressBarStyle
+            ).apply {
+                isIndeterminate = true
+                indeterminateTintList = ColorStateList.valueOf(purple)
+            }
+            stack.addView(splashProgress, LinearLayout.LayoutParams(72.dp(), 72.dp()).apply {
+                bottomMargin = 24.dp()
+            })
+            val name = TextView(this@MainActivity).apply {
+                text = "Sphere"
+                textSize = 38f
+                setTextColor(purple)
+                gravity = Gravity.CENTER
+                setTypeface(null, android.graphics.Typeface.BOLD)
+            }
+            stack.addView(name, LinearLayout.LayoutParams(-2, -2))
+            val subtitle = TextView(this@MainActivity).apply {
+                text = "Connecting Editors & Clients"
+                textSize = 15f
+                setTextColor(Color.rgb(102, 113, 136))
+                gravity = Gravity.CENTER
+            }
+            stack.addView(subtitle, LinearLayout.LayoutParams(-2, -2).apply { topMargin = 10.dp() })
+            splashMessage = TextView(this@MainActivity).apply {
+                textSize = 13f
+                setTextColor(Color.rgb(102, 86, 129))
+                gravity = Gravity.CENTER
+            }
+            stack.addView(splashMessage, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 18.dp() })
+            splashRetry = Button(this@MainActivity).apply {
+                text = "Try again"
+                visibility = View.GONE
+                setOnClickListener {
+                    primaryPageFailed = false
+                    splashMessage.text = ""
+                    splashRetry.visibility = View.GONE
+                    splashProgress.visibility = View.VISIBLE
+                    browser.reload()
+                }
+            }
+            stack.addView(splashRetry, LinearLayout.LayoutParams(-2, -2).apply { topMargin = 8.dp() })
+            addView(stack, FrameLayout.LayoutParams(-1, -2, Gravity.CENTER))
+        }
+    }
+
+    private fun showSplashNetworkError() {
+        if (!::splashOverlay.isInitialized || isFinishing || isDestroyed) return
+        splashOverlay.visibility = View.VISIBLE
+        splashProgress.visibility = View.GONE
+        splashMessage.text = "Couldn't load Sphere. Check your internet and try again."
+        splashRetry.visibility = View.VISIBLE
+    }
+
+    private fun Int.dp(): Int = (this * resources.displayMetrics.density).toInt()
+
 
     private fun trustedSpherePage(): Boolean {
         if (!::browser.isInitialized) return false
@@ -183,10 +268,12 @@ class MainActivity : ComponentActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = android.graphics.Color.rgb(232, 237, 249)
-        window.navigationBarColor = android.graphics.Color.WHITE
+        window.statusBarColor = Color.rgb(248, 220, 230)
+        window.navigationBarColor = Color.rgb(255, 231, 218)
+        window.decorView.setBackgroundColor(Color.rgb(253, 233, 225))
         browser = WebView(this).apply {
             layoutParams = FrameLayout.LayoutParams(-1, -1)
+            setBackgroundColor(Color.rgb(253, 233, 225))
             settings.javaScriptEnabled = true
             addJavascriptInterface(SphereBridge(), "SphereAndroid")
             settings.domStorageEnabled = true
@@ -199,6 +286,27 @@ class MainActivity : ComponentActivity() {
             settings.userAgentString = settings.userAgentString + " SphereApp/2.3 SphereAndroid/2.3"
             isVerticalScrollBarEnabled = false
             webViewClient = object : WebViewClient() {
+                override fun onPageCommitVisible(view: WebView, url: String) {
+                    super.onPageCommitVisible(view, url)
+                    if (!primaryPageFailed && ::splashOverlay.isInitialized) {
+                        // Page contains its own static Sphere splash before app JS runs.
+                        splashOverlay.visibility = View.GONE
+                    }
+                }
+                override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
+                    super.onReceivedError(view, request, error)
+                    if (request.isForMainFrame) {
+                        primaryPageFailed = true
+                        showSplashNetworkError()
+                    }
+                }
+                override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: android.webkit.WebResourceResponse) {
+                    super.onReceivedHttpError(view, request, response)
+                    if (request.isForMainFrame && response.statusCode >= 500) {
+                        primaryPageFailed = true
+                        showSplashNetworkError()
+                    }
+                }
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val url = request.url
                     if (url.scheme == "https" && (url.host == "sphere-live.onrender.com" ||
@@ -233,9 +341,19 @@ class MainActivity : ComponentActivity() {
         }
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(browser, true)
-        setContentView(browser)
-        if (savedInstanceState != null) browser.restoreState(savedInstanceState)
-        else browser.loadUrl("https://sphere-live.onrender.com/?source=app")
+        splashOverlay = createSplashOverlay()
+        val surface = FrameLayout(this).apply {
+            addView(browser, FrameLayout.LayoutParams(-1, -1))
+            addView(splashOverlay, FrameLayout.LayoutParams(-1, -1))
+        }
+        setContentView(surface)
+        if (savedInstanceState != null) {
+            browser.restoreState(savedInstanceState)
+            // Restored WebViews do not always fire onPageCommitVisible again.
+            browser.postDelayed({ if (!primaryPageFailed) splashOverlay.visibility = View.GONE }, 2500)
+        } else {
+            browser.loadUrl("https://sphere-live.onrender.com/?source=app")
+        }
         intent?.data?.takeIf { it.scheme == "sphereapp" && it.host == "auth" }?.let { pendingAuthUrl = it.toString() }
         pendingAuthUrl?.let { url -> browser.postDelayed({ deliverAuth(url) }, 2500); pendingAuthUrl = null }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
