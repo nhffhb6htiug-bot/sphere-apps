@@ -28,6 +28,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var browser: WebView
     private var pendingAuthUrl: String? = null
     private var googleLoginInProgress = false
+    private var googleBrowserFallbackUrl: String? = null
 
     private fun trustedSpherePage(): Boolean {
         if (!::browser.isInitialized) return false
@@ -69,6 +70,7 @@ class MainActivity : ComponentActivity() {
             runOnUiThread {
                 val uri = runCatching { Uri.parse(url) }.getOrNull()
                 if (uri != null && sphereGoogleOAuthUrl(uri)) {
+                    googleBrowserFallbackUrl = url
                     startNativeGoogleLogin(url)
                 } else {
                     openBrowser(url)
@@ -76,8 +78,28 @@ class MainActivity : ComponentActivity() {
             }
         }
         @JavascriptInterface fun requestNativeGoogleLogin() {
-            runOnUiThread { startNativeGoogleLogin(null) }
+            runOnUiThread { startNativeGoogleLogin(googleBrowserFallbackUrl) }
         }
+        @JavascriptInterface fun reportGoogleLoginError(message: String) {
+            runOnUiThread {
+                if (trustedSpherePage()) showGoogleError(message)
+            }
+        }
+    }
+
+    private fun showGoogleError(detail: String) {
+        if (isFinishing || isDestroyed) return
+        val explanation = detail.take(320).ifBlank { "Google sign-in could not finish." } +
+            "\n\nYou can try signing in through Chrome, or use your email and password."
+        val builder = android.app.AlertDialog.Builder(this)
+            .setTitle("Sphere Google login")
+            .setMessage(explanation)
+            .setNegativeButton("Close", null)
+        val fallback = googleBrowserFallbackUrl
+        if (fallback != null) {
+            builder.setPositiveButton("Open in Chrome") { _, _ -> openBrowser(fallback) }
+        }
+        builder.show()
     }
 
     private fun startNativeGoogleLogin(browserFallbackUrl: String?) {
@@ -115,28 +137,25 @@ class MainActivity : ComponentActivity() {
                                   await nav('chooseRole');
                                 }
                               }catch(e){
-                                alert('Google login failed: ' + (e && e.message ? e.message : String(e)));
+                                const reason = e && e.message ? e.message : String(e);
+                                if(window.SphereAndroid && window.SphereAndroid.reportGoogleLoginError)
+                                  window.SphereAndroid.reportGoogleLoginError(reason);
+                                else alert('Google login failed: ' + reason);
                               }
                             })();
                             """.trimIndent(), null
                         )
                     }
-                } // User closed the account picker; do not force an external login.
-            } catch (e: Exception) {
-                if (browserFallbackUrl != null) {
-                    android.widget.Toast.makeText(
-                        this@MainActivity,
-                        "Google account picker unavailable; trying Chrome",
-                        android.widget.Toast.LENGTH_LONG
-                    ).show()
-                    openBrowser(browserFallbackUrl)
                 } else {
-                    android.widget.Toast.makeText(
-                        this@MainActivity,
-                        "Google sign-in unavailable. Check Google Play services and app signing, or log in with email.",
-                        android.widget.Toast.LENGTH_LONG
-                    ).show()
+                    // Some devices return Cancellation when selecting a Google
+                    // account fails. Never silently return to the same screen.
+                    showGoogleError("The Google account picker closed without a sign-in result. Your app's Android signing certificate may not match the Google Cloud OAuth settings.")
                 }
+            } catch (e: Exception) {
+                showGoogleError(
+                    "Android Google sign-in failed: " + (e.message ?: "Unknown error") +
+                    "\nCheck Google Play services and the APK signing SHA-1 in Google Cloud."
+                )
             } finally {
                 googleLoginInProgress = false
             }
