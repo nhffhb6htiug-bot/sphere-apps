@@ -106,7 +106,10 @@ test('logout clears signed media, premium results and private screen caches',()=
     PREMIUM_CACHE:cache('premium'),PREMIUM_INFLIGHT:cache('pending'),
     SCREEN_CACHE:cache('screens'),SIGN_MAP:cache('sign-map'),SIGNED:cache('signed'),
     MSG_INDEX:cache('messages'),SIGN_SESSION_EPOCH:0,signTimer:3,clearTimeout(){clearedTimer++;},
-    chatPresence:null,PV_POLL:null
+    chatPresence:null,PV_POLL:null,
+    // clearSessionState calls this helper in the real app; the isolated VM
+    // needs to provide it just as it does for the other logout dependencies.
+    sphereClearSavedRoute() {}
   };
   vm.runInNewContext(src+'\nglobalThis.logoutLocal = clearSessionState;',sand);
   sand.logoutLocal();
