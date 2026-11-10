@@ -3,6 +3,7 @@
 package com.syahifilms.sphere.ui
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -65,6 +66,15 @@ fun WelcomeScreen(nav: NavHostController) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
+    var googleError by remember { mutableStateOf<String?>(null) }
+    if (googleError != null) {
+        AlertDialog(
+            onDismissRequest = { googleError = null },
+            title = { Text("Google sign-in did not finish") },
+            text = { Text(googleError ?: "") },
+            confirmButton = { TextButton(onClick = { googleError = null }) { Text("Try again") } }
+        )
+    }
     Column(
         Modifier.fillMaxSize().background(Bg).verticalScroll(rememberScrollState()).padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -80,23 +90,33 @@ fun WelcomeScreen(nav: NavHostController) {
             onClick = {
                 scope.launch {
                     busy = true
+                    googleError = null
                     try {
-                        if (GoogleAuth.signIn(ctx)) routeAfterLogin(nav)
+                        if (GoogleAuth.signIn(ctx)) {
+                            routeAfterLogin(nav)
+                        } else {
+                            googleError = "Google account selection was cancelled. If you selected an account but returned here, check Google Play services or use email login while we verify the APK signing certificate."
+                        }
                     } catch (e: Exception) {
-                        toast(ctx, e.message ?: "Google sign-in failed")
+                        googleError = (e.message ?: "Google sign-in failed") +
+                            "\n\nIf the account picker closes after selection, the APK signing SHA-1 may need registration in Google Cloud. You can log in with email meanwhile."
                     } finally { busy = false }
                 }
             },
             modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).height(50.dp),
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(25.dp)
+            shape = RoundedCornerShape(25.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.White,
+                contentColor = Color(0xFF1F1F1F)
+            ),
+            border = BorderStroke(1.dp, Color(0xFFDADCE0))
         ) {
-            Box(
-                Modifier.padding(end = 10.dp).size(29.dp).clip(CircleShape).background(Color.White),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("G", color = Color(0xFF4285F4), fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
-            }
-            Text(if (busy) "Please wait…" else "Continue with Google", fontWeight = FontWeight.Bold)
+            Image(
+                painter = painterResource(R.drawable.google_g),
+                contentDescription = "Google",
+                modifier = Modifier.padding(end = 12.dp).size(24.dp)
+            )
+            Text(if (busy) "Signing in…" else "Continue with Google", fontWeight = FontWeight.SemiBold)
         }
         SecondaryButton("Log in with email") { nav.go("login") }
         SecondaryButton("Create an account") { nav.go("signup") }
