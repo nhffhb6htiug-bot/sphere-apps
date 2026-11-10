@@ -12,8 +12,11 @@ android {
         applicationId = "com.syahifilms.sphere"
         minSdk = 26
         targetSdk = 36
-        versionCode = 11
-        versionName = "2.2.7-native-beta"
+        // A GitHub Actions run gets a unique, increasing Play Store versionCode.
+        // Manual/local builds keep the stable versionCode until explicitly updated.
+        versionCode = System.getenv("SPHERE_CI_VERSION_CODE")?.toIntOrNull() ?: 11
+        versionName = "2.2.7-native-beta" +
+            (System.getenv("SPHERE_CI_VERSION_CODE")?.let { ".$it" } ?: "")
     }
 
     // Release bundle is signed only when the OWNER configures all four
