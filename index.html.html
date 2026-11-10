@@ -5714,6 +5714,11 @@ function clientHomeScreen(user){
     <div class="service-card" onclick="nav('profile')">${img('/img/0e28649c7a12b946.webp','👤')}</div>
   </div>
   </section>
+
+  <!-- Client project cards belong AFTER Explore, Tools & Resources and Sphere Services. -->
+  <section id="clientHomeProjects" class="cl-dash cl-home-projects" aria-label="Your projects">
+    ${(CLIENT_HOME_PROJECTS_CACHE.uid === user.id && CLIENT_HOME_PROJECTS_CACHE.html) ? CLIENT_HOME_PROJECTS_CACHE.html : ''}
+  </section>
   <div class="home-search-bottom"><span>🔍</span><input type="search" enterkeyhint="search" autocomplete="off" placeholder="Search editors, jobs, projects, help…" onkeydown="if(event.key==='Enter'){ event.preventDefault(); homeSearch(this.value); }"></div>
   <button class="help-mini" onclick="nav(\'support\')"><span>🆘</span><b>Help &amp; Support</b><i>WhatsApp · report a problem</i><em>›</em></button>
   <div style="height:20px;"></div>
@@ -8365,28 +8370,34 @@ function clientDashSkeleton(user){
   const first = esc(String((user && user.name) || '').split(' ')[0] || 'there');
   return `<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first}${premiumBadgeSlot(user.id)} 👋</b><span>Loading your projects…</span></div></div>`;
 }
-let CLIENT_DASH_CACHE = { uid: null, html: '' };   // Part C: last client dashboard, shown at once on return
+let CLIENT_DASH_CACHE = { uid: null, html: '' };   // Summary (premium, profile and project counters) stays above the icon sections.
+let CLIENT_HOME_PROJECTS_CACHE = { uid: null, html: '' }; // Projects appear after all service icon cards.
 async function renderClientDashboard(){
   const box = document.getElementById('clientDash');
   const user = getCurrentUser();
   if(!box || !isClientRole(user)) return;
   const res = await loadClientProjects(user);
   const el = document.getElementById('clientDash');
-  if(!el) return;   // user already left Home
+  const projectsEl = document.getElementById('clientHomeProjects');
+  if(!el || !projectsEl || getCurrentUser()?.id !== user.id) return; // Left Home or changed accounts
   const first = esc(String(user.name || '').split(' ')[0] || 'there');
   const st = res.stats;
   CLIENT_DASH_CACHE.uid = user.id;
+  CLIENT_HOME_PROJECTS_CACHE.uid = user.id;
   if(!res.ok){
     el.innerHTML = CLIENT_DASH_CACHE.html = `${premiumRow()}<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first}${premiumBadgeSlot(user.id)} 👋</b><span>Couldn't load your projects. Pull down to refresh.</span></div></div>`;
+    projectsEl.innerHTML = CLIENT_HOME_PROJECTS_CACHE.html = '<div class="section-title"><h3>Recent projects</h3></div><p class="muted">Could not load projects. Try refreshing.</p>';
     return;
   }
   if(st.total === 0){
-    el.innerHTML = CLIENT_DASH_CACHE.html = `${premiumRow()}<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first}${premiumBadgeSlot(user.id)} 👋</b><span>Welcome to Sphere</span></div></div>${clientEmptyState('all')}`;
+    el.innerHTML = CLIENT_DASH_CACHE.html = `${premiumRow()}<div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first}${premiumBadgeSlot(user.id)} 👋</b><span>Welcome to Sphere</span></div></div>`;
+    projectsEl.innerHTML = CLIENT_HOME_PROJECTS_CACHE.html = `${clientEmptyState('all')}<div id="ad_client_home"></div>`;
+    fillSponsored('client_home');
     return;
   }
   const tracked = res.items.find(x => x.job.assignedEditor && ['negotiating','payment-pending','in-progress','delivered'].includes(x.job.status));
-  const needs = res.items.filter(x => x.action).slice(0, 3);
-  const recent = res.items.filter(x => !x.action && x.key !== 'expired' && x.key !== 'cancelled').slice(0, 3);   // expired / cancelled stay in Projects only   // expired jobs are not shown on Home (still in Projects)
+  const needs = res.items.filter(x => x.action); // Show all relevant projects below the icon sections
+  const recent = res.items.filter(x => !x.action && x.key !== 'expired' && x.key !== 'cancelled'); // All recent projects; expired/cancelled stay on Projects tab
   el.innerHTML = CLIENT_DASH_CACHE.html = `${premiumRow()}
     <div class="cl-hello">${avatarHtml(user)}<div><b>Hi, ${first}${premiumBadgeSlot(user.id)} 👋</b><span>${st.active ? 'Here is how your projects are going' : 'All your projects are finished'}</span></div></div>
     ${tracked ? sphereProgressTracker(tracked.job, true) : ''}
@@ -8394,7 +8405,8 @@ async function renderClientDashboard(){
       <div class="cl-stat" onclick="nav('jobs', { tab: 'active' })"><b>${st.active}</b><span>Active</span></div>
       <div class="cl-stat ${st.needYou ? 'warn' : ''}" onclick="nav('jobs', { tab: 'active' })"><b>${st.needYou}</b><span>Need you</span></div>
       <div class="cl-stat" onclick="nav('jobs', { tab: 'history' })"><b>${st.done}</b><span>Completed</span></div>
-    </div>
+    </div>`;
+  projectsEl.innerHTML = CLIENT_HOME_PROJECTS_CACHE.html = `
     ${needs.length ? `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Needs your action</h3><button class="sec-min" aria-label="${needsMin() ? 'Show' : 'Hide'} needs your action" onclick="toggleNeedsMin()">${needsMin() ? '➕' : '➖'}</button></div>${needsMin() ? '' : needs.map(x => clientProjectCard(x, true)).join('')}` : ''}
     ${recent.length ? `<div class="section-title" style="padding:0; margin-top:4px;"><h3>Recent projects</h3><a onclick="nav('jobs')">See all</a></div>${recent.map(x => clientProjectCard(x, true)).join('')}` : ''}
     <div id="ad_client_home"></div>`;
