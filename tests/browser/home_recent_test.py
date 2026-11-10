@@ -21,13 +21,18 @@ with sync_playwright() as p:
       window.__jobs = [mk('j1', 'Gaming Edits', 'open', '2026-10-07'), mk('j2', 'Old Cinematic', 'open', '2026-09-30'),
                        mk('j3', 'Wedding Teaser', 'open', '2099-01-01'), mk('j4', 'Done Vlog', 'approved', '2026-09-01', { assigned_editor: 'ed-9', locked_amount: 800 })];
       const f0 = sb.from; sb.from = (t) => t === 'sp_jobs' ? { select(){ return this; }, eq(){ return this; }, order(){ return Promise.resolve({ data: window.__jobs, error: null }); } } : f0(t);
-      document.getElementById('app').innerHTML = '<div class="screen" id="clientDash"></div>';
+      document.getElementById('app').innerHTML = '<div class="screen" id="clientDash"></div><section id="clientHomeProjects" class="cl-dash"></section>';
     }""")
     pg.evaluate("async () => { CLIENT_DASH_CACHE = { uid: null, html: '' }; const el = document.getElementById('clientDash'); await renderClientDashboard(); }"); pg.wait_for_timeout(800)
     txt = pg.inner_text('#app'); rec = txt.split('Recent projects')[1] if 'Recent projects' in txt else ''
     ok('H0 the Home dashboard really rendered (guards against an empty screen passing H1)', 'Recent projects' in txt and len(rec) > 20)
     ok('H1 expired jobs are not in Recent projects on Home', 'Gaming Edits' not in rec and 'Old Cinematic' not in rec and 'Expired' not in rec, rec[:160].replace('\n', ' | '))
     ok('H2 other projects still show (open and completed)', 'Wedding Teaser' in rec and 'Done Vlog' in rec)
+    ok('H3 projects rendered in the lower section, not above Explore',
+       'Recent projects' not in pg.inner_text('#clientDash') and 'Recent projects' in pg.inner_text('#clientHomeProjects'))
+    # Source template: client shortcut sections must appear before the project listing.
+    ok('H4 shortcut sections precede the projects section in the Home template',
+       html.index('sh-services-panel') < html.index('id="clientHomeProjects"'))
     ok('X1 no JavaScript errors', not errs, str(errs[:2]))
     b.close()
 for r in R: print(f'{r[0]:5} {r[1]} {("— " + r[2]) if r[2] else ""}'[:230])
