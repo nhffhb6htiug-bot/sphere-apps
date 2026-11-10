@@ -32,8 +32,11 @@ jobs:
       - name: Install Android API 36 using preinstalled SDK manager
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager --install "platforms;android-36" "build-tools;36.0.0"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -n "$SDKMANAGER" && test -x "$SDKMANAGER"
+          echo "Using $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" --install "platforms;android-36" "build-tools;36.0.0"
 
       - name: Install stable debug signing certificate when configured
         env:
