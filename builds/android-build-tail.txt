@@ -1,16 +1,16 @@
-Downloading https://services.gradle.org/distributions/gradle-8.9-bin.zip
-............10%.............20%.............30%.............40%.............50%.............60%.............70%.............80%.............90%.............100%
+Downloading https://services.gradle.org/distributions/gradle-8.11.1-bin.zip
+.............10%.............20%.............30%.............40%.............50%.............60%.............70%.............80%.............90%.............100%
 
-Welcome to Gradle 8.9!
+Welcome to Gradle 8.11.1!
 
 Here are the highlights of this release:
- - Enhanced Error and Warning Messages
- - IDE Integration Improvements
- - Daemon JVM Information
+ - Parallel load and store for Configuration Cache
+ - Java compilation errors at the end of the build output
+ - Consolidated report for warnings and deprecations
 
-For more details see https://docs.gradle.org/8.9/release-notes.html
+For more details see https://docs.gradle.org/8.11.1/release-notes.html
 
-To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.9/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.11.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
 Daemon will be stopped at the end of the build 
 > Task :app:preBuild UP-TO-DATE
 > Task :app:preDebugBuild UP-TO-DATE
@@ -37,11 +37,7 @@ Daemon will be stopped at the end of the build
 > Task :app:compressDebugAssets
 > Task :app:processDebugResources
 > Task :app:checkDebugDuplicateClasses
-
 > Task :app:compileDebugKotlin
-e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
-    1. Kotlin compile daemon is ready
-
 > Task :app:mergeExtDexDebug
 
 > Task :app:compileDebugKotlin
@@ -62,12 +58,12 @@ w: file:///home/runner/work/sphere-apps/sphere-apps/android-native/app/src/main/
 > Task :app:writeDebugAppMetadata
 
 > Task :app:stripDebugDebugSymbols
-Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so.
+Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so. Run with --info option to learn more.
 
 > Task :app:writeDebugSigningConfigVersions
 > Task :app:packageDebug
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 3m 36s
+BUILD SUCCESSFUL in 2m 15s
 35 actionable tasks: 35 executed
