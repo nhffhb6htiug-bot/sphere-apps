@@ -7585,7 +7585,7 @@ async function deleteMyAccount(){
   const { error } = await sb.rpc('sp_delete_my_account', { p_confirm: 'DELETE' });
   if(error){ if(btn){ btn.disabled = false; btn.textContent = 'Delete my account forever'; } alert(/function|schema cache/i.test(error.message || '') ? 'Please try again in a minute.' : error.message); return; }
   try { await stopPushForThisPhone(); } catch(e) {}
-  VERIFIED_CACHE = null; CLIENT_DASH_CACHE = { uid: null, html: '' }; PREMIUM_CACHE.clear(); SCREEN_CACHE.clear(); stopChatPresence();
+  VERIFIED_CACHE = null; CLIENT_DASH_CACHE = { uid: null, html: '' }; CLIENT_HOME_PROJECTS_CACHE = { uid: null, html: '' }; PREMIUM_CACHE.clear(); SCREEN_CACHE.clear(); stopChatPresence();
   loggingOut = true; clearSessionState();
   try { await sb.auth.signOut(); } catch(e) {}
   loggingOut = false;
@@ -7594,7 +7594,7 @@ async function deleteMyAccount(){
 }
 async function logout(){
   await stopPushForThisPhone();
-  VERIFIED_CACHE = null; CLIENT_DASH_CACHE = { uid: null, html: '' }; PREMIUM_CACHE.clear(); SCREEN_CACHE.clear(); stopChatPresence();   // Part C: forget cached screens on logout
+  VERIFIED_CACHE = null; CLIENT_DASH_CACHE = { uid: null, html: '' }; CLIENT_HOME_PROJECTS_CACHE = { uid: null, html: '' }; PREMIUM_CACHE.clear(); SCREEN_CACHE.clear(); stopChatPresence();   // Part C: forget cached screens on logout
   PHONE_V = { uid: null, st: null, at: 0 }; stopPvPoll();
   loggingOut = true;
   clearSessionState();
@@ -8206,6 +8206,8 @@ function accountStatusBanner(u){
 let loggingOut = false;
 function clearSessionState(){
   sphereClearSavedRoute();
+  // Project cards are private account data; do not retain them after sign-out.
+  if(typeof CLIENT_HOME_PROJECTS_CACHE !== 'undefined') CLIENT_HOME_PROJECTS_CACHE = { uid: null, html: '' };
   if(msgChannel){ try { sb.removeChannel(msgChannel); } catch(e){} msgChannel = null; }
   RT_OK = { msg: false, notif: false }; if(rtPollTimer){ clearInterval(rtPollTimer); rtPollTimer = null; }
   currentUser = null;
