@@ -85,6 +85,23 @@ jobs:
         working-directory: android-native
         run: ./gradlew bundleRelease --no-daemon --stacktrace --console=plain
 
+      # Create a bundle without upload-key signing when owner secrets aren't yet set.
+      # It will be securely signed offline with a dedicated Sphere upload key.
+      - name: Build native unsigned release AAB
+        id: unsigned_bundle
+        if: steps.build.outcome == 'success' && env.HAS_RELEASE_SIGNING != 'true'
+        working-directory: android-native
+        run: ./gradlew bundleRelease --no-daemon --stacktrace --console=plain
+
+      - name: Publish native unsigned AAB for secure offline signing
+        if: steps.unsigned_bundle.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sphere-Native-Unsigned-AAB
+          path: android-native/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Publish test APK artifact
         if: steps.build.outcome == 'success'
         uses: actions/upload-artifact@v4
