@@ -16,6 +16,9 @@ import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.lifecycleScope
+import com.syahifilms.sphere.data.GoogleAuth
+import kotlinx.coroutines.launch
 
 /**
  * Website parity shell: use the same production UI, icons, transitions and themes.
@@ -24,14 +27,122 @@ import androidx.activity.result.contract.ActivityResultContracts
 class MainActivity : ComponentActivity() {
     private lateinit var browser: WebView
     private var pendingAuthUrl: String? = null
+    private var googleLoginInProgress = false
+
+    private fun trustedSpherePage(): Boolean {
+        if (!::browser.isInitialized) return false
+        val page = runCatching { Uri.parse(browser.url ?: "") }.getOrNull() ?: return false
+        return page.scheme == "https" && page.host in setOf(
+            "sphere-live.onrender.com", "sphere.syahi.online"
+        )
+    }
+
+    /** Only the app's Supabase Google OAuth URL may be replaced by native sign-in. */
+    private fun sphereGoogleOAuthUrl(uri: Uri): Boolean {
+        if (uri.scheme != "https" || uri.getQueryParameter("provider") != "google") return false
+        if (uri.path?.endsWith("/auth/v1/authorize") != true) return false
+        return uri.host in setOf(
+            "sphere-live.onrender.com",
+            "sphere-api.niteshkumarmatho37.workers.dev",
+            "pwcchgjsgkwrsvbzqspp.supabase.co"
+        )
+    }
+
+    private fun openBrowser(url: String) {
+        val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return
+        if (uri.scheme !in setOf("https", "http", "mailto", "tel")) return
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
+        } catch (_: Exception) {
+            android.widget.Toast.makeText(this, "No browser found to open this link", android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+
+    /**
+     * The live website calls SphereAndroid.openExternal() with its Google
+     * authorize URL. Intercept that one request and use Android Credential
+     * Manager, then sign in to the WebView's Supabase session directly.
+     * Other outbound links continue to open in the user's chosen app.
+     */
     inner class SphereBridge {
         @JavascriptInterface fun openExternal(url: String) {
             runOnUiThread {
-                try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-                catch (_: Exception) { android.widget.Toast.makeText(this@MainActivity, "Unable to open browser", android.widget.Toast.LENGTH_SHORT).show() }
+                val uri = runCatching { Uri.parse(url) }.getOrNull()
+                if (uri != null && sphereGoogleOAuthUrl(uri)) {
+                    startNativeGoogleLogin(url)
+                } else {
+                    openBrowser(url)
+                }
+            }
+        }
+        @JavascriptInterface fun requestNativeGoogleLogin() {
+            runOnUiThread { startNativeGoogleLogin(null) }
+        }
+    }
+
+    private fun startNativeGoogleLogin(browserFallbackUrl: String?) {
+        if (googleLoginInProgress) return
+        if (!trustedSpherePage()) {
+            android.widget.Toast.makeText(this, "Open the official Sphere app to sign in", android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        googleLoginInProgress = true
+        lifecycleScope.launch {
+            try {
+                val google = GoogleAuth.getIdToken(this@MainActivity)
+                if (google != null) {
+                    // JSONObject.quote ensures a token cannot escape its JS string.
+                    val idToken = org.json.JSONObject.quote(google.idToken)
+                    val nonce = org.json.JSONObject.quote(google.rawNonce)
+                    if (trustedSpherePage()) {
+                        browser.evaluateJavascript(
+                            """
+                            (async function(){
+                              try {
+                                if(typeof sb === 'undefined' || typeof fetchAndSetCurrentUser !== 'function'){
+                                  throw new Error('Sphere login screen is still loading. Please try again.');
+                                }
+                                const result = await sb.auth.signInWithIdToken({
+                                  provider:'google', token:$idToken, nonce:$nonce
+                                });
+                                if(result.error) throw result.error;
+                                const user = await fetchAndSetCurrentUser();
+                                if(user) await nav(sphereEntryScreen(user));
+                                else {
+                                  const res = await sb.auth.getUser();
+                                  if(res.error || !res.data.user) throw res.error || new Error('No Google user session');
+                                  pendingAuthUser = res.data.user;
+                                  await nav('chooseRole');
+                                }
+                              }catch(e){
+                                alert('Google login failed: ' + (e && e.message ? e.message : String(e)));
+                              }
+                            })();
+                            """.trimIndent(), null
+                        )
+                    }
+                } // User closed the account picker; do not force an external login.
+            } catch (e: Exception) {
+                if (browserFallbackUrl != null) {
+                    android.widget.Toast.makeText(
+                        this@MainActivity,
+                        "Google account picker unavailable; trying Chrome",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                    openBrowser(browserFallbackUrl)
+                } else {
+                    android.widget.Toast.makeText(
+                        this@MainActivity,
+                        "Google sign-in unavailable. Check Google Play services and app signing, or log in with email.",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+            } finally {
+                googleLoginInProgress = false
             }
         }
     }
+
     private fun deliverAuth(url: String) {
         if (!::browser.isInitialized) { pendingAuthUrl = url; return }
         val quoted = org.json.JSONObject.quote(url)
