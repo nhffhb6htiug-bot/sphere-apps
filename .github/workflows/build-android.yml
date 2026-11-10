@@ -1,4 +1,4 @@
-# Builds the native Sphere Android app on GitHub's computers and saves the APK + build report in /builds
+# Sphere native Kotlin/Compose Android builds. Never store signing keys in git.
 name: Build Sphere Android app
 
 on:
@@ -18,7 +18,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -26,6 +26,10 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+      - name: Install Android API 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
       - name: Install stable debug signing certificate when configured
         env:
@@ -36,10 +40,30 @@ jobs:
             printf '%s' "$SPHERE_DEBUG_KEYSTORE_B64" | base64 --decode > "$HOME/.android/debug.keystore"
             chmod 600 "$HOME/.android/debug.keystore"
           else
-            echo "No stable debug keystore secret configured. Build may not update earlier APKs."
+            echo "No stable debug keystore: this APK may not install over an older build."
           fi
 
-      - name: Build APK
+      - name: Configure Play upload-key signing when available
+        env:
+          KEYSTORE_B64: ${{ secrets.SPHERE_RELEASE_KEYSTORE_B64 }}
+          STORE_PASSWORD: ${{ secrets.SPHERE_RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.SPHERE_RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.SPHERE_RELEASE_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$STORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
+            printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/sphere-upload.jks"
+            chmod 600 "$RUNNER_TEMP/sphere-upload.jks"
+            echo "SPHERE_RELEASE_KEYSTORE_PATH=$RUNNER_TEMP/sphere-upload.jks" >> "$GITHUB_ENV"
+            echo "SPHERE_RELEASE_STORE_PASSWORD=$STORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "SPHERE_RELEASE_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "SPHERE_RELEASE_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+            echo "HAS_RELEASE_SIGNING=true" >> "$GITHUB_ENV"
+          else
+            echo "HAS_RELEASE_SIGNING=false" >> "$GITHUB_ENV"
+            echo "Release AAB skipped until all four upload-key secrets are configured."
+          fi
+
+      - name: Build native APK
         id: build
         continue-on-error: true
         working-directory: android-native
@@ -48,7 +72,32 @@ jobs:
           set -o pipefail
           ./gradlew assembleDebug --no-daemon --stacktrace --console=plain 2>&1 | tee ../build.log
 
-      - name: Save result in the repo
+      - name: Build signed Play Store AAB
+        id: bundle
+        if: steps.build.outcome == 'success' && env.HAS_RELEASE_SIGNING == 'true'
+        working-directory: android-native
+        run: ./gradlew bundleRelease --no-daemon --stacktrace --console=plain
+
+      - name: Publish test APK artifact
+        if: steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sphere-native-APK
+          path: android-native/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish signed Play Store AAB artifact
+        if: steps.bundle.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sphere-PlayStore-AAB
+          path: android-native/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Save debug APK and build report in repository
+        if: always()
         run: |
           mkdir -p builds
           if [ "${{ steps.build.outcome }}" = "success" ]; then
@@ -61,8 +110,10 @@ jobs:
           else
             echo "FAILED $(date -u) ${{ github.sha }}" > builds/android-build-status.txt
           fi
-          grep -E "^e: |error:|What went wrong" -A4 build.log | head -400 > builds/android-build-errors.txt || true
-          tail -150 build.log > builds/android-build-tail.txt
+          if [ -f build.log ]; then
+            grep -E "^e: |error:|What went wrong" -A4 build.log | head -400 > builds/android-build-errors.txt || true
+            tail -150 build.log > builds/android-build-tail.txt
+          fi
           git config user.name "sphere-bot"
           git config user.email "actions@users.noreply.github.com"
           git add builds
