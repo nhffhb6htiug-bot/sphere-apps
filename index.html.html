@@ -415,6 +415,30 @@ body:not(.pc-admin) #bottomNav .sp-nav-brand-intro .sp-nav-intro-r{
 .splash-wrap{height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px;}
 .splash-wrap img{width:120px; border-radius:20px;}
 .splash-wrap h1{font-size:28px; font-weight:900; color:var(--blue);}
+/* Sphere loading screen: paint on the FIRST HTML frame on iOS, PC and Android.
+   It is also used for every route through SCREENS.splash. Keep it independent
+   of theme CSS and remote images so a slow connection can never show black. */
+.sphere-launch-screen{
+  position:fixed;inset:0;width:100%;height:100vh;height:100dvh;
+  z-index:95;margin:0;padding:calc(24px + env(safe-area-inset-top,0px)) 24px calc(24px + env(safe-area-inset-bottom,0px));
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  background:radial-gradient(ellipse at 10% 10%,rgba(196,111,239,.66),transparent 45%),
+             radial-gradient(ellipse at 90% 19%,rgba(255,204,168,.78),transparent 46%),
+             radial-gradient(ellipse at 3% 78%,rgba(253,167,188,.64),transparent 47%),
+             radial-gradient(ellipse at 88% 95%,rgba(204,176,255,.62),transparent 42%),
+             #fde9e1!important;
+  color:#18213e!important;text-align:center;
+}
+.sphere-launch-screen h1{font-size:38px;line-height:1.18;font-weight:850;color:#7435e3!important;margin:6px 0 0}
+.sphere-launch-screen .sphere-splash-subtitle{color:#667188!important;font-size:15px;line-height:1.5;margin:0}
+.sphere-launch-screen .sp-loader-big{width:62px;height:62px;margin:0 0 20px}
+.sphere-launch-screen .sp-loader::before{border-color:rgba(132,85,194,.17);border-top-color:#7539e9}
+.sphere-launch-screen .sp-launch-brand-intro{width:90px;height:90px;margin:0 0 6px}
+.sphere-launch-screen .sphere-splash-message{font-size:13px;color:#695e81!important;line-height:1.5;max-width:300px}
+.sphere-launch-screen .sphere-splash-retry{font:700 14px system-ui,sans-serif;border:1px solid rgba(116,53,227,.3);background:#fff;color:#7435e3;border-radius:999px;padding:11px 24px;margin-top:4px;cursor:pointer}
+.sphere-launch-screen .sphere-splash-retry[hidden]{display:none!important}
+@media(prefers-reduced-motion:reduce){.sphere-launch-screen .sp-loader::before{animation:none}}
+
 
 .status-track{display:flex; justify-content:space-between; margin:16px 0;}
 .status-step{flex:1; text-align:center; font-size:11px; color:var(--muted);}
@@ -2581,7 +2605,25 @@ body.sphere-editor-refresh[data-sphere-screen="portfolio"] .se-page-brand img{bo
 <body>
 <div class="wco-drag"></div>
 
-<div id="app"></div>
+<div id="app">
+  <div class="splash-wrap sphere-launch-screen" role="status" aria-live="polite" aria-label="Sphere is loading">
+    <div class="sp-loader sp-loader-big" aria-hidden="true"></div>
+    <h1>Sphere</h1>
+    <p class="sphere-splash-subtitle">Connecting Editors &amp; Clients</p>
+    <p class="sphere-splash-message" aria-live="polite"></p>
+    <button class="sphere-splash-retry" type="button" hidden onclick="location.reload()">Try again</button>
+  </div>
+</div>
+<script>
+/* Independent startup fallback, even if the full app bundle fails before nav('splash'). */
+setTimeout(function(){
+  var el=document.querySelector('#app .sphere-launch-screen');
+  if(!el)return;
+  var p=el.querySelector('.sphere-splash-message'),b=el.querySelector('.sphere-splash-retry');
+  if(p)p.textContent='Sphere is taking longer than expected. Check your connection.';
+  if(b)b.hidden=false;
+},18000);
+</script>
 
 <nav class="bottom-nav hidden" id="bottomNav"></nav>
 <aside id="sphereDesktopNav" aria-label="Sphere desktop navigation" hidden></aside>
@@ -5222,26 +5264,48 @@ const SP_LAUNCH_BRAND_HTML='<div class="sp-launch-brand-intro" aria-hidden="true
   +'<img src="/img/1560873923651e31.png" alt="">'
   +'<img class="sp-launch-intro-r" src="/img/efb581c20c6ad2b6.png" alt="">'
   +'</div>';
+let SPHERE_SPLASH_ATTEMPT=0;
 SCREENS.splash = () => {
+  const attempt=++SPHERE_SPLASH_ATTEMPT;
   let hasSavedPage=false;
   try{hasSavedPage=!!sphereGetSavedRouteRaw();}catch(e){}
   const showIntro=!hasSavedPage&&sphereFirstLaunchIntro();
-  setTimeout(async ()=>{
-    if(IS_RECOVERY){ nav('resetPassword'); return; }
-    const user = await fetchAndSetCurrentUser();
-    if(user){
-      const resume=(!PENDING_CHAT&&!PENDING_OPEN)?sphereGetReloadPage(user):null;
-      nav(resume?resume.screen:sphereEntryScreen(user),resume&&resume.data);
-      return;
+  // Keep the loading screen on every launch. On a first-ever launch, also
+  // animate the split Sphere logo four times without removing the spinner.
+  setTimeout(async () => {
+    if(attempt!==SPHERE_SPLASH_ATTEMPT || currentScreenName!=='splash')return;
+    try {
+      if(IS_RECOVERY){ await nav('resetPassword'); return; }
+      const user=await fetchAndSetCurrentUser();
+      if(attempt!==SPHERE_SPLASH_ATTEMPT || currentScreenName!=='splash')return;
+      if(user){
+        const resume=(!PENDING_CHAT&&!PENDING_OPEN)?sphereGetReloadPage(user):null;
+        await nav(resume?resume.screen:sphereEntryScreen(user),resume&&resume.data);
+        return;
+      }
+      const {data:{user:authUser}}=await sb.auth.getUser();
+      if(attempt!==SPHERE_SPLASH_ATTEMPT || currentScreenName!=='splash')return;
+      if(authUser){pendingAuthUser=authUser;await nav('chooseRole');return;}
+      await nav('onboard1');
+    }catch(e){
+      if(attempt!==SPHERE_SPLASH_ATTEMPT || currentScreenName!=='splash')return;
+      console.warn('Sphere startup could not finish',e);
+      const el=document.querySelector('#app .sphere-launch-screen');
+      if(el){
+        const msg=el.querySelector('.sphere-splash-message');
+        const btn=el.querySelector('.sphere-splash-retry');
+        if(msg)msg.textContent='Unable to connect right now. Check your internet and try again.';
+        if(btn)btn.hidden=false;
+      }
     }
-    const { data:{ user: authUser } } = await sb.auth.getUser();
-    if(authUser){ pendingAuthUser = authUser; nav('chooseRole'); return; }
-    nav('onboard1');
-  }, hasSavedPage?0:(showIntro?3200:1400));
-  return `<div class="splash-wrap">
-    ${showIntro ? SP_LAUNCH_BRAND_HTML : SPHERE_LOADER_SVG.replace('class="sp-loader"', 'class="sp-loader sp-loader-big"')}
+  },hasSavedPage?250:(showIntro?3200:1100));
+  return `<div class="splash-wrap sphere-launch-screen" role="status" aria-live="polite" aria-label="Sphere is loading">
+    ${showIntro?SP_LAUNCH_BRAND_HTML:''}
+    <div class="sp-loader sp-loader-big" aria-hidden="true"></div>
     <h1>Sphere</h1>
-    <p class="muted">Connecting Editors & Clients</p>
+    <p class="sphere-splash-subtitle">Connecting Editors &amp; Clients</p>
+    <p class="sphere-splash-message" aria-live="polite"></p>
+    <button class="sphere-splash-retry" type="button" hidden onclick="nav('splash')">Try again</button>
   </div>`;
 };
 
