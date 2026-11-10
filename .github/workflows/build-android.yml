@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: android-build
+  group: android-build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
