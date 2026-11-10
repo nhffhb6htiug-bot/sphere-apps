@@ -1,7 +1,7 @@
-// Sphere PWA service worker v19 — client home projects below all icon sections.
+// Sphere PWA service worker v20 — reliable pastel startup splash across iOS, PC and Android.
 // Only static public assets may enter Cache Storage. In particular, Supabase
 // responses and account data are never cached, even if proxied by this origin.
-const CACHE = 'sphere-ios-pc-home-projects-v19';
+const CACHE = 'sphere-pastel-startup-v20';
 const PRECACHE = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png', '/favicon.png',
   '/vendor/supabase-2.117.2.js', '/sphere-dark-theme.css', '/sphere-desktop.css'];
 const STATIC_INFLIGHT = new Map();
