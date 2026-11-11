@@ -12263,8 +12263,8 @@ async function adminReveal(strikeId){
    const editors=adminUserRole==='EDITOR';
    const [rows,profilesRes,portfolioRes]=await Promise.all([
      adminRpc('sp_admin_users',{p_search:adminUserSearch||null,p_role:adminUserRole,p_limit:200}).catch(()=>null),
-     editors?sb.rpc('sp_admin_profiles',{p_role:'EDITOR',p_verified:null}).catch(e=>({error:e})):Promise.resolve(null),
-     editors?sb.from('sp_portfolio').select('editor_id,video_url').not('video_url','is',null).limit(2000).then(x=>x,e=>({error:e})):Promise.resolve(null)
+     editors?adminRpc('sp_admin_profiles',{p_role:'EDITOR',p_verified:null}).then(data=>({data}),error=>({error})):Promise.resolve(null),
+     editors?Promise.resolve(sb.from('sp_portfolio').select('editor_id,video_url').not('video_url','is',null).limit(2000)).then(x=>x,e=>({error:e})):Promise.resolve(null)
    ]);
    if(!rows) return `<div class="card"><p class="muted">Could not load users. Please refresh.</p></div>`;
    if(editors && (!profilesRes || profilesRes.error || !Array.isArray(profilesRes.data)))
