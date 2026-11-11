@@ -548,6 +548,15 @@ body:not(.pc-admin) #bottomNav .sp-nav-brand-intro .sp-nav-intro-r{
 .ad-tbl{width:100%; border-collapse:collapse; font-size:12px; min-width:520px;}
 .ad-tbl th, .ad-tbl td{padding:6px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap;}
 .ad-search{display:flex; gap:8px; margin-bottom:10px;} .ad-search input, .ad-search select{flex:1; padding:9px 10px; border-radius:10px; border:1px solid var(--border); font:inherit; font-size:13px; background:#fff;}
+.au-editor-filters{padding:14px;margin:12px 0;border:1px solid var(--border);border-radius:14px;background:var(--card,transparent)}
+.au-filter-group{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0 13px}
+.au-filter-chip{border:1px solid var(--border);border-radius:999px;padding:8px 11px;background:transparent;color:inherit;font:inherit;font-size:12px;min-height:35px;cursor:pointer}
+.au-filter-chip.on{border-color:var(--blue,#8060cc);background:rgba(140,90,210,.13);font-weight:700}
+.au-filter-note{font-size:12px;opacity:.8;line-height:1.5;margin:5px 0}
+.au-row-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.au-row-tag{display:inline-block;border:1px solid var(--border);border-radius:8px;padding:2px 6px;font-size:11px}
+.au-open-profiles{display:inline-flex;max-width:100%;white-space:normal;margin:6px 0 12px;align-items:center}
+@media(max-width:520px){.ad-search{flex-wrap:wrap}.ad-search input{min-width:55%}}
 /* PART 13: ratings + bonus */
 .rt-pick{display:grid; grid-template-columns:repeat(7, 1fr); gap:6px; margin:14px 0 6px;}
 .rt-pick button{padding:12px 0; border-radius:12px; border:1.5px solid var(--border); background:#fff; font-weight:800; font-size:15px; cursor:pointer; color:var(--text);}
@@ -11422,6 +11431,7 @@ function sphereAdminPaintIcons(){
    written to sp_admin_audit (also automatic for the older admin buttons). */
 let adminTab = 'overview';
 let adminProjFilter = 'all', adminProjSearch = '', adminUserSearch = '', adminUserRole = 'all', adminAuditFilter = '';
+let adminUserCompletion='all', adminUserVerification='all';
 const ADMIN_TABS = [['overview', '📊 Overview'], ['projects', '📁 Projects'], ['disputes', '⚖️ Disputes'], ['verification', '✔ Verification'],
   ['moderation', '🛡️ Moderation'], ['users', '👥 Users'], ['payments', '💳 Payments'], ['money', '💰 Monetization'], ['audit', '📜 Audit'], ['classic', '🧰 Classic tools']];
 const HEALTH = { normal: ['✅', 'Normal', '#15803d'], suspicious: ['⚠️', 'Suspicious', '#b45309'], dispute: ['🔴', 'Dispute', '#c62828'] };
@@ -11653,7 +11663,7 @@ async function pcVerificationTab(){
     rejected: list.filter(e => e.status === 'rejected').length,
     verified: (verified || []).length };
   const chip = (k, l) => `<button class="${PCV_FILTER === k ? 'on' : ''}" onclick="pcvSwitchFilter('${k}',this)">${l} <span>${n[k]}</span></button>`;
-  const chips = `<div class="pcv-chips">${chip('waiting', '📥 New')}${chip('messaged', '💬 Messaged')}${chip('paid', '₹29 paid')}${chip('video', 'Promo video sent')}${chip('rejected', 'Rejected')}${chip('verified', '✔ Verified')}</div>`;
+  const chips = `<div class="pcv-chips">${chip('waiting', '📥 New')}${chip('messaged', '💬 Messaged')}${chip('paid', '₹29 paid')}${chip('video', 'Promo video sent')}${chip('rejected', 'Rejected')}${chip('verified', '✔ Verified')}</div>` + adminEditorProfileShortcut();
   const reqBox = (reqs || []).length ? `<div class="card" style="border:1.5px solid #1657ff;"><b>✏️ Update requests (${reqs.length})</b>
       <p class="muted" style="font-size:12px; margin:2px 0 6px;">Paid ₹${VERIFY_FEE}. Call the editor, check, then edit their details.</p>
       ${reqs.map(q => `<div style="border-top:1px solid var(--border); padding:8px 0; display:flex; gap:10px; align-items:center;"><div style="flex:1;"><b>${esc(q.name || 'Editor')}</b> <span class="muted" style="font-size:11px;">${esc(fmtDate(q.at))}</span>
@@ -12155,6 +12165,7 @@ async function adminVerificationTab(){
         <p style="font-size:13px; margin:4px 0;">“${esc(q.note || '')}”</p>
         <button class="btn-sm" onclick="nav('adminEditDetails', { userId: '${esc(q.editor_id)}', requestId: '${esc(q.id)}' })">✏️ Edit details</button></div>`).join('')}</div>` : ''}<p class="muted" style="font-size:12px; margin-bottom:10px;">Paying ₹${VERIFY_FEE} does <b>not</b> approve anyone — verify only after the call / work check.</p>
     ${verificationQueueTabs(newList.length,messagedList.length,rejectedList.length,true)}
+    ${adminEditorProfileShortcut()}
     <p class="muted" style="font-size:12px;margin-bottom:10px;">Newest editors appear first; Verification 1 stays at the bottom. WhatsApp only opens a draft. Mark sent only after sending.</p>
     <p id="admin-ver-empty" class="muted" ${reviewList.length ? 'hidden' : ''}>No editors in this list. 👍</p>
     ${verificationRowsNewest(list).map(e => `<div class="card admin-verify-mobile-row" data-queue="${e.status === 'rejected' ? 'rejected' : ADMIN_VERIFY_OUTREACH.has(String(e.id)) ? 'messaged' : 'new'}" ${reviewList.some(x=>x.id===e.id) ? '' : 'hidden'}>
@@ -12206,16 +12217,104 @@ async function adminReveal(strikeId){
   catch(e) { alert(e.message); }
 }
 
-// ---- 6) Users
-async function adminUsersTab(){
-  const rows = await adminRpc('sp_admin_users', { p_search: adminUserSearch || null, p_role: adminUserRole, p_limit: 100 }).catch(() => null);
-  if(!rows) return `<div class="card" style="border:1.5px solid #e67e22;"><p style="font-size:12px;">⚙️ This part needs the latest database update (<b>014_admin_panel.sql</b>).</p></div>`;
-  return `<div class="ad-search"><input id="auSearch" placeholder="Name, email or phone" value="${esc(adminUserSearch)}" onkeypress="if(event.key==='Enter'){ adminUserSearch=this.value; nav('admin', { tab: 'users' }); }">
-      <select onchange="adminUserRole=this.value; nav('admin', { tab: 'users' })">${[['all', 'Everyone'], ['CLIENT', 'Clients'], ['EDITOR', 'Editors'], ['ADMIN', 'Admins']].map(([k, l]) => `<option value="${k}" ${adminUserRole === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
-      <button class="btn-sm" onclick="adminUserSearch=document.getElementById('auSearch').value; nav('admin', { tab: 'users' })">Go</button></div>
-    ${(rows || []).map(x => `<div class="card ad-row" onclick="nav('adminUser', { userId: '${x.id}' })"><div class="ad-ic">${x.suspended ? '⛔' : x.role === 'EDITOR' ? (x.verified ? '✔' : '🎬') : x.role === 'ADMIN' ? '🛠' : '👤'}</div>
-      <div class="ad-main"><b>${esc(x.name || '-')}</b><small>${esc(x.role)} · ${esc(x.email || '')}${x.strikes ? ' · ' + x.strikes + ' strikes' : ''}${x.rating_avg !== null && x.rating_avg !== undefined ? ' · rating ' + x.rating_avg : ''} · ${x.projects} projects</small></div><b>›</b></div>`).join('') || '<p class="muted">No users found.</p>'}`;
-}
+// ---- 6) Users and independent editor profile filters
+ function adminEditorProfileState(p, portfolioVideoEditors){
+   const filled = v => v != null && String(v).trim().length > 0;
+   const bio = filled(p && p.bio);
+   const skills = Array.isArray(p && p.skills) ? p.skills.some(filled) : filled(p && p.skills);
+   const portfolio = filled(p && p.portfolio_url) || filled(p && p.sample_video_url) ||
+     !!(p && portfolioVideoEditors && portfolioVideoEditors.has(String(p.id)));
+   return bio && skills && portfolio ? 'complete' :
+     (bio || skills || portfolio ? 'partial' : 'incomplete');
+ }
+ function adminEditorProfileShortcut(){
+   return `<button type="button" class="btn-sm au-open-profiles" onclick="adminOpenEditorProfiles()">🎬 All Editor Profiles · Complete / Partial / Incomplete</button>`;
+ }
+ function adminOpenEditorProfiles(){
+   adminUserRole='EDITOR'; adminUserSearch=''; adminUserCompletion='all'; adminUserVerification='all';
+   nav('admin',{tab:'users'});
+ }
+ function adminUserSetProfileFilter(kind, value){
+   if(kind==='completion' && ['all','complete','partial','incomplete'].includes(value)) adminUserCompletion=value;
+   if(kind==='verification' && ['all','verified','unverified'].includes(value)) adminUserVerification=value;
+   adminUserApplyProfileFilters();
+ }
+ function adminUserApplyProfileFilters(){
+   const root=document.getElementById('auEditorFilters');
+   if(!root) return;
+   const cards=[...document.querySelectorAll('#auUserRows [data-au-editor]')];
+   let shown=0;
+   cards.forEach(card=>{
+     const show=(adminUserCompletion==='all'||card.dataset.profile===adminUserCompletion) &&
+       (adminUserVerification==='all'||card.dataset.verified===(adminUserVerification==='verified'?'yes':'no'));
+     card.style.display=show?'':'none';
+     if(show) shown++;
+   });
+   root.querySelectorAll('[data-filter-kind]').forEach(button=>{
+     const chosen=button.dataset.filterValue === (button.dataset.filterKind==='completion'?adminUserCompletion:adminUserVerification);
+     button.classList.toggle('on',chosen); button.setAttribute('aria-pressed',String(chosen));
+   });
+   const summary=document.getElementById('auShowing');
+   if(summary) summary.textContent='Showing '+shown+' of '+cards.length+' editors matching this search';
+   const empty=document.getElementById('auNoUsers');
+   if(empty) empty.hidden=shown>0;
+ }
+ async function adminUsersTab(){
+   const editors=adminUserRole==='EDITOR';
+   const [rows,profilesRes,portfolioRes]=await Promise.all([
+     adminRpc('sp_admin_users',{p_search:adminUserSearch||null,p_role:adminUserRole,p_limit:200}).catch(()=>null),
+     editors?sb.rpc('sp_admin_profiles',{p_role:'EDITOR',p_verified:null}).catch(e=>({error:e})):Promise.resolve(null),
+     editors?sb.from('sp_portfolio').select('editor_id,video_url').not('video_url','is',null).limit(2000).then(x=>x,e=>({error:e})):Promise.resolve(null)
+   ]);
+   if(!rows) return `<div class="card"><p class="muted">Could not load users. Please refresh.</p></div>`;
+   if(editors && (!profilesRes || profilesRes.error || !Array.isArray(profilesRes.data)))
+     return `<div class="card"><b>⚠ Editor profile information unavailable</b><p class="muted">Profiles have not been classified because loading failed.</p><button class="btn-sm" onclick="nav('admin',{tab:'users'})">Retry</button></div>`;
+   const profiles=editors?profilesRes.data:[];
+   const videos=new Set((((portfolioRes&&!portfolioRes.error&&portfolioRes.data)||[]))
+     .filter(p=>p&&p.editor_id&&String(p.video_url||'').trim()).map(p=>String(p.editor_id)));
+   const byId=new Map(profiles.map(p=>[String(p.id),p]));
+   const counts={complete:0,partial:0,incomplete:0,verified:0,unverified:0};
+   profiles.forEach(p=>{counts[adminEditorProfileState(p,videos)]++;counts[p.is_verified===true?'verified':'unverified']++;});
+   const tagged=(rows||[]).map(row=>{
+     const p=editors?byId.get(String(row.id)):null;
+     return {row,profile:p?adminEditorProfileState(p,videos):'unknown',verified:p?p.is_verified===true:!!row.verified};
+   });
+   const isMatch=(p,v)=>(adminUserCompletion==='all'||adminUserCompletion===p) &&
+     (adminUserVerification==='all'||v===(adminUserVerification==='verified'));
+   const initial=tagged.filter(t=>isMatch(t.profile,t.verified)).length;
+   const chip=(kind,value,label,n)=>{
+     const on=(kind==='completion'?adminUserCompletion:adminUserVerification)===value;
+     return `<button type="button" class="au-filter-chip ${on?'on':''}" data-filter-kind="${kind}" data-filter-value="${value}" aria-pressed="${on}" onclick="adminUserSetProfileFilter('${kind}','${value}')">${label} (${n})</button>`;
+   };
+   const roles=[['all','Everyone'],['CLIENT','Clients'],['EDITOR','Editors'],['ADMIN','Admins']];
+   return `<div class="ad-search"><input id="auSearch" placeholder="Name, email or phone" value="${esc(adminUserSearch)}" onkeypress="if(event.key==='Enter'){adminUserSearch=this.value;nav('admin',{tab:'users'});}">
+     <select aria-label="User role" onchange="adminUserRole=this.value;nav('admin',{tab:'users'})">${roles.map(([k,l])=>`<option value="${k}" ${adminUserRole===k?'selected':''}>${l}</option>`).join('')}</select>
+     <button class="btn-sm" onclick="adminUserSearch=document.getElementById('auSearch').value;nav('admin',{tab:'users'})">Go</button></div>
+     ${editors?`<div class="au-editor-filters" id="auEditorFilters">
+       <b>🎬 Editor Profiles · ${profiles.length} signups</b>
+       <p class="au-filter-note">Complete = Bio + Skills + Portfolio link or sample/uploaded video. Partial = at least one detail. Incomplete = none.</p>
+       <div class="au-filter-group" role="group" aria-label="Profile completion">
+         ${chip('completion','all','All',profiles.length)}${chip('completion','complete','Complete',counts.complete)}
+         ${chip('completion','partial','Partial',counts.partial)}${chip('completion','incomplete','Incomplete',counts.incomplete)}
+       </div>
+       <b style="font-size:12px">Verification status — separate filter</b>
+       <div class="au-filter-group" role="group" aria-label="Verification status">
+         ${chip('verification','all','All',profiles.length)}
+         ${chip('verification','verified','Verified',counts.verified)}
+         ${chip('verification','unverified','Unverified',counts.unverified)}
+       </div>
+       ${portfolioRes&&portfolioRes.error?'<p class="au-filter-note">⚠ Uploaded portfolio videos could not be checked. Counts may be incomplete.</p>':''}
+       <p class="au-filter-note" id="auShowing" role="status">Showing ${initial} of ${tagged.length} editors matching this search</p>
+     </div>`:adminEditorProfileShortcut()}
+     <div id="auUserRows">
+       ${tagged.map(({row:x,profile,verified})=>`<div class="card ad-row" ${editors?`data-au-editor="1" data-profile="${profile}" data-verified="${verified?'yes':'no'}"`:''} ${editors&&!isMatch(profile,verified)?'style="display:none"':''} onclick="nav('adminUser',{userId:'${esc(x.id)}'})">
+         <div class="ad-ic">${x.suspended?'⛔':x.role==='EDITOR'?(x.verified?'✔':'🎬'):x.role==='ADMIN'?'🛠':'👤'}</div>
+         <div class="ad-main"><b>${esc(x.name||'-')}</b><small>${esc(x.role)} · ${esc(x.email||'')}${x.strikes?' · '+x.strikes+' strikes':''}${x.rating_avg!=null?' · rating '+x.rating_avg:''} · ${x.projects} projects</small>
+           ${editors?`<div class="au-row-tags"><span class="au-row-tag">${profile==='complete'?'✅ Complete':profile==='partial'?'◐ Partial':profile==='incomplete'?'○ Incomplete':'Status unknown'}</span><span class="au-row-tag">${verified?'✔ Verified':'○ Unverified'}</span></div>`:''}
+         </div><b>›</b></div>`).join('')}
+       <p class="muted" id="auNoUsers" ${editors?initial===0?'':'hidden':tagged.length?'hidden':''}>No users match these filters.</p>
+     </div>`;
+ }
 SCREENS.adminUser = async (data) => {
   const id = data && data.userId;
   const back = `<button class="back-btn" onclick="nav('admin', { tab: 'users' })">‹</button>`;
