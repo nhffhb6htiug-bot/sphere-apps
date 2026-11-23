@@ -806,7 +806,8 @@ body.pc-admin{max-width:none; padding-bottom:0; background:#eef1f8;}
 .pca-top{display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:14px;}
 .pca-top h1{font-size:28px; margin:0;} .pca-top .muted{font-size:13px;}
 .pca-body{max-width:1240px;}
-.pca-body:not(.tab-verification):not(.tab-overview){max-width:920px;}
+.pca-body:not(.tab-verification):not(.tab-overview):not(.tab-users){max-width:920px;}
+.pca-body.tab-users{max-width:1240px;}
 .pca-body.tab-overview{display:grid; grid-template-columns:1fr 1fr; gap:0 16px; align-items:start;}
 .pca-body.tab-overview > .ad-grid{grid-column:1/-1; grid-template-columns:repeat(4,1fr);}
 .pca-body.sub .header{background:none; padding-left:0;}
@@ -11658,7 +11659,7 @@ async function pcVerificationTab(){
   const n = {
     waiting: list.filter(e => e.status !== 'rejected' && !ADMIN_VERIFY_OUTREACH.has(String(e.id))).length,
     messaged: list.filter(e => e.status !== 'rejected' && ADMIN_VERIFY_OUTREACH.has(String(e.id))).length,
-    paid: list.filter(e => e.status !== 'rejected' && !ADMIN_VERIFY_OUTREACH.has(String(e.id)) && (e.fee_status === 'submitted' || e.fee_status === 'confirmed')).length,
+    paid: list.filter(e => e.status !== 'rejected' && e.fee_status === 'confirmed').length,
     video: list.filter(e => e.status !== 'rejected' && !ADMIN_VERIFY_OUTREACH.has(String(e.id)) && e.proof_video).length,
     rejected: list.filter(e => e.status === 'rejected').length,
     verified: (verified || []).length };
@@ -11743,9 +11744,9 @@ function pcvFiltered(){
       if(e.status !== 'rejected') return false;
     } else {
       if(e.status === 'rejected') return false;
-      if(PCV_FILTER === 'messaged' ? !sent : sent) return false;
+      if(PCV_FILTER === 'messaged' ? !sent : PCV_FILTER === 'waiting' ? sent : false) return false;
     }
-    if(PCV_FILTER === 'paid' && !(e.fee_status === 'submitted' || e.fee_status === 'confirmed')) return false;
+    if(PCV_FILTER === 'paid' && e.fee_status !== 'confirmed') return false;
     if(PCV_FILTER === 'video' && !e.proof_video) return false;
     if(PCV_FILTER === 'rejected' && e.status !== 'rejected') return false;
     return !q || [e.name, e.phone, e.email, (e.categories || []).join(' ')].join(' ').toLowerCase().includes(q);
