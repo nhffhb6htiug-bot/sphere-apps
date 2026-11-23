@@ -808,6 +808,8 @@ body.pc-admin{max-width:none; padding-bottom:0; background:#eef1f8;}
 .pca-body{max-width:1240px;}
 .pca-body:not(.tab-verification):not(.tab-overview):not(.tab-users){max-width:920px;}
 .pca-body.tab-users{max-width:1240px;}
+.pca-body.tab-users > .pca-user-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px;}
+@media(max-width:1000px){.pca-body.tab-users > .pca-user-summary{grid-template-columns:repeat(2,minmax(0,1fr));}}
 .pca-body.tab-overview{display:grid; grid-template-columns:1fr 1fr; gap:0 16px; align-items:start;}
 .pca-body.tab-overview > .ad-grid{grid-column:1/-1; grid-template-columns:repeat(4,1fr);}
 .pca-body.sub .header{background:none; padding-left:0;}
@@ -11936,7 +11938,19 @@ SCREENS.admin = async (data) => {
   const p = (ov && !ov._error && ov.pending) || {};
   const counts = { disputes: p.disputes, verification: p.verifications, moderation: (p.held_messages || 0) + (p.suspicious_users || 0), payments: (p.payouts || 0) + (p.upi_extras || 0) + (p.refunds || 0), money: p.fees };
   PC_ADMIN_COUNTS = counts;
-  if(pcAdminOn()) return pcAdminShell(adminTab, body, { pin: ADMIN_PIN ? '' : adminPinCard(pinSet) });
+  if(pcAdminOn()){
+    // Keep the core user counts visible in desktop Users as well as Overview.
+    // Values come from the same admin-only overview RPC used on mobile.
+    const stat = (value, label, tab) => `<div class="ad-stat" style="cursor:pointer" onclick="nav('admin',{tab:'${tab}'})"><b>${esc(value ?? 0)}</b><span>${label}</span></div>`;
+    const userStats = activeTab === 'users' && ov && !ov._error
+      ? `<div class="ad-grid pca-user-summary" aria-label="User statistics">
+          ${stat(ov.users,'Total users','users')}
+          ${stat(ov.clients,'Clients','users')}
+          ${stat(ov.editors,'Editors','users')}
+          ${stat(ov.verified_editors,'Verified editors','verification')}
+        </div>` : '';
+    return pcAdminShell(adminTab, userStats + body, { pin: ADMIN_PIN ? '' : adminPinCard(pinSet) });
+  }
   const wide = (window.innerWidth >= 700 && document.documentElement.classList.contains('os-other')) ? `<button class="btn-sm" style="float:right; margin-top:-34px;" onclick="pcAdminSetPhoneView(false)">🖥 PC view</button>` : '';
   return `
   <div class="header admin-panel-heading"><button class="back-btn" onclick="nav('profile')">‹</button><h1>Admin Panel</h1><p>Sphere by Syahi Films</p>${wide}
