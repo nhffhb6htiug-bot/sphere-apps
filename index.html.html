@@ -809,6 +809,8 @@ body.pc-admin{max-width:none; padding-bottom:0; background:#eef1f8;}
 .pca-body:not(.tab-verification):not(.tab-overview):not(.tab-users){max-width:920px;}
 .pca-body.tab-users{max-width:1240px;}
 .pca-body.tab-users > .pca-user-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px;}
+.pca-body.tab-overview > .pca-user-summary{display:grid;grid-column:1/-1;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px;}
+@media(max-width:1100px){.pca-body.tab-overview > .pca-user-summary{grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media(max-width:1000px){.pca-body.tab-users > .pca-user-summary{grid-template-columns:repeat(2,minmax(0,1fr));}}
 .pca-body.tab-overview{display:grid; grid-template-columns:1fr 1fr; gap:0 16px; align-items:start;}
 .pca-body.tab-overview > .ad-grid{grid-column:1/-1; grid-template-columns:repeat(4,1fr);}
@@ -11942,14 +11944,20 @@ SCREENS.admin = async (data) => {
     // Keep the core user counts visible in desktop Users as well as Overview.
     // Values come from the same admin-only overview RPC used on mobile.
     const stat = (value, label, tab) => `<div class="ad-stat" style="cursor:pointer" onclick="nav('admin',{tab:'${tab}'})"><b>${esc(value ?? 0)}</b><span>${label}</span></div>`;
-    const userStats = activeTab === 'users' && ov && !ov._error
+    const userStats = (activeTab === 'users' || activeTab === 'overview') && ov && !ov._error
       ? `<div class="ad-grid pca-user-summary" aria-label="User statistics">
           ${stat(ov.users,'Total users','users')}
           ${stat(ov.clients,'Clients','users')}
           ${stat(ov.editors,'Editors','users')}
           ${stat(ov.verified_editors,'Verified editors','verification')}
+          ${activeTab === 'overview' ? `${stat(ov.active_projects,'Active projects','projects')}${stat(ov.completed,'Completed projects','projects')}${stat(ov.pending_payments,'Waiting for payment','payments')}${stat(ov.pending_refunds,'Refunds in progress','payments')}` : ''}
         </div>` : '';
-    return pcAdminShell(adminTab, userStats + body, { pin: ADMIN_PIN ? '' : adminPinCard(pinSet) });
+    // The overview's original stat grid is replaced on desktop to ensure
+    // the cards appear directly below the PIN, before revenue and actions.
+    const desktopBody = activeTab === 'overview' && userStats
+      ? body.replace(/<div class="ad-grid">[\\s\\S]*?<\\/div>\\s*(?=<div class="card">)/, '')
+      : body;
+    return pcAdminShell(adminTab, userStats + desktopBody, { pin: ADMIN_PIN ? '' : adminPinCard(pinSet) });
   }
   const wide = (window.innerWidth >= 700 && document.documentElement.classList.contains('os-other')) ? `<button class="btn-sm" style="float:right; margin-top:-34px;" onclick="pcAdminSetPhoneView(false)">🖥 PC view</button>` : '';
   return `
