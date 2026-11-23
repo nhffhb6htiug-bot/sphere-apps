@@ -11955,7 +11955,7 @@ SCREENS.admin = async (data) => {
     // The overview's original stat grid is replaced on desktop to ensure
     // the cards appear directly below the PIN, before revenue and actions.
     const desktopBody = activeTab === 'overview' && userStats
-      ? body.replace(/<div class="ad-grid">[\\s\\S]*?<\\/div>\\s*(?=<div class="card">)/, '')
+      ? body.slice(body.indexOf('<div class="card">'))
       : body;
     return pcAdminShell(adminTab, userStats + desktopBody, { pin: ADMIN_PIN ? '' : adminPinCard(pinSet) });
   }
