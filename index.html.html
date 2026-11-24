@@ -9054,7 +9054,6 @@ SCREENS.postJob = async (data) => {
   }
   const startStep = pre ? 2 : 1;
   setTimeout(() => { if(pre) pjApply(pre); pjShowStep(startStep); }, 0);
-  const free = getSetting('free_revisions');
   return `
   <div class="header"><button class="back-btn" onclick="pjBack()">‹</button><h1>${pj.presetEditor ? 'Hire Directly' : 'Post a Job'}</h1><p id="pjSub">Tell editors what you need</p></div>
   <div class="screen" style="padding-top:0;">
@@ -9093,11 +9092,6 @@ SCREENS.postJob = async (data) => {
         <p class="muted" style="font-size:11px;margin-top:6px;">Upload examples of the editing style you want. Reference and raw files share the ${MAX_RAW_FILES}-file limit, ${MAX_RAW_MB} MB per file. Your selected editor can access them.</p></div>
       <div class="field"><label for="pjRefs">Reference video links (optional)</label><textarea id="pjRefs" maxlength="1000" style="min-height:60px;" placeholder="YouTube or Google Drive links of videos you like"></textarea>
         <p class="muted" style="font-size:11px; margin-top:4px;">YouTube / Drive / WeTransfer links are kept. Other links are hidden for safety.</p></div>
-
-      <div class="pj-sec">Revisions</div>
-      <div class="field"><label>How many rounds of changes do you expect?</label>
-        <select id="pjRevs">${[1, 2, 3, 4, 5].map(n => `<option value="${n}" ${n === Math.min(3, Number(free) || 3) ? 'selected' : ''}>${n}${n <= Number(free) ? ' (free)' : ' (₹' + getSetting('revision_fee') + ' each after ' + free + ')'}</option>`).join('')}</select>
-        <p class="muted" style="font-size:11px; margin-top:4px;">${revisionHelp()}</p></div>
 
       <div class="pj-sec">Raw files</div>
       <div class="field"><label>Raw footage & photos (optional)</label>
@@ -9236,7 +9230,6 @@ function pjApply(v){
   pjSetLanguages(v.language);
   set('pjStyle', v.style_notes);
   set('pjRefs', v.reference_links);
-  if(v.revisions_expected) set('pjRevs', String(Math.min(5, Math.max(1, Number(v.revisions_expected)))));
   set('jobFiles', v.files_link);
   document.querySelectorAll('#pjFormat .pick-chip').forEach(c => c.classList.toggle('on', c.dataset.v === v.video_format));
   const note = document.getElementById('pjAINote');
@@ -9250,7 +9243,7 @@ function pjCollect(){
     budget: val('jobBudget') ? Number(val('jobBudget')) : null, deadline: val('jobDeadline') || null,
     video_length: val('pjLength'), video_format: fmt ? fmt.dataset.v : '', language: pjLanguageValues(pickedValues('jobLang')).join(', '),
     style_notes: val('pjStyle'), reference_links: val('pjRefs'),
-    revisions_expected: val('pjRevs') ? Number(val('pjRevs')) : null, files_link: val('jobFiles'),
+    files_link: val('jobFiles'),
     ai_assisted: !!pj.ai,
     audience: (document.getElementById('pjPremium') || {}).checked ? 'premium' : 'all'
   };
@@ -9303,7 +9296,6 @@ function pjReview(){
       ${row('Style', v.style_notes)}
       ${row('Reference video links', v.reference_links)}
       ${row('Reference uploads', references.length ? references.length+' video(s) to upload' : '')}
-      ${row('Revisions', v.revisions_expected ? v.revisions_expected + ' expected' : '')}
       ${row('Raw files', [files.length ? files.length + ' file(s) to upload' : '', v.files_link].filter(Boolean).join(' · '))}
     </div>
     <p class="muted" style="font-size:12px;">${revisionHelp()} ${pj.presetEditor ? 'The editor will reply with a price.' : 'Verified editors in this category will be told about your job.'}</p>`;
@@ -9367,7 +9359,7 @@ async function submitJob(){
     status: presetEditor ? 'negotiating' : 'open', assigned_editor: presetEditor || null,
     title: v.title || null, video_length: v.video_length || null, video_format: v.video_format || null,
     style_notes: v.style_notes || null, reference_links: v.reference_links || null,
-    revisions_expected: v.revisions_expected, ai_assisted: !!v.ai_assisted,
+    revisions_expected: null, ai_assisted: !!v.ai_assisted,
     ...(v.audience === 'premium' && !presetEditor ? { audience: 'premium' } : {})
   };
   let { data: jobRow, error } = await sb.from('sp_jobs').insert(row).select('description, title, style_notes').single();
@@ -9400,8 +9392,7 @@ function aiJobPrompt(brief){
     + '; "description": clear project description for editors in simple English, 2-5 sentences; "budget": number in rupees or null; '
     + '"deadline_days": number of days from today or null; "language": an array of up to 4 explicitly requested values from ' + JSON.stringify(LANGUAGES) + ' or null; '
     + '"video_length": like "60 sec" or "5 min" or null; "video_format": one of ' + JSON.stringify(VIDEO_FORMATS.slice(0, 4)) + ' or null; '
-    + '"style_notes": music, captions, colours, effects, mood in one short line or null; "reference_links": links from the request or null; '
-    + '"revisions_expected": number or null}. Never include phone numbers, emails or social media IDs. Client request:  + brief + ';
+    + '"style_notes": music, captions, colours, effects, mood in one short line or null; "reference_links": links from the request or null}. Never include phone numbers, emails or social media IDs. Client request:  + brief + ';
 }
 function parseAIJob(reply){
   const t = String(reply || '');
@@ -9425,8 +9416,7 @@ function aiDraftToFields(o){
     video_length: str(o.video_length, 40),
     video_format: fmt || '',
     style_notes: str(o.style_notes, 1500),
-    reference_links: str(o.reference_links, 1000),
-    revisions_expected: num(o.revisions_expected, 1, 10)
+    reference_links: str(o.reference_links, 1000)
   };
 }
 // Works without AI: reads the obvious things from the text
@@ -9458,20 +9448,18 @@ function localJobParse(text){
     [/slow[- ]?mo/, 'Slow motion'], [/colou?r/, 'Colour grading'], [/logo/, 'Add logo'], [/text|title card/, 'Text / titles']]
     .filter(([re]) => re.test(low)).map(([, s]) => s).join(', ');
   const refs = (t.match(/https?:\/\/\S+/g) || []).join(' ');
-  const rv = low.match(/(\d)\s*(?:revisions?|changes?|corrections?)/);
   const first = t.split(/[.\n!?]/)[0].trim();
   const short = first.split(',')[0].trim();
   const title = (short.length >= 12 ? short : first).slice(0, 60);
   return {
     title: title.length > 6 ? title : '', category: cat ? cat[0] : '', description: '',
     budget: budget && budget > 0 && budget < 10000000 ? budget : null, deadline: days !== null ? addDaysIST(days) : null,
-    language: lang, video_length: len, video_format: fmt, style_notes: style, reference_links: refs,
-    revisions_expected: rv ? Math.min(10, +rv[1]) : null
+    language: lang, video_length: len, video_format: fmt, style_notes: style, reference_links: refs
   };
 }
 function mergeJobFields(ai, local, brief){
   const out = {};
-  const keys = ['title', 'category', 'description', 'budget', 'deadline', 'language', 'video_length', 'video_format', 'style_notes', 'reference_links', 'revisions_expected'];
+  const keys = ['title', 'category', 'description', 'budget', 'deadline', 'language', 'video_length', 'video_format', 'style_notes', 'reference_links'];
   keys.forEach(k => { const a = ai ? ai[k] : null, l = local ? local[k] : null; out[k] = (a !== null && a !== undefined && a !== '') ? a : l; });
   if(!out.description) out.description = String(brief || '').trim();
   return out;
@@ -9950,7 +9938,7 @@ SCREENS.payment = async () => {
       <p class="muted" style="font-size:12px;">${esc(job.category)}</p>
       <div class="kv" style="margin-top:8px;"><span>Editor</span><b>${esc(ed ? ed.name : 'Editor')}${ed && ed.verified ? ' ✔' : ''}</b></div>
       ${bid && bid.delivery_days ? `<div class="kv"><span>Delivery</span><b>${bid.delivery_days} day${bid.delivery_days === 1 ? '' : 's'} after payment</b></div>` : ''}
-      ${job.revisionsExpected ? `<div class="kv"><span>Revisions</span><b>${getSetting('free_revisions')} free</b></div>` : ''}
+      <div class="kv"><span>Revisions</span><b>${getSetting('free_revisions')} free</b></div>
     </div>
     <div class="card pay-hero">
       <p class="muted">Total to pay</p>
