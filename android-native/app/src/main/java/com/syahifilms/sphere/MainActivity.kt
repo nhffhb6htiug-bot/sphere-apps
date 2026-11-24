@@ -257,12 +257,43 @@ class MainActivity : ComponentActivity() {
         intent.data?.takeIf { it.scheme == "sphereapp" && it.host == "auth" }?.let { deliverAuth(it.toString()) }
     }
     private var fileCallback: ValueCallback<Array<Uri>>? = null
+    private var pickingDocuments = false
+
+    // Bypass the legacy mixed-media gallery (which can show empty tiles on
+    // older Android/WebView builds). DocumentsUI handles images and videos
+    // through explicit MIME filters and grants access only to chosen files.
+    private fun mediaDocumentsIntent(params: WebChromeClient.FileChooserParams?): Intent? {
+        if (params == null || params.isCaptureEnabled) return null
+        val types = params.acceptTypes.orEmpty()
+            .flatMap { it.split(",") }
+            .map { it.trim().lowercase() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+        if (types.isEmpty() || types.any { !it.startsWith("image/") && !it.startsWith("video/") }) return null
+        return Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = if (types.size == 1) types.first() else "*/*"
+            if (types.size > 1) putExtra(Intent.EXTRA_MIME_TYPES, types.toTypedArray())
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, params.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    }
+
     private val filePicker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val uris = if (result.resultCode == RESULT_OK) {
-            WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
-        } else null
-        fileCallback?.onReceiveValue(uris)
+        val fromDocuments = pickingDocuments
+        pickingDocuments = false
+        val callback = fileCallback
         fileCallback = null
+        val uris = if (result.resultCode != RESULT_OK) null else if (fromDocuments) {
+            val data = result.data
+            val selected = linkedSetOf<Uri>()
+            data?.data?.let { selected.add(it) }
+            data?.clipData?.let { clip ->
+                for (i in 0 until clip.itemCount) clip.getItemAt(i).uri?.let { selected.add(it) }
+            }
+            selected.filter { it.scheme == "content" }.toTypedArray().takeIf { it.isNotEmpty() }
+        } else WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+        callback?.onReceiveValue(uris)
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -324,17 +355,36 @@ class MainActivity : ComponentActivity() {
                     webView: WebView?, filePathCallback: ValueCallback<Array<Uri>>?,
                     fileChooserParams: FileChooserParams?
                 ): Boolean {
-                    fileCallback?.onReceiveValue(null)
+                    if (filePathCallback == null) return false
+                    // Never replace a pending callback with a second picker request.
+                    if (fileCallback != null) {
+                        filePathCallback.onReceiveValue(null)
+                        return true
+                    }
                     fileCallback = filePathCallback
+                    pickingDocuments = false
+                    mediaDocumentsIntent(fileChooserParams)?.let { documents ->
+                        try {
+                            pickingDocuments = true
+                            filePicker.launch(documents)
+                            return true
+                        } catch (_: ActivityNotFoundException) {
+                            // Keep the legacy chooser as fallback on devices without DocumentsUI.
+                            pickingDocuments = false
+                        } catch (_: SecurityException) {
+                            pickingDocuments = false
+                        }
+                    }
                     return try {
                         filePicker.launch(fileChooserParams?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
                             type = "*/*"; addCategory(Intent.CATEGORY_OPENABLE)
                         })
                         true
-                    } catch (_: ActivityNotFoundException) {
+                    } catch (_: Exception) {
+                        pickingDocuments = false
                         fileCallback = null
-                        filePathCallback?.onReceiveValue(null)
-                        false
+                        filePathCallback.onReceiveValue(null)
+                        true
                     }
                 }
             }
