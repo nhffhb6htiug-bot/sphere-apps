@@ -345,7 +345,14 @@ body:not(.pc-admin) #bottomNav .sp-nav-brand-intro .sp-nav-intro-r{
 .search-row svg{width:18px; height:18px; color:var(--muted); flex:0 0 18px;} .search-row input{border:none; outline:none; flex:1; font-size:14px; background:transparent;}
 .raw-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:8px;}
 .raw-tile{position:relative; aspect-ratio:1/1; border-radius:12px; overflow:hidden; background:#111; display:flex; align-items:center; justify-content:center; color:#fff; text-decoration:none; font-size:11px;}
-.raw-tile img{width:100%; height:100%; object-fit:cover;}
+.raw-tile img,.raw-tile video{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;}
+.raw-tile .rt-media{opacity:0;pointer-events:none;}
+.raw-tile .rt-media.rt-ready{opacity:1;}
+.raw-tile .rt-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;}
+.raw-tile .rt-play-badge{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:32px;height:32px;display:grid;place-items:center;background:rgba(0,0,0,.6);border-radius:50%;color:white;font-size:15px;pointer-events:none;}
+.raw-tile .rt-name,.raw-tile .raw-del{z-index:2;}
+.raw-tile .rt-name{color:#fff;}
+.pj-picked-grid:empty{display:none;}
 .raw-tile .rt-name{position:absolute; left:0; right:0; bottom:0; padding:4px 6px; background:linear-gradient(transparent,rgba(0,0,0,.8)); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .raw-tile .rt-play{font-size:22px;}
 .raw-del{position:absolute; top:4px; right:4px; width:22px; height:22px; border-radius:50%; border:none; background:rgba(0,0,0,.65); color:#fff; font-size:11px; cursor:pointer;}
@@ -3589,6 +3596,18 @@ async function uploadRawFiles(fileList, statusEl){
   if(statusEl) statusEl.textContent = '';
   return out;
 }
+// Real media frame where supported; keep a readable fallback for unsupported codecs.
+function projectMediaThumb(url,type){
+  const src=esc(url);
+  if(String(type||'').startsWith('image/'))return `<span class="rt-fallback" aria-hidden="true">▧</span><img class="rt-media" src="${src}" alt="" loading="lazy" onload="this.classList.add('rt-ready')" onerror="this.classList.remove('rt-ready')">`;
+  if(String(type||'').startsWith('video/'))return `<span class="rt-fallback" aria-hidden="true">▣</span><video class="rt-media" src="${src}" muted playsinline preload="metadata" aria-hidden="true" onloadedmetadata="projectThumbSeek(this)" onloadeddata="this.classList.add('rt-ready')" onseeked="this.classList.add('rt-ready')" onerror="this.classList.remove('rt-ready')"></video><span class="rt-play-badge" aria-hidden="true">▶</span>`;
+  return '<span class="rt-fallback" aria-hidden="true">📎</span>';
+}
+function projectThumbSeek(video){
+  try{
+    if(Number.isFinite(video.duration)&&video.duration>0)video.currentTime=Math.min(.1,video.duration/2);
+  }catch(e){}
+}
 function renderRawFiles(files, opts){
   opts = opts || {};
   if(!files || !files.length) return '';
@@ -3596,9 +3615,7 @@ function renderRawFiles(files, opts){
     if(opts.kind && (f.kind==='reference'?'reference':'raw')!==opts.kind)return '';
     const url = rawUrl(f.path);
     const del = opts.removable ? `<button class="raw-del" onclick="event.preventDefault(); event.stopPropagation(); removeRawFile('${opts.jobId}', ${i})">✕</button>` : '';
-    return String(f.type || '').startsWith('image/')
-      ? `<a class="raw-tile" href="${esc(url)}" target="_blank" rel="noopener">${del}<img src="${esc(url)}" alt="" loading="lazy"><span class="rt-name">${esc(f.name)}</span></a>`
-      : `<a class="raw-tile" href="${esc(url)}" target="_blank" rel="noopener">${del}<span class="rt-play">▶</span><span class="rt-name">${esc(f.name)}</span></a>`;
+    return `<a class="raw-tile" href="${esc(url)}" target="_blank" rel="noopener">${projectMediaThumb(url,f.type)}${del}<span class="rt-name">${esc(f.name)}</span></a>`;
   }).join('')}</div>`;
 }
 function renderProjectAttachments(files,opts){
@@ -5215,6 +5232,7 @@ async function navInner(screen, data){
       SP_NAV_RENDERED_SCREEN = screen;
     }
   }
+  pjPrunePreviews();
   // Convert admin-only emoji labels to compact, scalable SVG icons after navigation.
   if(mySeq === NAV_SEQ && /^admin(?:$|[A-Z])/.test(screen)) sphereAdminPaintIcons();
   // After async screen rendering, re-align the glass highlight with the actual page.
@@ -9088,14 +9106,14 @@ SCREENS.postJob = async (data) => {
         <div class="pick-chips" id="pjFormat">${VIDEO_FORMATS.map(v => `<span class="pick-chip" data-v="${esc(v)}" onclick="pjPickFormat(this)">${esc(v)}</span>`).join('')}</div></div>
       <div class="field"><label id="pjLanguageLabel">Video languages (optional)</label><div class="pick-chips" id="jobLang" role="group" aria-labelledby="pjLanguageLabel" aria-describedby="pjLangHint">${LANGUAGES.map(l => `<button type="button" class="pick-chip" data-v="${esc(l)}" aria-pressed="false" onclick="pjToggleLanguage(this)">${esc(l)}</button>`).join('')}</div><p class="muted" id="pjLangHint" aria-live="polite" style="font-size:11px;margin-top:6px;">0 / 4 selected · Any language</p></div>
       <div class="field"><label>Style / special requirements</label><textarea id="pjStyle" maxlength="1500" placeholder="Music, captions/subtitles, colours, transitions, mood, logo…"></textarea></div>
-      <div class="field"><label for="pjRefFiles">Reference video upload (optional)</label><input id="pjRefFiles" type="file" accept="video/*" multiple>
+      <div class="field"><label for="pjRefFiles">Reference video upload (optional)</label><input id="pjRefFiles" type="file" accept="video/*" multiple onchange="pjPreviewPicked(this)"><div id="pjRefFilesPreview" class="raw-grid pj-picked-grid" aria-live="polite"></div>
         <p class="muted" style="font-size:11px;margin-top:6px;">Upload examples of the editing style you want. Reference and raw files share the ${MAX_RAW_FILES}-file limit, ${MAX_RAW_MB} MB per file. Your selected editor can access them.</p></div>
       <div class="field"><label for="pjRefs">Reference video links (optional)</label><textarea id="pjRefs" maxlength="1000" style="min-height:60px;" placeholder="YouTube or Google Drive links of videos you like"></textarea>
         <p class="muted" style="font-size:11px; margin-top:4px;">YouTube / Drive / WeTransfer links are kept. Other links are hidden for safety.</p></div>
 
       <div class="pj-sec">Raw files</div>
       <div class="field"><label>Raw footage & photos (optional)</label>
-        <input id="jobRawFiles" type="file" accept="image/*,video/*" multiple>
+        <input id="jobRawFiles" type="file" accept="image/*,video/*" multiple onchange="pjPreviewPicked(this)"><div id="jobRawFilesPreview" class="raw-grid pj-picked-grid" aria-live="polite"></div>
         <p class="muted" style="font-size:11px; margin-top:6px;">Up to ${MAX_RAW_FILES} files total (including reference videos), ${MAX_RAW_MB} MB each. Bigger videos? Add a link below.</p></div>
       <div class="field"><label>Raw files link (optional)</label><input id="jobFiles" placeholder="Google Drive / WeTransfer link"></div>
 
@@ -9257,6 +9275,31 @@ function pjValidate(v){
 }
 
 // Reference uploads share the existing private attachment storage and limits.
+// Object URLs are local to the selected files, not uploaded just to make a preview.
+const PJ_PREVIEW_URLS=new Map();
+function pjReleasePreviews(grid){
+  const urls=PJ_PREVIEW_URLS.get(grid)||[];
+  urls.forEach(url=>URL.revokeObjectURL(url));
+  PJ_PREVIEW_URLS.delete(grid);
+}
+function pjPrunePreviews(){
+  for(const grid of PJ_PREVIEW_URLS.keys())if(!grid.isConnected)pjReleasePreviews(grid);
+}
+function pjPreviewPicked(input){
+  const grid=document.getElementById(input.id+'Preview');
+  if(!grid)return;
+  pjReleasePreviews(grid);
+  const urls=[];
+  PJ_PREVIEW_URLS.set(grid,urls);
+  const files=Array.from(input.files||[]).slice(0,MAX_RAW_FILES);
+  grid.innerHTML=files.map(file=>{
+    let thumb='<span class="rt-fallback" aria-hidden="true">📎</span>';
+    if(/^(image|video)\//.test(file.type)&&file.size<=MAX_RAW_MB*1024*1024){
+      try{const url=URL.createObjectURL(file);urls.push(url);thumb=projectMediaThumb(url,file.type);}catch(e){}
+    }
+    return `<div class="raw-tile">${thumb}<span class="rt-name">${esc(file.name)}</span></div>`;
+  }).join('');
+}
 function pjGetAttachments(){
   const read=id=>Array.from(document.getElementById(id)?.files||[]);
   return {raw:read('jobRawFiles'),references:read('pjRefFiles')};
