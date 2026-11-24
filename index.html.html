@@ -9075,7 +9075,7 @@ SCREENS.postJob = async (data) => {
       <div class="field"><label>Video length</label><input id="pjLength" maxlength="40" placeholder="e.g. 60 sec, 5 min"></div>
       <div class="field"><label>Format</label>
         <div class="pick-chips" id="pjFormat">${VIDEO_FORMATS.map(v => `<span class="pick-chip" data-v="${esc(v)}" onclick="pjPickFormat(this)">${esc(v)}</span>`).join('')}</div></div>
-      <div class="field"><label>Video language (optional)</label><select id="jobLang"><option value="">Any</option>${LANGUAGES.map(l => `<option>${l}</option>`).join('')}</select></div>
+      <div class="field"><label id="pjLanguageLabel">Video languages (optional)</label><div class="pick-chips" id="jobLang" role="group" aria-labelledby="pjLanguageLabel" aria-describedby="pjLangHint">${LANGUAGES.map(l => `<button type="button" class="pick-chip" data-v="${esc(l)}" aria-pressed="false" onclick="pjToggleLanguage(this)">${esc(l)}</button>`).join('')}</div><p class="muted" id="pjLangHint" aria-live="polite" style="font-size:11px;margin-top:6px;">0 / 4 selected · Any language</p></div>
       <div class="field"><label>Style / special requirements</label><textarea id="pjStyle" maxlength="1500" placeholder="Music, captions/subtitles, colours, transitions, mood, logo…"></textarea></div>
       <div class="field"><label>Reference videos (optional)</label><textarea id="pjRefs" maxlength="1000" style="min-height:60px;" placeholder="YouTube or Google Drive links of videos you like"></textarea>
         <p class="muted" style="font-size:11px; margin-top:4px;">YouTube / Drive / WeTransfer links are kept. Other links are hidden for safety.</p></div>
@@ -9181,6 +9181,33 @@ function pjPickFormat(el){
   if(on) el.classList.add('on');
 }
 
+// Job languages stay compatible with the existing single text field.
+const PJ_MAX_LANGUAGES=4;
+function pjLanguageValues(value){
+  const raw=Array.isArray(value)?value:String(value||'').split(',');
+  return [...new Set(raw.map(x=>LANGUAGES.find(l=>l.toLowerCase()===String(x).trim().toLowerCase())).filter(Boolean))].slice(0,PJ_MAX_LANGUAGES);
+}
+function pjUpdateLanguageHint(){
+  const count=pickedValues('jobLang').length;
+  const hint=document.getElementById('pjLangHint');
+  if(hint)hint.textContent=count+' / '+PJ_MAX_LANGUAGES+' selected'+(count===0?' · Any language':'');
+}
+function pjToggleLanguage(el){
+  const active=el.classList.contains('on');
+  if(!active&&pickedValues('jobLang').length>=PJ_MAX_LANGUAGES){alert('You can select up to 4 video languages.');return;}
+  el.classList.toggle('on',!active);
+  el.setAttribute('aria-pressed',String(!active));
+  pjUpdateLanguageHint();
+}
+function pjSetLanguages(value){
+  const selected=pjLanguageValues(value);
+  document.querySelectorAll('#jobLang .pick-chip').forEach(el=>{
+    const on=selected.includes(el.dataset.v);
+    el.classList.toggle('on',on);
+    el.setAttribute('aria-pressed',String(on));
+  });
+  pjUpdateLanguageHint();
+}
 // ---- Fill the form from an object / read it back
 function pjApply(v){
   if(!v) return;
@@ -9192,7 +9219,7 @@ function pjApply(v){
   set('jobBudget', v.budget ? Number(v.budget) : '');
   if(v.deadline && v.deadline >= todayIST()) set('jobDeadline', v.deadline);
   set('pjLength', v.video_length);
-  if(v.language && LANGUAGES.includes(v.language)) set('jobLang', v.language);
+  pjSetLanguages(v.language);
   set('pjStyle', v.style_notes);
   set('pjRefs', v.reference_links);
   if(v.revisions_expected) set('pjRevs', String(Math.min(5, Math.max(1, Number(v.revisions_expected)))));
@@ -9207,7 +9234,7 @@ function pjCollect(){
   return {
     title: val('pjTitle'), category: val('jobCat'), description: val('jobDesc'),
     budget: val('jobBudget') ? Number(val('jobBudget')) : null, deadline: val('jobDeadline') || null,
-    video_length: val('pjLength'), video_format: fmt ? fmt.dataset.v : '', language: val('jobLang'),
+    video_length: val('pjLength'), video_format: fmt ? fmt.dataset.v : '', language: pjLanguageValues(pickedValues('jobLang')).join(', '),
     style_notes: val('pjStyle'), reference_links: val('pjRefs'),
     revisions_expected: val('pjRevs') ? Number(val('pjRevs')) : null, files_link: val('jobFiles'),
     ai_assisted: !!pj.ai,
@@ -9337,7 +9364,7 @@ function aiJobPrompt(brief){
   return 'You are filling a job form for Sphere, a video editing marketplace in India. Read the client request and reply with ONLY one JSON object (no other text, no markdown) with exactly these keys: '
     + '{"title": short title, max 60 characters; "category": one of ' + JSON.stringify(CATEGORIES)
     + '; "description": clear project description for editors in simple English, 2-5 sentences; "budget": number in rupees or null; '
-    + '"deadline_days": number of days from today or null; "language": one of ' + JSON.stringify(LANGUAGES) + ' or null; '
+    + '"deadline_days": number of days from today or null; "language": an array of up to 4 explicitly requested values from ' + JSON.stringify(LANGUAGES) + ' or null; '
     + '"video_length": like "60 sec" or "5 min" or null; "video_format": one of ' + JSON.stringify(VIDEO_FORMATS.slice(0, 4)) + ' or null; '
     + '"style_notes": music, captions, colours, effects, mood in one short line or null; "reference_links": links from the request or null; '
     + '"revisions_expected": number or null}. Never include phone numbers, emails or social media IDs. Client request:  + brief + ';
@@ -9360,7 +9387,7 @@ function aiDraftToFields(o){
     description: str(o.description, 2000),
     budget: num(o.budget, 1, 10000000),
     deadline: days !== null ? addDaysIST(days) : null,
-    language: LANGUAGES.includes(o.language) ? o.language : '',
+    language: pjLanguageValues(o.language).join(', '),
     video_length: str(o.video_length, 40),
     video_format: fmt || '',
     style_notes: str(o.style_notes, 1500),
@@ -9392,7 +9419,7 @@ function localJobParse(text){
     : /16\s*[:x]\s*9|youtube|horizontal|landscape/.test(low) ? VIDEO_FORMATS[1]
     : /1\s*[:x]\s*1|square/.test(low) ? VIDEO_FORMATS[2] : /4\s*[:x]\s*5/.test(low) ? VIDEO_FORMATS[3] : '';
   const lang = ['Hinglish', 'Haryanvi', 'Bhojpuri', 'Punjabi', 'Rajasthani', 'Marathi', 'Gujarati', 'Bengali', 'Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Urdu', 'Hindi', 'English']
-    .find(l => new RegExp('\\b' + l.toLowerCase() + '\\b').test(low)) || '';
+     .filter(l => new RegExp('\\b' + l.toLowerCase() + '\\b').test(low)).slice(0,PJ_MAX_LANGUAGES).join(', ');
   const style = [[/music|song|gaana|trending audio/, 'Background music'], [/caption|subtitle/, 'Captions / subtitles'], [/transition/, 'Smooth transitions'],
     [/slow[- ]?mo/, 'Slow motion'], [/colou?r/, 'Colour grading'], [/logo/, 'Add logo'], [/text|title card/, 'Text / titles']]
     .filter(([re]) => re.test(low)).map(([, s]) => s).join(', ');
