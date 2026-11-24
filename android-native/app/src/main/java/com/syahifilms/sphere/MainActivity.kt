@@ -4,6 +4,12 @@ import android.annotation.SuppressLint
 import android.webkit.JavascriptInterface
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.ClipData
+import android.app.AlertDialog
+import android.provider.MediaStore
+import android.widget.Toast
+import androidx.core.content.FileProvider
+import java.io.File
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
@@ -33,6 +39,8 @@ import kotlinx.coroutines.launch
  * Website parity shell: use the same production UI, icons, transitions and themes.
  * The previous native Compose screens remain in the project for a future offline/native build.
  */
+class SphereCaptureProvider : FileProvider()
+
 class MainActivity : ComponentActivity() {
     private lateinit var browser: WebView
     private lateinit var splashOverlay: FrameLayout
@@ -258,17 +266,19 @@ class MainActivity : ComponentActivity() {
     }
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private var pickingDocuments = false
+    private var captureFile: File? = null
+    private var captureUri: Uri? = null
 
     // Bypass the legacy mixed-media gallery (which can show empty tiles on
     // older Android/WebView builds). DocumentsUI handles images and videos
     // through explicit MIME filters and grants access only to chosen files.
+    private fun acceptedTypes(params: WebChromeClient.FileChooserParams?): List<String> =
+        params?.acceptTypes.orEmpty().flatMap { it.split(",") }
+            .map { it.trim().lowercase() }.filter { it.isNotEmpty() }.distinct()
+
     private fun mediaDocumentsIntent(params: WebChromeClient.FileChooserParams?): Intent? {
-        if (params == null || params.isCaptureEnabled) return null
-        val types = params.acceptTypes.orEmpty()
-            .flatMap { it.split(",") }
-            .map { it.trim().lowercase() }
-            .filter { it.isNotEmpty() }
-            .distinct()
+        if (params == null) return null
+        val types = acceptedTypes(params)
         if (types.isEmpty() || types.any { !it.startsWith("image/") && !it.startsWith("video/") }) return null
         return Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
@@ -279,21 +289,114 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private val filePicker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val fromDocuments = pickingDocuments
-        pickingDocuments = false
+    private fun finishFilePicker(uris: Array<Uri>?) {
         val callback = fileCallback
         fileCallback = null
-        val uris = if (result.resultCode != RESULT_OK) null else if (fromDocuments) {
-            val data = result.data
-            val selected = linkedSetOf<Uri>()
-            data?.data?.let { selected.add(it) }
-            data?.clipData?.let { clip ->
-                for (i in 0 until clip.itemCount) clip.getItemAt(i).uri?.let { selected.add(it) }
-            }
-            selected.filter { it.scheme == "content" }.toTypedArray().takeIf { it.isNotEmpty() }
-        } else WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+        pickingDocuments = false
         callback?.onReceiveValue(uris)
+    }
+
+    private fun selectedContentUris(data: Intent?): Array<Uri>? {
+        val selected = linkedSetOf<Uri>()
+        data?.data?.let { selected.add(it) }
+        data?.clipData?.let { clip ->
+            for (i in 0 until clip.itemCount) clip.getItemAt(i).uri?.let { selected.add(it) }
+        }
+        return selected.filter { it.scheme == "content" }.toTypedArray().takeIf { it.isNotEmpty() }
+    }
+
+    private val filePicker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val captured = captureFile
+        val uri = captureUri
+        captureFile = null
+        captureUri = null
+        val uris = when {
+            result.resultCode != RESULT_OK -> null
+            captured != null && uri != null && captured.length() > 0L -> arrayOf(uri)
+            captured != null || pickingDocuments -> selectedContentUris(result.data)
+            else -> WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+        }
+        if (captured != null && (uris == null || uri !in uris)) captured.delete()
+        if (uri != null) revokeUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        finishFilePicker(uris)
+    }
+
+    private fun browseFiles(params: WebChromeClient.FileChooserParams?, documents: Intent?) {
+        if (documents != null) {
+            try {
+                pickingDocuments = true
+                filePicker.launch(documents)
+                return
+            } catch (_: ActivityNotFoundException) {
+                pickingDocuments = false
+            } catch (_: SecurityException) {
+                pickingDocuments = false
+            }
+        }
+        try {
+            filePicker.launch(params?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
+                type = "*/*"; addCategory(Intent.CATEGORY_OPENABLE)
+            })
+        } catch (_: Exception) {
+            Toast.makeText(this, "Unable to open files.", Toast.LENGTH_SHORT).show()
+            finishFilePicker(null)
+        }
+    }
+
+    private fun captureMedia(video: Boolean) {
+        var created: File? = null
+        var output: Uri? = null
+        try {
+            val directory = File(cacheDir, "sphere-capture")
+            directory.mkdirs()
+            // Expire only old temporary captures, not the current selection.
+            directory.listFiles()?.filter { it.lastModified() < System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000 }
+                ?.forEach { it.delete() }
+            val file = File.createTempFile("capture_", if (video) ".mp4" else ".jpg", directory)
+            created = file
+            val uri = FileProvider.getUriForFile(this, packageName + ".capture", file)
+            output = uri
+            captureFile = file
+            captureUri = uri
+            val action = if (video) MediaStore.ACTION_VIDEO_CAPTURE else MediaStore.ACTION_IMAGE_CAPTURE
+            filePicker.launch(Intent(action).apply {
+                putExtra(MediaStore.EXTRA_OUTPUT, uri)
+                clipData = ClipData.newRawUri("Sphere capture", uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            })
+        } catch (_: Exception) {
+            created?.delete()
+            output?.let { revokeUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
+            captureFile = null
+            captureUri = null
+            Toast.makeText(this, "Camera unavailable. Try Browse instead.", Toast.LENGTH_SHORT).show()
+            finishFilePicker(null)
+        }
+    }
+
+    private fun openFilePicker(params: WebChromeClient.FileChooserParams?) {
+        val documents = mediaDocumentsIntent(params)
+        val types = acceptedTypes(params)
+        val photo = types.any { it == "image/*" || it == "image/jpeg" }
+        val video = types.any { it == "video/*" || it == "video/mp4" }
+        if (documents == null || (!photo && !video)) {
+            browseFiles(params, documents)
+            return
+        }
+        if (params?.isCaptureEnabled == true && photo != video) {
+            captureMedia(video)
+            return
+        }
+        val labels = mutableListOf("Browse photos and videos")
+        val actions = mutableListOf<() -> Unit>({ browseFiles(params, documents) })
+        if (photo) { labels.add("Take photo"); actions.add { captureMedia(false) } }
+        if (video) { labels.add("Record video"); actions.add { captureMedia(true) } }
+        AlertDialog.Builder(this)
+            .setTitle("Add media")
+            .setItems(labels.toTypedArray()) { _, which -> actions[which]() }
+            .setNegativeButton("Cancel") { _, _ -> finishFilePicker(null) }
+            .setOnCancelListener { finishFilePicker(null) }
+            .show()
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -363,29 +466,12 @@ class MainActivity : ComponentActivity() {
                     }
                     fileCallback = filePathCallback
                     pickingDocuments = false
-                    mediaDocumentsIntent(fileChooserParams)?.let { documents ->
-                        try {
-                            pickingDocuments = true
-                            filePicker.launch(documents)
-                            return true
-                        } catch (_: ActivityNotFoundException) {
-                            // Keep the legacy chooser as fallback on devices without DocumentsUI.
-                            pickingDocuments = false
-                        } catch (_: SecurityException) {
-                            pickingDocuments = false
-                        }
-                    }
-                    return try {
-                        filePicker.launch(fileChooserParams?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
-                            type = "*/*"; addCategory(Intent.CATEGORY_OPENABLE)
-                        })
-                        true
+                    try {
+                        openFilePicker(fileChooserParams)
                     } catch (_: Exception) {
-                        pickingDocuments = false
-                        fileCallback = null
-                        filePathCallback.onReceiveValue(null)
-                        true
+                        finishFilePicker(null)
                     }
+                    return true
                 }
             }
         }
@@ -423,8 +509,7 @@ class MainActivity : ComponentActivity() {
         super.onSaveInstanceState(outState)
     }
     override fun onDestroy() {
-        fileCallback?.onReceiveValue(null)
-        fileCallback = null
+        finishFilePicker(null)
         browser.destroy()
         super.onDestroy()
     }
