@@ -3855,7 +3855,11 @@ function loadOverlayEl(){
   }
   return el;
 }
-function showLoadOverlay(){loadOverlayEl().classList.add('on');}
+function showLoadOverlay(){
+  // The launch screen already has its own spinner, including while the first page loads.
+  if(document.querySelector('#app .sphere-launch-screen')){hideLoadOverlay();return;}
+  loadOverlayEl().classList.add('on');
+}
 function hideLoadOverlay(){const el=document.getElementById('spLoadOv');if(el)el.classList.remove('on');}
 // Shared circular indicator for splash and transitions, not an animated brand logo.
 const SPHERE_LOADER_SVG = '<div class="sp-loader" aria-hidden="true"></div>';
