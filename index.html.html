@@ -751,6 +751,17 @@ details.card summary{cursor:pointer; list-style:none;}
 details.card summary::-webkit-details-marker{display:none;}
 details.card summary::after{content:'＋'; float:right; color:var(--muted);}
 details.card[open] summary::after{content:'－';}
+/* Smart Brief has a two-line heading; keep its toggle in a dedicated column. */
+#pjBriefBuilder > summary{display:grid;grid-template-columns:minmax(0,1fr) 24px;align-items:center;gap:12px;list-style:none;}
+#pjBriefBuilder > summary::marker{content:'';}
+#pjBriefBuilder > summary::-webkit-details-marker{display:none;}
+#pjBriefBuilder > summary::after{content:none;}
+#pjBriefBuilder > summary .pj-brief-heading{min-width:0;overflow-wrap:anywhere;}
+#pjBriefBuilder > summary .pj-brief-heading p{margin:4px 0 0;font-size:12px;}
+#pjBriefBuilder > summary .pj-brief-toggle{width:24px;height:24px;display:grid;place-items:center;line-height:1;font-size:21px;color:var(--muted);flex-shrink:0;}
+#pjBriefBuilder > summary .pj-brief-toggle::before{content:'＋';}
+#pjBriefBuilder[open] > summary .pj-brief-toggle::before{content:'－';}
+#pjBriefBuilder > summary:focus-visible{outline:2px solid var(--blue);outline-offset:4px;border-radius:4px;}
 .portfolio-item{aspect-ratio:16/9; border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:12px; text-align:center; gap:6px; padding:8px;}
 .portfolio-item .play-ic{width:32px; height:32px; border-radius:50%; background:rgba(255,255,255,.28); display:flex; align-items:center; justify-content:center; font-size:12px;}
 .cat-icon-box{width:50px; height:50px; border-radius:14px; overflow:hidden; flex-shrink:0; background:var(--card); display:flex; align-items:center; justify-content:center;}
@@ -9118,7 +9129,7 @@ SCREENS.postJob = async (data) => {
       <div class="field"><label>Raw files link (optional)</label><input id="jobFiles" placeholder="Google Drive / WeTransfer link"></div>
 
       <details class="card" id="pjBriefBuilder" style="margin-top:18px;">
-        <summary style="cursor:pointer;"><b>✨ Smart Project Brief Builder</b><p class="muted" style="font-size:12px;margin-top:4px;">Answer 5 questions — Sphere creates a clear brief for your editor.</p></summary>
+        <summary><div class="pj-brief-heading"><b>✨ Smart Project Brief Builder</b><p class="muted">Answer 5 questions — Sphere creates a clear brief for your editor.</p></div><span class="pj-brief-toggle" aria-hidden="true"></span></summary>
         <div style="margin-top:14px;">
           <div class="field"><label>1. Video type</label><select id="pbbType"><option value="">Select video type</option>${CATEGORIES.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></div>
           <div class="field"><label>2. Video duration</label><input id="pbbDuration" maxlength="50" placeholder="e.g. 30 seconds / 5 minutes"></div>
