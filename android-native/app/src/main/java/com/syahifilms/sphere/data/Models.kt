@@ -200,9 +200,17 @@ data class ChatMessage(
     }
 }
 
-data class Notice(val id: String, val title: String, val body: String, val read: Boolean, val createdAt: String) {
+data class Notice(val id: String, val title: String, val body: String, val read: Boolean, val createdAt: String,
+    val category: String = "", val jobId: String = "", val audience: String = "", val important: Boolean = false) {
     companion object {
-        fun from(o: JSONObject) = Notice(o.str("id"), o.str("title"), o.str("body"), o.optBoolean("is_read", false), o.str("created_at"))
+        fun from(o: JSONObject) = Notice(o.str("id"), o.str("title"), o.str("body"), o.optBoolean("is_read", false), o.str("created_at"),
+            o.str("category"), o.str("job_id"), o.str("audience"), o.optBoolean("important", false))
+    }
+}
+
+data class JobDraft(val id: String, val data: JSONObject, val updatedAt: String) {
+    companion object {
+        fun from(o: JSONObject) = JobDraft(o.str("id"), o.optJSONObject("data") ?: JSONObject(), o.str("updated_at"))
     }
 }
 

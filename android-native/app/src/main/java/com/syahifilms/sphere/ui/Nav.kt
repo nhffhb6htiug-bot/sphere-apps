@@ -1,6 +1,9 @@
 package com.syahifilms.sphere.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.activity.compose.BackHandler
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -10,6 +13,8 @@ import androidx.navigation.navArgument
 @Composable
 fun SphereNav() {
     val nav = rememberNavController()
+    val entry by nav.currentBackStackEntryAsState()
+    BackHandler(enabled = entry?.destination?.route == "home" && nav.previousBackStackEntry == null) { /* Stay on Sphere home. */ }
     val optional = { name: String -> navArgument(name) { type = NavType.StringType; nullable = true; defaultValue = null } }
     NavHost(navController = nav, startDestination = "splash") {
         composable("splash") { SplashScreen(nav) }
@@ -35,6 +40,9 @@ fun SphereNav() {
         composable("editor/{id}") { EditorProfileScreen(nav, it.arguments?.getString("id") ?: "") }
         composable("postJob?editor={editor}", arguments = listOf(optional("editor"))) { PostJobScreen(nav, it.arguments?.getString("editor")) }
         composable("jobs") { JobsScreen(nav) }
+        composable("drafts") { NativeDraftsScreen(nav) }
+        composable("draft/{id}") { PostJobScreen(nav, null, it.arguments?.getString("id")) }
+        composable("adminNative") { NativeAdminScreen(nav) }
         composable("project/{id}") { ProjectScreen(nav, it.arguments?.getString("id") ?: "") }
         composable("bids/{id}") { BidsScreen(nav, it.arguments?.getString("id") ?: "") }
         composable("chats") { ChatsScreen(nav) }

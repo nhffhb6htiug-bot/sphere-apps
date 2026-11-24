@@ -115,18 +115,70 @@ object Repo {
         try { Api.insertMany("sp_notifications", rows) } catch (e: Exception) { }
     }
 
-    suspend fun notifications(): List<Notice> {
+    suspend fun notifications(tab: String = "All", limit: Int = 30): List<Notice> {
         val me = Api.userId ?: return emptyList()
-        val list = Api.select("sp_notifications?user_id=eq.$me&order=created_at.desc&limit=50").mapObjects { Notice.from(it) }
-        if (list.any { !it.read }) {
-            try { Api.update("sp_notifications?user_id=eq.$me&is_read=eq.false", JSONObject().put("is_read", true)) } catch (e: Exception) { }
+        val audience = if ((com.syahifilms.sphere.ui.AppState.me?.role == "admin")) "" else "&or=(audience.is.null,audience.neq.admin)"
+        val tabFilter = when (tab) {
+            "Unread" -> "&is_read=eq.false"
+            "Projects" -> "&job_id=not.is.null"
+            "Admin" -> if ((com.syahifilms.sphere.ui.AppState.me?.role == "admin")) "&audience=eq.admin" else return emptyList()
+            else -> ""
         }
-        return list
+        // PostgREST's repeated or query parameters can vary by proxy. Use an explicit AND group.
+        val access = if (audience.isEmpty()) "or=(category.is.null,category.neq.messages)" else
+            "and=(or(category.is.null,category.neq.messages),or(audience.is.null,audience.neq.admin))"
+        return Api.select("sp_notifications?user_id=eq.$me&$access$tabFilter&order=created_at.desc&limit=${limit.coerceIn(30,300)}").mapObjects { Notice.from(it) }
+    }
+
+    suspend fun markNoticeRead(id: String) {
+        val me = Api.userId ?: return
+        require(java.util.UUID.fromString(id).toString() == id)
+        Api.update("sp_notifications?id=eq.$id&user_id=eq.$me&is_read=eq.false",
+            JSONObject().put("is_read", true).put("read_at", java.time.Instant.now().toString()))
+    }
+
+    suspend fun markAllNoticesRead() {
+        val me = Api.userId ?: return
+        Api.update("sp_notifications?user_id=eq.$me&is_read=eq.false&or=(category.is.null,category.neq.messages)",
+            JSONObject().put("is_read", true).put("read_at", java.time.Instant.now().toString()))
+    }
+
+    suspend fun clearNotice(n: Notice) {
+        val me = Api.userId ?: return
+        require(java.util.UUID.fromString(n.id).toString() == n.id)
+        require(n.read || !n.important) { "Read important notifications before clearing." }
+        Api.delete("sp_notifications?id=eq.${n.id}&user_id=eq.$me&or=(is_read.eq.true,important.eq.false)")
     }
 
     suspend fun unreadCount(): Int {
         val me = Api.userId ?: return 0
-        return Api.select("sp_notifications?user_id=eq.$me&is_read=eq.false&select=id&limit=99").length()
+        return Api.select("sp_notifications?user_id=eq.$me&is_read=eq.false&or=(category.is.null,category.neq.messages)&select=id&limit=99").length()
+    }
+
+    suspend fun drafts(): List<JobDraft> {
+        val me = Api.userId ?: return emptyList()
+        return Api.select("sp_job_drafts?client_id=eq.$me&order=updated_at.desc").mapObjects { JobDraft.from(it) }
+    }
+
+    suspend fun draft(id: String): JobDraft? {
+        val me = Api.userId ?: return null
+        require(java.util.UUID.fromString(id).toString() == id)
+        return Api.selectOne("sp_job_drafts?id=eq.$id&client_id=eq.$me")?.let { JobDraft.from(it) }
+    }
+
+    suspend fun saveDraft(id: String, data: JSONObject) {
+        val me = Api.userId ?: throw ApiException(401, "Please log in again")
+        require(java.util.UUID.fromString(id).toString() == id)
+        val row = JSONObject().put("id", id).put("client_id", me).put("data", data)
+            .put("updated_at", java.time.Instant.now().toString())
+        Api.upsert("sp_job_drafts", row, "id")
+        if (draft(id) == null) throw ApiException(403, "Draft could not be saved")
+    }
+
+    suspend fun deleteDraft(id: String) {
+        val me = Api.userId ?: return
+        require(java.util.UUID.fromString(id).toString() == id)
+        Api.delete("sp_job_drafts?id=eq.$id&client_id=eq.$me")
     }
 
     // ---------------- jobs ----------------

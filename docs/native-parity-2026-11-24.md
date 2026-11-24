@@ -23,3 +23,10 @@ Baseline: web commit b41b8ec03ec36dacf565f9ef7a44cc2a00815c78. Android implement
 - Review step, stable project request ID during form session, notification failure isolation; do not remove uploads on uncertain insert.
 - Chat list search; job titles on home cards.
 - Remaining: remote video thumbnails/in-app playback, full chat presence/retry/offline queue, drafts/AI brief, payments, full admin, notification parity, dark theme and integration/device tests. No production DB writes during development.
+
+## Phase 3 — v2.2.11 (source changes; build and device tests required)
+- Server-synced text drafts, edit/delete, draft-based stable post ID. Attachments deliberately not persisted in drafts, matching web behavior.
+- Notification sections, mark read, clear, load more and project links; chat notices omitted.
+- Read-only native admin Overview, Users, independent completeness/verification filters, and verification queues including confirmed paid editors (not excluded if messaged). Admin-only RPCs enforce access; no PIN/write operations added.
+- Back behavior for home and review; update obsolete WebView startup regression to assert Compose startup instead.
+- Payment checkout, admin write actions, dark mode, full AI/drafts parity, full chat/notification/device security tests, and signed AAB remain release gates.

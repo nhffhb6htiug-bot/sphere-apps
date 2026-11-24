@@ -33,11 +33,12 @@ test("PWA starts pastel instead of black on iPhone and PC",()=>{
   assert.match(sw,/sphere-pastel-startup-v20/);
 });
 
-test("APK has a native loading view while the WebView renders",()=>{
-  assert.ok(android.includes("createSplashOverlay()"));
-  assert.ok(android.includes("onPageCommitVisible"));
-  assert.ok(android.includes("showSplashNetworkError()"));
-  assert.ok(android.includes("browser.reload()"));
-  assert.ok(native.includes('Text("Connecting Editors & Clients"'));
-  assert.ok(native.includes("CircularProgressIndicator("));
+test("APK opens the Compose navigation and shows one native splash with retry",()=>{
+  assert.ok(android.includes("setContent { SphereTheme { SphereNav() } }"));
+  assert.doesNotMatch(android,/android\.webkit\.WebView|browser\.loadUrl/);
+  const startup = native.slice(native.indexOf("fun SplashScreen"),native.indexOf("fun WelcomeScreen"));
+  assert.ok(startup.includes('Text("Connecting Editors & Clients"'));
+  assert.equal((startup.match(/CircularProgressIndicator\(/g)||[]).length,1);
+  assert.ok(startup.includes("Try again"));
+  assert.ok(startup.includes("routeAfterLogin(nav)"));
 });

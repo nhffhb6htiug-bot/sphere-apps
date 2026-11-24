@@ -3,6 +3,8 @@
 package com.syahifilms.sphere.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -294,24 +296,54 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
 
 @Composable
 fun NotificationsScreen(nav: NavHostController) {
-    val data = load(Unit) { Repo.notifications() }
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val me = AppState.me ?: return
+    var tab by remember(me.id) { mutableStateOf("All") }
+    var limit by remember { mutableIntStateOf(30) }
+    val data = load(me.id, tab, limit) { Repo.notifications(tab, limit) }
+    var busy by remember { mutableStateOf(false) }
+    fun act(block: suspend () -> Unit) { scope.launch {
+        busy = true
+        try { block(); data.reload() } catch (e: Exception) { toast(ctx, e.message ?: "Could not update notification") }
+        finally { busy = false }
+    } }
     Page("Notifications", onBack = { nav.popBackStack() }) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            (listOf("All", "Unread", "Projects") + if (me.role == "admin") listOf("Admin") else emptyList()).forEach { name ->
+                FilterChip(selected = tab == name, onClick = { tab = name; limit = 30 }, label = { Text(name) })
+            }
+        }
+        TextButton(enabled = !busy, onClick = { act { Repo.markAllNoticesRead() } }) { Text("Mark all as read") }
         val list = data.data
         when {
             data.error != null -> ErrorBox(data.error) { data.reload() }
             list == null -> Loading()
-            list.isEmpty() -> MutedText("No notifications yet.")
-            else -> list.forEach { n ->
-                CardBox {
-                    Row {
-                        Text(if (n.read) "🔔" else "🔴", modifier = Modifier.padding(end = 10.dp))
-                        Column {
-                            Text(n.title, fontWeight = FontWeight.Bold)
-                            Text(n.body, color = Muted, fontSize = 13.sp)
-                            Text(prettyDate(n.createdAt), color = Muted, fontSize = 11.sp)
+            list.isEmpty() -> MutedText("No notifications in this section.")
+            else -> {
+                list.groupBy { it.createdAt.take(10) }.forEach { (day, entries) ->
+                    SectionTitle(when (day) { todayIST() -> "Today"; java.time.LocalDate.parse(todayIST()).minusDays(1).toString() -> "Yesterday"; else -> prettyDate(day) })
+                    entries.forEach { n ->
+                        CardBox {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(if (n.read) "🔔" else "●", color = Blue, modifier = Modifier.padding(end = 10.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(n.title, fontWeight = FontWeight.Bold)
+                                    Text(n.body, color = Muted, fontSize = 13.sp)
+                                    if (n.important) Text("Important", fontSize = 11.sp, color = Danger)
+                                }
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                TextButton(enabled = !busy, onClick = { act { Repo.markNoticeRead(n.id) } }) { Text(if (n.read) "Read" else "Mark read") }
+                                if (n.jobId.matches(Regex("[0-9a-fA-F-]{36}"))) TextButton(enabled = !busy, onClick = {
+                                    scope.launch { try { Repo.markNoticeRead(n.id) } catch (_: Exception) { }; nav.go("project/${n.jobId}") }
+                                }) { Text("Open project") }
+                                if (n.read || !n.important) TextButton(enabled = !busy, onClick = { act { Repo.clearNotice(n) } }) { Text("Clear") }
+                            }
                         }
                     }
                 }
+                if (list.size >= limit && limit < 300) OutlinedButton(onClick = { limit += 30 }, modifier = Modifier.fillMaxWidth()) { Text("Load more") }
             }
         }
     }
@@ -378,7 +410,7 @@ fun ProfileScreen(nav: NavHostController) {
                 } else {
                     MenuRow("🔄", "Switch to Editor", "See available work and place bids", Blue) { AppState.switchMode(false); nav.resetTo("home") }
                 }
-                MenuRow("🛡️", "Admin Panel (website)", "Verify editors, reports, payouts") { openUrl(ctx, Config.WEBSITE) }
+                MenuRow("🛡️", "Admin Panel", "Overview, users and verification queues") { nav.go("adminNative") }
             }
         }
         MenuRow("🚪", "Logout", color = Danger) { confirmLogout = true }

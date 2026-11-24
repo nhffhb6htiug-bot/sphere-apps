@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.syahifilms.sphere.data.*
 import kotlinx.coroutines.launch
+import androidx.activity.compose.BackHandler
+import org.json.JSONObject
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
@@ -62,7 +64,7 @@ fun DeadlinePicker(value: String, onPick: (String) -> Unit) {
 }
 
 @Composable
-fun PostJobScreen(nav: NavHostController, presetEditor: String?) {
+fun PostJobScreen(nav: NavHostController, presetEditor: String?, draftId: String? = null) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val me = AppState.me ?: return
@@ -82,7 +84,24 @@ fun PostJobScreen(nav: NavHostController, presetEditor: String?) {
     var uploadStatus by remember { mutableStateOf("") }
     var attachments by remember { mutableStateOf(emptyList<PickedProjectFile>()) }
     var reviewing by remember { mutableStateOf(false) }
-    val requestId = remember { UUID.randomUUID().toString() }
+    val requestId = remember(draftId) { draftId ?: UUID.randomUUID().toString() }
+    var draftReady by remember(draftId) { mutableStateOf(draftId == null) }
+    var draftError by remember(draftId) { mutableStateOf("") }
+    var draftAttempt by remember { mutableIntStateOf(0) }
+    LaunchedEffect(draftId, draftAttempt) {
+        if (draftId != null) {
+            try {
+                val d = Repo.draft(draftId)?.data ?: throw ApiException(404, "Draft not found")
+                category = d.str("category").takeIf { it in Config.CATEGORIES } ?: Config.CATEGORIES.first()
+                title = d.str("title"); details = d.str("description"); budget = d.str("budget").substringBefore(".")
+                deadline = d.str("deadline"); link = d.str("files_link"); videoLength = d.str("video_length")
+                videoFormat = d.str("video_format"); styleNotes = d.str("style_notes"); referenceLinks = d.str("reference_links")
+                languages = d.str("language").split(",").map { it.trim() }.filter { it in Config.LANGUAGES }.distinct().take(4)
+                draftReady = true
+            } catch (e: Exception) { draftError = e.message ?: "Could not load draft" }
+        }
+    }
+    BackHandler(enabled = busy || reviewing) { if (!busy) reviewing = false }
     val cameraDir = remember { File(ctx.cacheDir, "project-camera/$requestId").apply { mkdirs() } }
     var cameraFile by remember { mutableStateOf<File?>(null) }
     var cameraUri by remember { mutableStateOf<Uri?>(null) }
@@ -125,6 +144,10 @@ fun PostJobScreen(nav: NavHostController, presetEditor: String?) {
     }
     val hired = if (presetEditor != null) load(presetEditor) { Repo.profile(presetEditor) }.data else null
     Page(if (presetEditor != null) "Hire editor" else "Post a job", onBack = { if (!busy) { if (reviewing) reviewing = false else nav.popBackStack() } }) {
+        if (!draftReady) {
+            if (draftError.isBlank()) Loading() else ErrorBox(draftError) { draftError = ""; draftAttempt++ }
+            return@Page
+        }
         if (!reviewing) {
         if (hired != null) CardBox { Text("Hiring ${hired.name} directly", fontWeight = FontWeight.Bold); MutedText("They will propose a price, then you confirm.", 12) }
         Dropdown("Category", category, Config.CATEGORIES) { category = it }
@@ -164,6 +187,19 @@ fun PostJobScreen(nav: NavHostController, presetEditor: String?) {
             }
         }
         if (picking) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (presetEditor == null) OutlinedButton(enabled = !busy && !picking, modifier = Modifier.fillMaxWidth(), onClick = {
+            if (title.isBlank() && details.isBlank() && budget.isBlank()) toast(ctx, "Write something first") else scope.launch {
+                busy = true
+                try {
+                    Repo.saveDraft(requestId, JSONObject().put("title", title).put("category", category).put("description", details)
+                        .put("budget", budget.toDoubleOrNull() ?: JSONObject.NULL).put("deadline", deadline.ifBlank { null } ?: JSONObject.NULL)
+                        .put("language", languages.joinToString(", ")).put("video_length", videoLength).put("video_format", videoFormat)
+                        .put("style_notes", styleNotes).put("reference_links", referenceLinks).put("files_link", link).put("ai_assisted", false).put("audience", "all"))
+                    toast(ctx, if (attachments.isEmpty()) "Draft saved" else "Draft saved. Attach files again before posting.")
+                    nav.popBackStack(); nav.go("drafts")
+                } catch (e: Exception) { toast(ctx, e.message ?: "Could not save draft") } finally { busy = false }
+            }
+        }) { Text(if (busy) "Saving…" else "Save as draft") }
         PrimaryButton("Review job →", enabled = !busy && !picking) {
             val b = budget.toDoubleOrNull()
             when {
@@ -200,6 +236,7 @@ fun PostJobScreen(nav: NavHostController, presetEditor: String?) {
                             uploadStatus = "Saving project…"
                             Repo.postJob(me, category, details.trim(), budget.toDouble(), deadline.ifBlank { null }, link, presetEditor, languages.joinToString(", "), title.trim(), videoLength.trim(), videoFormat, styleNotes.trim(), referenceLinks.trim(), uploaded, requestId)
                         }
+                        if (draftId != null) try { Repo.deleteDraft(draftId) } catch (_: Exception) { }
                         toast(ctx, "Job posted ✅")
                         nav.popBackStack()
                         nav.go("project/$id")
@@ -230,6 +267,7 @@ fun JobsScreen(nav: NavHostController) {
     ) { pad ->
         Column(Modifier.padding(pad).fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
             if (client) {
+                OutlinedButton(onClick = { nav.go("drafts") }, modifier = Modifier.fillMaxWidth()) { Text("Saved drafts") }
                 val jobs = load(Unit) { Repo.myClientJobs() }
                 when {
                     jobs.error != null -> ErrorBox(jobs.error) { jobs.reload() }
