@@ -79,6 +79,10 @@ fun PostJobScreen(nav: NavHostController, presetEditor: String?, draftId: String
     var videoFormat by remember { mutableStateOf("") }
     var styleNotes by remember { mutableStateOf("") }
     var referenceLinks by remember { mutableStateOf("") }
+    var aiBrief by remember { mutableStateOf("") }
+    var briefPreview by remember { mutableStateOf<String?>(null) }
+    var aiAssisted by remember { mutableStateOf(false) }
+    var aiBusy by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var picking by remember { mutableStateOf(false) }
     var uploadStatus by remember { mutableStateOf("") }
@@ -97,6 +101,7 @@ fun PostJobScreen(nav: NavHostController, presetEditor: String?, draftId: String
                 deadline = d.str("deadline"); link = d.str("files_link"); videoLength = d.str("video_length")
                 videoFormat = d.str("video_format"); styleNotes = d.str("style_notes"); referenceLinks = d.str("reference_links")
                 languages = d.str("language").split(",").map { it.trim() }.filter { it in Config.LANGUAGES }.distinct().take(4)
+                aiAssisted = d.optBoolean("ai_assisted", false)
                 draftReady = true
             } catch (e: Exception) { draftError = e.message ?: "Could not load draft" }
         }
@@ -150,6 +155,37 @@ fun PostJobScreen(nav: NavHostController, presetEditor: String?, draftId: String
         }
         if (!reviewing) {
         if (hired != null) CardBox { Text("Hiring ${hired.name} directly", fontWeight = FontWeight.Bold); MutedText("They will propose a price, then you confirm.", 12) }
+        CardBox {
+            Text("Sphere AI · Fill project details", fontWeight = FontWeight.Bold)
+            Field(aiBrief, { aiBrief = it.take(2000) }, "Describe your project", "Video type, length, budget and deadline", minLines = 3)
+            MutedText("Review all AI suggestions before posting. Do not include passwords, OTPs or personal contact details.", 12)
+            OutlinedButton(enabled = !busy && !aiBusy && aiBrief.trim().length >= 10, onClick = {
+                scope.launch {
+                    aiBusy = true
+                    try {
+                        val prompt = aiBrief.trim()
+                        val r = Api.function("sphere-ai", JSONObject().put("action", "draft_job").put("messages",
+                            org.json.JSONArray().put(JSONObject().put("role", "user").put("text", prompt))))
+                        val d = r.optJSONObject("draft") ?: throw ApiException(503, "Sphere AI did not return a draft")
+                        d.str("category").takeIf { it in Config.CATEGORIES }?.let { category = it }
+                        val desc = d.str("description").take(2000)
+                        if (desc.isNotBlank()) briefPreview = desc
+                        // AI budget/deadline are suggestions only: never replace an explicit user value.
+                        if (budget.isBlank()) d.optDouble("budget", Double.NaN).takeIf { it.isFinite() && it in 1.0..10000000.0 }?.let { budget = it.toLong().toString() }
+                        if (deadline.isBlank() && !d.isNull("deadline_days")) {
+                            val days = d.optInt("deadline_days", -1)
+                            if (days in 0..60) deadline = java.time.LocalDate.parse(todayIST()).plusDays(days.toLong()).toString()
+                        }
+                        aiAssisted = desc.isNotBlank()
+                        toast(ctx, "Review AI suggestions, budget and deadline before posting.")
+                    } catch (_: Exception) {
+                        briefPreview = aiBrief.trim()
+                        aiAssisted = false
+                        toast(ctx, "AI unavailable. You can edit your original brief.")
+                    } finally { aiBusy = false }
+                }
+            }) { Text(if (aiBusy) "Reading…" else "Fill with Sphere AI") }
+        }
         Dropdown("Category", category, Config.CATEGORIES) { category = it }
         Field(title, { title = it.take(60) }, "Project title (optional)")
         Field(details, { details = it }, "Project details", "Video type, length, style, references…", minLines = 4)
@@ -164,6 +200,27 @@ fun PostJobScreen(nav: NavHostController, presetEditor: String?, draftId: String
         Field(referenceLinks, { referenceLinks = it.take(1000) }, "Reference video links (optional)", "YouTube / Google Drive / WeTransfer", minLines = 2)
         DeadlinePicker(deadline) { deadline = it }
         Field(link, { link = it.trim() }, "Raw files link (optional)", "Google Drive / WeTransfer link")
+        CardBox {
+            Text("Smart Project Brief Builder", fontWeight = FontWeight.Bold)
+            MutedText("Enter category, duration, style, budget and deadline above.", 12)
+            OutlinedButton(enabled = !busy && !aiBusy, onClick = {
+                val amount = budget.toDoubleOrNull()
+                if (videoLength.isBlank() || styleNotes.isBlank() || amount == null || amount <= 0 || deadline.isBlank() || deadline < todayIST()) toast(ctx, "Fill all five details and choose a valid deadline.")
+                else briefPreview = listOf("Project: $category video editing", "Video duration: $videoLength",
+                    "Editing style: $styleNotes", "Budget: ${money(amount)}", "Deadline: $deadline",
+                    "Requirements: Edit according to the style above and share a preview for review before final delivery.").joinToString("\n")
+            }) { Text("Generate project brief") }
+        }
+        val suggested = briefPreview
+        if (suggested != null) AlertDialog(
+            onDismissRequest = { briefPreview = null },
+            title = { Text("Review project brief") },
+            text = { Text(suggested) },
+            confirmButton = { TextButton(onClick = {
+                details = suggested; if (title.isBlank()) title = ("$category video editing").take(60); briefPreview = null
+            }) { Text("Use this brief") } },
+            dismissButton = { TextButton(onClick = { briefPreview = null }) { Text("Cancel") } }
+        )
         MutedText("Tip: share big raw videos as a Google Drive link.", 12)
         CardBox {
             Text("Raw footage & photos", fontWeight = FontWeight.Bold)
@@ -194,13 +251,13 @@ fun PostJobScreen(nav: NavHostController, presetEditor: String?, draftId: String
                     Repo.saveDraft(requestId, JSONObject().put("title", title).put("category", category).put("description", details)
                         .put("budget", budget.toDoubleOrNull() ?: JSONObject.NULL).put("deadline", deadline.ifBlank { null } ?: JSONObject.NULL)
                         .put("language", languages.joinToString(", ")).put("video_length", videoLength).put("video_format", videoFormat)
-                        .put("style_notes", styleNotes).put("reference_links", referenceLinks).put("files_link", link).put("ai_assisted", false).put("audience", "all"))
+                        .put("style_notes", styleNotes).put("reference_links", referenceLinks).put("files_link", link).put("ai_assisted", aiAssisted).put("audience", "all"))
                     toast(ctx, if (attachments.isEmpty()) "Draft saved" else "Draft saved. Attach files again before posting.")
                     nav.popBackStack(); nav.go("drafts")
                 } catch (e: Exception) { toast(ctx, e.message ?: "Could not save draft") } finally { busy = false }
             }
         }) { Text(if (busy) "Saving…" else "Save as draft") }
-        PrimaryButton("Review job →", enabled = !busy && !picking) {
+        PrimaryButton("Review job →", enabled = !busy && !picking && !aiBusy) {
             val b = budget.toDoubleOrNull()
             when {
                 details.trim().length < 10 || b == null || b < 1 || b > 10000000 -> toast(ctx, "Please add at least 10 characters of project details and a valid budget")
@@ -234,7 +291,7 @@ fun PostJobScreen(nav: NavHostController, presetEditor: String?, draftId: String
                         val id = if (existing != null) requestId else {
                             uploaded = uploadProjectFiles(ctx, me.id, attachments) { uploadStatus = it }
                             uploadStatus = "Saving project…"
-                            Repo.postJob(me, category, details.trim(), budget.toDouble(), deadline.ifBlank { null }, link, presetEditor, languages.joinToString(", "), title.trim(), videoLength.trim(), videoFormat, styleNotes.trim(), referenceLinks.trim(), uploaded, requestId)
+                            Repo.postJob(me, category, details.trim(), budget.toDouble(), deadline.ifBlank { null }, link, presetEditor, languages.joinToString(", "), title.trim(), videoLength.trim(), videoFormat, styleNotes.trim(), referenceLinks.trim(), uploaded, requestId, aiAssisted)
                         }
                         if (draftId != null) try { Repo.deleteDraft(draftId) } catch (_: Exception) { }
                         toast(ctx, "Job posted ✅")

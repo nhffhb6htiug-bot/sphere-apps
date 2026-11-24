@@ -226,7 +226,15 @@ fun NativeSettingsScreen(nav: NavHostController) {
         CardBox(onClick={nav.go("notifications")}) { Text("🔔 Notifications",fontWeight=FontWeight.SemiBold) }
         CardBox(onClick={nav.go("profile")}) { Text("👤 My account",fontWeight=FontWeight.SemiBold) }
         CardBox(onClick={nav.go("support")}) { Text("🆘 Help & Support",fontWeight=FontWeight.SemiBold) }
-        MutedText("More appearance and notification controls can be added in a later native release.",12)
+        CardBox {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Dark mode", fontWeight = FontWeight.SemiBold)
+                    MutedText("Black, pink and purple Sphere theme",12)
+                }
+                Switch(checked = AppState.darkMode, onCheckedChange = { AppState.changeAppearance(it) })
+            }
+        }
     }
 }
 

@@ -47,18 +47,35 @@ import coil.compose.AsyncImage
 import com.syahifilms.sphere.data.*
 
 // ---------------- theme ----------------
-val Blue = Color(0xFF1657FF)
-val BlueSoft = Color(0xFFE9F0FF)
-val Bg = Color(0xFFE8EDF9)
-val Muted = Color(0xFF6B7280)
-val Danger = Color(0xFFC62828)
-val Success = Color(0xFF2E7D32)
-val Orange = Color(0xFFE67E22)
+val Blue: Color get() = if (AppState.darkMode) Color(0xFFC69AFF) else Color(0xFF1657FF)
+val BlueSoft: Color get() = if (AppState.darkMode) Color(0xFF36283E) else Color(0xFFE9F0FF)
+val Bg: Color get() = if (AppState.darkMode) Color(0xFF100C16) else Color(0xFFE8EDF9)
+val Muted: Color get() = if (AppState.darkMode) Color(0xFFC4B7CE) else Color(0xFF6B7280)
+val Danger: Color get() = if (AppState.darkMode) Color(0xFFFFA5B5) else Color(0xFFC62828)
+val Success: Color get() = if (AppState.darkMode) Color(0xFF86DDA3) else Color(0xFF2E7D32)
+val Orange: Color get() = if (AppState.darkMode) Color(0xFFFFC189) else Color(0xFFE67E22)
+val SphereSurface: Color get() = if (AppState.darkMode) Color(0xFF241A2B) else Color.White
+val SphereBorder: Color get() = if (AppState.darkMode) Color(0xFF58405F) else Color.White
+val SphereActionFill: Color get() = if (AppState.darkMode) Color(0xFF70439B) else Blue
 
 @Composable
 fun SphereTheme(content: @Composable () -> Unit) {
+    val dark = AppState.darkMode
+    val context = androidx.compose.ui.platform.LocalContext.current
+    SideEffect {
+        (context as? android.app.Activity)?.let { activity ->
+            val controller = androidx.core.view.WindowCompat.getInsetsController(activity.window, activity.window.decorView)
+            controller.isAppearanceLightStatusBars = !dark
+            controller.isAppearanceLightNavigationBars = !dark
+        }
+    }
     MaterialTheme(
-        colorScheme = lightColorScheme(
+        colorScheme = if (dark) darkColorScheme(
+            primary = Blue, onPrimary = Bg, secondary = Color(0xFFF57AC3), onSecondary = Bg,
+            background = Bg, surface = SphereSurface, surfaceVariant = BlueSoft,
+            onSurface = WebsiteColors.Plum, onBackground = WebsiteColors.Plum,
+            onSurfaceVariant = Muted, error = Danger, outline = SphereBorder
+        ) else lightColorScheme(
             primary = Blue, onPrimary = Color.White, secondary = Blue,
             background = Bg, surface = Color.White, surfaceVariant = BlueSoft,
             onSurface = WebsiteColors.Plum, onBackground = WebsiteColors.Plum
@@ -69,6 +86,10 @@ fun SphereTheme(content: @Composable () -> Unit) {
 
 // ---------------- global state ----------------
 object AppState {
+    var darkMode by mutableStateOf(false)
+        private set
+    fun restoreAppearance() { darkMode = Api.getPref("sphere_dark") == "1" }
+    fun changeAppearance(value: Boolean) { darkMode = value; Api.setPref("sphere_dark", if (value) "1" else "0") }
     var me by mutableStateOf<Profile?>(null)
     var mode by mutableStateOf("")   // editors can switch to "client" mode
 
@@ -161,7 +182,7 @@ fun SphereTopBar(title: String, onBack: (() -> Unit)? = null, actions: @Composab
             }
         },
         actions = actions,
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFE8EDF9))
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = Bg)
     )
 }
 
@@ -204,8 +225,8 @@ fun MainBottomBar(nav: NavHostController, current: String) {
     NavigationBar(
         modifier = Modifier.padding(horizontal=12.dp, vertical=5.dp)
             .clip(RoundedCornerShape(30.dp))
-            .border(1.dp, Color.White, RoundedCornerShape(30.dp)),
-        containerColor = Color.White,
+            .border(1.dp, SphereBorder, RoundedCornerShape(30.dp)),
+        containerColor = SphereSurface,
         tonalElevation = 5.dp
     ) {
         items.forEach { (route, label, icon) ->
@@ -222,7 +243,7 @@ fun MainBottomBar(nav: NavHostController, current: String) {
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = WebsiteColors.Violet,
                     selectedTextColor = WebsiteColors.Violet,
-                    indicatorColor = Color(0xFFF1D9FF),
+                    indicatorColor = if (AppState.darkMode) BlueSoft else Color(0xFFF1D9FF),
                     unselectedIconColor = WebsiteColors.Muted,
                     unselectedTextColor = WebsiteColors.Muted
                 )
@@ -238,9 +259,9 @@ fun CardBox(onClick: (() -> Unit)? = null, border: Color? = null, content: @Comp
     Card(
         modifier = m,
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xF7FFFFFF)),
+        colors = CardDefaults.cardColors(containerColor = if (AppState.darkMode) SphereSurface else Color(0xF7FFFFFF)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, border ?: Color.White)
+        border = androidx.compose.foundation.BorderStroke(1.dp, border ?: SphereBorder)
     ) { Column(Modifier.padding(14.dp), content = content) }
 }
 
@@ -364,7 +385,7 @@ fun Dropdown(label: String, value: String, options: List<String>, onSelect: (Str
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text(value.ifBlank { "Choose" }, color = Color.Black, modifier = Modifier.weight(1f))
+                Text(value.ifBlank { "Choose" }, color = WebsiteColors.Plum, modifier = Modifier.weight(1f))
                 Icon(Icons.Filled.ArrowDropDown, null, tint = Muted)
             }
             DropdownMenu(expanded = open, onDismissRequest = { open = false }) {

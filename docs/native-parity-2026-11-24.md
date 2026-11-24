@@ -30,3 +30,9 @@ Baseline: web commit b41b8ec03ec36dacf565f9ef7a44cc2a00815c78. Android implement
 - Read-only native admin Overview, Users, independent completeness/verification filters, and verification queues including confirmed paid editors (not excluded if messaged). Admin-only RPCs enforce access; no PIN/write operations added.
 - Back behavior for home and review; update obsolete WebView startup regression to assert Compose startup instead.
 - Payment checkout, admin write actions, dark mode, full AI/drafts parity, full chat/notification/device security tests, and signed AAB remain release gates.
+
+## Phase 4 — v2.2.12 (source implementation, not release-certified)
+- Native settings dark-mode toggle, web-derived black/pink/purple palette in common surfaces, navigation, cards, home and chat; original light-mode art retained.
+- Smart brief builder and existing authenticated Sphere AI draft_job API wired into editable project form (AI suggestions require review; backend's draft action returns a limited schema).
+- Android Keystore AES-GCM encrypted session storage and plaintext migration; failed migration requires re-login. Disable implicit network retries for writes. Existing manual GET retry preserved.
+- Compile and test on actual Android devices, especially dark-mode contrast, camera, signed links, draft posting, login/refresh, admin permissions and payment workflow. Full payments, revisions/disputes, chat presence/offline queue, all admin PIN actions, premium checkout, push notifications and release signing remain pending.

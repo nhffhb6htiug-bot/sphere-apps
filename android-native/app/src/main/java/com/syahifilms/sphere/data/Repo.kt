@@ -207,7 +207,7 @@ object Repo {
         deadline: String?, filesLink: String, presetEditor: String?, language: String = "",
         title: String = "", videoLength: String = "", videoFormat: String = "",
         styleNotes: String = "", referenceLinks: String = "",
-        attachments: List<ProjectAttachment> = emptyList(), requestId: String = java.util.UUID.randomUUID().toString()
+        attachments: List<ProjectAttachment> = emptyList(), requestId: String = java.util.UUID.randomUUID().toString(), aiAssisted: Boolean = false
     ): String {
         require(Api.userId == me.id) { "Please log in again" }
         require(attachments.size <= 5 && attachments.all { it.path.startsWith(me.id + "/raw/") && it.size in 1L..(50L * 1024 * 1024) && (if (it.reference) it.type.startsWith("video/") else it.type.startsWith("image/") || it.type.startsWith("video/")) })
@@ -227,7 +227,7 @@ object Repo {
             .put("style_notes", styleNotes.ifBlank { null } ?: JSONObject.NULL)
             .put("reference_links", referenceLinks.ifBlank { null } ?: JSONObject.NULL)
             .put("revisions_expected", JSONObject.NULL)
-            .put("ai_assisted", false)
+            .put("ai_assisted", aiAssisted)
             .put("status", if (presetEditor != null) "negotiating" else "open")
             .put("assigned_editor", presetEditor ?: JSONObject.NULL)
         val created = try { Api.insert("sp_jobs", row) } catch (e: Exception) {

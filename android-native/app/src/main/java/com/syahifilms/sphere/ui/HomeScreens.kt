@@ -84,8 +84,8 @@ private fun WebsiteSearchBar(nav: NavHostController, editor: Boolean = false) {
             .clip(RoundedCornerShape(28.dp)),
         shape = RoundedCornerShape(28.dp),
         colors = TextFieldDefaults.colors(
-            focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color(0xF5FFFFFF),
+            focusedContainerColor = SphereSurface,
+            unfocusedContainerColor = if (AppState.darkMode) SphereSurface else Color(0xF5FFFFFF),
             focusedIndicatorColor = Color.Transparent,
             unfocusedIndicatorColor = Color.Transparent
         )
@@ -209,7 +209,7 @@ private fun EditorHome(nav: NavHostController, me: Profile) {
     ) {
         cats.forEach { (label,art,svg) ->
             Column(Modifier.width(94.dp).clip(RoundedCornerShape(20.dp))
-                .background(Color(0xEFFFFFFF)).clickable { nav.go("jobs") }
+                .background(if (AppState.darkMode) SphereSurface else Color(0xEFFFFFFF)).clickable { nav.go("jobs") }
                 .padding(6.dp),horizontalAlignment=Alignment.CenterHorizontally) {
                 if(svg.isNotBlank())
                     EditorWebsiteSvg(svg,label,Modifier.fillMaxWidth().height(77.dp))

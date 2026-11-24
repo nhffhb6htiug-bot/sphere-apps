@@ -28,6 +28,7 @@ class ApiException(val status: Int, message: String, val pgCode: String = "") : 
  */
 object Api {
     private val http = OkHttpClient.Builder()
+        .retryOnConnectionFailure(false)
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(90, TimeUnit.SECONDS)
         .writeTimeout(90, TimeUnit.SECONDS)
@@ -37,13 +38,34 @@ object Api {
     // Protect account changes against a refresh response arriving after logout/login.
     private val sessionWriteLock = Any()
 
-    fun init(context: Context) {
-        prefs = context.getSharedPreferences("sphere_session", Context.MODE_PRIVATE)
+    @Volatile private var sessionJson: String? = null
+
+    fun init(context: Context) = synchronized(sessionWriteLock) {
+        val p = context.getSharedPreferences("sphere_session", Context.MODE_PRIVATE)
+        prefs = p
+        sessionJson = null
+        try {
+            val encrypted = p.getString("session_v2", null)
+            val legacy = if (encrypted == null) p.getString("session", null) else null
+            val value = if (encrypted != null) SessionCipher.decrypt(encrypted) else legacy
+            if (value != null) {
+                val parsed = JSONObject(value)
+                require(parsed.str("access_token").isNotBlank() && parsed.str("refresh_token").isNotBlank())
+                if (legacy != null) {
+                    check(p.edit().putString("session_v2", SessionCipher.encrypt(value)).remove("session").commit())
+                } else if (p.contains("session")) p.edit().remove("session").commit()
+                sessionJson = value
+            }
+        } catch (_: Exception) {
+            // Corrupt/inaccessible keys require login rather than an insecure plaintext fallback.
+            p.edit().remove("session").remove("session_v2").commit()
+            sessionJson = null
+        }
     }
 
     // ---------------- session ----------------
-    private fun session(): JSONObject? = prefs?.getString("session", null)?.let {
-        try { JSONObject(it) } catch (e: Exception) { null }
+    private fun session(): JSONObject? = sessionJson?.let {
+        try { JSONObject(it) } catch (_: Exception) { null }
     }
 
     private fun saveSession(o: JSONObject) = synchronized(sessionWriteLock) {
@@ -56,10 +78,19 @@ object Api {
         s.put("user_id", user?.optString("id") ?: session()?.optString("user_id") ?: "")
         s.put("email", user?.optString("email") ?: session()?.optString("email") ?: "")
         s.put("meta", user?.optJSONObject("user_metadata") ?: JSONObject())
-        prefs?.edit()?.putString("session", s.toString())?.apply()
+        val value = s.toString()
+        val p = prefs ?: throw ApiException(500, "Session storage not ready")
+        try {
+            check(p.edit().putString("session_v2", SessionCipher.encrypt(value)).remove("session").commit())
+            sessionJson = value
+        } catch (_: Exception) { throw ApiException(500, "Could not save secure session. Please sign in again.") }
     }
 
-    fun clearSession() = synchronized(sessionWriteLock) { prefs?.edit()?.remove("session")?.apply() }
+    fun clearSession() = synchronized(sessionWriteLock) {
+        sessionJson = null
+        val removed = prefs?.edit()?.remove("session")?.remove("session_v2")?.commit() ?: true
+        if (!removed) try { SessionCipher.invalidate() } catch (_: Exception) { }
+    }
 
     val userId: String? get() = session()?.optString("user_id")?.takeIf { it.isNotBlank() }
     val email: String get() = session()?.optString("email") ?: ""

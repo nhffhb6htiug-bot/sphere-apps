@@ -194,16 +194,16 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Blue)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SphereActionFill)
             )
         },
         bottomBar = {
             if (blocked) {
-                Box(Modifier.fillMaxWidth().background(Color.White).navigationBarsPadding().clickable { confirmBlock = true }.padding(16.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxWidth().background(SphereSurface).navigationBarsPadding().clickable { confirmBlock = true }.padding(16.dp), contentAlignment = Alignment.Center) {
                     Text("You blocked this contact. Tap to unblock.", color = Muted, fontSize = 13.sp)
                 }
             } else Row(
-                Modifier.fillMaxWidth().background(Color.White).navigationBarsPadding().imePadding().padding(8.dp),
+                Modifier.fillMaxWidth().background(SphereSurface).navigationBarsPadding().imePadding().padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(enabled = !sending, onClick = {
@@ -242,20 +242,20 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
                 val day = dayOf(m.createdAt)
                 if (i == 0 || dayOf(messages[i - 1].createdAt) != day) {
                     Box(Modifier.fillMaxWidth().padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
-                        Text(day, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4B5563),
-                            modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(Color(0xFFDFE6FB)).padding(horizontal = 10.dp, vertical = 4.dp))
+                        Text(day, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (AppState.darkMode) Muted else Color(0xFF4B5563),
+                            modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(if (AppState.darkMode) BlueSoft else Color(0xFFDFE6FB)).padding(horizontal = 10.dp, vertical = 4.dp))
                     }
                 }
                 Box(Modifier.fillMaxWidth(), contentAlignment = if (mine) Alignment.CenterEnd else Alignment.CenterStart) {
                     Column(
                         Modifier.widthIn(max = 290.dp).clip(RoundedCornerShape(16.dp))
-                            .background(if (mine) Blue else Color.White).padding(horizontal = 10.dp, vertical = 7.dp)
+                            .background(if (mine) SphereActionFill else SphereSurface).padding(horizontal = 10.dp, vertical = 7.dp)
                     ) {
                         if (m.mediaPath.isNotBlank() && m.mediaType in listOf("image", "video", "audio")) {
                             val mime = when (m.mediaType) { "image" -> "image/jpeg"; "video" -> "video/mp4"; else -> "audio/mpeg" }
                             PrivateMediaPreview("sphere-chat", m.mediaPath, when (m.mediaType) { "image" -> "Open photo"; "video" -> "Play video"; else -> "Play voice message" }, mime)
                         }
-                        if (m.text.isNotBlank()) Text(m.text, color = if (mine) Color.White else Color.Black)
+                        if (m.text.isNotBlank()) Text(m.text, color = if (mine) Color.White else WebsiteColors.Plum)
                         Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
                             Text(timeOf(m.createdAt), fontSize = 10.sp, color = if (mine) Color.White.copy(alpha = 0.75f) else Muted)
                             if (mine) Ticks(m, true)
@@ -350,9 +350,9 @@ fun NotificationsScreen(nav: NavHostController) {
 }
 
 @Composable
-private fun MenuRow(emoji: String, title: String, sub: String = "", color: Color = Color.Black, onClick: () -> Unit) {
+private fun MenuRow(emoji: String, title: String, sub: String = "", color: Color = WebsiteColors.Plum, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(vertical = 5.dp).clip(RoundedCornerShape(16.dp)).background(Color.White)
+        Modifier.fillMaxWidth().padding(vertical = 5.dp).clip(RoundedCornerShape(16.dp)).background(SphereSurface)
             .clickable { onClick() }.padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
