@@ -152,13 +152,24 @@ object Repo {
 
     suspend fun postJob(
         me: Profile, category: String, description: String, budget: Double,
-        deadline: String?, filesLink: String, presetEditor: String?, language: String = ""
+        deadline: String?, filesLink: String, presetEditor: String?, language: String = "",
+        title: String = "", videoLength: String = "", videoFormat: String = "",
+        styleNotes: String = "", referenceLinks: String = ""
     ): String {
+        require(validProjectReferenceLinks(referenceLinks)) { "Use supported HTTPS reference links only." }
+        val normalizedLanguages = language.split(",").map { it.trim() }.filter { it in Config.LANGUAGES }.distinct().take(4).joinToString(", ")
         val row = JSONObject()
             .put("client_id", me.id).put("category", category).put("description", description)
             .put("budget", budget).put("deadline", deadline ?: JSONObject.NULL)
             .put("files_link", filesLink.ifBlank { null } ?: JSONObject.NULL)
-            .put("language", language.ifBlank { null } ?: JSONObject.NULL)
+            .put("language", normalizedLanguages.ifBlank { null } ?: JSONObject.NULL)
+            .put("title", title.ifBlank { null } ?: JSONObject.NULL)
+            .put("video_length", videoLength.ifBlank { null } ?: JSONObject.NULL)
+            .put("video_format", videoFormat.ifBlank { null } ?: JSONObject.NULL)
+            .put("style_notes", styleNotes.ifBlank { null } ?: JSONObject.NULL)
+            .put("reference_links", referenceLinks.ifBlank { null } ?: JSONObject.NULL)
+            .put("revisions_expected", JSONObject.NULL)
+            .put("ai_assisted", false)
             .put("status", if (presetEditor != null) "negotiating" else "open")
             .put("assigned_editor", presetEditor ?: JSONObject.NULL)
         val created = Api.insert("sp_jobs", row)

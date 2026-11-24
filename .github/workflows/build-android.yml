@@ -51,6 +51,7 @@ jobs:
           fi
 
       - name: Configure Play upload-key signing when available
+        if: github.ref == 'refs/heads/main'
         env:
           KEYSTORE_B64: ${{ secrets.SPHERE_RELEASE_KEYSTORE_B64 }}
           STORE_PASSWORD: ${{ secrets.SPHERE_RELEASE_STORE_PASSWORD }}
@@ -69,6 +70,12 @@ jobs:
             echo "HAS_RELEASE_SIGNING=false" >> "$GITHUB_ENV"
             echo "Release AAB skipped until all four upload-key secrets are configured."
           fi
+
+      - name: Verify Compose entry point (no website wrapper)
+        run: |
+          FILE=android-native/app/src/main/java/com/syahifilms/sphere/MainActivity.kt
+          grep -F 'setContent { SphereTheme { SphereNav() } }' "$FILE"
+          if grep -Eq 'android\.webkit\.WebView|browser\.loadUrl' "$FILE"; then exit 1; fi
 
       - name: Build native APK
         id: build
@@ -127,3 +134,7 @@ jobs:
           git commit -m "Android build ${{ steps.build.outcome }} for ${{ github.sha }}" || echo "nothing to commit"
           git pull --rebase || true
           git push
+
+      - name: Fail workflow if debug APK did not compile
+        if: steps.build.outcome != 'success'
+        run: exit 1

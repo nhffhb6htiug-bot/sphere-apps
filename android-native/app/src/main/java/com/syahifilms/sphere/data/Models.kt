@@ -107,7 +107,12 @@ data class Job(
     val editorAmount: Double?,
     val payoutStatus: String,
     val language: String,
-    val createdAt: String
+    val createdAt: String,
+    val title: String = "",
+    val videoLength: String = "",
+    val videoFormat: String = "",
+    val styleNotes: String = "",
+    val referenceLinks: String = ""
 ) {
     val expired: Boolean get() = status == "open" && deadline.isNotBlank() && deadline.take(10) < todayIST()
     val finalAmount: Double? get() = lockedAmount ?: budget
@@ -131,8 +136,25 @@ data class Job(
             editorAmount = o.numOrNull("editor_amount"),
             payoutStatus = o.str("payout_status"),
             language = o.str("language"),
-            createdAt = o.str("created_at")
+            createdAt = o.str("created_at"),
+            title = o.str("title"),
+            videoLength = o.str("video_length"),
+            videoFormat = o.str("video_format"),
+            styleNotes = o.str("style_notes"),
+            referenceLinks = o.str("reference_links")
         )
+    }
+}
+
+/** Restrict reference links to supported video/file providers. Server moderation still applies. */
+fun validProjectReferenceLinks(value: String): Boolean {
+    if (value.isBlank()) return true
+    val allowed = setOf("youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "drive.google.com", "docs.google.com", "wetransfer.com", "www.wetransfer.com", "we.tl")
+    return value.trim().split(Regex("\\s+")).all { link ->
+        try {
+            val uri = java.net.URI(link)
+            uri.scheme.equals("https", ignoreCase = true) && uri.userInfo == null && uri.host?.lowercase() in allowed
+        } catch (_: Exception) { false }
     }
 }
 

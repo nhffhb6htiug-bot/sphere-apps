@@ -12,8 +12,8 @@ android {
         applicationId = "com.syahifilms.sphere"
         minSdk = 26
         targetSdk = 36
-        versionCode = 12
-        versionName = "2.2.8"
+        versionCode = 13
+        versionName = "2.2.9"
     }
 
     // Release bundle is signed only when the OWNER configures all four

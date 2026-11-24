@@ -65,28 +65,42 @@ fun PostJobScreen(nav: NavHostController, presetEditor: String?) {
     var budget by remember { mutableStateOf("") }
     var deadline by remember { mutableStateOf("") }
     var link by remember { mutableStateOf("") }
-    var language by remember { mutableStateOf("Any") }
+    var languages by remember { mutableStateOf(emptyList<String>()) }
+    var title by remember { mutableStateOf("") }
+    var videoLength by remember { mutableStateOf("") }
+    var videoFormat by remember { mutableStateOf("") }
+    var styleNotes by remember { mutableStateOf("") }
+    var referenceLinks by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     val hired = if (presetEditor != null) load(presetEditor) { Repo.profile(presetEditor) }.data else null
     Page(if (presetEditor != null) "Hire editor" else "Post a job", onBack = { nav.popBackStack() }) {
         if (hired != null) CardBox { Text("Hiring ${hired.name} directly", fontWeight = FontWeight.Bold); MutedText("They will propose a price, then you confirm.", 12) }
         Dropdown("Category", category, Config.CATEGORIES) { category = it }
+        Field(title, { title = it.take(60) }, "Project title (optional)")
         Field(details, { details = it }, "Project details", "Video type, length, style, references…", minLines = 4)
         Field(budget, { budget = it.filter { c -> c.isDigit() }.take(7) }, "Budget (₹)", keyboard = KeyboardType.Number)
-        Dropdown("Video language (optional)", language, listOf("Any") + Config.LANGUAGES) { language = it }
+        Field(videoLength, { videoLength = it.take(40) }, "Video length (optional)", "60 sec / 5 min")
+        Dropdown("Video format (optional)", videoFormat.ifBlank { "Any" }, listOf("Any", "9:16 (Reel / Short)", "16:9 (YouTube)", "1:1 (Square)", "4:5 (Feed)", "Other")) { videoFormat = if (it == "Any") "" else it }
+        MultiPick("Video languages (optional)", Config.LANGUAGES, languages) { next ->
+            if (next.size <= 4) languages = next else toast(ctx, "You can select up to 4 video languages.")
+        }
+        MutedText("${languages.size} / 4 selected" + if (languages.isEmpty()) " · Any language" else "", 12)
+        Field(styleNotes, { styleNotes = it.take(1500) }, "Style / special requirements", "Music, captions, colours, transitions", minLines = 3)
+        Field(referenceLinks, { referenceLinks = it.take(1000) }, "Reference video links (optional)", "YouTube / Google Drive / WeTransfer", minLines = 2)
         DeadlinePicker(deadline) { deadline = it }
         Field(link, { link = it.trim() }, "Raw files link (optional)", "Google Drive / WeTransfer link")
         MutedText("Tip: share big raw videos as a Google Drive link.", 12)
         PrimaryButton(if (busy) "Posting…" else "Post job", enabled = !busy) {
             val b = budget.toDoubleOrNull()
             when {
-                details.isBlank() || b == null || b <= 0 -> toast(ctx, "Please add project details and a budget")
+                details.trim().length < 10 || b == null || b < 1 || b > 10000000 -> toast(ctx, "Please add at least 10 characters of project details and a valid budget")
                 deadline.isNotBlank() && deadline < todayIST() -> toast(ctx, "Deadline cannot be in the past")
-                link.isNotBlank() && !link.startsWith("http") -> toast(ctx, "Link must start with https://")
+                link.isNotBlank() && !link.startsWith("https://", ignoreCase = true) -> toast(ctx, "Link must start with https://")
+                !validProjectReferenceLinks(referenceLinks) -> toast(ctx, "Use HTTPS YouTube, Google Drive or WeTransfer reference links only.")
                 else -> scope.launch {
                     busy = true
                     try {
-                        val id = Repo.postJob(me, category, details.trim(), b, deadline.ifBlank { null }, link, presetEditor, if (language == "Any") "" else language)
+                        val id = Repo.postJob(me, category, details.trim(), b, deadline.ifBlank { null }, link, presetEditor, languages.joinToString(", "), title.trim(), videoLength.trim(), videoFormat, styleNotes.trim(), referenceLinks.trim())
                         toast(ctx, "Job posted ✅")
                         if (id.isNotBlank()) { nav.popBackStack(); nav.go("project/$id") } else nav.resetTo("jobs")
                     } catch (e: Exception) { toast(ctx, e.message ?: "Could not post the job") }
@@ -184,7 +198,7 @@ fun ProjectScreen(nav: NavHostController, id: String) {
         val stepIndex = STEPS.indexOfFirst { it.first == job.status }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(job.category, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+            Text(job.title.ifBlank { job.category }, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
             StatusChip(job.status, job.expired)
         }
         Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -203,6 +217,13 @@ fun ProjectScreen(nav: NavHostController, id: String) {
             if (isEditor && job.lockedAmount != null) KeyValue("You receive", money(job.editorAmount ?: editorShare(job.lockedAmount)) + " (${feeLabel()}% fee)")
             KeyValue("Deadline", if (job.deadline.isBlank()) "-" else prettyDate(job.deadline))
             if (job.language.isNotBlank()) KeyValue("Language", job.language)
+            if (job.videoLength.isNotBlank()) KeyValue("Length", job.videoLength)
+            if (job.videoFormat.isNotBlank()) KeyValue("Format", job.videoFormat)
+            if (job.styleNotes.isNotBlank()) KeyValue("Style", job.styleNotes)
+            if ((isClient || isEditor) && job.referenceLinks.isNotBlank()) {
+                Text("Reference video links", fontWeight = FontWeight.SemiBold)
+                Text(job.referenceLinks, fontSize = 13.sp)
+            }
             Spacer(Modifier.height(6.dp))
             Text(job.description, fontSize = 14.sp)
             if (job.filesLink.isNotBlank() && (isClient || isEditor)) TextButton(onClick = { openUrl(ctx, job.filesLink) }) { Text("📂 Raw files") }
