@@ -65,14 +65,16 @@ fun ChatsScreen(nav: NavHostController) {
         Triple(convs, Repo.profilesByIds(convs.map { it.otherId }), Repo.unreadByUser())
     }
     val meId = AppState.me?.id ?: ""
+    var query by remember { mutableStateOf("") }
     Page("Messages", bottomBar = { MainBottomBar(nav, "chats") }) {
+        Field(query, { query = it.take(100) }, "Search chats", "Name or recent message")
         SupportCard()
         val d = data.data
         when {
             data.error != null -> ErrorBox(data.error) { data.reload() }
             d == null -> Loading()
             d.first.isEmpty() -> MutedText("No conversations yet. Open an editor's profile or a project to start chatting.")
-            else -> d.first.forEach { c ->
+            else -> d.first.filter { c -> query.isBlank() || d.second[c.otherId]?.name?.contains(query, true) == true || c.last.preview.contains(query, true) }.forEach { c ->
                 val p = d.second[c.otherId]
                 val unread = d.third[c.otherId] ?: 0
                 CardBox(onClick = { nav.go("chat/${c.otherId}") }) {
@@ -247,18 +249,9 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
                         Modifier.widthIn(max = 290.dp).clip(RoundedCornerShape(16.dp))
                             .background(if (mine) Blue else Color.White).padding(horizontal = 10.dp, vertical = 7.dp)
                     ) {
-                        when (m.mediaType) {
-                            "image" -> coil.compose.AsyncImage(
-                                model = m.mediaUrl, contentDescription = "Photo",
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                                modifier = Modifier.width(230.dp).heightIn(max = 300.dp).clip(RoundedCornerShape(12.dp))
-                                    .clickable { openUrl(ctx, m.mediaUrl) }
-                            )
-                            "video" -> Text("▶  Play video", color = if (mine) Color.White else Blue, fontWeight = FontWeight.Bold,
-                                modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { openUrl(ctx, m.mediaUrl) }.padding(vertical = 6.dp))
-                            "audio" -> Text("🎤  Play voice message (${m.duration / 60}:${(m.duration % 60).toString().padStart(2, '0')})",
-                                color = if (mine) Color.White else Blue, fontWeight = FontWeight.Bold,
-                                modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { openUrl(ctx, m.mediaUrl) }.padding(vertical = 6.dp))
+                        if (m.mediaPath.isNotBlank() && m.mediaType in listOf("image", "video", "audio")) {
+                            val mime = when (m.mediaType) { "image" -> "image/jpeg"; "video" -> "video/mp4"; else -> "audio/mpeg" }
+                            PrivateMediaPreview("sphere-chat", m.mediaPath, when (m.mediaType) { "image" -> "Open photo"; "video" -> "Play video"; else -> "Play voice message" }, mime)
                         }
                         if (m.text.isNotBlank()) Text(m.text, color = if (mine) Color.White else Color.Black)
                         Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {

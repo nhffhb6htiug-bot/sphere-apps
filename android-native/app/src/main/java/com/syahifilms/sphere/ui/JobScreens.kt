@@ -21,6 +21,12 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.syahifilms.sphere.data.*
 import kotlinx.coroutines.launch
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
+import android.net.Uri
+import java.io.File
+import java.util.UUID
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -72,8 +78,54 @@ fun PostJobScreen(nav: NavHostController, presetEditor: String?) {
     var styleNotes by remember { mutableStateOf("") }
     var referenceLinks by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    var picking by remember { mutableStateOf(false) }
+    var uploadStatus by remember { mutableStateOf("") }
+    var attachments by remember { mutableStateOf(emptyList<PickedProjectFile>()) }
+    var reviewing by remember { mutableStateOf(false) }
+    val requestId = remember { UUID.randomUUID().toString() }
+    val cameraDir = remember { File(ctx.cacheDir, "project-camera/$requestId").apply { mkdirs() } }
+    var cameraFile by remember { mutableStateOf<File?>(null) }
+    var cameraUri by remember { mutableStateOf<Uri?>(null) }
+    DisposableEffect(cameraDir) { onDispose { cameraDir.deleteRecursively() } }
+
+    fun addFiles(uris: List<Uri>, reference: Boolean) {
+        if (uris.isEmpty() || busy || picking) return
+        picking = true
+        scope.launch {
+            try {
+                val unique = uris.distinct().filter { u -> attachments.none { it.uri == u } }
+                require(attachments.size + unique.size <= MAX_PROJECT_FILES) { "Up to 5 raw/reference files combined." }
+                attachments = attachments + unique.map { describeProjectFile(ctx, it, reference) }
+            } catch (e: Exception) { toast(ctx, e.message ?: "Could not select file") }
+            finally { picking = false }
+        }
+    }
+    val rawPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { addFiles(it, false) }
+    val refPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { addFiles(it, true) }
+    fun finishCamera(ok: Boolean) {
+        val uri = cameraUri
+        if (ok && uri != null) addFiles(listOf(uri), false) else cameraFile?.delete()
+        cameraFile = null
+        cameraUri = null
+    }
+    val photoCamera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { finishCamera(it) }
+    val videoCamera = rememberLauncherForActivityResult(ActivityResultContracts.CaptureVideo()) { finishCamera(it) }
+    fun capture(video: Boolean) {
+        if (attachments.size >= MAX_PROJECT_FILES) { toast(ctx, "Up to 5 files"); return }
+        try {
+            val f = File.createTempFile("capture-", if (video) ".mp4" else ".jpg", cameraDir)
+            cameraFile = f
+            val u = FileProvider.getUriForFile(ctx, ctx.packageName + ".projectfiles", f)
+            cameraUri = u
+            if (video) videoCamera.launch(u) else photoCamera.launch(u)
+        } catch (_: Exception) {
+            cameraFile?.delete(); cameraFile = null; cameraUri = null
+            toast(ctx, "No camera app available")
+        }
+    }
     val hired = if (presetEditor != null) load(presetEditor) { Repo.profile(presetEditor) }.data else null
-    Page(if (presetEditor != null) "Hire editor" else "Post a job", onBack = { nav.popBackStack() }) {
+    Page(if (presetEditor != null) "Hire editor" else "Post a job", onBack = { if (!busy) { if (reviewing) reviewing = false else nav.popBackStack() } }) {
+        if (!reviewing) {
         if (hired != null) CardBox { Text("Hiring ${hired.name} directly", fontWeight = FontWeight.Bold); MutedText("They will propose a price, then you confirm.", 12) }
         Dropdown("Category", category, Config.CATEGORIES) { category = it }
         Field(title, { title = it.take(60) }, "Project title (optional)")
@@ -90,23 +142,76 @@ fun PostJobScreen(nav: NavHostController, presetEditor: String?) {
         DeadlinePicker(deadline) { deadline = it }
         Field(link, { link = it.trim() }, "Raw files link (optional)", "Google Drive / WeTransfer link")
         MutedText("Tip: share big raw videos as a Google Drive link.", 12)
-        PrimaryButton(if (busy) "Posting…" else "Post job", enabled = !busy) {
+        CardBox {
+            Text("Raw footage & photos", fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                OutlinedButton(enabled = !picking && !busy, onClick = { rawPicker.launch(arrayOf("image/*", "video/*")) }) { Text("Browse") }
+                OutlinedButton(enabled = !picking && !busy, onClick = { capture(false) }) { Text("Camera") }
+            }
+            OutlinedButton(enabled = !picking && !busy, onClick = { capture(true) }) { Text("Record video") }
+            Text("Reference video upload", fontWeight = FontWeight.Bold)
+            OutlinedButton(enabled = !picking && !busy, onClick = { refPicker.launch(arrayOf("video/*")) }) { Text("Browse reference videos") }
+            MutedText("${attachments.size} / 5 files · 50 MB maximum per file", 12)
+            attachments.forEach { item ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    LocalProjectThumbnail(item)
+                    Column(Modifier.weight(1f).padding(8.dp)) {
+                        Text(item.name, maxLines = 2)
+                        MutedText(if (item.reference) "Reference video" else "Raw file", 11)
+                    }
+                    TextButton(enabled = !busy, onClick = { attachments = attachments.filterNot { it.uri == item.uri } }) { Text("Remove") }
+                }
+            }
+        }
+        if (picking) LinearProgressIndicator(Modifier.fillMaxWidth())
+        PrimaryButton("Review job →", enabled = !busy && !picking) {
             val b = budget.toDoubleOrNull()
             when {
                 details.trim().length < 10 || b == null || b < 1 || b > 10000000 -> toast(ctx, "Please add at least 10 characters of project details and a valid budget")
                 deadline.isNotBlank() && deadline < todayIST() -> toast(ctx, "Deadline cannot be in the past")
                 link.isNotBlank() && !link.startsWith("https://", ignoreCase = true) -> toast(ctx, "Link must start with https://")
                 !validProjectReferenceLinks(referenceLinks) -> toast(ctx, "Use HTTPS YouTube, Google Drive or WeTransfer reference links only.")
-                else -> scope.launch {
+                else -> reviewing = true
+            }
+        }
+        } else {
+            CardBox {
+                Text(title.ifBlank { category }, fontWeight = FontWeight.Bold)
+                Text(details)
+                KeyValue("Budget", "₹$budget")
+                KeyValue("Deadline", deadline.ifBlank { "No deadline" })
+                KeyValue("Languages", languages.joinToString(", ").ifBlank { "Any" })
+                if (videoLength.isNotBlank()) KeyValue("Length", videoLength)
+                if (videoFormat.isNotBlank()) KeyValue("Format", videoFormat)
+                if (styleNotes.isNotBlank()) Text(styleNotes)
+                if (referenceLinks.isNotBlank()) Text(referenceLinks)
+                if (link.isNotBlank()) Text(link)
+                KeyValue("Raw / reference files", "${attachments.count { !it.reference }} / ${attachments.count { it.reference }}")
+            }
+            if (busy) { LinearProgressIndicator(Modifier.fillMaxWidth()); MutedText(uploadStatus) }
+            PrimaryButton(if (busy) "Posting…" else if (presetEditor != null) "Send to editor" else "Post job", enabled = !busy) {
+                scope.launch {
                     busy = true
+                    var uploaded = emptyList<ProjectAttachment>()
                     try {
-                        val id = Repo.postJob(me, category, details.trim(), b, deadline.ifBlank { null }, link, presetEditor, languages.joinToString(", "), title.trim(), videoLength.trim(), videoFormat, styleNotes.trim(), referenceLinks.trim())
+                        val existing = Api.selectOne("sp_jobs?id=eq.$requestId&client_id=eq.${me.id}&select=id")
+                        val id = if (existing != null) requestId else {
+                            uploaded = uploadProjectFiles(ctx, me.id, attachments) { uploadStatus = it }
+                            uploadStatus = "Saving project…"
+                            Repo.postJob(me, category, details.trim(), budget.toDouble(), deadline.ifBlank { null }, link, presetEditor, languages.joinToString(", "), title.trim(), videoLength.trim(), videoFormat, styleNotes.trim(), referenceLinks.trim(), uploaded, requestId)
+                        }
                         toast(ctx, "Job posted ✅")
-                        if (id.isNotBlank()) { nav.popBackStack(); nav.go("project/$id") } else nav.resetTo("jobs")
-                    } catch (e: Exception) { toast(ctx, e.message ?: "Could not post the job") }
-                    busy = false
+                        nav.popBackStack()
+                        nav.go("project/$id")
+                    } catch (e: Exception) {
+                        if (e is ApiException && e.status in listOf(400, 401, 403, 404, 422)) {
+                            try { Api.removeOwnPrivateFiles("sphere-raw", uploaded.map { it.path }) } catch (_: Exception) { }
+                        }
+                        toast(ctx, e.message ?: "Could not confirm posting. Check My Projects before retrying.")
+                    } finally { busy = false; uploadStatus = "" }
                 }
             }
+            OutlinedButton(enabled = !busy, onClick = { reviewing = false }, modifier = Modifier.fillMaxWidth()) { Text("Edit") }
         }
     }
 }
@@ -227,7 +332,13 @@ fun ProjectScreen(nav: NavHostController, id: String) {
             Spacer(Modifier.height(6.dp))
             Text(job.description, fontSize = 14.sp)
             if (job.filesLink.isNotBlank() && (isClient || isEditor)) TextButton(onClick = { openUrl(ctx, job.filesLink) }) { Text("📂 Raw files") }
-            if (job.deliveryLink.isNotBlank()) TextButton(onClick = { openUrl(ctx, job.deliveryLink) }) { Text("🎬 Open delivered video") }
+            if (isClient || isEditor) {
+                job.attachments.groupBy { it.reference }.forEach { (ref, files) ->
+                    Text(if (ref) "Reference videos" else "Raw footage & photos", fontWeight = FontWeight.SemiBold)
+                    files.forEach { f -> PrivateMediaPreview("sphere-raw", f.path, f.name, f.type) }
+                }
+            }
+            if ((isClient || isEditor) && job.deliveryLink.isNotBlank()) TextButton(onClick = { openUrl(ctx, job.deliveryLink) }) { Text("🎬 Open delivered video") }
         }
         if (other != null && (isClient || isEditor)) {
             CardBox(onClick = { if (isClient) nav.go("editor/${other.id}") }) {

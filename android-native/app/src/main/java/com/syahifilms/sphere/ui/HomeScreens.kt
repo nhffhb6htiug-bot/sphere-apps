@@ -248,7 +248,7 @@ fun JobCard(j: Job, onClick: () -> Unit) = JobCardUi(j, onClick)
 fun JobCardUi(j: Job, onClick: () -> Unit) {
     CardBox(onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(j.category, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(j.title.ifBlank { j.category }, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             StatusChip(j.status, j.expired)
         }
         if (j.language.isNotBlank()) MutedText("🗣 ${j.language}", 12)

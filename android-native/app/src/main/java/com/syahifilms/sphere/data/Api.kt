@@ -11,6 +11,8 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import java.io.File
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
@@ -266,6 +268,54 @@ object Api {
         http.newCall(req).execute().use { res ->
             if (res.code !in 200..299) throw toError(res.code, res.body?.string() ?: "")
         }
+    }
+
+    private fun checkedPrivatePath(bucket: String, path: String): String {
+        require(bucket in setOf("sphere-raw", "sphere-chat"))
+        require(path.length in 1..500 && path.split("/").all { it.isNotBlank() && it != "." && it != ".." && it.matches(Regex("[A-Za-z0-9_.-]+")) })
+        return path
+    }
+
+    suspend fun privateSignedUrl(bucket: String, path: String): String {
+        val safe = checkedPrivatePath(bucket, path)
+        if (userId == null) throw ApiException(401, "Please log in again")
+        val data = JSONObject(raw("POST", "/storage/v1/object/sign/$bucket/$safe", JSONObject().put("expiresIn", 300).toString()))
+        val value = data.str("signedURL").ifBlank { data.str("signedUrl") }
+        val url = when {
+            value.startsWith("/object/sign/") -> Config.SUPABASE_URL + "/storage/v1" + value
+            value.startsWith("/storage/v1/object/sign/") -> Config.SUPABASE_URL + value
+            value.startsWith("https://") -> value
+            else -> throw ApiException(403, "File is not available")
+        }
+        val uri = java.net.URI(url)
+        val expected = java.net.URI(Config.SUPABASE_URL)
+        require(uri.scheme == "https" && uri.host == expected.host && uri.port == expected.port && uri.userInfo == null &&
+            uri.path.startsWith("/storage/v1/object/sign/$bucket/")) { "Invalid file link" }
+        return url
+    }
+
+    suspend fun uploadPrivateFile(bucket: String, path: String, file: File, contentType: String) = withContext(Dispatchers.IO) {
+        val safe = checkedPrivatePath(bucket, path)
+        require(userId != null && safe.substringBefore("/") == userId)
+        require(file.length() in 1L..(50L * 1024 * 1024))
+        val t = token() ?: throw ApiException(401, "Please log in again")
+        val req = Request.Builder()
+            .url("${Config.SUPABASE_URL}/storage/v1/object/$bucket/$safe")
+            .header("apikey", Config.SUPABASE_KEY)
+            .header("Authorization", "Bearer $t")
+            .header("x-upsert", "false")
+            .post(file.asRequestBody(contentType.toMediaType())).build()
+        http.newBuilder().retryOnConnectionFailure(false).build().newCall(req).execute().use { res ->
+            if (!res.isSuccessful) throw toError(res.code, res.body?.string() ?: "")
+        }
+    }
+
+    suspend fun removeOwnPrivateFiles(bucket: String, paths: List<String>) {
+        if (paths.isEmpty()) return
+        val owner = userId ?: throw ApiException(401, "Please log in again")
+        val safe = paths.map { checkedPrivatePath(bucket, it) }
+        require(safe.all { it.substringBefore("/") == owner })
+        raw("DELETE", "/storage/v1/object/$bucket", JSONObject().put("prefixes", JSONArray(safe)).toString())
     }
 
     fun publicUrl(bucket: String, path: String) = "${Config.SUPABASE_URL}/storage/v1/object/public/$bucket/$path"

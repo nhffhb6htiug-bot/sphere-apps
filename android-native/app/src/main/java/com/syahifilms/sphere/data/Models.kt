@@ -112,7 +112,8 @@ data class Job(
     val videoLength: String = "",
     val videoFormat: String = "",
     val styleNotes: String = "",
-    val referenceLinks: String = ""
+    val referenceLinks: String = "",
+    val attachments: List<ProjectAttachment> = emptyList()
 ) {
     val expired: Boolean get() = status == "open" && deadline.isNotBlank() && deadline.take(10) < todayIST()
     val finalAmount: Double? get() = lockedAmount ?: budget
@@ -141,8 +142,18 @@ data class Job(
             videoLength = o.str("video_length"),
             videoFormat = o.str("video_format"),
             styleNotes = o.str("style_notes"),
-            referenceLinks = o.str("reference_links")
+            referenceLinks = o.str("reference_links"),
+            attachments = o.optJSONArray("raw_files")?.mapObjects { ProjectAttachment.from(it) } ?: emptyList()
         )
+    }
+}
+
+data class ProjectAttachment(val path: String, val name: String, val type: String, val size: Long, val reference: Boolean) {
+    fun json() = JSONObject().put("path", path).put("name", name).put("type", type).put("size", size).apply {
+        if (reference) put("kind", "reference")
+    }
+    companion object {
+        fun from(o: JSONObject) = ProjectAttachment(o.str("path"), o.str("name"), o.str("type"), o.optLong("size", 0), o.str("kind") == "reference")
     }
 }
 

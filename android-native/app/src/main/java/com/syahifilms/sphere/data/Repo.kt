@@ -154,12 +154,18 @@ object Repo {
         me: Profile, category: String, description: String, budget: Double,
         deadline: String?, filesLink: String, presetEditor: String?, language: String = "",
         title: String = "", videoLength: String = "", videoFormat: String = "",
-        styleNotes: String = "", referenceLinks: String = ""
+        styleNotes: String = "", referenceLinks: String = "",
+        attachments: List<ProjectAttachment> = emptyList(), requestId: String = java.util.UUID.randomUUID().toString()
     ): String {
+        require(Api.userId == me.id) { "Please log in again" }
+        require(attachments.size <= 5 && attachments.all { it.path.startsWith(me.id + "/raw/") && it.size in 1L..(50L * 1024 * 1024) && (if (it.reference) it.type.startsWith("video/") else it.type.startsWith("image/") || it.type.startsWith("video/")) })
+        require(java.util.UUID.fromString(requestId).toString() == requestId)
+        if (Api.selectOne("sp_jobs?id=eq.$requestId&client_id=eq.${me.id}&select=id") != null) return requestId
         require(validProjectReferenceLinks(referenceLinks)) { "Use supported HTTPS reference links only." }
         val normalizedLanguages = language.split(",").map { it.trim() }.filter { it in Config.LANGUAGES }.distinct().take(4).joinToString(", ")
         val row = JSONObject()
-            .put("client_id", me.id).put("category", category).put("description", description)
+            .put("id", requestId).put("client_id", me.id).put("category", category).put("description", description)
+            .put("raw_files", JSONArray(attachments.map { it.json() }))
             .put("budget", budget).put("deadline", deadline ?: JSONObject.NULL)
             .put("files_link", filesLink.ifBlank { null } ?: JSONObject.NULL)
             .put("language", normalizedLanguages.ifBlank { null } ?: JSONObject.NULL)
@@ -172,14 +178,24 @@ object Repo {
             .put("ai_assisted", false)
             .put("status", if (presetEditor != null) "negotiating" else "open")
             .put("assigned_editor", presetEditor ?: JSONObject.NULL)
-        val created = Api.insert("sp_jobs", row)
+        val created = try { Api.insert("sp_jobs", row) } catch (e: Exception) {
+            val existing = try { Api.selectOne("sp_jobs?id=eq.$requestId&client_id=eq.${me.id}&select=id") } catch (_: Exception) { null }
+            if (existing == null) throw e
+            existing
+        }
+        if (created == null || created.str("id") != requestId) {
+            if (Api.selectOne("sp_jobs?id=eq.$requestId&client_id=eq.${me.id}&select=id") == null)
+                throw ApiException(503, "Project status uncertain. Check My Projects before retrying.")
+        }
+        try {
         if (presetEditor != null) {
             notify(listOf(presetEditor), "You were hired directly!", "${me.name} hired you for a $category project. Propose your price.")
         } else {
             val eds = publicEditors("categories=cs.${Api.enc("{\"$category\"}")}&select=id")
             notify(eds.mapObjects { it.str("id") }, "New Job Posted", "$category job posted — Budget ${money(budget)}")
         }
-        return created?.str("id") ?: ""
+        } catch (_: Exception) { }
+        return requestId
     }
 
     suspend fun placeBid(me: Profile, job: Job, amount: Double, message: String) {
