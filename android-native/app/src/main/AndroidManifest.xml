@@ -10,6 +10,15 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.Sphere">
+        <provider
+            android:name=".SphereCaptureProvider"
+            android:authorities="${applicationId}.capture"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/sphere_capture_paths" />
+        </provider>
         <activity
             android:name=".MainActivity"
             android:exported="true"
