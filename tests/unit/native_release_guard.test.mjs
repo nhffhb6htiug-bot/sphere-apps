@@ -3,7 +3,7 @@ const root="android-native/app/src/main/java/com/syahifilms/sphere/";
 const read=p=>fs.readFileSync(root+p,"utf8");
 test("Preview has independent package and fails closed without staging",()=>{
  const g=fs.readFileSync("android-native/app/build.gradle.kts","utf8"),c=read("data/Config.kt"),api=read("data/Api.kt"),auth=read("ui/AuthScreens.kt");
- assert.match(g,/applicationIdSuffix = "\.preview"/);assert.match(g,/SPHERE_PREVIEW_SUPABASE_URL/);
+ assert.match(g,/applicationIdSuffix = "\.preview"/);assert.match(g,/SPHERE_PREVIEW_SUPABASE_URL/);assert.match(g,/payload\?\.get\("role"\) == "anon"/);
  assert.match(c,/claims.optString\("role"\) == "anon"/);
  assert.match(c,/claims.optString\("ref"\) == ref/);
  assert.doesNotMatch(c,/workers\.dev/);

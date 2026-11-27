@@ -19,6 +19,16 @@ require(previewKey.isEmpty() || Regex("[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z
 require(previewGoogle.isEmpty() || Regex("[0-9]+-[A-Za-z0-9_-]+\\.apps\\.googleusercontent\\.com").matches(previewGoogle)) { "Invalid preview OAuth client ID." }
 require(previewUrl.isEmpty() == previewKey.isEmpty()) { "Set both staging URL and staging anon key, or neither." }
 require(previewUrl != "https://pwcchgjsgkwrsvbzqspp.supabase.co") { "Production backend is forbidden in preview builds." }
+if (previewKey.isNotEmpty()) {
+    // Reject privileged/mismatched keys BEFORE embedding anything in BuildConfig.
+    val payload = runCatching {
+        val bytes = java.util.Base64.getUrlDecoder().decode(previewKey.split('.')[1])
+        groovy.json.JsonSlurper().parseText(String(bytes, Charsets.UTF_8)) as? Map<*, *>
+    }.getOrNull()
+    require(payload?.get("role") == "anon" && payload?.get("ref") == previewUrl.removePrefix("https://").removeSuffix(".supabase.co")) {
+        "Only an anon key for the isolated testing project is allowed."
+    }
+}
 
 android {
     namespace = "com.syahifilms.sphere"
@@ -60,7 +70,6 @@ android {
         debug {
             applicationIdSuffix = ".preview"
             versionNameSuffix = "-preview"
-            resValue("string","app_name","Sphere Preview")
         }
         release {
             isMinifyEnabled = false
