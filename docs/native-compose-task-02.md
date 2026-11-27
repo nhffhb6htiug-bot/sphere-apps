@@ -35,3 +35,8 @@ No release until applicable gates pass. No live backend changes or tests were pe
 ## Task 02.4 — chat preview
 - Native text outbox (encrypted Android Keystore, stable UUID, same-account queue), retry/reconcile, foreground realtime invalidation with polling fallback, server-moderated readback and reply IDs, last seen via privacy-respecting RPC, search, signed private media, streamed upload and foreground unread refresh.
 - No public typing broadcast: no private realtime.messages RLS policies were found in live schema. Exact online and typing require a separately authorized, tested private channel shared by web and native. Background native push requires separate Android push provider and consent/configuration. No live schema or user data changes. Existing chat moderation/block rules are authoritative; media retry is explicit status check only. Runtime, account switching, long-history pagination, encrypted queue lifecycle and CI remain release gates.
+
+## Task 02.4 follow-up
+- Private broadcast client and staging-only RLS policy for typing/online-in-thread, privacy opt-in, foreground lifecycle and bounded liveness. Not deployed; no public fallback. Web interoperability and authenticated staging tests remain required. Global app-wide online status not claimed.
+- Updated three static regression assertions for the new native chat paths and prevented editing captions during uploads. Build/test verification required.
+- Native FCM receiver/permission foundation prepared separately; Firebase configuration, token registration and trusted server dispatch remain release gates. No user tokens or live DB changes.

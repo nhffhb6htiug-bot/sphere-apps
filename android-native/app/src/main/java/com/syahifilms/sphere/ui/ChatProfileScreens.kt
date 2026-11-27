@@ -110,6 +110,7 @@ fun ChatsScreen(nav: NavHostController) {
 fun NotificationsScreen(nav: NavHostController) {
     val data = load(Unit) { Repo.notifications() }
     Page("Notifications", onBack = { nav.popBackStack() }) {
+        NativePushSettings()
         val list = data.data
         when {
             data.error != null -> ErrorBox(data.error) { data.reload() }

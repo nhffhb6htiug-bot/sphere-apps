@@ -19,6 +19,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavHostController
 import com.syahifilms.sphere.data.*
 import kotlinx.coroutines.CancellationException
@@ -51,6 +53,20 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
     var connection by remember { mutableStateOf("Connecting…") }
     var note by remember { mutableStateOf("") }
     var seen by remember { mutableStateOf("") }
+    var peerOnline by remember { mutableStateOf(false) }
+    var peerTyping by remember { mutableStateOf(false) }
+    var foreground by remember { mutableStateOf(false) }
+    val typingNow = rememberUpdatedState(text.isNotBlank() && !busy)
+    val activity = ctx as? androidx.activity.ComponentActivity
+    DisposableEffect(activity) {
+        val lifecycle = activity?.lifecycle
+        foreground = lifecycle?.currentState?.isAtLeast(Lifecycle.State.RESUMED) == true
+        val observer = LifecycleEventObserver { _, _ ->
+            foreground = lifecycle?.currentState?.isAtLeast(Lifecycle.State.RESUMED) == true
+        }
+        lifecycle?.addObserver(observer)
+        onDispose { lifecycle?.removeObserver(observer) }
+    }
     var ownSeen by remember { mutableStateOf<Boolean?>(null) }
     var menu by remember { mutableStateOf(false) }
     var confirmClear by remember { mutableStateOf(false) }
@@ -113,6 +129,28 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
             catch (e: CancellationException) { throw e }
             catch (_: Exception) { seen = "" }
             delay(30000)
+        }
+    }
+    // Private channels are opt-in to existing visibility permissions; no public fallback.
+    LaunchedEffect(me.id,otherId,foreground,blocked,blockKnown,ownSeen) {
+        peerOnline = false
+        peerTyping = false
+        if (!foreground || blocked || !blockKnown || ownSeen != true) return@LaunchedEffect
+        while (Api.userId == me.id) {
+            try {
+                if (NativeChat.seen(otherId).isNotBlank()) {
+                    kotlinx.coroutines.withTimeout(45000) {
+                        PrivateChatPresence.events(me.id,otherId) { typingNow.value }.collect { state ->
+                            peerOnline = state.online
+                            peerTyping = state.typing
+                        }
+                    }
+                }
+            } catch (e: kotlinx.coroutines.TimeoutCancellationException) { }
+            catch (e: CancellationException) { throw e }
+            catch (_: Exception) { }
+            finally { peerOnline = false; peerTyping = false }
+            delay(3000)
         }
     }
     val filtered = messages.filter { search.isBlank() || it.preview.contains(search,true) }
@@ -184,7 +222,7 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
             Column {
                 Text(other?.name ?: "Chat",fontWeight = FontWeight.Bold)
                 val age = runCatching { java.time.Duration.between(java.time.OffsetDateTime.parse(seen).toInstant(),java.time.Instant.now()).seconds }.getOrNull()
-                Text(if (seen.isBlank()) connection else if (age != null && age in 0..90) "Recently active" else "Last seen " + dayOf(seen) + " " + timeOf(seen),fontSize = 12.sp)
+                Text(if (peerTyping && peerOnline) "Typing…" else if (peerOnline) "Online in this chat" else if (seen.isBlank()) connection else if (age != null && age in 0..90) "Recently active" else "Last seen " + dayOf(seen) + " " + timeOf(seen),fontSize = 12.sp)
             }
         }, navigationIcon = { TextButton(onClick = { nav.popBackStack() }) { Text("‹ Back") } }, actions = {
             TextButton(onClick = { searchOpen = !searchOpen; if (!searchOpen) search = "" }) { Text("Search") }
@@ -241,7 +279,7 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
                     picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
                 }) { Text("+") }
                 OutlinedTextField(value = text,onValueChange = { text = it.take(2000) },modifier = Modifier.weight(1f),
-                    placeholder = { Text("Message") },maxLines = 4,enabled = pendingMedia == null)
+                    placeholder = { Text("Message") },maxLines = 4,enabled = pendingMedia == null && !busy)
                 TextButton(enabled = !busy && (if (media != null) blockKnown && !blocked else queueReady && text.isNotBlank()),
                     onClick = { if (media != null) sendAttachment() else enqueue() }) { Text("Send") }
             }

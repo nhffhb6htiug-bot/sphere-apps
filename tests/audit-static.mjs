@@ -57,13 +57,19 @@ assert(!repo.includes('put("status", "delivered")'),"Native cannot directly set 
 
 // A selected video may be hundreds of MB. Never read it without a byte cap,
 // and do not erase a typed caption if the upload fails.
-const nativeChat = fs.readFileSync("android-native/app/src/main/java/com/syahifilms/sphere/ui/ChatProfileScreens.kt","utf8");
-assert(!nativeChat.includes("it.readBytes()"),"Native chat picker does not read unbounded media");
-assert(/bytesRead\s*>\s*maxMediaBytes/.test(nativeChat) && /50L\s*\*\s*1024\s*\*\s*1024/.test(nativeChat),
+const nativeChat = fs.readFileSync("android-native/app/src/main/java/com/syahifilms/sphere/ui/NativeChatScreen.kt","utf8");
+const projectMedia = fs.readFileSync("android-native/app/src/main/java/com/syahifilms/sphere/data/ProjectMedia.kt","utf8");
+const chatData = fs.readFileSync("android-native/app/src/main/java/com/syahifilms/sphere/data/NativeChat.kt","utf8");
+assert(!nativeChat.includes("it.readBytes()") && nativeChat.includes("ProjectMedia.stage"),"Native chat picker does not read unbounded media");
+assert(/total <= MAX_BYTES/.test(projectMedia) && /MAX_BYTES = 50L \* 1024 \* 1024/.test(projectMedia),
   "Native chat rejects media above 50MB while reading");
-assert(/Repo\.sendMedia\(me, otherId, bytes, mime, caption\)[\s\S]*?if \(text\.trim\(\) == caption\) text = ""/.test(nativeChat),
+assert(/val pending = PendingChat\([^\n]*text.trim\(\)/.test(nativeChat) &&
+  nativeChat.includes("enabled = pendingMedia == null && !busy") &&
+  /val saved = NativeChat.send\(me.id,pending,path,kind,item.name\)[\s\S]*?pendingMedia = null; text = ""/.test(nativeChat),
   "Native chat preserves message caption until media upload succeeds");
-assert((nativeChat.match(/try \{ messages = Repo\.thread\(otherId\) \} catch \(_: Exception\) \{ \}/g) || []).length >= 2,
+assert(/existing\(owner,pending.peer,pending.id\)/.test(chatData) &&
+  /val saved = NativeChat.send\(me.id,next\)[\s\S]*?persist\(queued.filterNot/.test(nativeChat) &&
+  /val rows = Repo.thread\(otherId\)/.test(nativeChat),
   "Native chat distinguishes successful sends from subsequent refresh failures");
 
 console.log(JSON.stringify({checks,scriptCount:inlineCount,imagesChecked:imagePaths.length},null,2));
