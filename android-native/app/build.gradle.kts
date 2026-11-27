@@ -1,3 +1,6 @@
+import java.util.Base64
+import groovy.json.JsonSlurper
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -22,8 +25,8 @@ require(previewUrl != "https://pwcchgjsgkwrsvbzqspp.supabase.co") { "Production 
 if (previewKey.isNotEmpty()) {
     // Reject privileged/mismatched keys BEFORE embedding anything in BuildConfig.
     val payload = runCatching {
-        val bytes = java.util.Base64.getUrlDecoder().decode(previewKey.split('.')[1])
-        groovy.json.JsonSlurper().parseText(String(bytes, Charsets.UTF_8)) as? Map<*, *>
+        val bytes = Base64.getUrlDecoder().decode(previewKey.split('.')[1])
+        JsonSlurper().parseText(String(bytes, Charsets.UTF_8)) as? Map<*, *>
     }.getOrNull()
     require(payload?.get("role") == "anon" && payload?.get("ref") == previewUrl.removePrefix("https://").removeSuffix(".supabase.co")) {
         "Only an anon key for the isolated testing project is allowed."
