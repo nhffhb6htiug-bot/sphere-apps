@@ -271,6 +271,8 @@ fun EditorCard(e: Profile, onClick: () -> Unit) {
                     Text(e.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                     Spacer(Modifier.width(6.dp))
                     if (e.verified) VerifiedBadge(e.code)
+                    if (e.verified && e.device in setOf("pc","both")) Text("✓ Verified PC", color = Success,fontWeight = FontWeight.Bold,fontSize = 16.sp)
+                    if (e.availability.isNotBlank()) MutedText("Status: " + e.availability.replaceFirstChar { it.uppercase() })
                 }
                 MutedText("${e.categoriesLabel} · ${e.experience ?: 0} yrs exp", 12)
                 Text(if (e.reviews > 0) "⭐ ${e.rating} (${e.reviews})" else "New editor", fontSize = 12.sp)
@@ -333,6 +335,8 @@ fun EditorProfileScreen(nav: NavHostController, id: String) {
                     if (e.sample.startsWith("http")) TextButton(onClick = { openUrl(ctx, e.sample) }) { Text("▶ Watch sample video") }
                     if (e.portfolio.startsWith("http")) TextButton(onClick = { openUrl(ctx, e.portfolio) }) { Text("📂 Open portfolio") }
                 }
+                if (e.bio.isNotBlank()) CardBox { Text("About",fontWeight = FontWeight.Bold); Text(e.bio) }
+                PublicPortfolioPanel(e.id)
                 if (AppState.clientSide && e.id != AppState.me?.id) {
                     PrimaryButton("Hire ${e.firstName}") { nav.go("postJob?editor=${e.id}") }
                     SecondaryButton("💬 Chat") { nav.go("chat/${e.id}") }

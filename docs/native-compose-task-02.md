@@ -44,3 +44,6 @@ No release until applicable gates pass. No live backend changes or tests were pe
 ## Task 02.4 regression follow-up
 - Repaired stale typing (four-second inactivity window), foreground heartbeat and read refresh, private join timeout, outbox worker independent of REST refresh and bounded retry backoff, and local push opt-in cleanup on account change. Conditional Firebase client configuration supported without checking in credentials.
 - Only production Sphere is active in connected Supabase; no isolated active staging environment exists. Staged RLS remains uninstalled; real push registration/dispatch, authenticated channel tests and device tests remain open. No live DB writes performed.
+
+## Task 02.5 — editor profile and portfolio
+Native editor bio, availability, device, public work samples, owner-only portfolio editing, image compression, avatar upload, category filters, independent profile completion, rejected/not-applied/pending/verified states and reapply added. Existing proof RPCs and free eligibility retained; paid fee checkout disabled in preview. Portfolio photos are public like web; videos remain HTTPS links, not direct uploads. No live data or verification flags changed. Media orphan cleanup, server-side limit/concurrency checks, admin filters and physical-device/real account tests remain gates.

@@ -42,10 +42,19 @@ object Repo {
 
     suspend fun saveEditorDetails(
         phone: String, categories: List<String>, languages: List<String>, skills: String, experience: Int?,
-        price: String, portfolio: String, sample: String
+        price: String, portfolio: String, sample: String, device: String, bio: String, availability: String,
+        submitApplication: Boolean = false
     ) {
-        val uid = Api.userId ?: return
+        val uid = Api.userId ?: throw ApiException(401, "Please log in")
+        val current = loadMe() ?: throw ApiException(403, "Profile unavailable")
+        require(current.role in setOf("editor","admin"))
+        require(device in setOf("mobile","pc","both") && availability in setOf("available","busy","away"))
+        require(bio.length <= 300 && (experience == null || experience in 0..50))
+        require(NativePortfolio.validLink(portfolio) && NativePortfolio.validLink(sample))
         val f = JSONObject()
+            .put("edit_device", device)
+            .put("bio", bio.ifBlank { null } ?: JSONObject.NULL)
+            .put("availability", availability)
             .put("phone", phone)
             .put("categories", JSONArray(categories))
             .put("languages", JSONArray(languages))
@@ -53,8 +62,12 @@ object Repo {
             .put("experience_years", experience ?: JSONObject.NULL)
             .put("price_range", price)
             .put("portfolio_url", portfolio.ifBlank { null } ?: JSONObject.NULL)
-            .put("sample_video_url", sample)
-        Api.update("profiles?id=eq.$uid", f)
+            .put("sample_video_url", sample.ifBlank { null } ?: JSONObject.NULL)
+        if (submitApplication && !current.verified && current.role == "editor" &&
+            current.verificationStatus in setOf("","not_applied","rejected")) f.put("verification_status","pending")
+        if (Api.userId != uid) throw ApiException(401,"Account changed")
+        val result = Api.updateReturning("profiles?id=eq.$uid",f)
+        if (result == null) throw ApiException(403,"Profile update not confirmed")
     }
 
     suspend fun becomeEditor() {

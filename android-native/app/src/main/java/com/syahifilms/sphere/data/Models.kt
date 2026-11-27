@@ -58,7 +58,12 @@ data class Profile(
     val code: String,
     val avatarPath: String,
     var rating: Double = 0.0,
-    var reviews: Int = 0
+    var reviews: Int = 0,
+    val bio: String = "",
+    val availability: String = "",
+    val device: String = "",
+    val verificationStatus: String = "",
+    val verificationNote: String = ""
 ) {
     val category: String get() = categories.firstOrNull() ?: ""
     val categoriesLabel: String get() = categories.joinToString(", ").ifBlank { "-" }
@@ -84,7 +89,12 @@ data class Profile(
             portfolio = o.str("portfolio_url"),
             verified = o.optBoolean("is_verified", false),
             code = o.str("verification_code"),
-            avatarPath = o.str("avatar_url")
+            avatarPath = o.str("avatar_url"),
+            bio = o.str("bio"),
+            availability = o.str("availability"),
+            device = o.str("edit_device"),
+            verificationStatus = o.str("verification_status"),
+            verificationNote = o.str("verification_note")
         )
     }
 }

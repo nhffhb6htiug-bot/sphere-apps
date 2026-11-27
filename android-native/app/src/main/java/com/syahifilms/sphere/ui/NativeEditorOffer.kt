@@ -97,7 +97,11 @@ fun NativeEditorVerificationFee(me: Profile, offer: NativeEditorOffer?, failed: 
         return
     }
     if (!offer.isFree) {
-        VerifyFeeCard(me)
+        CardBox {
+            Text("Verification fee",fontWeight = FontWeight.Bold)
+            MutedText("Current payment status: " + offer.feeStatus.ifBlank { "Unknown" })
+            MutedText("Paid verification checkout is unavailable in this development preview.")
+        }
         return
     }
     CardBox(border = Success) {

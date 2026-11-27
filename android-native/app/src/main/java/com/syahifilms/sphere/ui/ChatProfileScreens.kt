@@ -163,6 +163,7 @@ fun ProfileScreen(nav: NavHostController) {
             Spacer(Modifier.height(8.dp))
             Text(me.name, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
             TextButton(onClick = { editName = true }) { Text("✏️ Edit name") }
+            ProfilePhotoControl(me)
             MutedText(me.email)
             MutedText(me.phone)
             if (me.role == "editor" || me.role == "admin") {
@@ -175,8 +176,13 @@ fun ProfileScreen(nav: NavHostController) {
             }
         }
         Spacer(Modifier.height(10.dp))
-        if (me.role == "editor" && !me.verified) MenuRow("⏳", "Verification status", "Our team will call you to verify") { nav.go("verification") }
-        if (me.role == "editor") MenuRow("✏️", "Edit editor details") { nav.go("editorDetails") }
+        if (me.role == "editor") {
+            EditorCompletionPanel(me)
+            if (me.bio.isNotBlank()) MutedText(me.bio)
+            MenuRow("⏳", "Verification status", if (me.verified) "Verified" else me.verificationStatus.ifBlank { "Not applied" }) { nav.go("verification") }
+            MenuRow("✏️", "Edit editor details") { nav.go("editorDetails") }
+            MenuRow("📁", "My portfolio") { nav.go("portfolio") }
+        }
         MenuRow("📁", "My projects") { nav.go("jobs") }
         MenuRow("🔔", "Notifications") { nav.go("notifications") }
         MenuRow("🆘", "Help, Support & Policies") { nav.go("support") }

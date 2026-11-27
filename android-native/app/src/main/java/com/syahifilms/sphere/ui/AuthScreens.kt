@@ -303,9 +303,19 @@ fun EditorDetailsScreen(nav: NavHostController) {
     var price by remember { mutableStateOf(me?.price ?: "") }
     var portfolio by remember { mutableStateOf(me?.portfolio ?: "") }
     var sample by remember { mutableStateOf(me?.sample ?: "") }
+    var device by remember { mutableStateOf(me?.device.orEmpty()) }
+    var bio by remember { mutableStateOf(me?.bio.orEmpty()) }
+    var availability by remember { mutableStateOf(me?.availability?.takeIf { it in listOf("available","busy","away") } ?: "available") }
+    val applying = me?.role == "editor" && me.verified == false && me.verificationStatus in setOf("","not_applied")
     var busy by remember { mutableStateOf(false) }
-    Page("Editor application", onBack = if (nav.previousBackStackEntry != null) ({ nav.popBackStack(); Unit }) else null) {
-        MutedText("Tell us about your work. Our team will call you to verify your profile.")
+    Page(if (applying) "Editor application" else "Editor profile", onBack = if (nav.previousBackStackEntry != null) ({ nav.popBackStack(); Unit }) else null) {
+        MutedText(if (applying) "Tell us about your work. Submit a 20–60 second Sphere promo video for verification." else "Update what clients see. Saving does not change your verified badge.")
+        Field(bio, { bio = it.take(300) }, "Bio (up to 300 characters)", minLines = 3)
+        Dropdown("Availability", availability, listOf("available","busy","away")) { availability = it }
+        val deviceLabels = mapOf("mobile" to "Mobile", "pc" to "PC / Laptop", "both" to "Both")
+        Dropdown("Where do you edit?", deviceLabels[device] ?: "Choose…", deviceLabels.values.toList()) { label ->
+            device = deviceLabels.entries.first { it.value == label }.key
+        }
         Spacer(Modifier.height(8.dp))
         PhoneField(phone, { phone = it }, "Mobile number (our team will call you on this)")
         MultiPick("Categories you work in (choose one or more)", Config.CATEGORIES, categories) { categories = it }
@@ -315,19 +325,21 @@ fun EditorDetailsScreen(nav: NavHostController) {
         Field(price, { price = it.filter { c -> c.isDigit() }.take(6) }, "Starting price (₹ per video)", keyboard = KeyboardType.Number)
         Field(portfolio, { portfolio = it.trim() }, "Portfolio link (YouTube / Drive)")
         Field(sample, { sample = it.trim() }, "Sample video link (unlisted YouTube)")
-        PrimaryButton(if (busy) "Submitting…" else "Submit for verification", enabled = !busy) {
+        PrimaryButton(if (busy) "Saving…" else if (applying) "Submit for verification" else "Save profile", enabled = !busy) {
             val p = cleanIndianPhone(phone)
             when {
                 p == null -> toast(ctx, "Number is not correct. Enter a valid 10-digit mobile number.")
                 categories.isEmpty() -> toast(ctx, "Choose at least one category")
                 languages.isEmpty() -> toast(ctx, "Choose at least one language")
-                price.isBlank() -> toast(ctx, "Enter your starting price")
-                sample.isNotBlank() && !sample.startsWith("http") -> toast(ctx, "Sample link must start with https://")
+                device !in setOf("mobile","pc","both") -> toast(ctx,"Choose where you edit")
+                exp.isNotBlank() && exp.toIntOrNull()?.let { it in 0..50 } != true -> toast(ctx,"Experience must be 0–50 years")
+                price.toIntOrNull()?.let { it >= 0 } != true -> toast(ctx, "Enter your starting price")
+                !NativePortfolio.validLink(sample) || !NativePortfolio.validLink(portfolio) -> toast(ctx, "Use valid HTTPS links")
                 else -> scope.launch {
                     busy = true
                     try {
-                        Repo.saveEditorDetails(p, categories, languages, skills, exp.toIntOrNull(), price, portfolio, sample)
-                        routeAfterLogin(nav, if (me?.role == "admin") "home" else "verification")
+                        Repo.saveEditorDetails(p, categories, languages, skills, exp.toIntOrNull(), price, portfolio, sample, device, bio.trim(), availability, applying)
+                        routeAfterLogin(nav, if (applying) "verification" else "profile")
                     } catch (e: Exception) { toast(ctx, e.message ?: "Could not save") }
                     busy = false
                 }
@@ -340,6 +352,8 @@ fun EditorDetailsScreen(nav: NavHostController) {
 fun VerificationScreen(nav: NavHostController) {
     val ctx = LocalContext.current
     val me = AppState.me ?: return
+    val scope = rememberCoroutineScope()
+    var reapplying by remember { mutableStateOf(false) }
     val offer = load(me.id) { fetchNativeEditorOffer() }
     Page("Verification", onBack = { if (!nav.popBackStack()) nav.resetTo("home") }) {
         if (me.verified) {
@@ -350,6 +364,32 @@ fun VerificationScreen(nav: NavHostController) {
                 KeyValue("Languages", me.languagesLabel)
             }
             PrimaryButton("Find work") { nav.resetTo("home") }
+            return@Page
+        }
+        if (me.role != "editor") {
+            MutedText("Verification is available for editor accounts.")
+            return@Page
+        }
+        if (me.verificationStatus == "rejected") {
+            CardBox(border = Danger) {
+                Text("Verification not approved", fontWeight = FontWeight.Bold)
+                MutedText(me.verificationNote.ifBlank { "No reason given." })
+                SecondaryButton("Update editor profile") { nav.go("editorDetails") }
+                PrimaryButton(if (reapplying) "Submitting…" else "Apply again", enabled = !reapplying) {
+                    scope.launch {
+                        reapplying = true
+                        try { NativePortfolio.reapply(); AppState.refreshMe(); offer.reload(); toast(ctx,"Application updated") }
+                        catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                        catch (e: Exception) { toast(ctx,e.message ?: "Could not apply") }
+                        finally { reapplying = false }
+                    }
+                }
+            }
+            return@Page
+        }
+        if (me.verificationStatus != "pending") {
+            CardBox { Text("Verification not yet submitted",fontWeight = FontWeight.Bold); MutedText("Complete the editor application before submitting proof.") }
+            PrimaryButton("Fill editor application") { nav.go("editorDetails") }
             return@Page
         }
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(25.dp))

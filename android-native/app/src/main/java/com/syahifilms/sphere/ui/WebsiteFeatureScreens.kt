@@ -167,33 +167,6 @@ fun NativePremiumScreen(nav: NavHostController) {
 }
 
 @Composable
-fun NativePortfolioScreen(nav: NavHostController) {
-    val me = AppState.me ?: return
-    val ctx = LocalContext.current
-    Page("Portfolio", onBack = { nav.popBackStack() }) {
-        GlassPanel(Modifier.fillMaxWidth()) {
-            Row(verticalAlignment=Alignment.CenterVertically) {
-                Avatar(me.avatarUrl,me.name,64.dp)
-                Spacer(Modifier.width(13.dp))
-                Column {
-                    Text(me.name,fontSize=19.sp,fontWeight=FontWeight.Bold)
-                    MutedText(me.categoriesLabel,12)
-                }
-            }
-        }
-        WebsiteSectionTitle("My portfolio")
-        CardBox {
-            if(me.portfolio.isBlank() && me.sample.isBlank()) MutedText("No portfolio links added yet.")
-            if(me.portfolio.startsWith("https://") || me.portfolio.startsWith("http://"))
-                SecondaryButton("Open portfolio") { openUrl(ctx,me.portfolio) }
-            if(me.sample.startsWith("https://") || me.sample.startsWith("http://"))
-                SecondaryButton("View sample video") { openUrl(ctx,me.sample) }
-        }
-        SecondaryButton("Edit editor details") { nav.go("editorDetails") }
-    }
-}
-
-@Composable
 fun NativeEarningsScreen(nav: NavHostController) {
     val me = AppState.me ?: return
     val data = load(me.id) { Repo.myEditorJobs() }
