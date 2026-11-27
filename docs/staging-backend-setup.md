@@ -1,0 +1,19 @@
+# Task 02.10.01 — isolated Sphere staging
+Status: provisioning pending organization/cost confirmation. Production is active; second existing project inactive and not inspected/restored. Organization: Syahi. Proposed new project: sphere-staging; preferred region Mumbai (ap-south-1) subject to availability. No production rows, credentials, media, auth users or backups were read/copied, and no database mutation was performed.
+
+## Evidence and bootstrap blocker
+The checked-in SQL is an incremental patch collection, not a clean-install baseline. 000_backup_before_part1.sql copies existing tables; 001_undo_contact_protection.sql and 001b_optional_clean_old_messages.sql are recovery/optional scripts, not forward migrations. 002_foundation.sql references profiles before creating it. Production migration history contains separately applied changes absent from the forward repository sequence (including native profile self service, phone verification, account deletion, outreach and message moderation). Do not run the migration directory wholesale on an empty database. Do not restore a full production backup. The production catalog inspection confirmed RLS enabled on the inspected Sphere tables, not that policy expressions are correct.
+
+## Provisioning sequence
+1. Confirm Syahi organization and applicable cost with authorized owner. Create a distinct project or use a separately confirmed empty project; never repurpose the paused project without assessing its contents/owner intent.
+2. Wait for ACTIVE_HEALTHY; confirm ref is distinct from production. Do not connect a production webhook, scheduled task, payment provider, SMTP/SMS or real Firebase account.
+3. Obtain/review schema-only baseline for app objects, roles/grants/RLS, functions and storage policies, required extensions and triggers. Exclude backup schemas, auth user records, storage objects, vault secrets, provider credentials, actual settings data, external webhooks/jobs and production-specific URLs; inspect routine bodies for embedded secrets and side effects. Reconcile with migration history before applying to staging. Do not indiscriminately copy managed auth/storage schemas.
+4. Seed only explicitly reviewed non-sensitive settings and synthetic fixtures. No phone or OTP delivery, real emails, real transaction references or real payout. Generate local-only test credentials through an authorized isolated admin workflow; never commit passwords or private keys.
+5. Run read-only preflight below, then negative permission tests with actual staging client/editor/admin sessions; check private bucket access, unauthorized final links, verification/role mutation, and chat visibility. No service key in APK. Record results per project ref.
+6. Configure preview-only environment variables already supported by app/build.gradle.kts: SPHERE_PREVIEW_SUPABASE_URL (direct staging API URL), SPHERE_PREVIEW_SUPABASE_ANON_KEY (matching public legacy anon JWT; not service_role), optional SPHERE_PREVIEW_GOOGLE_CLIENT_ID. Register com.syahifilms.sphere.preview and its signing fingerprint for staging OAuth. Do not put the production key or URL in a preview build. Keep release packaging blocked.
+7. Run exact-commit CI, install Sphere Preview beside production, exercise synthetic accounts, and verify production was untouched.
+
+## Preflight
+Use docs/staging-schema-preflight.sql only as a read-only catalog inventory against the confirmed staging project. It reports missing tables, RLS flags, missing RPC names and missing/private media buckets. It intentionally does not claim exact signatures, grants, function correctness or runtime RLS. Every non-PASS row blocks staging integration until reviewed. An empty project is expected to fail. Follow with authenticated tests and check for external side effects. Do not treat this as a full security audit.
+
+Supabase reference: https://supabase.com/docs/guides/local-development/testing/overview
