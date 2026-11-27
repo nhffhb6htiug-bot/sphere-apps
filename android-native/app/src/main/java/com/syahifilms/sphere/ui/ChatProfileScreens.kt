@@ -133,9 +133,9 @@ fun NotificationsScreen(nav: NavHostController) {
 }
 
 @Composable
-private fun MenuRow(emoji: String, title: String, sub: String = "", color: Color = Color.Black, onClick: () -> Unit) {
+private fun MenuRow(emoji: String, title: String, sub: String = "", color: Color = WebsiteColors.Plum, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(vertical = 5.dp).clip(RoundedCornerShape(16.dp)).background(Color.White)
+        Modifier.fillMaxWidth().padding(vertical = 5.dp).clip(RoundedCornerShape(16.dp)).background(PanelSurface)
             .clickable { onClick() }.padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

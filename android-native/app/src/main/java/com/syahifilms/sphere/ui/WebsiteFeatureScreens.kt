@@ -196,13 +196,20 @@ fun NativeSettingsScreen(nav: NavHostController) {
     Page("Settings",onBack={nav.popBackStack()}) {
         GlassPanel(Modifier.fillMaxWidth()) {
             Text("⚙️ Sphere Settings",fontWeight=FontWeight.ExtraBold,fontSize=19.sp)
-            MutedText("Native app • Pink, peach & purple")
+            MutedText("Native app • Liquid glass")
             if(me!=null) MutedText("Account: ${me.email}",12)
         }
         CardBox(onClick={nav.go("notifications")}) { Text("🔔 Notifications",fontWeight=FontWeight.SemiBold) }
         CardBox(onClick={nav.go("profile")}) { Text("👤 My account",fontWeight=FontWeight.SemiBold) }
         CardBox(onClick={nav.go("support")}) { Text("🆘 Help & Support",fontWeight=FontWeight.SemiBold) }
-        MutedText("More appearance and notification controls can be added in a later native release.",12)
+        CardBox {
+            Text("Appearance",fontWeight=FontWeight.Bold)
+            MutedText("Choose your Sphere theme. Saved on this device.")
+            Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected=SphereAppearance.mode=="light",onClick={SphereAppearance.setAppearance("light")},label={Text("Light")})
+                FilterChip(selected=SphereAppearance.mode=="dark",onClick={SphereAppearance.setAppearance("dark")},label={Text("Dark")})
+            }
+        }
     }
 }
 
@@ -286,7 +293,7 @@ fun NativeSphereAIScreen(nav: NavHostController) {
                 Text(text,fontSize=14.sp)
             }
         }
-        if(error.isNotBlank()) Text(error,color=Color(0xFFB4254E),fontSize=12.sp)
+        if(error.isNotBlank()) Text(error,color=Danger,fontSize=12.sp)
         if(busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         Spacer(Modifier.height(12.dp))
         OutlinedTextField(value=input,onValueChange={input=it},singleLine=false,maxLines=3,

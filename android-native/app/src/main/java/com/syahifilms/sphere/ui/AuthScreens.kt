@@ -37,36 +37,35 @@ import org.json.JSONObject
 fun SplashScreen(nav: NavHostController) {
     var error by remember { mutableStateOf<String?>(null) }
     var attempt by remember { mutableIntStateOf(0) }
+    var animate by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { animate = SphereAppearance.consumeSplashMotion() }
     LaunchedEffect(attempt) {
         error = null
-        delay(1100)
+        if (attempt == 0 && animate) delay(650)
         if (!Api.isLoggedIn) { nav.resetTo("welcome"); return@LaunchedEffect }
         try { routeAfterLogin(nav) }
+        catch (e: kotlinx.coroutines.CancellationException) { throw e }
         catch (e: Exception) { error = "Unable to connect. Check your internet and try again." }
     }
     Box(
-        Modifier.fillMaxSize().background(
-            Brush.verticalGradient(
-                listOf(Color(0xFFE7C5F8), Color(0xFFFFE7DA), Color(0xFFEEDCFF))
-            )
-        ),
+        Modifier.fillMaxSize().background(WebsiteColors.Backdrop).padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(62.dp),
-                color = Color(0xFF7539E9),
-                trackColor = Color(0x337539E9),
-                strokeWidth = 4.dp
-            )
+            if (animate && error == null) CircularProgressIndicator(
+                modifier = Modifier.size(62.dp), color = Blue, trackColor = Blue.copy(alpha=.2f), strokeWidth = 4.dp
+            ) else Box(Modifier.size(62.dp).clip(CircleShape)
+                .background(BlueSoft),contentAlignment=Alignment.Center) {
+                Text("S",fontWeight=FontWeight.ExtraBold,fontSize=32.sp,color=Blue)
+            }
             Spacer(Modifier.height(28.dp))
-            Text("Sphere", color = Color(0xFF7435E3), fontSize = 38.sp, fontWeight = FontWeight.ExtraBold)
+            Text("Sphere", color = Blue, fontSize = 38.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(12.dp))
-            Text("Connecting Editors & Clients", color = Color(0xFF667188), fontSize = 15.sp, textAlign = TextAlign.Center)
+            Text("Connecting Editors & Clients", color = Muted, fontSize = 15.sp, textAlign = TextAlign.Center)
             if (error != null) {
                 Spacer(Modifier.height(20.dp))
-                Text(error ?: "", color = Color(0xFF554477), fontSize = 13.sp, textAlign = TextAlign.Center)
-                TextButton(onClick = { attempt++ }) { Text("Try again", color = Color(0xFF7435E3), fontWeight = FontWeight.Bold) }
+                Text(error ?: "", color = Danger, fontSize = 13.sp, textAlign = TextAlign.Center)
+                TextButton(onClick = { attempt++ }) { Text("Try again", color = Blue, fontWeight = FontWeight.Bold) }
             }
         }
     }

@@ -84,8 +84,8 @@ private fun WebsiteSearchBar(nav: NavHostController, editor: Boolean = false) {
             .clip(RoundedCornerShape(28.dp)),
         shape = RoundedCornerShape(28.dp),
         colors = TextFieldDefaults.colors(
-            focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color(0xF5FFFFFF),
+            focusedContainerColor = PanelSurface,
+            unfocusedContainerColor = PanelSurface.copy(alpha=.94f),
             focusedIndicatorColor = Color.Transparent,
             unfocusedIndicatorColor = Color.Transparent
         )
@@ -119,7 +119,7 @@ private fun ClientHome(nav: NavHostController, me: Profile) {
                 modifier=Modifier.weight(1f),color=WebsiteColors.Plum)
             Box(Modifier.size(44.dp).clip(RoundedCornerShape(22.dp))
                 .background(WebsiteColors.Accent),contentAlignment=Alignment.Center) {
-                Text("+",color=Color.White,fontWeight=FontWeight.Bold,fontSize=28.sp)
+                Icon(Icons.AutoMirrored.Filled.ArrowForward,"Post a project",tint=Color.White,modifier=Modifier.size(28.dp))
             }
         }
     }
@@ -163,6 +163,12 @@ private fun EditorHome(nav: NavHostController, me: Profile) {
     NativeEditorOfferBanner(if (!me.verified) promo.data else null, nav)
     WebsiteWelcome(me, "Find work and manage your creative projects")
     WebsiteSearchBar(nav, editor = true)
+    WebsiteSectionTitle("Available Projects",onAll={nav.go("jobs")})
+    when {
+        open.error != null -> ErrorBox(open.error) { open.reload() }
+        open.data == null -> Loading()
+        else -> WorkList(me, open.data) { j -> nav.go("project/${j.id}") }
+    }
     if (me.role == "admin") {
         CardBox(onClick = { nav.go("profile") }, border = Blue) {
             Text("🛡️ Admin · Editor mode", fontWeight = FontWeight.Bold)
@@ -209,7 +215,7 @@ private fun EditorHome(nav: NavHostController, me: Profile) {
     ) {
         cats.forEach { (label,art,svg) ->
             Column(Modifier.width(94.dp).clip(RoundedCornerShape(20.dp))
-                .background(Color(0xEFFFFFFF)).clickable { nav.go("jobs") }
+                .background(PanelSurface).clickable { nav.go("jobs") }
                 .padding(6.dp),horizontalAlignment=Alignment.CenterHorizontally) {
                 if(svg.isNotBlank())
                     EditorWebsiteSvg(svg,label,Modifier.fillMaxWidth().height(77.dp))
@@ -220,12 +226,6 @@ private fun EditorHome(nav: NavHostController, me: Profile) {
                     textAlign=TextAlign.Center)
             }
         }
-    }
-    WebsiteSectionTitle("Available Work",onAll={nav.go("jobs")})
-    when {
-        open.error != null -> ErrorBox(open.error) { open.reload() }
-        open.data == null -> Loading()
-        else -> WorkList(me, open.data) { j -> nav.go("project/${j.id}") }
     }
     WebsiteSectionTitle("Your Projects",onAll={nav.go("jobs")})
     when {

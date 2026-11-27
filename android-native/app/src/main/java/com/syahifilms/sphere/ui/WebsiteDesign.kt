@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -37,16 +40,22 @@ import com.syahifilms.sphere.data.Profile
 // Visual-only native Compose counterparts to Sphere's original website design.
 // Assets are bundled from /img in the same GitHub repo; no WebView and no external icon CDN.
 object WebsiteColors {
-    val Plum = Color(0xFF152246)
-    val Violet = Color(0xFF1657FF)
-    val Lilac = Color(0xFFE6EDFF)
-    val Peach = Color(0xFFEAEFFF)
-    val Pink = Color(0xFFF2E9FF)
-    val Soft = Color(0xFFF5F8FF)
-    val Muted = Color(0xFF74819D)
-    val Accent = Brush.horizontalGradient(listOf(Color(0xFF1657FF), Color(0xFF4A7BFF)))
-    val Backdrop = Brush.verticalGradient(listOf(Color(0xFFDFE6FB),Color(0xFFEAEFFA),Color(0xFFE8EDF9)))
-    val Glass = Brush.linearGradient(listOf(Color.White,Color(0xFFF7F9FF)))
+    val Plum get() = if (SphereAppearance.dark) Color(0xFFF4EEFA) else Color(0xFF152246)
+    val Violet get() = Blue
+    val Lilac get() = BlueSoft
+    val Peach get() = if (SphereAppearance.dark) Color(0xFF38283E) else Color(0xFFEAEFFF)
+    val Pink get() = if (SphereAppearance.dark) Color(0xFF42233E) else Color(0xFFF2E9FF)
+    val Soft get() = PanelSurface
+    val Muted get() = if (SphereAppearance.dark) Color(0xFFC4B7CE) else Color(0xFF667188)
+    val Accent get() = Brush.horizontalGradient(if(SphereAppearance.dark)
+        listOf(Color(0xFF7439BC),Color(0xFFAA4FBB),Color(0xFFB43D85))
+        else listOf(Color(0xFF1657FF),Color(0xFF4A7BFF)))
+    val Backdrop get() = Brush.verticalGradient(if(SphereAppearance.dark)
+        listOf(Color(0xFF2A182C),Color(0xFF100C16),Color(0xFF1A1023))
+        else listOf(Color(0xFFDFE6FB),Color(0xFFEAEFFA),Color(0xFFE8EDF9)))
+    val Glass get() = Brush.linearGradient(if(SphereAppearance.dark)
+        listOf(Color(0xF52B2134),Color(0xF5201A29),Color(0xF52B1B31))
+        else listOf(Color(0xF5FFFFFF),Color(0xE8F7F9FF)))
 }
 
 @Composable
@@ -58,7 +67,7 @@ fun GlassPanel(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, con
             .shadow(3.dp, shape, ambientColor = Color(0x151657FF))
             .clip(shape)
             .background(WebsiteColors.Glass)
-            .border(1.dp, Color(0xFFE7EDF9), shape)
+            .border(1.dp, PanelLine, shape)
             .then(clickable)
             .padding(13.dp),
         content = content
@@ -90,18 +99,16 @@ fun WebsiteHomeHeader(nav: NavHostController, editor: Boolean = false) {
             Text("Sphere", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = WebsiteColors.Plum)
             Spacer(Modifier.width(6.dp))
             Text("EDITOR", Modifier.clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFFE6EFFF)).padding(horizontal = 7.dp, vertical = 5.dp),
+                .background(BlueSoft).padding(horizontal = 7.dp, vertical = 5.dp),
                 fontSize = 9.sp, fontWeight = FontWeight.Bold, color = WebsiteColors.Violet)
         }
         if (editor) Spacer(Modifier.weight(1f))
-        for ((emoji, dest) in listOf("🔔" to "notifications", "⚙️" to "settings")) {
-            Box(Modifier.padding(end = 8.dp).size(40.dp)
-                .clip(RoundedCornerShape(14.dp)).background(Color.White)
-                .border(1.dp, Color(0xFFE6EDFB), RoundedCornerShape(14.dp))
-                .clickable { nav.go(dest) },
-                contentAlignment = Alignment.Center) {
-                Text(emoji, fontSize = 20.sp)
-            }
+        IconButton(onClick={nav.go("notifications")},modifier=Modifier.clip(RoundedCornerShape(14.dp)).background(PanelSurface)) {
+            Icon(Icons.Outlined.Notifications,"Notifications",tint=WebsiteColors.Plum)
+        }
+        Spacer(Modifier.width(4.dp))
+        IconButton(onClick={nav.go("settings")},modifier=Modifier.clip(RoundedCornerShape(14.dp)).background(PanelSurface)) {
+            Icon(Icons.Outlined.Settings,"Settings",tint=WebsiteColors.Plum)
         }
         if (!editor) {
             Spacer(Modifier.weight(1f))
@@ -162,8 +169,8 @@ fun WebsiteExploreRow(onClick: (String)->Unit) {
             Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).clickable { onClick(route) }
                 .padding(vertical=4.dp),horizontalAlignment=Alignment.CenterHorizontally) {
                 Box(Modifier.fillMaxWidth().aspectRatio(1f).padding(1.dp)
-                    .clip(CircleShape).background(Color(0xEFFFFFFF))
-                    .border(1.dp,Color.White,CircleShape).padding(3.dp),contentAlignment=Alignment.Center){
+                    .clip(CircleShape).background(PanelSurface)
+                    .border(1.dp,PanelLine,CircleShape).padding(3.dp),contentAlignment=Alignment.Center){
                     WebsiteArt(art,label,Modifier.fillMaxSize())
                 }
                 Spacer(Modifier.height(5.dp))
@@ -188,7 +195,7 @@ fun WebsiteToolGrid(onClick: (String)->Unit) {
                 Column(Modifier.weight(1f).clip(RoundedCornerShape(20.dp)).clickable { onClick(route) },
                     horizontalAlignment=Alignment.CenterHorizontally){
                     Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(20.dp))
-                        .background(Color.White).padding(7.dp)){
+                        .background(PanelSurface).padding(7.dp)){
                         WebsiteArt(art,label.replace("\n"," "),Modifier.fillMaxSize())
                     }
                     Text(label,textAlign=TextAlign.Center,fontSize=11.sp,lineHeight=14.sp,
@@ -238,7 +245,7 @@ fun EditorShortcutGrid(nav: NavHostController) {
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
         actions.forEach { (label,asset,route) ->
             Column(Modifier.weight(1f).clip(RoundedCornerShape(19.dp))
-                .background(Color(0xDDFFFFFF)).clickable { nav.go(route) }.padding(6.dp),
+                .background(PanelSurface).clickable { nav.go(route) }.padding(6.dp),
                 horizontalAlignment=Alignment.CenterHorizontally) {
                 EditorWebsiteSvg(asset,label,Modifier.fillMaxWidth().aspectRatio(1f))
                 Text(label,maxLines=1,overflow=TextOverflow.Ellipsis,

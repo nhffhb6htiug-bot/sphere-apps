@@ -263,7 +263,7 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
             }
         })
     }, bottomBar = {
-        Column(Modifier.fillMaxWidth().background(Color.White).navigationBarsPadding().imePadding().padding(8.dp)) {
+        Column(Modifier.fillMaxWidth().background(PanelSurface).navigationBarsPadding().imePadding().padding(8.dp)) {
             if (note.isNotBlank()) MutedText(note,12)
             if (reply != null) Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Reply: " + reply?.preview.orEmpty().take(90),Modifier.weight(1f))
@@ -314,7 +314,7 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
                 items(filtered,key = { it.id }) { msg ->
                     val mine = msg.senderId == me.id
                     Box(Modifier.fillMaxWidth(),contentAlignment = if (mine) Alignment.CenterEnd else Alignment.CenterStart) {
-                        Column(Modifier.widthIn(max = 300.dp).background(if (mine) BlueSoft else Color.White,RoundedCornerShape(16.dp)).padding(10.dp)) {
+                        Column(Modifier.widthIn(max = 300.dp).background(if (mine) BlueSoft else PanelSurface,RoundedCornerShape(16.dp)).padding(10.dp)) {
                             if (msg.replyTo.isNotBlank()) {
                                 val quoted = messages.find { it.id == msg.replyTo }
                                 Text("Reply · " + (quoted?.preview?.take(100) ?: "Original message"),color = Muted,fontWeight = FontWeight.SemiBold)

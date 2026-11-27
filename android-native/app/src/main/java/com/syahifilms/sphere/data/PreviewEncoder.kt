@@ -26,7 +26,6 @@ import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
-import com.google.common.collect.ImmutableList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -92,7 +91,7 @@ object PreviewEncoder {
                                 }
                             }
                             val item=EditedMediaItem.Builder(MediaItem.fromUri(Uri.fromFile(input.file)))
-                                .setEffects(Effects(emptyList(),listOf(OverlayEffect(ImmutableList.of(mark)))))
+                                .setEffects(Effects(emptyList(),listOf(OverlayEffect(listOf<androidx.media3.effect.TextureOverlay>(mark)))))
                                 .build()
                             val t=Transformer.Builder(context.applicationContext)
                                 .setVideoMimeType(MimeTypes.VIDEO_H264)

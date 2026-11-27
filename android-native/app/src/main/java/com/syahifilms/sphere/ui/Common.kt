@@ -7,6 +7,8 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -47,24 +49,69 @@ import coil.compose.AsyncImage
 import com.syahifilms.sphere.data.*
 
 // ---------------- theme ----------------
-val Blue = Color(0xFF1657FF)
-val BlueSoft = Color(0xFFE9F0FF)
-val Bg = Color(0xFFE8EDF9)
-val Muted = Color(0xFF6B7280)
-val Danger = Color(0xFFC62828)
-val Success = Color(0xFF2E7D32)
-val Orange = Color(0xFFE67E22)
+/** Device-local, opt-in appearance. Colors are snapshot state so all custom surfaces update. */
+object SphereAppearance {
+    var mode by mutableStateOf("light")
+        private set
+    val dark: Boolean get() = mode == "dark"
+    var initialSplashMotion by mutableStateOf(false)
+        private set
+    fun initialize(coldStart: Boolean) {
+        mode = Api.getPref("appearance")?.takeIf { it in setOf("light","dark") } ?: "light"
+        if (coldStart) {
+            val count = (Api.getPref("native_splash_launches")?.toIntOrNull() ?: 0).coerceIn(0,4)
+            initialSplashMotion = count < 4
+            Api.setPref("native_splash_launches", (count+1).coerceAtMost(4).toString())
+        }
+    }
+    fun consumeSplashMotion(): Boolean = initialSplashMotion.also { initialSplashMotion = false }
+    fun setAppearance(value: String) {
+        require(value in setOf("light","dark"))
+        Api.setPref("appearance",value)
+        mode = value
+    }
+}
+val Blue get() = if (SphereAppearance.dark) Color(0xFFC69AFF) else Color(0xFF1657FF)
+val BlueSoft get() = if (SphereAppearance.dark) Color(0xFF3D3051) else Color(0xFFE9F0FF)
+val Bg get() = if (SphereAppearance.dark) Color(0xFF100C16) else Color(0xFFE8EDF9)
+val Muted get() = if (SphereAppearance.dark) Color(0xFFC4B7CE) else Color(0xFF6B7280)
+val Danger get() = if (SphereAppearance.dark) Color(0xFFFFA3AE) else Color(0xFFC62828)
+val Success get() = if (SphereAppearance.dark) Color(0xFF8BE6BA) else Color(0xFF2E7D32)
+val Orange get() = if (SphereAppearance.dark) Color(0xFFF4CF86) else Color(0xFFB65D0B)
+val PanelSurface get() = if (SphereAppearance.dark) Color(0xFF241A2B) else Color.White
+val PanelLine get() = if (SphereAppearance.dark) Color(0xFF584363) else Color(0xFFE7EDF9)
+val ActionFill get() = if (SphereAppearance.dark) Color(0xFF8741A5) else Color(0xFF1657FF)
 
 @Composable
 fun SphereTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = lightColorScheme(
-            primary = Blue, onPrimary = Color.White, secondary = Blue,
-            background = Bg, surface = Color.White, surfaceVariant = BlueSoft,
-            onSurface = WebsiteColors.Plum, onBackground = WebsiteColors.Plum
-        ),
-        content = content
+    val dark = SphereAppearance.dark
+    val scheme = if (dark) darkColorScheme(
+        primary = Blue, onPrimary = Color(0xFF241331), secondary = Color(0xFFF57AC3),
+        background = Bg, surface = PanelSurface, surfaceVariant = Color(0xFF31273B),
+        onSurface = WebsiteColors.Plum, onBackground = WebsiteColors.Plum, onSurfaceVariant = Muted,
+        outline = Color(0xFF85738F), error = Danger
+    ) else lightColorScheme(
+        primary = Blue, onPrimary = Color.White, secondary = Blue,
+        background = Bg, surface = PanelSurface, surfaceVariant = BlueSoft,
+        onSurface = WebsiteColors.Plum, onBackground = WebsiteColors.Plum, onSurfaceVariant = Muted,
+        outline = Color(0xFF74819D), error = Danger
     )
+    val activity = LocalContext.current as? android.app.Activity
+    SideEffect {
+        activity?.window?.let { w ->
+            androidx.core.view.WindowCompat.getInsetsController(w,w.decorView).apply {
+                isAppearanceLightStatusBars = !dark
+                isAppearanceLightNavigationBars = !dark
+            }
+            @Suppress("DEPRECATION")
+            w.statusBarColor = android.graphics.Color.TRANSPARENT
+            @Suppress("DEPRECATION")
+            w.navigationBarColor = android.graphics.Color.TRANSPARENT
+        }
+    }
+    MaterialTheme(colorScheme = scheme) {
+        Surface(Modifier.fillMaxSize(),color=Bg,contentColor=WebsiteColors.Plum,content=content)
+    }
 }
 
 // ---------------- global state ----------------
@@ -149,7 +196,8 @@ fun <T> load(vararg keys: Any?, block: suspend () -> T): Loaded<T> {
     var tick by remember { mutableIntStateOf(0) }
     LaunchedEffect(tick, *keys) {
         error = null
-        try { data = block() } catch (e: Exception) { error = e.message ?: "Something went wrong" }
+        try { data = block() } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (e: Exception) { error = e.message ?: "Something went wrong" }
     }
     return Loaded(data, error) { tick++ }
 }
@@ -167,7 +215,7 @@ fun SphereTopBar(title: String, onBack: (() -> Unit)? = null, actions: @Composab
             }
         },
         actions = actions,
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFE8EDF9))
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = PanelSurface.copy(alpha=.94f))
     )
 }
 
@@ -187,10 +235,10 @@ fun Page(
         bottomBar = bottomBar
     ) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()
-            .background(WebsiteColors.Backdrop)) {
+            .background(WebsiteColors.Backdrop), contentAlignment = Alignment.TopCenter) {
             Column(
-                Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                Modifier.widthIn(max = 640.dp).fillMaxWidth().fillMaxHeight().verticalScroll(rememberScrollState())
+                    .imePadding().padding(horizontal = 16.dp, vertical = 8.dp),
                 content = content
             )
         }
@@ -207,12 +255,15 @@ fun MainBottomBar(nav: NavHostController, current: String) {
             if (isClient) Icons.Outlined.FolderOpen else Icons.Outlined.WorkOutline),
         Triple("profile", "Profile", Icons.Outlined.PersonOutline)
     )
+    Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal=12.dp,vertical=5.dp),contentAlignment=Alignment.Center) {
     NavigationBar(
-        modifier = Modifier.padding(horizontal=12.dp, vertical=5.dp)
+        modifier = Modifier.widthIn(max=640.dp).fillMaxWidth()
             .clip(RoundedCornerShape(30.dp))
-            .border(1.dp, Color.White, RoundedCornerShape(30.dp)),
-        containerColor = Color.White,
-        tonalElevation = 5.dp
+            .background(WebsiteColors.Glass)
+            .border(1.dp, PanelLine, RoundedCornerShape(30.dp)),
+        containerColor = Color.Transparent,
+        windowInsets = WindowInsets(0,0,0,0),
+        tonalElevation = 0.dp
     ) {
         items.forEach { (route, label, icon) ->
             NavigationBarItem(
@@ -228,12 +279,13 @@ fun MainBottomBar(nav: NavHostController, current: String) {
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = WebsiteColors.Violet,
                     selectedTextColor = WebsiteColors.Violet,
-                    indicatorColor = Color(0xFFF1D9FF),
+                    indicatorColor = if (SphereAppearance.dark) Color(0xFF713B68) else Color(0xFFE5D5FF),
                     unselectedIconColor = WebsiteColors.Muted,
                     unselectedTextColor = WebsiteColors.Muted
                 )
             )
         }
+    }
     }
 }
 
@@ -244,9 +296,9 @@ fun CardBox(onClick: (() -> Unit)? = null, border: Color? = null, content: @Comp
     Card(
         modifier = m,
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xF7FFFFFF)),
+        colors = CardDefaults.cardColors(containerColor = PanelSurface.copy(alpha=.94f),contentColor=WebsiteColors.Plum),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, border ?: Color.White)
+        border = androidx.compose.foundation.BorderStroke(1.dp, border ?: PanelLine)
     ) { Column(Modifier.padding(14.dp), content = content) }
 }
 
@@ -314,7 +366,8 @@ fun PrimaryButton(text: String, enabled: Boolean = true, onClick: () -> Unit) {
     Button(
         onClick = onClick, enabled = enabled,
         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).height(50.dp),
-        shape = RoundedCornerShape(25.dp)
+        shape = RoundedCornerShape(25.dp),
+        colors = ButtonDefaults.buttonColors(containerColor=ActionFill,contentColor=Color.White)
     ) { Text(text, fontWeight = FontWeight.Bold) }
 }
 
@@ -370,7 +423,7 @@ fun Dropdown(label: String, value: String, options: List<String>, onSelect: (Str
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text(value.ifBlank { "Choose" }, color = Color.Black, modifier = Modifier.weight(1f))
+                Text(value.ifBlank { "Choose" }, color = WebsiteColors.Plum, modifier = Modifier.weight(1f))
                 Icon(Icons.Filled.ArrowDropDown, null, tint = Muted)
             }
             DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
@@ -421,45 +474,17 @@ fun WorkList(me: Profile, jobs: List<Job>, onOpen: (Job) -> Unit) {
 @Composable
 fun KeyValue(key: String, value: String) {
     Row(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
-        Text(key, color = Muted, fontSize = 13.sp, modifier = Modifier.weight(1f))
-        Text(value, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Text(key, color = Muted, fontSize = 13.sp, modifier = Modifier.weight(1f).padding(end=8.dp))
+        Text(value, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier=Modifier.weight(1.3f),textAlign=androidx.compose.ui.text.style.TextAlign.End)
     }
 }
 
-/** ₹29 verification fee: pay by UPI to the number, send the screenshot on WhatsApp. */
+/** Legacy bidding entry point: no direct UPI/QR checkout in preview. */
 @Composable
 fun VerifyFeeCard(me: Profile) {
-    val ctx = androidx.compose.ui.platform.LocalContext.current
-    CardBox(border = Blue) {
-        Text("💳 Verification fee: ₹${Config.VERIFY_FEE}", fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(6.dp))
-        MutedText("1. Pay ₹${Config.VERIFY_FEE} with any UPI app (button below)")
-        MutedText("2. Send the payment screenshot on WhatsApp to ${Config.FEE_PHONE}")
-        MutedText("3. Our team calls you and gives your ✔ tick")
-        Spacer(Modifier.height(8.dp))
-        PrimaryButton("Pay ₹${Config.VERIFY_FEE} now") {
-            openUrl(ctx, "upi://pay?pa=" + Uri.encode(Config.FEE_UPI) + "&pn=" + Uri.encode(Config.FEE_UPI_NAME) +
-                "&am=${Config.VERIFY_FEE}&cu=INR&tn=" + Uri.encode("Sphere verification"))
-        }
-        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            androidx.compose.foundation.Image(
-                androidx.compose.ui.res.painterResource(com.syahifilms.sphere.R.drawable.fee_qr), "UPI QR code",
-                Modifier.width(180.dp).clip(RoundedCornerShape(12.dp))
-            )
-            MutedText("UPI ID: ${Config.FEE_UPI} · ${Config.FEE_UPI_NAME}", 12)
-        }
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AssistChip(onClick = {
-                val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                cm.setPrimaryClip(android.content.ClipData.newPlainText("UPI ID", Config.FEE_UPI))
-                toast(ctx, "UPI ID copied: ${Config.FEE_UPI}")
-            }, label = { Text("📋 Copy UPI ID") })
-            AssistChip(onClick = {
-                openUrl(ctx, "https://wa.me/91${Config.FEE_PHONE}?text=" + Uri.encode(
-                    "Hi Sphere team, I paid the ₹${Config.VERIFY_FEE} verification fee. My Sphere account: ${me.email}. Screenshot attached."))
-            }, label = { Text("💬 Send screenshot") })
-        }
+    CardBox(border=Blue) {
+        Text("Verification required",fontWeight=FontWeight.Bold)
+        MutedText("Open your editor verification status from Profile. Paid checkout is unavailable in this development build.")
     }
 }
 
