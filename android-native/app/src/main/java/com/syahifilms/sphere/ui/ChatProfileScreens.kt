@@ -29,18 +29,18 @@ import com.syahifilms.sphere.data.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private fun timeOf(iso: String): String = try {
+internal fun timeOf(iso: String): String = try {
     val t = java.time.OffsetDateTime.parse(iso).atZoneSameInstant(java.time.ZoneId.of("Asia/Kolkata"))
     val h = t.hour % 12; "${if (h == 0) 12 else h}:${t.minute.toString().padStart(2, '0')} ${if (t.hour < 12) "am" else "pm"}"
 } catch (e: Exception) { "" }
 
-private fun dayOf(iso: String): String = try {
+internal fun dayOf(iso: String): String = try {
     val d = java.time.OffsetDateTime.parse(iso).atZoneSameInstant(java.time.ZoneId.of("Asia/Kolkata")).toLocalDate()
     val today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Kolkata"))
     when (d) { today -> "Today"; today.minusDays(1) -> "Yesterday"; else -> prettyDate(d.toString()) }
 } catch (e: Exception) { "" }
 
-private fun roleLine(p: Profile?): String = when {
+internal fun roleLine(p: Profile?): String = when {
     p == null -> ""
     p.role == "admin" -> "Sphere team"
     p.role == "editor" -> if (p.verified) "Editor · ✔ ${p.code}" else "Editor"
@@ -48,7 +48,7 @@ private fun roleLine(p: Profile?): String = when {
 }
 
 @Composable
-private fun Ticks(m: ChatMessage, onDark: Boolean) {
+internal fun Ticks(m: ChatMessage, onDark: Boolean) {
     val (t, c) = when {
         m.readAt.isNotBlank() -> "✓✓" to Color(0xFF7EE3FF)
         m.deliveredAt.isNotBlank() -> "✓✓" to (if (onDark) Color.White.copy(alpha = 0.75f) else Muted)
@@ -65,14 +65,21 @@ fun ChatsScreen(nav: NavHostController) {
         Triple(convs, Repo.profilesByIds(convs.map { it.otherId }), Repo.unreadByUser())
     }
     val meId = AppState.me?.id ?: ""
+    var search by remember { mutableStateOf("") }
+    LaunchedEffect(meId) {
+        while (true) { delay(10000); data.reload() }
+    }
     Page("Messages", bottomBar = { MainBottomBar(nav, "chats") }) {
+        Field(search, { search = it.take(100) }, "Search conversations")
         SupportCard()
         val d = data.data
         when {
             data.error != null -> ErrorBox(data.error) { data.reload() }
             d == null -> Loading()
             d.first.isEmpty() -> MutedText("No conversations yet. Open an editor's profile or a project to start chatting.")
-            else -> d.first.forEach { c ->
+            else -> d.first.filter { c -> search.isBlank() ||
+                d.second[c.otherId]?.name.orEmpty().contains(search, true) || c.last.preview.contains(search, true)
+            }.forEach { c ->
                 val p = d.second[c.otherId]
                 val unread = d.third[c.otherId] ?: 0
                 CardBox(onClick = { nav.go("chat/${c.otherId}") }) {
@@ -97,206 +104,6 @@ fun ChatsScreen(nav: NavHostController) {
             }
         }
     }
-}
-
-@Composable
-fun ChatScreen(nav: NavHostController, otherId: String) {
-    val ctx = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val me = AppState.me ?: return
-    var other by remember { mutableStateOf<Profile?>(null) }
-    var messages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
-    var text by remember { mutableStateOf("") }
-    var sending by remember { mutableStateOf(false) }
-    val listState = rememberLazyListState()
-    var menuOpen by remember { mutableStateOf(false) }
-    var infoOpen by remember { mutableStateOf(false) }
-    var confirmClear by remember { mutableStateOf(false) }
-    var confirmBlock by remember { mutableStateOf(false) }
-    var blocked by remember { mutableStateOf(false) }
-    LaunchedEffect(otherId) { blocked = Repo.iBlocked(otherId) }
-
-    val pickMedia = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()
-    ) { uri ->
-        if (uri != null) scope.launch {
-            sending = true
-            try {
-                val mime = ctx.contentResolver.getType(uri) ?: "image/jpeg"
-                // A photo picker can return a very large video. Reject it while reading
-                // instead of loading the entire file into memory before checking the size.
-                val bytes = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    ctx.contentResolver.openInputStream(uri)?.use { input ->
-                        val maxMediaBytes = 50L * 1024 * 1024
-                        val output = java.io.ByteArrayOutputStream()
-                        val buffer = ByteArray(16 * 1024)
-                        var bytesRead = 0L
-                        while (true) {
-                            val count = input.read(buffer)
-                            if (count < 0) break
-                            bytesRead += count
-                            if (bytesRead > maxMediaBytes) {
-                                throw ApiException(400, "File is bigger than 50 MB. Share big videos as a Google Drive link.")
-                            }
-                            output.write(buffer, 0, count)
-                        }
-                        output.toByteArray()
-                    }
-                } ?: throw ApiException(400, "Could not read the file")
-                val caption = text.trim()
-                Repo.sendMedia(me, otherId, bytes, mime, caption)
-                // Preserve the caption if uploading fails or the user types more text.
-                if (text.trim() == caption) text = ""
-                // A refresh error after a successful send is NOT an upload failure.
-                try { messages = Repo.thread(otherId) } catch (_: Exception) { }
-            } catch (e: Exception) { toast(ctx, e.message ?: "Upload failed") }
-            sending = false
-        }
-    }
-
-    LaunchedEffect(otherId) {
-        try { other = Repo.profile(otherId) } catch (e: Exception) { }
-        while (true) {                       // refresh every 4 seconds while this screen is open
-            try { messages = Repo.thread(otherId); Repo.markRead(otherId) } catch (e: Exception) { }
-            delay(4000)
-        }
-    }
-    LaunchedEffect(messages.size) { if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1) }
-
-    Scaffold(
-        containerColor = Bg,
-        topBar = {
-            TopAppBar(
-                navigationIcon = { IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White) } },
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { infoOpen = true }) {
-                        Avatar(other?.avatarUrl ?: "", other?.name ?: "Chat", 38.dp)
-                        Spacer(Modifier.width(10.dp))
-                        Column {
-                            Text(other?.name ?: "Chat", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(roleLine(other), color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp)
-                        }
-                    }
-                },
-                actions = {
-                    Box {
-                        IconButton(onClick = { menuOpen = true }) { Text("⋮", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold) }
-                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                            DropdownMenuItem(text = { Text("👤 View info") }, onClick = { menuOpen = false; infoOpen = true })
-                            DropdownMenuItem(text = { Text("🧹 Clear chat") }, onClick = { menuOpen = false; confirmClear = true })
-                            DropdownMenuItem(text = { Text(if (blocked) "✅ Unblock" else "🚫 Block", color = Danger) }, onClick = { menuOpen = false; confirmBlock = true })
-                            DropdownMenuItem(text = { Text("🚩 Report", color = Danger) }, onClick = { menuOpen = false; nav.go("report?user=$otherId") })
-                            DropdownMenuItem(text = { Text("🆘 Help") }, onClick = { menuOpen = false; nav.go("support") })
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Blue)
-            )
-        },
-        bottomBar = {
-            if (blocked) {
-                Box(Modifier.fillMaxWidth().background(Color.White).navigationBarsPadding().clickable { confirmBlock = true }.padding(16.dp), contentAlignment = Alignment.Center) {
-                    Text("You blocked this contact. Tap to unblock.", color = Muted, fontSize = 13.sp)
-                }
-            } else Row(
-                Modifier.fillMaxWidth().background(Color.White).navigationBarsPadding().imePadding().padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(enabled = !sending, onClick = {
-                    pickMedia.launch(androidx.activity.result.PickVisualMediaRequest(
-                        androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageAndVideo))
-                }) { Text("📎", fontSize = 20.sp) }
-                OutlinedTextField(
-                    value = text, onValueChange = { text = it.take(2000) },
-                    placeholder = { Text(if (sending) "Sending…" else "Type a message…") },
-                    modifier = Modifier.weight(1f), shape = RoundedCornerShape(24.dp), maxLines = 4
-                )
-                IconButton(enabled = !sending && text.isNotBlank(), onClick = {
-                    val t = text.trim()
-                    scope.launch {
-                        sending = true
-                        try {
-                            Repo.sendMessage(me, otherId, t)
-                            if (text.trim() == t) text = ""
-                            // Polling will pick it up if this read fails; do not claim send failed.
-                            try { messages = Repo.thread(otherId) } catch (_: Exception) { }
-                        } catch (e: Exception) { toast(ctx, e.message ?: "Message not sent") }
-                        sending = false
-                    }
-                }) { Icon(Icons.AutoMirrored.Filled.Send, "Send", tint = Blue) }
-            }
-        }
-    ) { pad ->
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.padding(pad).fillMaxSize().padding(horizontal = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-            contentPadding = PaddingValues(vertical = 10.dp)
-        ) {
-            itemsIndexed(messages, key = { _, m -> m.id }) { i, m ->
-                val mine = m.senderId == me.id
-                val day = dayOf(m.createdAt)
-                if (i == 0 || dayOf(messages[i - 1].createdAt) != day) {
-                    Box(Modifier.fillMaxWidth().padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
-                        Text(day, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4B5563),
-                            modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(Color(0xFFDFE6FB)).padding(horizontal = 10.dp, vertical = 4.dp))
-                    }
-                }
-                Box(Modifier.fillMaxWidth(), contentAlignment = if (mine) Alignment.CenterEnd else Alignment.CenterStart) {
-                    Column(
-                        Modifier.widthIn(max = 290.dp).clip(RoundedCornerShape(16.dp))
-                            .background(if (mine) Blue else Color.White).padding(horizontal = 10.dp, vertical = 7.dp)
-                    ) {
-                        when (m.mediaType) {
-                            "image" -> coil.compose.AsyncImage(
-                                model = m.mediaUrl, contentDescription = "Photo",
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                                modifier = Modifier.width(230.dp).heightIn(max = 300.dp).clip(RoundedCornerShape(12.dp))
-                                    .clickable { openUrl(ctx, m.mediaUrl) }
-                            )
-                            "video" -> Text("▶  Play video", color = if (mine) Color.White else Blue, fontWeight = FontWeight.Bold,
-                                modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { openUrl(ctx, m.mediaUrl) }.padding(vertical = 6.dp))
-                            "audio" -> Text("🎤  Play voice message (${m.duration / 60}:${(m.duration % 60).toString().padStart(2, '0')})",
-                                color = if (mine) Color.White else Blue, fontWeight = FontWeight.Bold,
-                                modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { openUrl(ctx, m.mediaUrl) }.padding(vertical = 6.dp))
-                        }
-                        if (m.text.isNotBlank()) Text(m.text, color = if (mine) Color.White else Color.Black)
-                        Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
-                            Text(timeOf(m.createdAt), fontSize = 10.sp, color = if (mine) Color.White.copy(alpha = 0.75f) else Muted)
-                            if (mine) Ticks(m, true)
-                        }
-                    }
-                }
-            }
-        }
-    }
-    if (infoOpen) AlertDialog(
-        onDismissRequest = { infoOpen = false },
-        title = { Text(other?.name ?: "Contact") },
-        text = { Column { Text(roleLine(other), color = Muted); if (other?.role == "editor" && other?.verified == true) Text("Tap below to see the full profile.", fontSize = 13.sp) } },
-        confirmButton = {
-            if (other?.role == "editor" && other?.verified == true) TextButton(onClick = { infoOpen = false; nav.go("editor/$otherId") }) { Text("View full profile") }
-            else TextButton(onClick = { infoOpen = false }) { Text("OK") }
-        },
-        dismissButton = { TextButton(onClick = { infoOpen = false }) { Text("Close") } }
-    )
-    if (confirmClear) AlertDialog(
-        onDismissRequest = { confirmClear = false },
-        title = { Text("Clear this chat?") },
-        text = { Text("Messages are removed only for you.") },
-        confirmButton = { TextButton(onClick = { confirmClear = false; scope.launch {
-            try { Repo.clearChat(otherId); messages = Repo.thread(otherId) } catch (e: Exception) { toast(ctx, e.message ?: "Could not clear") } } }) { Text("Clear") } },
-        dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancel") } }
-    )
-    if (confirmBlock) AlertDialog(
-        onDismissRequest = { confirmBlock = false },
-        title = { Text(if (blocked) "Unblock ${other?.name ?: ""}?" else "Block ${other?.name ?: ""}?") },
-        text = { Text(if (blocked) "You will be able to message each other again." else "They will not be able to message you, and you cannot message them.") },
-        confirmButton = { TextButton(onClick = { confirmBlock = false; scope.launch {
-            try { Repo.setBlocked(otherId, !blocked); blocked = !blocked } catch (e: Exception) { toast(ctx, e.message ?: "Could not update") } } }) {
-            Text(if (blocked) "Unblock" else "Block", color = Danger) } },
-        dismissButton = { TextButton(onClick = { confirmBlock = false }) { Text("Cancel") } }
-    )
 }
 
 @Composable

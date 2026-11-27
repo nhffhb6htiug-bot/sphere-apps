@@ -332,7 +332,7 @@ private fun LocalMediaRow(item: LocalProjectMedia, removable: Boolean, onPreview
 }
 
 @Composable
-private fun MediaThumb(source: String, mime: String, modifier: Modifier) {
+internal fun MediaThumb(source: String, mime: String, modifier: Modifier) {
     val ctx = LocalContext.current
     val video = mime.startsWith("video/")
     var frame by remember(source) { mutableStateOf<Bitmap?>(null) }
@@ -358,7 +358,7 @@ private fun MediaThumb(source: String, mime: String, modifier: Modifier) {
 }
 
 @Composable
-private fun MediaPreview(name: String, source: String, mime: String, onClose: () -> Unit) {
+internal fun MediaPreview(name: String, source: String, mime: String, onClose: () -> Unit) {
     var player by remember(source) { mutableStateOf<VideoView?>(null) }
     var error by remember(source) { mutableStateOf(false) }
     DisposableEffect(source) { onDispose { player?.stopPlayback() } }

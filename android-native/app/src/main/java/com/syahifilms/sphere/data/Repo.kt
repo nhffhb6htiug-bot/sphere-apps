@@ -329,8 +329,8 @@ object Repo {
         val cleared = clearedAt(otherId)
         val q = "sp_messages?or=(and(sender_id.eq.$me,receiver_id.eq.$otherId),and(sender_id.eq.$otherId,receiver_id.eq.$me))" +
             (if (cleared.isNotBlank()) "&created_at=gt.${Api.enc(cleared)}" else "") +
-            "&order=created_at.asc&limit=500&select=*"
-        return Api.select(q).mapObjects { ChatMessage.from(it) }
+            "&order=created_at.desc,id.desc&limit=500&select=*"
+        return Api.select(q).mapObjects { ChatMessage.from(it) }.reversed()
     }
 
     // ---------------- block / clear chat ----------------

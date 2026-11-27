@@ -161,9 +161,9 @@ data class Bid(
 data class ChatMessage(
     val id: String, val senderId: String, val receiverId: String, val text: String, val createdAt: String,
     val deliveredAt: String = "", val readAt: String = "",
-    val mediaPath: String = "", val mediaType: String = "", val duration: Int = 0
+    val mediaPath: String = "", val mediaType: String = "", val duration: Int = 0,
+    val replyTo: String = "", val moderationStatus: String = ""
 ) {
-    val mediaUrl: String get() = if (mediaPath.isBlank()) "" else Api.publicUrl("sphere-chat", mediaPath)
     val preview: String get() = when (mediaType) {
         "image" -> "📷 Photo" + (if (text.isNotBlank()) " · $text" else "")
         "video" -> "🎥 Video" + (if (text.isNotBlank()) " · $text" else "")
@@ -174,7 +174,8 @@ data class ChatMessage(
         fun from(o: JSONObject) = ChatMessage(
             o.str("id"), o.str("sender_id"), o.str("receiver_id"), o.str("text"), o.str("created_at"),
             o.str("delivered_at"), o.str("read_at"), o.str("media_path"), o.str("media_type"),
-            if (o.isNull("duration_sec")) 0 else o.optInt("duration_sec")
+            if (o.isNull("duration_sec")) 0 else o.optInt("duration_sec"),
+            o.str("reply_to"), o.str("mod_status")
         )
     }
 }
