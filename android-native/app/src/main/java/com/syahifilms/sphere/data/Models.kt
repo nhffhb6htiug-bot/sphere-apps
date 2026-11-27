@@ -123,7 +123,10 @@ data class Job(
     val videoFormat: String = "",
     val styleNotes: String = "",
     val referenceLinks: String = "",
-    val rawFiles: List<ProjectAttachment> = emptyList()
+    val rawFiles: List<ProjectAttachment> = emptyList(),
+    val reviewState: String = "",
+    val decisionDueAt: String = "",
+    val releasedAt: String = ""
 ) {
     val expired: Boolean get() = status == "open" && deadline.isNotBlank() && deadline.take(10) < todayIST()
     val finalAmount: Double? get() = lockedAmount ?: budget
@@ -153,7 +156,10 @@ data class Job(
             videoFormat = o.str("video_format"),
             styleNotes = o.str("style_notes"),
             referenceLinks = o.str("reference_links"),
-            rawFiles = o.optJSONArray("raw_files")?.mapObjects { ProjectAttachment.from(it) }.orEmpty()
+            rawFiles = o.optJSONArray("raw_files")?.mapObjects { ProjectAttachment.from(it) }.orEmpty(),
+            reviewState = o.str("review_state"),
+            decisionDueAt = o.str("decision_due_at"),
+            releasedAt = o.str("released_at")
         )
     }
 }

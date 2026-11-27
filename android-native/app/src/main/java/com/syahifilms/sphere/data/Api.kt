@@ -350,6 +350,20 @@ object Api {
         http.newCall(req).execute().use { res -> if (!res.isSuccessful) throw toError(res.code, res.body?.string().orEmpty()) }
     }
 
+    suspend fun deliveryPreviewUrl(job: String, path: String): String {
+        require(userId != null && NativeChat.validId(job) &&
+            path.startsWith("$job/preview/") &&
+            Regex("^[0-9a-fA-F-]{36}/preview/[0-9a-fA-F-]{36}\\.[A-Za-z0-9]{1,5}$").matches(path))
+        val result = JSONObject(raw("POST", "/storage/v1/object/sign/sphere-project/$path",
+            JSONObject().put("expiresIn", 300).toString()))
+        val relative = result.str("signedURL").ifBlank { result.str("signedUrl") }
+        return when {
+            relative.startsWith("/object/sign/sphere-project/") -> Config.SUPABASE_URL + "/storage/v1" + relative
+            relative.startsWith("/storage/v1/object/sign/sphere-project/") -> Config.SUPABASE_URL + relative
+            else -> throw ApiException(503, "Preview unavailable")
+        }
+    }
+
     suspend fun projectMediaUrl(path: String): String {
         require(userId != null && Regex("^[0-9a-fA-F-]{36}/raw/[A-Za-z0-9_.-]+$").matches(path))
         val result = JSONObject(raw("POST", "/storage/v1/object/sign/sphere-raw/$path",

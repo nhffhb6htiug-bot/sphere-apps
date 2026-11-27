@@ -115,12 +115,9 @@ fun ProjectScreen(nav: NavHostController, id: String) {
         }
         val bids = if (j != null && j.clientId == me.id && j.status == "open") Repo.bids(j.id).size else 0
         val rated = if (j != null && j.status == "approved") Repo.hasRated(j.id) else false
-        val stage = if (j != null && j.status == "in-progress" && (j.clientId == me.id || j.assignedEditor == me.id))
-            Repo.previewStage(j.id) else null
-        listOf(j, other, bids, rated, stage)
+        listOf(j, other, bids, rated)
     }
     var busy by remember { mutableStateOf(false) }
-    var releaseJob by remember { mutableStateOf<Job?>(null) }
     fun act(block: suspend () -> Unit) {
         scope.launch {
             busy = true
@@ -137,7 +134,6 @@ fun ProjectScreen(nav: NavHostController, id: String) {
         val other = d[1] as Profile?
         val bidCount = d[2] as Int
         val rated = d[3] as Boolean
-        val stage = d[4] as Repo.PreviewStage?
         val isClient = job.clientId == me.id
         val isEditor = job.assignedEditor == me.id
         val stepIndex = STEPS.indexOfFirst { it.first == job.status }
@@ -173,7 +169,7 @@ fun ProjectScreen(nav: NavHostController, id: String) {
                     TextButton(onClick = { openUrl(ctx, url) }) { Text("Open reference link") }
                 }
             }
-            if (job.deliveryLink.isNotBlank()) TextButton(onClick = { openUrl(ctx, job.deliveryLink) }) { Text("🎬 Open delivered video") }
+            if (isClient && job.status in setOf("approved","closed") && NativePortfolio.validLink(job.deliveryLink) && job.deliveryLink.isNotBlank()) TextButton(onClick = { openUrl(ctx, job.deliveryLink) }) { Text("Open released final video") }
         }
         if ((isClient || isEditor) && job.rawFiles.isNotEmpty()) {
             ProjectAttachments(job.rawFiles)
@@ -238,76 +234,14 @@ fun ProjectScreen(nav: NavHostController, id: String) {
                 
             }
             job.status == "payment-pending" && isEditor -> MutedText("Waiting for the client's payment…")
-            job.status == "in-progress" && isEditor -> {
-                when {
-                    stage == null -> Loading()
-                    stage.approved -> {
-                        CardBox(border = Success) {
-                            Text("✅ Client approved your preview", fontWeight = FontWeight.Bold)
-                            MutedText("Send the clean final video to begin the client's review period.")
-                        }
-                        DeliverBox(busy, "Send clean final video") { link ->
-                            act { Repo.submitFinal(job, stage.previewId, link); toast(ctx, "Final video submitted ✅") }
-                        }
-                    }
-                    else -> {
-                        if (stage.sent) {
-                            CardBox(border = Blue) {
-                                Text("👀 Preview sent — waiting for client approval", fontWeight = FontWeight.Bold)
-                                MutedText("You can update the preview below if necessary.", 12)
-                            }
-                        }
-                        DeliverBox(busy, "Send watermarked preview") { link ->
-                            act { Repo.submitPreview(job, link); toast(ctx, "Preview sent ✅") }
-                        }
-                    }
-                }
-            }
-            job.status == "in-progress" && isClient -> {
-                if (stage?.sent == true) {
-                    CardBox(border = Blue) {
-                        Text("👀 Your editor sent a preview", fontWeight = FontWeight.Bold)
-                        if (stage.previewUrl.startsWith("https://") || stage.previewUrl.startsWith("http://")) {
-                            SecondaryButton("Watch watermarked preview") { openUrl(ctx, stage.previewUrl) }
-                        }
-                        if (!stage.approved) {
-                            MutedText("Approve this preview only when you're satisfied. The editor will then send the clean final video.", 12)
-                            PrimaryButton(if (busy) "Approving…" else "✅ Approve preview", enabled = !busy) {
-                                act { Repo.approvePreview(job); toast(ctx, "Preview approved ✅") }
-                            }
-                        } else MutedText("Preview approved. Waiting for the clean final video.", 12)
-                    }
-                } else MutedText("Your editor is working on it. You will get a notification when a preview is ready.")
-            }
-            job.status == "delivered" && isClient -> {
-                PrimaryButton(if (busy) "Please wait…" else "✅ Review & release payment", enabled = !busy) {
-                    releaseJob = job
-                }
-            }
-            job.status == "delivered" && isEditor -> MutedText("Final submitted ✅ Waiting for client review. For any issue, contact support.")
             job.status == "approved" && isClient && !rated -> RateBox(busy) { stars, review -> act { Repo.rate(job, stars, review); toast(ctx, "Thank you for your review!") } }
         }
-        if ((isClient || isEditor) && job.status != "open") {
+        if ((isClient || isEditor) && job.status in setOf("in-progress","delivered","approved","closed","refunded")) {
+            NativeDeliveryPanel(job, me) { loaded.reload() }
+        }
+        if ((isClient || isEditor) && job.status !in setOf("open","approved","closed","refunded")) {
             SecondaryButton("🚩 Report a problem", Danger) { nav.go("report?job=${job.id}") }
         }
-    }
-    if (releaseJob != null) {
-        AlertDialog(
-            onDismissRequest = { releaseJob = null },
-            title = { Text("Release payment?") },
-            text = { Text("Only confirm after reviewing the final video. This releases the editor's payment and can close the refund and complaint window.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    val chosen = releaseJob
-                    releaseJob = null
-                    if (chosen != null) act {
-                        Repo.approve(chosen)
-                        toast(ctx, "Approval submitted ✅")
-                    }
-                }) { Text("Confirm release") }
-            },
-            dismissButton = { TextButton(onClick = { releaseJob = null }) { Text("Cancel") } }
-        )
     }
 }
 
@@ -371,7 +305,7 @@ private fun DeliverBox(busy: Boolean, title: String, onDeliver: (String) -> Unit
 
 @Composable
 private fun RateBox(busy: Boolean, onRate: (Int, String) -> Unit) {
-    var score by remember { mutableIntStateOf(0) }
+    var score by remember { mutableStateOf<Int?>(null) }
     var review by remember { mutableStateOf("") }
     CardBox(border = Success) {
         Text("Rate your editor (−3 to +3)", fontWeight = FontWeight.Bold)
@@ -382,7 +316,7 @@ private fun RateBox(busy: Boolean, onRate: (Int, String) -> Unit) {
             }
         }
         Field(review, { review = it }, "Review (optional)", minLines = 2)
-        PrimaryButton(if (busy) "Sending…" else "Submit rating", enabled = !busy) { onRate(score, review) }
+        PrimaryButton(if (busy) "Sending…" else "Submit rating", enabled = !busy && score != null) { score?.let { onRate(it, review) } }
     }
 }
 
