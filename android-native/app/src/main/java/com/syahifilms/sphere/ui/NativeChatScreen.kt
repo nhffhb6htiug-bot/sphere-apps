@@ -116,7 +116,7 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
         }
     }
     val filtered = messages.filter { search.isBlank() || it.preview.contains(search,true) }
-    val count = filtered.size + if (search.isBlank()) queued.size else 0
+    val count = filtered.size + if (search.isBlank()) queued.count { q -> messages.none { it.id == q.id } } else 0
     var lastCount by remember { mutableIntStateOf(0) }
     LaunchedEffect(count,search) {
         if (search.isBlank() && count > 0 && (lastCount == 0 || (list.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) >= lastCount - 3))
