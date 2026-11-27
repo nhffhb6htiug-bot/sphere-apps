@@ -77,6 +77,19 @@ fun WelcomeScreen(nav: NavHostController) {
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     var googleError by remember { mutableStateOf<String?>(null) }
+    if (!Config.previewConfigured) {
+        Page("Sphere Preview") {
+            CardBox {
+                Text("Isolated development build",fontWeight=FontWeight.Bold)
+                MutedText("A separate staging backend has not been configured. Live Sphere sign-in and data access are disabled.")
+                MutedText("Use the local simulator or switch the theme to inspect this preview. Do not use real account details.")
+            }
+            PrimaryButton("Open payment simulation") { nav.go("paymentLab") }
+            SecondaryButton("Light mode") { SphereAppearance.setAppearance("light") }
+            SecondaryButton("Dark mode") { SphereAppearance.setAppearance("dark") }
+        }
+        return
+    }
     val authMode = load(Unit) { NativeAuth.settings() }
     val authSettings = authMode.data
     LaunchedEffect(authSettings) {
@@ -102,7 +115,7 @@ fun WelcomeScreen(nav: NavHostController) {
         Text("Sphere", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = Blue)
         Text("Hire verified video editors — or find editing work", color = Muted, textAlign = TextAlign.Center)
         Spacer(Modifier.height(36.dp))
-        if (!authSettings.waRequired) Button(
+        if (!authSettings.waRequired && Config.GOOGLE_WEB_CLIENT_ID.isNotBlank()) Button(
             enabled = !busy,
             onClick = {
                 scope.launch {

@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun NativeAccountGate(nav: NavHostController, content: @Composable () -> Unit) {
     var ready by remember { mutableStateOf(false) }
+    var readyOwner by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var retry by remember { mutableIntStateOf(0) }
     LaunchedEffect(retry) {
@@ -29,7 +30,7 @@ fun NativeAccountGate(nav: NavHostController, content: @Composable () -> Unit) {
                 val uid = Api.userId
                 if (uid == null) { AppState.me = null; nav.resetTo("welcome"); return@LaunchedEffect }
                 val status = NativeAuth.accountStatus()
-                if (uid != Api.userId) return@LaunchedEffect
+                if (uid != Api.userId) { ready = false; readyOwner = null; nav.resetTo("splash"); return@LaunchedEffect }
                 if (status?.optBoolean("suspended") == true) { ready = false; nav.resetTo("suspended"); return@LaunchedEffect }
                 val me = AppState.me
                 if (me == null || status == null || !NativeAuth.matchesAccount(me, status)) {
@@ -42,7 +43,8 @@ fun NativeAccountGate(nav: NavHostController, content: @Composable () -> Unit) {
                     nav.resetTo("verifyPhone")
                     return@LaunchedEffect
                 }
-                if (uid != Api.userId) return@LaunchedEffect
+                if (uid != Api.userId) { ready = false; readyOwner = null; nav.resetTo("splash"); return@LaunchedEffect }
+                readyOwner = uid
                 ready = true
                 delay(60000)
             } catch (e: CancellationException) { throw e }
@@ -53,7 +55,7 @@ fun NativeAccountGate(nav: NavHostController, content: @Composable () -> Unit) {
             }
         }
     }
-    if (ready) content()
+    if (ready && readyOwner != null && readyOwner == Api.userId) content()
     else Page("Checking account") {
         if (error == null) Loading()
         else ErrorBox(error ?: "") { retry++ }

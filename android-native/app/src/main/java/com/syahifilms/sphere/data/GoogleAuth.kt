@@ -25,6 +25,8 @@ object GoogleAuth {
      * Returns null if the user explicitly closes the Google account picker.
      */
     suspend fun getIdToken(context: Context): Token? {
+        Config.requirePreviewBackend()
+        require(Config.GOOGLE_WEB_CLIENT_ID.isNotBlank()) { "Testing Google sign-in is not configured." }
         val rawNonce = UUID.randomUUID().toString()
         val hashedNonce = MessageDigest.getInstance("SHA-256")
             .digest(rawNonce.toByteArray(Charsets.UTF_8))

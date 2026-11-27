@@ -10,6 +10,16 @@ if (file("google-services.json").isFile) {
     apply(plugin = "com.google.gms.google-services")
 }
 
+// Preview uses an explicitly configured, separate Supabase project. Never fall back to production.
+val previewUrl = System.getenv("SPHERE_PREVIEW_SUPABASE_URL").orEmpty().trim()
+val previewKey = System.getenv("SPHERE_PREVIEW_SUPABASE_ANON_KEY").orEmpty().trim()
+val previewGoogle = System.getenv("SPHERE_PREVIEW_GOOGLE_CLIENT_ID").orEmpty().trim()
+require(previewUrl.isEmpty() || Regex("https://[a-z0-9]{20}\\.supabase\\.co").matches(previewUrl)) { "Preview URL must be a direct Supabase project URL." }
+require(previewKey.isEmpty() || Regex("[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+").matches(previewKey)) { "Use a staging legacy anon JWT, never an admin key." }
+require(previewGoogle.isEmpty() || Regex("[0-9]+-[A-Za-z0-9_-]+\\.apps\\.googleusercontent\\.com").matches(previewGoogle)) { "Invalid preview OAuth client ID." }
+require(previewUrl.isEmpty() == previewKey.isEmpty()) { "Set both staging URL and staging anon key, or neither." }
+require(previewUrl != "https://pwcchgjsgkwrsvbzqspp.supabase.co") { "Production backend is forbidden in preview builds." }
+
 android {
     namespace = "com.syahifilms.sphere"
     compileSdk = 36
@@ -20,6 +30,9 @@ android {
         targetSdk = 36
         versionCode = 12
         versionName = "2.2.8"
+        buildConfigField("String","PREVIEW_URL","\"$previewUrl\"")
+        buildConfigField("String","PREVIEW_ANON","\"$previewKey\"")
+        buildConfigField("String","PREVIEW_GOOGLE","\"$previewGoogle\"")
     }
 
     // Release bundle is signed only when the OWNER configures all four
@@ -44,6 +57,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-preview"
+            resValue("string","app_name","Sphere Preview")
+        }
         release {
             isMinifyEnabled = false
             if (hasReleaseSigning) {

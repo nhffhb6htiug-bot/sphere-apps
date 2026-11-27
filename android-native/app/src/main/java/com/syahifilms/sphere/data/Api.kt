@@ -31,6 +31,9 @@ object Api {
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(90, TimeUnit.SECONDS)
         .writeTimeout(90, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(false)
+        .followRedirects(false)
+        .followSslRedirects(false)
         .build()
     private val JSON_TYPE = "application/json; charset=utf-8".toMediaType()
     private var prefs: SharedPreferences? = null
@@ -135,7 +138,13 @@ object Api {
     ): String = withContext(Dispatchers.IO) {
         // Anonymous requests are allowed before login, never as a silent substitute
         // for an expired/failed authenticated session.
+        Config.requirePreviewBackend()
+        val expectedOwner = if (useUserToken) userId else null
         val bearer = if (useUserToken) token() ?: Config.SUPABASE_KEY else Config.SUPABASE_KEY
+        fun checkOwner() {
+            if (useUserToken && expectedOwner != userId) throw ApiException(401,"Session changed. Please retry.")
+        }
+        checkOwner()
         val b = Request.Builder()
             .url(Config.SUPABASE_URL + path)
             .header("apikey", Config.SUPABASE_KEY)
@@ -151,10 +160,14 @@ object Api {
             else -> b.method(method, reqBody)
         }
         val request = b.build()
-        fun executeOnce(): String = http.newCall(request).execute().use { res ->
-            val text = res.body?.string() ?: ""
-            if (res.code !in 200..299) throw toError(res.code, text)
-            text
+        fun executeOnce(): String {
+            checkOwner()
+            return http.newCall(request).execute().use { res ->
+                val text = res.body?.string() ?: ""
+                checkOwner()
+                if (res.code !in 200..299) throw toError(res.code, text)
+                text
+            }
         }
 
         // Only a read-only GET may be retried. Never resend payments, messages,
@@ -239,13 +252,16 @@ object Api {
     }
 
     suspend fun resetPassword(email: String) {
-        raw("POST", "/auth/v1/recover",
-            JSONObject().put("email", email).put("redirect_to", Config.WEBSITE).toString(), useUserToken = false)
+        // A verified staging recovery redirect has not been configured. Never send recovery to the live website.
+        throw ApiException(503,"Password recovery is unavailable until the testing redirect is configured.")
     }
 
     suspend fun signOut() {
-        try { raw("POST", "/auth/v1/logout", "{}") } catch (e: Exception) { }
-        clearSession()
+        val owner = userId
+        try { if (owner != null) raw("POST", "/auth/v1/logout", "{}") }
+        catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (_: Exception) { }
+        finally { synchronized(sessionWriteLock) { if (userId == owner) clearSession() } }
     }
 
     // ---------------- database (PostgREST) ----------------
@@ -285,7 +301,8 @@ object Api {
 
     /** Uploads a file to Supabase Storage (bucket/path). */
     suspend fun uploadBytes(bucket: String, path: String, bytes: ByteArray, contentType: String) = withContext(Dispatchers.IO) {
-        val t = token() ?: throw ApiException(401, "Please log in again")
+        val owner = userId ?: throw ApiException(401, "Please log in again")
+        val t = realtimeToken(owner)
         val req = Request.Builder()
             .url("${Config.SUPABASE_URL}/storage/v1/object/$bucket/$path")
             .header("apikey", Config.SUPABASE_KEY)

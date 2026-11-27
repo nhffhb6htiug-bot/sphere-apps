@@ -14,7 +14,7 @@ test("Native entry and protected screens check actual server account state",()=>
   assert.match(auth,/sp_phone_verify_status/);
   assert.match(common,/status\?\.optBoolean\("suspended"\) == true/);
   for(const route of ["home","jobs","profile","chats","payments","escrow","editorDetails"]) assert.ok(nav.includes('composable("'+route+'") { NativeAccountGate(nav)'));
-  assert.match(guard,/if \(ready\) content\(\)/);
+  assert.match(guard,/if \(ready && readyOwner != null && readyOwner == Api.userId\) content\(\)/);
   assert.match(auth,/sp_phone_verify_start/);
   assert.doesNotMatch(read("data/Repo.kt"),/put\("role", meta\.str/);
 });

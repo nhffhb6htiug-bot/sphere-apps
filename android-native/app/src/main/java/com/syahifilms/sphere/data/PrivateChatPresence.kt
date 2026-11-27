@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 object PrivateChatPresence {
     data class State(val online: Boolean,val typing: Boolean)
-    private val client = OkHttpClient.Builder().pingInterval(20,TimeUnit.SECONDS).build()
+    private val client = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false).pingInterval(20,TimeUnit.SECONDS).build()
     fun events(owner: String,peer: String,typing: () -> Boolean) = callbackFlow<State> {
         require(NativeChat.validId(owner) && NativeChat.validId(peer) && owner != peer)
         val access = Api.realtimeToken(owner)

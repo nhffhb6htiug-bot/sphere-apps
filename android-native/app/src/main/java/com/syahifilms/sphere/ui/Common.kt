@@ -173,7 +173,15 @@ suspend fun routeAfterLogin(nav: NavHostController, destination: String = "home"
 fun toast(ctx: Context, msg: String) = Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
 
 fun openUrl(ctx: Context, url: String) {
-    try { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } catch (e: Exception) { toast(ctx, "No app found to open this") }
+    val uri=Uri.parse(url.trim())
+    val permitted=when(uri.scheme?.lowercase()){
+        "https" -> !uri.host.isNullOrBlank() && uri.userInfo==null
+        "tel" -> Regex("^\\+?[0-9]{7,15}$").matches(uri.schemeSpecificPart.orEmpty())
+        "mailto" -> uri.schemeSpecificPart.orEmpty().isNotBlank()
+        else -> false
+    }
+    if(!permitted){toast(ctx,"Unsupported or unsafe link");return}
+    try { ctx.startActivity(Intent(Intent.ACTION_VIEW,uri)) } catch (e: Exception) { toast(ctx, "No app found to open this") }
 }
 
 fun dial(ctx: Context, phone: String) = openUrl(ctx, "tel:+91$phone")
@@ -197,7 +205,7 @@ fun <T> load(vararg keys: Any?, block: suspend () -> T): Loaded<T> {
     LaunchedEffect(tick, *keys) {
         error = null
         try { data = block() } catch (e: kotlinx.coroutines.CancellationException) { throw e }
-        catch (e: Exception) { error = e.message ?: "Something went wrong" }
+        catch (e: Exception) { data = null; error = e.message ?: "Something went wrong" }
     }
     return Loaded(data, error) { tick++ }
 }

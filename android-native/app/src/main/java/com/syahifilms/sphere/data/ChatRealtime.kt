@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit
 
 /** Realtime changes are invalidation signals only; refetch via RLS rather than trust event data. */
 object ChatRealtime {
-    private val client = OkHttpClient.Builder().pingInterval(20, TimeUnit.SECONDS).build()
+    private val client = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false).pingInterval(20, TimeUnit.SECONDS).build()
     fun changes(owner: String) = callbackFlow<Unit> {
         val access = Api.realtimeToken(owner)
         val seq = AtomicInteger()
