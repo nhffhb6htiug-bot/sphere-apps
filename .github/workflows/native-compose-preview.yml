@@ -22,6 +22,10 @@ jobs:
           "$SDKMANAGER" --install "platforms;android-36" "build-tools;36.0.0"
       - name: Check native launcher and compile debug build
         working-directory: android-native
+        # Public client key only; RLS/RPCs enforce authorization. No admin key or test password in CI.
+        env:
+          SPHERE_PREVIEW_SUPABASE_URL: https://abxrlvigoouwbunnurkc.supabase.co
+          SPHERE_PREVIEW_SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFieHJsdmlnb291d2J1bm51cmtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU3ODEzMDIsImV4cCI6MjExMTM1NzMwMn0.uF2n5GjDxOBC8SYA0k9H2EhckM2UTYo2RamKPyJaPkg'
         run: |
           ! grep -E 'android\.webkit|WebView|loadUrl\(' app/src/main/java/com/syahifilms/sphere/MainActivity.kt
           grep -F 'SphereNav()' app/src/main/java/com/syahifilms/sphere/MainActivity.kt
@@ -30,7 +34,7 @@ jobs:
       - name: Upload development test artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Sphere-Compose-preview-debug
+          name: Sphere-Compose-staging-preview-debug
           path: android-native/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7
           if-no-files-found: error
