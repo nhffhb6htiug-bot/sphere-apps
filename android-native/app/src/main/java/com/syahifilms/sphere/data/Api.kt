@@ -329,6 +329,20 @@ object Api {
         return access
     }
 
+    suspend fun adminProofUrl(owner:String,editor:String,path:String):String {
+        NativeAdmin.authorize(owner)
+        require(NativeChat.validId(editor) && path.startsWith("$editor/"))
+        require(Regex("^[0-9a-fA-F-]{36}/[0-9a-fA-F-]{36}\\.(jpg|jpeg|png|webp)$",RegexOption.IGNORE_CASE).matches(path))
+        val result=JSONObject(raw("POST","/storage/v1/object/sign/sphere-editor-proof/$path",JSONObject().put("expiresIn",90).toString()))
+        require(userId==owner)
+        val relative=result.str("signedURL").ifBlank{result.str("signedUrl")}
+        return when {
+            relative.startsWith("/object/sign/sphere-editor-proof/")->Config.SUPABASE_URL+"/storage/v1"+relative
+            relative.startsWith("/storage/v1/object/sign/sphere-editor-proof/")->Config.SUPABASE_URL+relative
+            else->throw ApiException(503,"Proof unavailable")
+        }
+    }
+
     suspend fun chatMediaUrl(path: String): String {
         require(userId != null && Regex("^[0-9a-fA-F-]{36}/chat/[A-Za-z0-9_.-]+$").matches(path))
         val result = JSONObject(raw("POST", "/storage/v1/object/sign/sphere-chat/$path", JSONObject().put("expiresIn", 300).toString()))

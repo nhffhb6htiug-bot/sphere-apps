@@ -111,6 +111,35 @@ object NativeAdmin {
         val metrics=if(ids.isEmpty())emptyMap() else list(owner,"sp_admin_project_metrics",JSONObject().put("p_jobs",JSONArray(ids))).associateBy{it.str("job_id")}
         return ProjectData(rows,list(owner,"sp_admin_hidden_projects"),metrics)
     }
+    data class Proof(val video:String,val screenshot:String,val phone:String,val name:String)
+    suspend fun proof(owner:String,editor:String):Proof {
+        require(validId(editor))
+        val row=list(owner,"sp_admin_verifications").firstOrNull{it.str("id")==editor}
+            ?: throw ApiException(404,"Application no longer in review queue")
+        val path=row.str("proof_screenshot")
+        val signed=if(path.isNotBlank())Api.adminProofUrl(owner,editor,path) else ""
+        requireOwner(owner)
+        return Proof(row.str("proof_video"),signed,row.str("phone"),row.str("name"))
+    }
+    suspend fun userDetail(owner:String,id:String):JSONObject{
+        require(validId(id))
+        val r=obj(owner,"sp_admin_user_detail",JSONObject().put("p_user",id))
+        val p=r.optJSONObject("profile") ?: error("User not found")
+        // Explicit display allowlist: do not retain verification code, contacts, raw messages.
+        return JSONObject().put("name",p.str("name")).put("role",p.str("role"))
+            .put("verified",p.optBoolean("verified")).put("status",p.str("verification_status"))
+            .put("projects",rows(r,"projects").size).put("strikes",r.optJSONObject("flags")?.optInt("strike_count")?:0)
+    }
+    suspend fun projectDetail(owner:String,id:String):JSONObject{
+        require(validId(id))
+        val r=obj(owner,"sp_admin_project_detail",JSONObject().put("p_job",id))
+        val j=r.optJSONObject("job") ?: error("Project not found")
+        // Do not display clean final link, private chat or financial provider references.
+        return JSONObject().put("status",j.str("status")).put("review_state",j.str("review_state"))
+            .put("flag",j.str("admin_flag")).put("note",j.str("admin_note"))
+            .put("extensions",rows(r,"extensions").size).put("disputes",rows(r,"disputes").size)
+            .put("refunds",rows(r,"refunds").size)
+    }
     private fun validId(id:String)=NativeChat.validId(id)
     suspend fun disputes(owner:String):CasesData{
         authorize(owner)

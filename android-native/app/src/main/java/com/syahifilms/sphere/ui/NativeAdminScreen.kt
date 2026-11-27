@@ -98,7 +98,7 @@ private fun AdminContent(nav:NavHostController,owner:String){
             NativeAdmin.Tab.MODERATION->AdminModeration(owner)
             NativeAdmin.Tab.AUDIT->AdminAudit(owner)
         }
-        MutedText("Preview: financial approvals, account changes and case decisions are not available here.",12)
+        MutedText("Preview: management actions simulate locally; no account, project or payment status is changed.",12)
     }
 }
 
@@ -190,6 +190,9 @@ private fun AdminVerification(owner:String){
                 KeyValue("Timeline screenshot",if(r.proofPhoto)"Submitted" else "Missing")
                 if(r.categories.isNotBlank())KeyValue("Categories",r.categories)
                 if(r.note.isNotBlank())MutedText(r.note)
+                AdminProofPanel(owner,r)
+                AdminActionPanel(if(r.status=="rejected")listOf(AdminReviewAction.REOPEN)
+                    else listOfNotNull(AdminReviewAction.REJECT,AdminReviewAction.APPROVE.takeIf{r.proofVideo&&(r.freeRank==0||r.proofPhoto)}))
                 if(r.status!="rejected")TextButton(enabled=!busy,onClick={pin="";action=r}){
                     Text(if(r.contacted)"Move to New" else "Mark already messaged")
                 }
@@ -197,7 +200,7 @@ private fun AdminVerification(owner:String){
         }
         SectionTitle("Editor detail update requests (${d.requests.size})")
         d.requests.forEach{r->CardBox{Text(r.str("name").ifBlank{"Editor"});MutedText(r.str("at"))}}
-        MutedText("Approve, reject, reopen and proof review require further backend and device testing. No fee confirmation is offered.",12)
+        MutedText("Verification decisions are dry-run only. No real badge, fee or application status is changed.",12)
     }
     if(note.isNotBlank())MutedText(note)
     action?.let{r->
@@ -255,6 +258,10 @@ private fun AdminUsers(owner:String){
             if(r.role=="EDITOR"){KeyValue("Profile",r.completion);KeyValue("Verification",if(r.verified)"Verified" else "Unverified")}
             KeyValue("Account",if(r.suspended)"Suspended" else "Active")
             KeyValue("Strikes",r.strikes.toString());KeyValue("Projects",r.projects.toString())
+            AdminDetailPanel(owner,r.id,false)
+            if(r.id!=owner && r.role!="ADMIN")AdminActionPanel(listOf(
+                if(r.suspended)AdminReviewAction.REACTIVATE else AdminReviewAction.SUSPEND,
+                AdminReviewAction.WARN,AdminReviewAction.CLEAR_STRIKES))
         }}
     }
 }
@@ -278,6 +285,11 @@ private fun AdminProjects(owner:String){
             KeyValue("Client",r.str("client_name"));KeyValue("Editor",r.str("editor_name"))
             KeyValue("Amount",money(r.numOrNull("amount")));KeyValue("Payment",r.str("payment_status").ifBlank{"Unpaid"})
             if(NativeAdmin.arr(r,"reasons").isNotBlank())MutedText(NativeAdmin.arr(r,"reasons"))
+            AdminDetailPanel(owner,r.str("id"),true)
+            AdminActionPanel(listOfNotNull(AdminReviewAction.FLAG,AdminReviewAction.CLEAR_FLAG,
+                AdminReviewAction.HIDE,AdminReviewAction.OPEN_REVIEW.takeIf{r.str("status") in setOf("in-progress","delivered")},
+                AdminReviewAction.ADD_TIME.takeIf{r.str("status")=="in-progress"},
+                AdminReviewAction.CLOSE_UNPAID.takeIf{r.str("status") in setOf("open","negotiating","payment-pending") && r.str("payment_status")!="paid"}))
             d.metrics[r.str("id")]?.let{m->
                 KeyValue("Bids / editors chatted",m.str("bids")+" / "+m.str("chat_editors"))
                 KeyValue("Messages / files",m.str("messages")+" / "+m.str("files"))
@@ -290,7 +302,7 @@ private fun AdminProjects(owner:String){
             TextButton(enabled=d.rows.size==60,onClick={offset+=60}){Text("Next")}
         }
         SectionTitle("Hidden projects (${d.hidden.size})")
-        d.hidden.take(100).forEach{r->CardBox{Text(r.str("title").ifBlank{"Project"});MutedText("Hidden")}}
+        d.hidden.take(100).forEach{r->CardBox{Text(r.str("title").ifBlank{"Project"});MutedText("Hidden");AdminActionPanel(listOf(AdminReviewAction.RESTORE))}}
         if(d.hidden.size>100)MutedText("Showing first 100 hidden projects.")
     }
 }
@@ -305,6 +317,7 @@ private fun AdminDisputes(owner:String){
             Text(r.str("kind").ifBlank{"Case"},fontWeight=FontWeight.Bold)
             KeyValue("Project","SPH-"+r.str("job_id").replace("-","").take(6).uppercase())
             KeyValue("Category",r.str("category"));KeyValue("Status",r.str("status"));MutedText(r.str("created_at"))
+            AdminDetailPanel(owner,r.str("job_id"),true)
         }}
         SectionTitle("Recent decisions")
         AuditRows(d.decisions)
