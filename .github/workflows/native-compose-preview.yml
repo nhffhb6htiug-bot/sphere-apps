@@ -1,0 +1,36 @@
+name: Native Compose preview CI
+on:
+  push:
+    branches: [native-compose-task-02]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Android API 36
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" --install "platforms;android-36" "build-tools;36.0.0"
+      - name: Check native launcher and compile debug build
+        working-directory: android-native
+        run: |
+          ! grep -E 'android\.webkit|WebView|loadUrl\(' app/src/main/java/com/syahifilms/sphere/MainActivity.kt
+          grep -F 'SphereNav()' app/src/main/java/com/syahifilms/sphere/MainActivity.kt
+          chmod +x gradlew
+          ./gradlew assembleDebug lintDebug --no-daemon --console=plain
+      - name: Upload development test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sphere-Compose-preview-debug
+          path: android-native/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
+          if-no-files-found: error

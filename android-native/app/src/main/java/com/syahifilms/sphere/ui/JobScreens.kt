@@ -65,15 +65,27 @@ fun PostJobScreen(nav: NavHostController, presetEditor: String?) {
     var budget by remember { mutableStateOf("") }
     var deadline by remember { mutableStateOf("") }
     var link by remember { mutableStateOf("") }
-    var language by remember { mutableStateOf("Any") }
+    var languages by remember { mutableStateOf<List<String>>(emptyList()) }
+    var title by remember { mutableStateOf("") }
+    var videoLength by remember { mutableStateOf("") }
+    var videoFormat by remember { mutableStateOf("Any") }
+    var styleNotes by remember { mutableStateOf("") }
+    var referenceLinks by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     val hired = if (presetEditor != null) load(presetEditor) { Repo.profile(presetEditor) }.data else null
     Page(if (presetEditor != null) "Hire editor" else "Post a job", onBack = { nav.popBackStack() }) {
         if (hired != null) CardBox { Text("Hiring ${hired.name} directly", fontWeight = FontWeight.Bold); MutedText("They will propose a price, then you confirm.", 12) }
+        Field(title, { title = it.take(80) }, "Project title (optional)")
         Dropdown("Category", category, Config.CATEGORIES) { category = it }
         Field(details, { details = it }, "Project details", "Video type, length, style, references…", minLines = 4)
         Field(budget, { budget = it.filter { c -> c.isDigit() }.take(7) }, "Budget (₹)", keyboard = KeyboardType.Number)
-        Dropdown("Video language (optional)", language, listOf("Any") + Config.LANGUAGES) { language = it }
+        MultiPick("Video languages (up to 4, optional)", Config.LANGUAGES, languages) { selection ->
+            if (selection.size <= 4) languages = selection else toast(ctx, "Choose up to four languages")
+        }
+        Field(videoLength, { videoLength = it.take(40) }, "Video length (optional)", "60 sec / 5 min")
+        Dropdown("Video format", videoFormat, listOf("Any", "9:16 (Reel / Short)", "16:9 (YouTube)", "1:1 (Square)", "4:5 (Feed)", "Other")) { videoFormat = it }
+        Field(styleNotes, { styleNotes = it.take(500) }, "Style notes (optional)", minLines = 2)
+        Field(referenceLinks, { referenceLinks = it.take(2000) }, "Reference links (optional)", "HTTPS links, one per line", minLines = 2)
         DeadlinePicker(deadline) { deadline = it }
         Field(link, { link = it.trim() }, "Raw files link (optional)", "Google Drive / WeTransfer link")
         MutedText("Tip: share big raw videos as a Google Drive link.", 12)
@@ -82,11 +94,16 @@ fun PostJobScreen(nav: NavHostController, presetEditor: String?) {
             when {
                 details.isBlank() || b == null || b <= 0 -> toast(ctx, "Please add project details and a budget")
                 deadline.isNotBlank() && deadline < todayIST() -> toast(ctx, "Deadline cannot be in the past")
-                link.isNotBlank() && !link.startsWith("http") -> toast(ctx, "Link must start with https://")
+                link.isNotBlank() && !link.startsWith("https://", ignoreCase = true) -> toast(ctx, "Link must start with https://")
+                referenceLinks.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.any { !it.startsWith("https://", ignoreCase = true) } -> toast(ctx, "Reference links must start with https://")
                 else -> scope.launch {
                     busy = true
                     try {
-                        val id = Repo.postJob(me, category, details.trim(), b, deadline.ifBlank { null }, link, presetEditor, if (language == "Any") "" else language)
+                        val id = Repo.postJob(
+                            me, category, details.trim(), b, deadline.ifBlank { null }, link, presetEditor,
+                            languages.joinToString(", "), title.trim(), videoLength.trim(),
+                            videoFormat.takeUnless { it == "Any" }.orEmpty(), styleNotes.trim(), referenceLinks.trim()
+                        )
                         toast(ctx, "Job posted ✅")
                         if (id.isNotBlank()) { nav.popBackStack(); nav.go("project/$id") } else nav.resetTo("jobs")
                     } catch (e: Exception) { toast(ctx, e.message ?: "Could not post the job") }
@@ -264,8 +281,8 @@ fun ProjectScreen(nav: NavHostController, id: String) {
             }
             job.status == "payment-pending" && isClient -> CardBox(border = Blue) {
                 Text("Pay ${money(job.finalAmount)} to start", fontWeight = FontWeight.Bold)
-                MutedText("In-app payment is coming in the next app update. For now, please pay from the Sphere website (same account).", 12)
-                SecondaryButton("Open Sphere website") { openUrl(ctx, Config.WEBSITE) }
+                MutedText("Checkout is unavailable in this development preview. Do not make a payment from this build.", 12)
+                
             }
             job.status == "payment-pending" && isEditor -> MutedText("Waiting for the client's payment…")
             job.status == "in-progress" && isEditor -> {

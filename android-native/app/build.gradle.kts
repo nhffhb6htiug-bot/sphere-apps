@@ -81,3 +81,10 @@ dependencies {
     implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 }
+
+// Block production packaging while native parity and security gates remain open.
+tasks.configureEach {
+    if (name == "preReleaseBuild") {
+        doFirst { throw GradleException("Native parity preview: production release is blocked until parity and security gates pass.") }
+    }
+}

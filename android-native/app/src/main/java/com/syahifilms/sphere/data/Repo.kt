@@ -152,13 +152,20 @@ object Repo {
 
     suspend fun postJob(
         me: Profile, category: String, description: String, budget: Double,
-        deadline: String?, filesLink: String, presetEditor: String?, language: String = ""
+        deadline: String?, filesLink: String, presetEditor: String?, language: String = "",
+        title: String = "", videoLength: String = "", videoFormat: String = "",
+        styleNotes: String = "", referenceLinks: String = ""
     ): String {
         val row = JSONObject()
             .put("client_id", me.id).put("category", category).put("description", description)
             .put("budget", budget).put("deadline", deadline ?: JSONObject.NULL)
             .put("files_link", filesLink.ifBlank { null } ?: JSONObject.NULL)
             .put("language", language.ifBlank { null } ?: JSONObject.NULL)
+            .put("title", title.ifBlank { null } ?: JSONObject.NULL)
+            .put("video_length", videoLength.ifBlank { null } ?: JSONObject.NULL)
+            .put("video_format", videoFormat.ifBlank { null } ?: JSONObject.NULL)
+            .put("style_notes", styleNotes.ifBlank { null } ?: JSONObject.NULL)
+            .put("reference_links", referenceLinks.ifBlank { null } ?: JSONObject.NULL)
             .put("status", if (presetEditor != null) "negotiating" else "open")
             .put("assigned_editor", presetEditor ?: JSONObject.NULL)
         val created = Api.insert("sp_jobs", row)
@@ -417,9 +424,11 @@ object Repo {
     }
 
     // ---------------- reports ----------------
-    suspend fun report(jobId: String?, reason: String, details: String) {
-        val me = Api.userId ?: return
-        Api.insert("sp_reports", JSONObject().put("job_id", jobId ?: JSONObject.NULL)
-            .put("reporter_id", me).put("reason", reason).put("details", details))
+    suspend fun report(jobId: String?, reason: String, details: String, reportedUserId: String? = null) {
+        val me = Api.userId ?: throw ApiException(401, "Please log in again")
+        val row = JSONObject().put("job_id", jobId ?: JSONObject.NULL)
+            .put("reporter_id", me).put("reason", reason).put("details", details)
+        if (!reportedUserId.isNullOrBlank()) row.put("chat_user_id", reportedUserId)
+        Api.insert("sp_reports", row)
     }
 }

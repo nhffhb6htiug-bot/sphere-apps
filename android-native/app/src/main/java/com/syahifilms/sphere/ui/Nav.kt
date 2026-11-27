@@ -42,6 +42,8 @@ fun SphereNav() {
         composable("notifications") { NotificationsScreen(nav) }
         composable("profile") { ProfileScreen(nav) }
         composable("support") { SupportScreen(nav) }
-        composable("report?job={job}", arguments = listOf(optional("job"))) { ReportScreen(nav, it.arguments?.getString("job")) }
+        composable("report?job={job}&user={user}", arguments = listOf(optional("job"), optional("user"))) {
+            ReportScreen(nav, it.arguments?.getString("job"), it.arguments?.getString("user"))
+        }
     }
 }

@@ -185,7 +185,7 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
                             DropdownMenuItem(text = { Text("👤 View info") }, onClick = { menuOpen = false; infoOpen = true })
                             DropdownMenuItem(text = { Text("🧹 Clear chat") }, onClick = { menuOpen = false; confirmClear = true })
                             DropdownMenuItem(text = { Text(if (blocked) "✅ Unblock" else "🚫 Block", color = Danger) }, onClick = { menuOpen = false; confirmBlock = true })
-                            DropdownMenuItem(text = { Text("🚩 Report", color = Danger) }, onClick = { menuOpen = false; nav.go("report") })
+                            DropdownMenuItem(text = { Text("🚩 Report", color = Danger) }, onClick = { menuOpen = false; nav.go("report?user=$otherId") })
                             DropdownMenuItem(text = { Text("🆘 Help") }, onClick = { menuOpen = false; nav.go("support") })
                         }
                     }
@@ -461,7 +461,7 @@ fun SupportScreen(nav: NavHostController) {
 }
 
 @Composable
-fun ReportScreen(nav: NavHostController, jobId: String?) {
+fun ReportScreen(nav: NavHostController, jobId: String?, reportedUserId: String? = null) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val reasons = if (AppState.editorSide)
@@ -470,14 +470,14 @@ fun ReportScreen(nav: NavHostController, jobId: String?) {
     var reason by remember { mutableStateOf(reasons.first()) }
     var details by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
-    Page("Report a problem", onBack = { nav.popBackStack() }) {
+    Page(if (reportedUserId.isNullOrBlank()) "Report a problem" else "Report user", onBack = { nav.popBackStack() }) {
         Dropdown("What is the problem?", reason, reasons) { reason = it }
         Field(details, { details = it.take(2000) }, "Describe the issue", "What happened, since when, and what you need…", minLines = 5)
         PrimaryButton(if (busy) "Sending…" else "Submit report", enabled = !busy) {
             if (details.trim().length < 10) { toast(ctx, "Please add a few more details"); return@PrimaryButton }
             scope.launch {
                 busy = true
-                try { Repo.report(jobId, reason, details.trim()); toast(ctx, "Report submitted ✅ The Sphere team will contact you soon."); nav.popBackStack() }
+                try { Repo.report(jobId, reason, details.trim(), reportedUserId); toast(ctx, "Report submitted ✅ The Sphere team will contact you soon."); nav.popBackStack() }
                 catch (e: Exception) { toast(ctx, e.message ?: "Could not send the report") }
                 busy = false
             }
