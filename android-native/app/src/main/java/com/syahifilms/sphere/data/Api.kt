@@ -34,10 +34,12 @@ object Api {
         .build()
     private val JSON_TYPE = "application/json; charset=utf-8".toMediaType()
     private var prefs: SharedPreferences? = null
+    private var appContext: Context? = null
     // Protect account changes against a refresh response arriving after logout/login.
     private val sessionWriteLock = Any()
 
     fun init(context: Context) {
+        appContext = context.applicationContext
         prefs = context.getSharedPreferences("sphere_session", Context.MODE_PRIVATE)
     }
 
@@ -57,10 +59,16 @@ object Api {
         s.put("email", user?.optString("email") ?: session()?.optString("email") ?: "")
         s.put("phone", user?.optString("phone") ?: session()?.optString("phone") ?: "")
         s.put("meta", user?.optJSONObject("user_metadata") ?: JSONObject())
+        if (session()?.optString("user_id") != s.optString("user_id")) {
+            appContext?.let { SpherePush.clearLocalAlerts(it) }
+        }
         prefs?.edit()?.putString("session", s.toString())?.apply()
     }
 
-    fun clearSession() = synchronized(sessionWriteLock) { prefs?.edit()?.remove("session")?.apply() }
+    fun clearSession() = synchronized(sessionWriteLock) {
+        prefs?.edit()?.remove("session")?.apply()
+        appContext?.let { SpherePush.clearLocalAlerts(it) }
+    }
 
     val userId: String? get() = session()?.optString("user_id")?.takeIf { it.isNotBlank() }
     val email: String get() = session()?.optString("email") ?: ""

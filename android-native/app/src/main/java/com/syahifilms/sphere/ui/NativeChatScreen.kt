@@ -56,7 +56,12 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
     var peerOnline by remember { mutableStateOf(false) }
     var peerTyping by remember { mutableStateOf(false) }
     var foreground by remember { mutableStateOf(false) }
-    val typingNow = rememberUpdatedState(text.isNotBlank() && !busy)
+    var lastEditAt by remember(me.id,otherId) { mutableLongStateOf(0L) }
+    val typingText = rememberUpdatedState(text.isNotBlank() && !busy)
+    val latestEdit = rememberUpdatedState(lastEditAt)
+    val latestForeground = rememberUpdatedState(foreground)
+    val canDrain = rememberUpdatedState(queueReady && blockKnown && !blocked)
+    val latestQueue = rememberUpdatedState(queued)
     val activity = ctx as? androidx.activity.ComponentActivity
     DisposableEffect(activity) {
         val lifecycle = activity?.lifecycle
@@ -96,7 +101,8 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
         try { ownSeen = NativeChat.showSeen() } catch (e: CancellationException) { throw e } catch (_: Exception) { }
     }
     // Reconnect periodically for rotated access tokens. Never trust event text.
-    LaunchedEffect(me.id) {
+    LaunchedEffect(me.id,foreground) {
+        if (!foreground) return@LaunchedEffect
         while (Api.userId == me.id) {
             try {
                 kotlinx.coroutines.withTimeout(240000) { ChatRealtime.changes(me.id).collect { refresh++ } }
@@ -107,7 +113,8 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
         }
     }
     // Serialize REST refreshes; also poll as a fallback when websocket is unavailable.
-    LaunchedEffect(otherId,refresh) {
+    LaunchedEffect(otherId,refresh,foreground) {
+        if (!foreground) return@LaunchedEffect
         try {
             val rows = Repo.thread(otherId)
             if (Api.userId != me.id) return@LaunchedEffect
@@ -120,10 +127,12 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
         } catch (e: CancellationException) { throw e }
         catch (_: Exception) { connection = "Reconnecting…"; blockKnown = false }
     }
-    LaunchedEffect(otherId) {
+    LaunchedEffect(otherId,foreground) {
+        if (!foreground) return@LaunchedEffect
         while (true) { delay(5000); refresh++ }
     }
-    LaunchedEffect(otherId) {
+    LaunchedEffect(otherId,foreground) {
+        if (!foreground) return@LaunchedEffect
         while (Api.userId == me.id) {
             try { NativeChat.seenPing(); seen = NativeChat.seen(otherId) }
             catch (e: CancellationException) { throw e }
@@ -140,7 +149,10 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
             try {
                 if (NativeChat.seen(otherId).isNotBlank()) {
                     kotlinx.coroutines.withTimeout(45000) {
-                        PrivateChatPresence.events(me.id,otherId) { typingNow.value }.collect { state ->
+                        PrivateChatPresence.events(me.id,otherId) {
+                            typingText.value && latestEdit.value > 0 &&
+                                android.os.SystemClock.elapsedRealtime() - latestEdit.value < 4000
+                        }.collect { state ->
                             peerOnline = state.online
                             peerTyping = state.typing
                         }
@@ -161,23 +173,31 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
             list.animateScrollToItem(count - 1)
         lastCount = count
     }
-    // Only retry transient failures automatically, at most once each refresh interval.
-    LaunchedEffect(refresh,queueReady,blocked,blockKnown,queued.firstOrNull { !it.failed }?.id) {
-        val next = queued.firstOrNull { !it.failed } ?: return@LaunchedEffect
-        if (!queueReady || busy || blocked || !blockKnown || Api.userId != me.id) return@LaunchedEffect
-        delay(350)
-        if (busy) return@LaunchedEffect
-        busy = true
-        try {
-            val saved = NativeChat.send(me.id,next)
-            messages = (messages.filterNot { it.id == saved.id } + saved).sortedBy { it.createdAt }
-            persist(queued.filterNot { it.id == next.id })
-            note = ""
-        } catch (e: CancellationException) { throw e }
-        catch (e: Exception) {
-            if (!NativeChat.transient(e)) persist(queued.map { if (it.id == next.id) it.copy(failed = true) else it })
-            else note = "Message queued. It will retry while this chat is open."
-        } finally { busy = false }
+    // One queue worker per conversation. REST refresh and realtime events never restart an in-flight send.
+    LaunchedEffect(me.id,otherId) {
+        var retryDelay = 350L
+        while (Api.userId == me.id) {
+            delay(retryDelay)
+            val next = latestQueue.value.firstOrNull { !it.failed }
+            if (next == null || !latestForeground.value || !canDrain.value || busy) { retryDelay = 350L; continue }
+            busy = true
+            try {
+                val saved = NativeChat.send(me.id,next)
+                if (Api.userId != me.id) return@LaunchedEffect
+                messages = (messages.filterNot { it.id == saved.id } + saved).sortedBy { it.createdAt }
+                if (persist(queued.filterNot { it.id == next.id })) note = ""
+                retryDelay = 350L
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) {
+                if (!NativeChat.transient(e)) {
+                    persist(queued.map { if (it.id == next.id) it.copy(failed = true) else it })
+                    retryDelay = 5000L
+                } else {
+                    note = "Message queued. It will retry while this chat is open."
+                    retryDelay = (retryDelay * 2).coerceIn(5000L,60000L)
+                }
+            } finally { busy = false }
+        }
     }
 
     fun enqueue() {
@@ -278,7 +298,10 @@ fun ChatScreen(nav: NavHostController, otherId: String) {
                 TextButton(enabled = !busy && blockKnown && !blocked,onClick = {
                     picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
                 }) { Text("+") }
-                OutlinedTextField(value = text,onValueChange = { text = it.take(2000) },modifier = Modifier.weight(1f),
+                OutlinedTextField(value = text,onValueChange = {
+                    text = it.take(2000)
+                    lastEditAt = android.os.SystemClock.elapsedRealtime()
+                },modifier = Modifier.weight(1f),
                     placeholder = { Text("Message") },maxLines = 4,enabled = pendingMedia == null && !busy)
                 TextButton(enabled = !busy && (if (media != null) blockKnown && !blocked else queueReady && text.isNotBlank()),
                     onClick = { if (media != null) sendAttachment() else enqueue() }) { Text("Send") }

@@ -6,3 +6,6 @@ local.properties
 *.iml
 captures/
 *.jks
+
+# Local Firebase Android client configuration (not a service account key)
+app/google-services.json

@@ -4,6 +4,12 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// The preview remains buildable without Firebase resources. Enable only with the owner's
+// matching Android app configuration. The service account key must never be in the APK.
+if (file("google-services.json").isFile) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "com.syahifilms.sphere"
     compileSdk = 36

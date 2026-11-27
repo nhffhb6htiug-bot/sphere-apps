@@ -5,9 +5,9 @@ create or replace function public.sp_private_chat_topic_allowed(p_topic text)
 returns boolean language plpgsql stable security invoker set search_path = '' as $$
 declare me uuid := auth.uid(); a uuid; b uuid; peer uuid; visibility jsonb;
 begin
-  if me is null or p_topic !~ '^sphere-private-chat-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then return false; end if;
-  a := split_part(substr(p_topic,21),':',1)::uuid;
-  b := split_part(substr(p_topic,21),':',2)::uuid;
+  if me is null or p_topic is null or p_topic !~ '^sphere-private-chat-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then return false; end if;
+  a := split_part(substr(p_topic,length('sphere-private-chat-')+1),':',1)::uuid;
+  b := split_part(substr(p_topic,length('sphere-private-chat-')+1),':',2)::uuid;
   if a >= b or me not in (a,b) then return false; end if;
   peer := case when me=a then b else a end;
   -- Existing RPC verifies conversation membership, both visibility settings, and block status.

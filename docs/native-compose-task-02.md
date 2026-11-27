@@ -40,3 +40,7 @@ No release until applicable gates pass. No live backend changes or tests were pe
 - Private broadcast client and staging-only RLS policy for typing/online-in-thread, privacy opt-in, foreground lifecycle and bounded liveness. Not deployed; no public fallback. Web interoperability and authenticated staging tests remain required. Global app-wide online status not claimed.
 - Updated three static regression assertions for the new native chat paths and prevented editing captions during uploads. Build/test verification required.
 - Native FCM receiver/permission foundation prepared separately; Firebase configuration, token registration and trusted server dispatch remain release gates. No user tokens or live DB changes.
+
+## Task 02.4 regression follow-up
+- Repaired stale typing (four-second inactivity window), foreground heartbeat and read refresh, private join timeout, outbox worker independent of REST refresh and bounded retry backoff, and local push opt-in cleanup on account change. Conditional Firebase client configuration supported without checking in credentials.
+- Only production Sphere is active in connected Supabase; no isolated active staging environment exists. Staged RLS remains uninstalled; real push registration/dispatch, authenticated channel tests and device tests remain open. No live DB writes performed.

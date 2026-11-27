@@ -46,6 +46,7 @@ object PrivateChatPresence {
                 if (msg.str("event") == "phx_reply" && msg.str("ref") == joinRef) {
                     if (payload.str("status") == "ok") joined.set(true) else ws.close(1000,"private join denied")
                 }
+                if (msg.str("event") in listOf("phx_error","phx_close")) { joined.set(false); ws.cancel(); close(); return }
                 if (joined.get() && msg.str("event") == "broadcast" && payload.str("event") == "activity") {
                     val data = payload.optJSONObject("payload") ?: return
                     if (data.str("from") != peer) return
@@ -62,6 +63,7 @@ object PrivateChatPresence {
                 delay(1000)
                 if (Api.userId != owner) { socket.cancel(); break }
                 tick++
+                if (tick >= 10 && !joined.get()) { socket.cancel(); close(); break }
                 if (joined.get() && tick % 2 == 0) {
                     socket.send(packet(topic,"broadcast",JSONObject().put("type","broadcast").put("event","activity")
                         .put("payload",JSONObject().put("from",owner).put("typing",typing()))))

@@ -24,6 +24,10 @@ object SpherePush {
     fun configured(context: Context): Boolean = runCatching {
         FirebaseApp.getApps(context).isNotEmpty() || FirebaseApp.initializeApp(context) != null
     }.getOrDefault(false)
+    fun clearLocalAlerts(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove("owner").apply()
+        context.getSystemService(NotificationManager::class.java).cancelAll()
+    }
     fun enabled(context: Context, owner: String): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("owner", null) == owner
     fun setEnabled(context: Context, owner: String, enable: Boolean) {
