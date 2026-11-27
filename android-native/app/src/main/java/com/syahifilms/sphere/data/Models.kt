@@ -107,7 +107,13 @@ data class Job(
     val editorAmount: Double?,
     val payoutStatus: String,
     val language: String,
-    val createdAt: String
+    val createdAt: String,
+    val title: String = "",
+    val videoLength: String = "",
+    val videoFormat: String = "",
+    val styleNotes: String = "",
+    val referenceLinks: String = "",
+    val rawFiles: List<ProjectAttachment> = emptyList()
 ) {
     val expired: Boolean get() = status == "open" && deadline.isNotBlank() && deadline.take(10) < todayIST()
     val finalAmount: Double? get() = lockedAmount ?: budget
@@ -131,7 +137,13 @@ data class Job(
             editorAmount = o.numOrNull("editor_amount"),
             payoutStatus = o.str("payout_status"),
             language = o.str("language"),
-            createdAt = o.str("created_at")
+            createdAt = o.str("created_at"),
+            title = o.str("title"),
+            videoLength = o.str("video_length"),
+            videoFormat = o.str("video_format"),
+            styleNotes = o.str("style_notes"),
+            referenceLinks = o.str("reference_links"),
+            rawFiles = o.optJSONArray("raw_files")?.mapObjects { ProjectAttachment.from(it) }.orEmpty()
         )
     }
 }

@@ -36,7 +36,10 @@ fun SphereNav() {
         composable("search/{q}") { NativeAccountGate(nav) { NativeSearchScreen(nav, it.arguments?.getString("q") ?: "") } }
         composable("editors?cat={cat}", arguments = listOf(optional("cat"))) { NativeAccountGate(nav) { EditorsScreen(nav, it.arguments?.getString("cat")) } }
         composable("editor/{id}") { NativeAccountGate(nav) { EditorProfileScreen(nav, it.arguments?.getString("id") ?: "") } }
-        composable("postJob?editor={editor}", arguments = listOf(optional("editor"))) { NativeAccountGate(nav) { PostJobScreen(nav, it.arguments?.getString("editor")) } }
+        composable("postJob?editor={editor}&draft={draft}", arguments = listOf(optional("editor"), optional("draft"))) {
+            NativeAccountGate(nav) { PostJobScreen(nav, it.arguments?.getString("editor"), it.arguments?.getString("draft")) }
+        }
+        composable("projectDrafts") { NativeAccountGate(nav) { ProjectDraftsScreen(nav) } }
         composable("jobs") { NativeAccountGate(nav) { JobsScreen(nav) } }
         composable("project/{id}") { NativeAccountGate(nav) { ProjectScreen(nav, it.arguments?.getString("id") ?: "") } }
         composable("bids/{id}") { NativeAccountGate(nav) { BidsScreen(nav, it.arguments?.getString("id") ?: "") } }

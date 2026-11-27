@@ -24,3 +24,10 @@ No release until applicable gates pass. No live backend changes or tests were pe
 - Honor OTP and WhatsApp verification switches; add native phone OTP, resend countdown, provider preference, phone verification status/start using existing backend APIs, suspended screen and route-entry/periodic server checks. No live settings changed. Server-side RLS remains authoritative.
 - Remove native profile fallback that derived roles from editable user metadata; preserve existing database role on onboarding. Add signup password rules and Terms/Privacy acknowledgement.
 - Password recovery still uses the existing HTTPS website recovery link. Verified Android App Links/PKCE recovery, Google signing certificate, real OTP delivery, editor-specific verification/payment flows and physical-device runtime tests remain release gates. Do not use real accounts in this preview.
+
+## Task 02.3 — native project composer (development preview)
+- Three-step Compose form (details, attachments, review); photos/videos, reference-only video selection, full-size delegated camera/camcorder capture, private temporary staging, thumbnails and in-app playback.
+- Use existing private sphere-raw bucket, 5 files combined, 50 MiB each, existing raw_files JSON and kind=reference. Stream local files rather than reading full videos into heap. Private signed links are issued only for authorized project parties.
+- Account-scoped sp_job_drafts list/save/resume/delete with same web JSON. Draft media is not persisted; direct-hire drafts are intentionally unavailable because web does not preserve editor target. Premium posting and AI-generated form remain out of scope of this preview and are not silently converted to normal posting.
+- Stable in-form UUID for retries; never delete attachments after ambiguous project creation. Orphan cleanup/reconciliation after interrupted uploads remains a release gate. No live database writes or real accounts/media used in this task.
+- Compile/lint, RLS integration, camera provider and codec coverage, rotation/process death, upload failures, draft roundtrip and physical device testing still required. Release remains blocked.

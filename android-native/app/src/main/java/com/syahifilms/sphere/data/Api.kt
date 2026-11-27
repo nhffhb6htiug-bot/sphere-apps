@@ -11,6 +11,8 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import java.io.File
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
@@ -286,6 +288,48 @@ object Api {
         http.newCall(req).execute().use { res ->
             if (res.code !in 200..299) throw toError(res.code, res.body?.string() ?: "")
         }
+    }
+
+    /** Stream a bounded private project file rather than loading the entire video into RAM. */
+    suspend fun uploadProjectFile(owner: String, path: String, file: File, mime: String) = withContext(Dispatchers.IO) {
+        require(owner == userId && path.startsWith("$owner/raw/"))
+        require(file.length() in 1L..ProjectMedia.MAX_BYTES && ProjectMedia.allowedMime(mime))
+        val access = token() ?: throw ApiException(401, "Please log in again")
+        require(owner == userId)
+        val req = Request.Builder()
+            .url("${Config.SUPABASE_URL}/storage/v1/object/sphere-raw/$path")
+            .header("apikey", Config.SUPABASE_KEY)
+            .header("Authorization", "Bearer $access")
+            .header("x-upsert", "false")
+            .post(file.asRequestBody(mime.toMediaType())).build()
+        http.newCall(req).execute().use { res ->
+            if (!res.isSuccessful) throw toError(res.code, res.body?.string().orEmpty())
+        }
+    }
+
+    suspend fun removeProjectFiles(owner: String, paths: List<String>) {
+        if (paths.isEmpty()) return
+        require(owner == userId && paths.all { it.startsWith("$owner/raw/") })
+        raw("DELETE", "/storage/v1/object/sphere-raw", JSONObject().put("prefixes", JSONArray(paths)).toString())
+    }
+
+    /** The private bucket is accessed only by expiring signed URLs authorized by storage RLS. */
+    suspend fun projectMediaUrl(path: String): String {
+        require(userId != null && Regex("^[0-9a-fA-F-]{36}/raw/[A-Za-z0-9_.-]+$").matches(path))
+        val result = JSONObject(raw("POST", "/storage/v1/object/sign/sphere-raw/$path",
+            JSONObject().put("expiresIn", 300).toString()))
+        val relative = result.str("signedURL").ifBlank { result.str("signedUrl") }
+        return when {
+            relative.startsWith("/object/sign/sphere-raw/") -> Config.SUPABASE_URL + "/storage/v1" + relative
+            relative.startsWith("/storage/v1/object/sign/sphere-raw/") -> Config.SUPABASE_URL + relative
+            else -> throw ApiException(503, "Could not open this attachment")
+        }
+    }
+
+    suspend fun updateReturning(tableAndFilter: String, fields: JSONObject): JSONObject? {
+        val data = JSONArray(raw("PATCH", "/rest/v1/$tableAndFilter", fields.toString(),
+            headers = mapOf("Prefer" to "return=representation")).ifBlank { "[]" })
+        return if (data.length() == 1) data.getJSONObject(0) else null
     }
 
     fun publicUrl(bucket: String, path: String) = "${Config.SUPABASE_URL}/storage/v1/object/public/$bucket/$path"
