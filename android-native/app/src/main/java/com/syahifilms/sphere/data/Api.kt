@@ -53,6 +53,7 @@ object Api {
         val user = o.optJSONObject("user")
         s.put("user_id", user?.optString("id") ?: session()?.optString("user_id") ?: "")
         s.put("email", user?.optString("email") ?: session()?.optString("email") ?: "")
+        s.put("phone", user?.optString("phone") ?: session()?.optString("phone") ?: "")
         s.put("meta", user?.optJSONObject("user_metadata") ?: JSONObject())
         prefs?.edit()?.putString("session", s.toString())?.apply()
     }
@@ -61,6 +62,7 @@ object Api {
 
     val userId: String? get() = session()?.optString("user_id")?.takeIf { it.isNotBlank() }
     val email: String get() = session()?.optString("email") ?: ""
+    val authPhone: String get() = session()?.optString("phone") ?: ""
     val userMeta: JSONObject get() = session()?.optJSONObject("meta") ?: JSONObject()
     val isLoggedIn: Boolean get() = session() != null
 
@@ -206,6 +208,24 @@ object Api {
             JSONObject().put("provider", "google").put("id_token", idToken).put("nonce", rawNonce).toString(),
             useUserToken = false))
         saveSession(o)
+    }
+
+    suspend fun requestPhoneOtp(phone: String, channel: String) {
+        require(channel == "whatsapp" || channel == "sms")
+        require(cleanIndianPhone(phone) == phone)
+        // Preference is advisory; the existing server hook chooses the actual channel.
+        try { rpc("sp_otp_prefer", JSONObject().put("p_phone", phone.takeLast(10)).put("p_channel", channel)) }
+        catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (_: Exception) { }
+        raw("POST", "/auth/v1/otp", JSONObject().put("phone", phone)
+            .put("create_user", true).put("channel", "sms").toString(), useUserToken = false)
+    }
+
+    suspend fun verifyPhoneOtp(phone: String, code: String) {
+        require(cleanIndianPhone(phone) == phone && Regex("^[0-9]{6}$").matches(code))
+        val result = JSONObject(raw("POST", "/auth/v1/verify", JSONObject()
+            .put("phone", phone).put("token", code).put("type", "sms").toString(), useUserToken = false))
+        saveSession(result)
     }
 
     suspend fun resetPassword(email: String) {

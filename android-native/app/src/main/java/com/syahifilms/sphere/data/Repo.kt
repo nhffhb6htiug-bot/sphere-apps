@@ -13,19 +13,8 @@ object Repo {
     // ---------------- profiles ----------------
     suspend fun loadMe(): Profile? {
         val uid = Api.userId ?: return null
-        var row = Api.selectOne("profiles?id=eq.$uid&select=*")
-        // email sign-up: profile is created on first login from sign-up details
-        val meta = Api.userMeta
-        if ((row == null || row.str("role").isBlank()) && meta.str("role").isNotBlank()) {
-            try {
-                Api.upsert("profiles", JSONObject()
-                    .put("id", uid).put("role", meta.str("role"))
-                    .put("full_name", meta.str("full_name").ifBlank { Api.email.substringBefore("@") })
-                    .put("email", Api.email).put("phone", meta.str("phone")), "id")
-            } catch (e: Exception) { }
-            row = Api.selectOne("profiles?id=eq.$uid&select=*")
-        }
-        return row?.let { Profile.from(it) }
+        // Authority comes from the database, never from editable auth user metadata.
+        return Api.selectOne("profiles?id=eq.$uid&select=*")?.let { Profile.from(it) }
     }
 
     /** Loads the commission % that the admin set (Admin Panel → Settings). */
@@ -42,9 +31,13 @@ object Repo {
 
     suspend fun saveRoleAndPhone(role: String, name: String, phone: String) {
         val uid = Api.userId ?: throw ApiException(401, "Please log in again")
-        Api.upsert("profiles", JSONObject()
-            .put("id", uid).put("role", role.uppercase()).put("full_name", name)
-            .put("email", Api.email).put("phone", phone), "id")
+        require(role.lowercase() in setOf("client", "editor"))
+        val existing = loadMe()
+        val fields = JSONObject().put("full_name", name).put("phone", phone)
+        if (existing == null || existing.role.isBlank()) fields.put("role", role.uppercase())
+        if (Api.email.isNotBlank()) fields.put("email", Api.email)
+        if (existing == null) Api.insertMany("profiles", JSONArray().put(fields.put("id", uid)))
+        else Api.update("profiles?id=eq.$uid", fields)
     }
 
     suspend fun saveEditorDetails(

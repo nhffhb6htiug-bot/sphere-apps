@@ -78,6 +78,13 @@ fun WelcomeScreen(nav: NavHostController) {
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     var googleError by remember { mutableStateOf<String?>(null) }
+    val authMode = load(Unit) { NativeAuth.settings() }
+    val authSettings = authMode.data
+    LaunchedEffect(authSettings) {
+        if (authSettings?.otpLogin == true) nav.resetTo("otpLogin")
+    }
+    if (authMode.error != null) { Page("Sphere") { ErrorBox(authMode.error) { authMode.reload() } }; return }
+    if (authSettings == null || authSettings.otpLogin) { Page("Sphere") { Loading() }; return }
     if (googleError != null) {
         AlertDialog(
             onDismissRequest = { googleError = null },
@@ -96,7 +103,7 @@ fun WelcomeScreen(nav: NavHostController) {
         Text("Sphere", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = Blue)
         Text("Hire verified video editors — or find editing work", color = Muted, textAlign = TextAlign.Center)
         Spacer(Modifier.height(36.dp))
-        Button(
+        if (!authSettings.waRequired) Button(
             enabled = !busy,
             onClick = {
                 scope.launch {
@@ -192,32 +199,38 @@ fun SignupScreen(nav: NavHostController) {
     var phone by remember { mutableStateOf("") }
     var pass by remember { mutableStateOf("") }
     var role by remember { mutableStateOf("client") }
+    var accepted by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     Page("Create account", onBack = { nav.popBackStack() }) {
         Field(name, { name = it }, "Full name")
         Field(email, { email = it.trim() }, "Email", keyboard = KeyboardType.Email)
         PhoneField(phone, { phone = it })
         OutlinedTextField(
-            value = pass, onValueChange = { pass = it }, label = { Text("Password (min 6 characters)") },
+            value = pass, onValueChange = { pass = it }, label = { Text("Password (8+ characters, letters and numbers)") },
             visualTransformation = PasswordVisualTransformation(), singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
         )
         MutedText("I am a…", 12)
         RolePicker(role) { role = it }
-        PrimaryButton(if (busy) "Creating…" else "Create account", enabled = !busy) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(checked = accepted, onCheckedChange = { accepted = it })
+            Text("I accept Sphere's Terms and Privacy Policy.")
+        }
+        TextButton(onClick = { openUrl(ctx, Config.WEBSITE + "/terms.html") }) { Text("Read Terms") }
+        TextButton(onClick = { openUrl(ctx, Config.WEBSITE + "/privacy.html") }) { Text("Read Privacy Policy") }
+        PrimaryButton(if (busy) "Creating…" else "Create account", enabled = !busy && accepted) {
             val p = cleanIndianPhone(phone)
             when {
                 name.isBlank() || email.isBlank() || pass.isBlank() -> toast(ctx, "Please fill in all fields")
                 p == null -> toast(ctx, "Number is not correct. Enter a valid 10-digit mobile number.")
-                pass.length < 6 -> toast(ctx, "Password must be at least 6 characters")
+                NativeAuth.passwordProblem(pass) != null -> toast(ctx, NativeAuth.passwordProblem(pass) ?: "Choose a stronger password")
                 else -> scope.launch {
                     busy = true
                     try {
                         val meta = JSONObject().put("full_name", name.trim()).put("role", role.uppercase()).put("phone", p)
                         if (Api.signUp(email, pass, meta)) {
-                            val me = AppState.refreshMe()
-                            if (me?.role == "editor") nav.resetTo("editorDetails") else routeAfterLogin(nav)
+                            routeAfterLogin(nav)
                         } else {
                             toast(ctx, "Account created! Check your email to confirm, then log in.")
                             nav.resetTo("login")
@@ -237,25 +250,38 @@ fun ChooseRoleScreen(nav: NavHostController) {
     val scope = rememberCoroutineScope()
     val existing = AppState.me
     var name by remember { mutableStateOf(existing?.name?.takeIf { it != "User" } ?: Api.userMeta.str("full_name").ifBlank { Api.userMeta.str("name") }) }
-    var phone by remember { mutableStateOf((existing?.phone ?: "").filter { it.isDigit() }.takeLast(10)) }
+    var phone by remember { mutableStateOf((existing?.phone?.takeIf { it.isNotBlank() } ?: Api.authPhone).filter { it.isDigit() }.takeLast(10)) }
     var role by remember { mutableStateOf(if (existing?.role == "editor") "editor" else "client") }
+    val needsRole = existing == null || existing.role.isBlank()
+    var accepted by remember { mutableStateOf(!needsRole) }
     var busy by remember { mutableStateOf(false) }
     Page("Welcome to Sphere") {
         Text("How do you want to use Sphere?", fontWeight = FontWeight.Bold, fontSize = 18.sp)
         Spacer(Modifier.height(6.dp))
-        RolePicker(role) { role = it }
+        if (needsRole) RolePicker(role) { role = it }
         Field(name, { name = it }, "Your name")
         PhoneField(phone, { phone = it })
-        PrimaryButton(if (busy) "Saving…" else "Continue", enabled = !busy) {
+        if (needsRole) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = accepted, onCheckedChange = { accepted = it })
+                Text("I accept Sphere's Terms and Privacy Policy.")
+            }
+            TextButton(onClick = { openUrl(ctx, Config.WEBSITE + "/terms.html") }) { Text("Read Terms") }
+            TextButton(onClick = { openUrl(ctx, Config.WEBSITE + "/privacy.html") }) { Text("Read Privacy Policy") }
+        }
+        PrimaryButton(if (busy) "Saving…" else "Continue", enabled = !busy && accepted) {
             val p = cleanIndianPhone(phone)
             if (name.isBlank()) { toast(ctx, "Enter your name"); return@PrimaryButton }
             if (p == null) { toast(ctx, "Number is not correct. Enter a valid 10-digit mobile number."); return@PrimaryButton }
             scope.launch {
                 busy = true
                 try {
-                    Repo.saveRoleAndPhone(role, name.trim(), p)
-                    val me = AppState.refreshMe()
-                    if (me?.role == "editor" && !me.verified) nav.resetTo("editorDetails") else nav.resetTo("home")
+                    if (NativeAuth.accountStatus()?.optBoolean("suspended") == true) {
+                        nav.resetTo("suspended")
+                    } else {
+                        Repo.saveRoleAndPhone(role, name.trim(), p)
+                        routeAfterLogin(nav)
+                    }
                 } catch (e: Exception) { toast(ctx, e.message ?: "Could not save") }
                 busy = false
             }
@@ -301,8 +327,7 @@ fun EditorDetailsScreen(nav: NavHostController) {
                     busy = true
                     try {
                         Repo.saveEditorDetails(p, categories, languages, skills, exp.toIntOrNull(), price, portfolio, sample)
-                        val updated = AppState.refreshMe()
-                        nav.resetTo(if (updated?.role == "admin") "home" else "verification")
+                        routeAfterLogin(nav, if (me?.role == "admin") "home" else "verification")
                     } catch (e: Exception) { toast(ctx, e.message ?: "Could not save") }
                     busy = false
                 }

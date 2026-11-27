@@ -107,12 +107,18 @@ fun NavHostController.resetTo(route: String) {
     navigate(route) { popUpTo(start) { inclusive = true }; launchSingleTop = true }
 }
 
-suspend fun routeAfterLogin(nav: NavHostController) {
+suspend fun routeAfterLogin(nav: NavHostController, destination: String = "home") {
+    if (!Api.isLoggedIn) { AppState.me = null; nav.resetTo("welcome"); return }
     val me = AppState.refreshMe()
+    val status = NativeAuth.accountStatus()
+    if (me != null && status == null) throw ApiException(403, "Could not verify account status")
     when {
-        !Api.isLoggedIn -> nav.resetTo("welcome")
+        status?.optBoolean("suspended") == true -> nav.resetTo("suspended")
         Repo.needsOnboarding(me) -> nav.resetTo("chooseRole")
-        else -> nav.resetTo("home")
+        me == null || status == null || !NativeAuth.matchesAccount(me, status) -> throw ApiException(403, "Could not verify account role")
+        me.role != "admin" && NativeAuth.phoneRequired() -> nav.resetTo("verifyPhone")
+        me.role == "editor" && me.categories.isEmpty() -> nav.resetTo("editorDetails")
+        else -> nav.resetTo(destination)
     }
 }
 

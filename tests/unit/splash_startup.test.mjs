@@ -33,11 +33,16 @@ test("PWA starts pastel instead of black on iPhone and PC",()=>{
   assert.match(sw,/sphere-pastel-startup-v20/);
 });
 
-test("APK has a native loading view while the WebView renders",()=>{
-  assert.ok(android.includes("createSplashOverlay()"));
-  assert.ok(android.includes("onPageCommitVisible"));
-  assert.ok(android.includes("showSplashNetworkError()"));
-  assert.ok(android.includes("browser.reload()"));
-  assert.ok(native.includes('Text("Connecting Editors & Clients"'));
-  assert.ok(native.includes("CircularProgressIndicator("));
+test("APK starts in Compose, renders a splash and retries a failed connection",()=>{
+  assert.match(android, /setContent\s*\{\s*SphereTheme\s*\{\s*SphereNav\(\)/);
+  assert.doesNotMatch(android, /android\.webkit|WebView|loadUrl\(/);
+  const nav=fs.readFileSync("android-native/app/src/main/java/com/syahifilms/sphere/ui/Nav.kt","utf8");
+  assert.match(nav, /startDestination = "splash"/);
+  const splash=native.slice(native.indexOf("fun SplashScreen("),native.indexOf("fun WelcomeScreen("));
+  assert.ok(splash.includes('Text("Connecting Editors & Clients"'));
+  assert.ok(splash.includes("CircularProgressIndicator("));
+  assert.ok(splash.includes("LaunchedEffect(attempt)"));
+  assert.ok(splash.includes("routeAfterLogin(nav)"));
+  assert.ok(splash.includes("catch (e: Exception)"));
+  assert.ok(splash.includes("attempt++"));
 });

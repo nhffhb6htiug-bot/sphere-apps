@@ -17,33 +17,36 @@ fun SphereNav() {
         composable("login") { LoginScreen(nav) }
         composable("signup") { SignupScreen(nav) }
         composable("chooseRole") { ChooseRoleScreen(nav) }
-        composable("editorDetails") { EditorDetailsScreen(nav) }
-        composable("verification") { VerificationScreen(nav) }
-        composable("home") { HomeScreen(nav) }
-        composable("saved") { SavedEditorsScreen(nav) }
-        composable("verifiedPc") { VerifiedPcScreen(nav) }
-        composable("vault") { VaultNativeScreen(nav) }
-        composable("payments") { NativePaymentsScreen(nav) }
-        composable("escrow") { NativeEscrowScreen(nav) }
-        composable("premium") { NativePremiumScreen(nav) }
-        composable("portfolio") { NativePortfolioScreen(nav) }
-        composable("earnings") { NativeEarningsScreen(nav) }
-        composable("settings") { NativeSettingsScreen(nav) }
-        composable("ai") { NativeSphereAIScreen(nav) }
-        composable("search/{q}") { NativeSearchScreen(nav, it.arguments?.getString("q") ?: "") }
-        composable("editors?cat={cat}", arguments = listOf(optional("cat"))) { EditorsScreen(nav, it.arguments?.getString("cat")) }
-        composable("editor/{id}") { EditorProfileScreen(nav, it.arguments?.getString("id") ?: "") }
-        composable("postJob?editor={editor}", arguments = listOf(optional("editor"))) { PostJobScreen(nav, it.arguments?.getString("editor")) }
-        composable("jobs") { JobsScreen(nav) }
-        composable("project/{id}") { ProjectScreen(nav, it.arguments?.getString("id") ?: "") }
-        composable("bids/{id}") { BidsScreen(nav, it.arguments?.getString("id") ?: "") }
-        composable("chats") { ChatsScreen(nav) }
-        composable("chat/{id}") { ChatScreen(nav, it.arguments?.getString("id") ?: "") }
-        composable("notifications") { NotificationsScreen(nav) }
-        composable("profile") { ProfileScreen(nav) }
+        composable("otpLogin") { NativeOtpScreen(nav) }
+        composable("verifyPhone") { NativePhoneVerifyScreen(nav) }
+        composable("suspended") { NativeSuspendedScreen(nav) }
+        composable("editorDetails") { NativeAccountGate(nav) { EditorDetailsScreen(nav) } }
+        composable("verification") { NativeAccountGate(nav) { VerificationScreen(nav) } }
+        composable("home") { NativeAccountGate(nav) { HomeScreen(nav) } }
+        composable("saved") { NativeAccountGate(nav) { SavedEditorsScreen(nav) } }
+        composable("verifiedPc") { NativeAccountGate(nav) { VerifiedPcScreen(nav) } }
+        composable("vault") { NativeAccountGate(nav) { VaultNativeScreen(nav) } }
+        composable("payments") { NativeAccountGate(nav) { NativePaymentsScreen(nav) } }
+        composable("escrow") { NativeAccountGate(nav) { NativeEscrowScreen(nav) } }
+        composable("premium") { NativeAccountGate(nav) { NativePremiumScreen(nav) } }
+        composable("portfolio") { NativeAccountGate(nav) { NativePortfolioScreen(nav) } }
+        composable("earnings") { NativeAccountGate(nav) { NativeEarningsScreen(nav) } }
+        composable("settings") { NativeAccountGate(nav) { NativeSettingsScreen(nav) } }
+        composable("ai") { NativeAccountGate(nav) { NativeSphereAIScreen(nav) } }
+        composable("search/{q}") { NativeAccountGate(nav) { NativeSearchScreen(nav, it.arguments?.getString("q") ?: "") } }
+        composable("editors?cat={cat}", arguments = listOf(optional("cat"))) { NativeAccountGate(nav) { EditorsScreen(nav, it.arguments?.getString("cat")) } }
+        composable("editor/{id}") { NativeAccountGate(nav) { EditorProfileScreen(nav, it.arguments?.getString("id") ?: "") } }
+        composable("postJob?editor={editor}", arguments = listOf(optional("editor"))) { NativeAccountGate(nav) { PostJobScreen(nav, it.arguments?.getString("editor")) } }
+        composable("jobs") { NativeAccountGate(nav) { JobsScreen(nav) } }
+        composable("project/{id}") { NativeAccountGate(nav) { ProjectScreen(nav, it.arguments?.getString("id") ?: "") } }
+        composable("bids/{id}") { NativeAccountGate(nav) { BidsScreen(nav, it.arguments?.getString("id") ?: "") } }
+        composable("chats") { NativeAccountGate(nav) { ChatsScreen(nav) } }
+        composable("chat/{id}") { NativeAccountGate(nav) { ChatScreen(nav, it.arguments?.getString("id") ?: "") } }
+        composable("notifications") { NativeAccountGate(nav) { NotificationsScreen(nav) } }
+        composable("profile") { NativeAccountGate(nav) { ProfileScreen(nav) } }
         composable("support") { SupportScreen(nav) }
         composable("report?job={job}&user={user}", arguments = listOf(optional("job"), optional("user"))) {
-            ReportScreen(nav, it.arguments?.getString("job"), it.arguments?.getString("user"))
+            NativeAccountGate(nav) { ReportScreen(nav, it.arguments?.getString("job"), it.arguments?.getString("user")) }
         }
     }
 }
