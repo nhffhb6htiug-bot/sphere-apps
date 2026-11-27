@@ -161,7 +161,7 @@ suspend fun routeAfterLogin(nav: NavHostController, destination: String = "home"
     if (me != null && status == null) throw ApiException(403, "Could not verify account status")
     when {
         status?.optBoolean("suspended") == true -> nav.resetTo("suspended")
-        Repo.needsOnboarding(me) -> nav.resetTo("chooseRole")
+        Repo.needsOnboarding(me,status) -> nav.resetTo("chooseRole")
         me == null || status == null || !NativeAuth.matchesAccount(me, status) -> throw ApiException(403, "Could not verify account role")
         me.role != "admin" && NativeAuth.phoneRequired() -> nav.resetTo("verifyPhone")
         me.role == "editor" && me.categories.isEmpty() -> nav.resetTo("editorDetails")

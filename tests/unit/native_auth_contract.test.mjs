@@ -6,7 +6,7 @@ const read=p=>fs.readFileSync(root+p,"utf8");
 test("Native phone OTP uses existing Supabase verify and preference contracts",()=>{
   const api=read("data/Api.kt");
   for (const text of ['"/auth/v1/otp"','"/auth/v1/verify"','"sp_otp_prefer"','.put("type", "sms")','.put("token", code)']) assert.ok(api.includes(text),text);
-  assert.match(api,/verifyPhoneOtp[\s\S]*?saveSession\(result\)/);
+  assert.match(api,/verifyPhoneOtp[\s\S]*?finishLogin\(result,epoch\)/);
 });
 test("Native entry and protected screens check actual server account state",()=>{
   const auth=read("data/NativeAuth.kt"), nav=read("ui/Nav.kt"), common=read("ui/Common.kt"), guard=read("ui/NativeAuthScreens.kt");

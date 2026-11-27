@@ -26,8 +26,8 @@ object Repo {
     }
 
     /** Role + number not confirmed yet -> show the "choose role" screen. */
-    fun needsOnboarding(p: Profile?): Boolean =
-        p == null || p.role.isBlank() || (p.role != "admin" && cleanIndianPhone(p.phone) == null)
+    fun needsOnboarding(p: Profile?, status:JSONObject?=null): Boolean =
+        p == null || p.role.isBlank() || (p.role != "admin" && cleanIndianPhone(p.phone) == null && !NativeAuth.isQaFixture(p,status))
 
     suspend fun saveRoleAndPhone(role: String, name: String, phone: String) {
         val uid = Api.userId ?: throw ApiException(401, "Please log in again")

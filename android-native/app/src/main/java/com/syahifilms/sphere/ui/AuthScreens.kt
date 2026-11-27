@@ -185,9 +185,12 @@ fun LoginScreen(nav: NavHostController) {
             if (email.isBlank() || pass.isBlank()) { toast(ctx, "Enter your email and password"); return@PrimaryButton }
             scope.launch {
                 busy = true
-                try { Api.signInWithPassword(email, pass); routeAfterLogin(nav) }
-                catch (e: Exception) { toast(ctx, e.message ?: "Login failed") }
-                busy = false
+                try { Api.signInWithPassword(email, pass); pass = ""; routeAfterLogin(nav) }
+                catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                catch (e: Exception) {
+                    if (Api.isLoggedIn) nav.resetTo("splash")
+                    else toast(ctx, "Login failed. Check your credentials and connection.")
+                } finally { busy = false }
             }
         }
         TextButton(onClick = { nav.go("signup") }, modifier = Modifier.fillMaxWidth()) { Text("New here? Create an account") }

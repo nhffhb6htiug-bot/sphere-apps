@@ -29,6 +29,14 @@ object NativeAuth {
             status.str("role").lowercase() == profile.role &&
             profile.role in setOf("client", "editor", "admin") && status.has("suspended")
 
+    // Only the exact isolated backend and server-owned fixture marker qualify.
+    // This skips collecting a real phone number; it does not grant permissions.
+    fun isQaFixture(profile:Profile?,status:JSONObject?):Boolean =
+        com.syahifilms.sphere.BuildConfig.DEBUG &&
+        com.syahifilms.sphere.BuildConfig.PREVIEW_URL == "https://abxrlvigoouwbunnurkc.supabase.co" &&
+        profile != null && status != null && matchesAccount(profile,status) &&
+        !status.optBoolean("suspended",true) && status.optBoolean("qa_fixture",false)
+
     suspend fun phoneStatus(): JSONObject {
         val raw = Api.rpc("sp_phone_verify_status", JSONObject())
         val status = JSONObject(raw)

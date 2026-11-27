@@ -16,7 +16,7 @@ test("Transport and external intents fail closed",()=>{
  assert.match(a,/retryOnConnectionFailure\(false\)/);
  assert.match(a,/followRedirects\(false\)/);
  assert.match(a,/expectedOwner != userId/);
- assert.match(a,/finally \{ synchronized\(sessionWriteLock\) \{ if \(userId == owner\) clearSession\(\)/);
+ assert.match(a,/finally \{ synchronized\(sessionWriteLock\) \{ if \(userId == owner && epoch == sessionEpoch\) clearSession\(\)/);
  assert.match(ui,/else -> false/);assert.match(ui,/if\(!permitted\)/);
  assert.match(fs.readFileSync("android-native/app/src/main/AndroidManifest.xml","utf8"),/usesCleartextTraffic="false"/);
 });

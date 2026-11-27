@@ -40,15 +40,31 @@ object Api {
     private var appContext: Context? = null
     // Protect account changes against a refresh response arriving after logout/login.
     private val sessionWriteLock = Any()
+    private var encryptedSession: SessionVault? = null
+    @Volatile private var sessionJson: String? = null
+    @Volatile private var sessionEpoch: Long = 0
 
-    fun init(context: Context) {
+    fun init(context: Context) = synchronized(sessionWriteLock) {
+        if (prefs != null) return@synchronized
         appContext = context.applicationContext
         prefs = context.getSharedPreferences("sphere_session", Context.MODE_PRIVATE)
+        // Never migrate old plaintext tokens. Force a fresh login once.
+        prefs?.edit()?.remove("session")?.commit()
+        encryptedSession = SessionVault(context.applicationContext)
+        sessionJson = encryptedSession?.read()
     }
 
     // ---------------- session ----------------
-    private fun session(): JSONObject? = prefs?.getString("session", null)?.let {
-        try { JSONObject(it) } catch (e: Exception) { null }
+    private fun session(): JSONObject? = sessionJson?.let { runCatching { JSONObject(it) }.getOrNull() }
+
+    private fun beginLogin(): Long = synchronized(sessionWriteLock) {
+        clearSession()
+        sessionEpoch
+    }
+    private fun finishLogin(o:JSONObject,epoch:Long) = synchronized(sessionWriteLock) {
+        if (sessionEpoch != epoch) throw ApiException(401,"Login was superseded. Try again.")
+        if (o.optJSONObject("user")?.optString("id").isNullOrBlank()) throw ApiException(401,"Login identity missing.")
+        saveSession(o)
     }
 
     private fun saveSession(o: JSONObject) = synchronized(sessionWriteLock) {
@@ -65,11 +81,22 @@ object Api {
         if (session()?.optString("user_id") != s.optString("user_id")) {
             appContext?.let { SpherePush.clearLocalAlerts(it) }
         }
-        prefs?.edit()?.putString("session", s.toString())?.apply()
+        val encoded = s.toString()
+        try {
+            val vault = encryptedSession ?: error("Session storage unavailable")
+            vault.write(encoded)
+            sessionJson = encoded
+        } catch (_: Exception) {
+            clearSession()
+            throw ApiException(503,"Secure session storage unavailable. Please sign in again.")
+        }
     }
 
     fun clearSession() = synchronized(sessionWriteLock) {
-        prefs?.edit()?.remove("session")?.apply()
+        sessionEpoch++
+        sessionJson = null
+        encryptedSession?.clear()
+        prefs?.edit()?.remove("session")?.commit()
         appContext?.let { SpherePush.clearLocalAlerts(it) }
     }
 
@@ -93,10 +120,12 @@ object Api {
     /** Returns a valid access token, sharing one refresh across concurrent requests. */
     private suspend fun token(): String? {
         val current = session() ?: return null
+        val epoch = sessionEpoch
         val now = System.currentTimeMillis() / 1000
         if (current.optLong("expires_at", 0) - now > 60) return current.getString("access_token")
         return refreshMutex.withLock {
             // Recheck after waiting: another coroutine might have refreshed already.
+            if (epoch != sessionEpoch) throw ApiException(401,"Session changed. Please retry.")
             val latest = session() ?: throw ApiException(401, "Session expired. Please log in again")
             if (latest.optLong("expires_at", 0) - System.currentTimeMillis() / 1000 > 60) {
                 return@withLock latest.getString("access_token")
@@ -109,7 +138,7 @@ object Api {
                 synchronized(sessionWriteLock) {
                     // A signed-out or newly signed-in account must not inherit
                     // the old account's late network response.
-                    if (session()?.optString("refresh_token") != refreshToken) {
+                    if (epoch != sessionEpoch || session()?.optString("refresh_token") != refreshToken) {
                         throw ApiException(401, "Session changed. Please retry.")
                     }
                     saveSession(updated)
@@ -119,7 +148,7 @@ object Api {
                 if (e.status in listOf(400, 401, 403, 422)) {
                     synchronized(sessionWriteLock) {
                         // A failed OLD refresh must not sign out a NEW session.
-                        if (session()?.optString("refresh_token") == refreshToken) clearSession()
+                        if (epoch == sessionEpoch && session()?.optString("refresh_token") == refreshToken) clearSession()
                     }
                     throw ApiException(401, "Session expired. Please log in again")
                 }
@@ -140,9 +169,10 @@ object Api {
         // for an expired/failed authenticated session.
         Config.requirePreviewBackend()
         val expectedOwner = if (useUserToken) userId else null
+        val expectedEpoch = sessionEpoch
         val bearer = if (useUserToken) token() ?: Config.SUPABASE_KEY else Config.SUPABASE_KEY
         fun checkOwner() {
-            if (useUserToken && expectedOwner != userId) throw ApiException(401,"Session changed. Please retry.")
+            if (useUserToken && (expectedOwner != userId || expectedEpoch != sessionEpoch)) throw ApiException(401,"Session changed. Please retry.")
         }
         checkOwner()
         val b = Request.Builder()
@@ -214,23 +244,26 @@ object Api {
 
     // ---------------- auth ----------------
     suspend fun signInWithPassword(email: String, password: String) {
+        val epoch = beginLogin()
         val o = JSONObject(raw("POST", "/auth/v1/token?grant_type=password",
             JSONObject().put("email", email).put("password", password).toString(), useUserToken = false))
-        saveSession(o)
+        finishLogin(o,epoch)
     }
 
     /** Returns true when the user is logged in right away (email confirmation is off). */
     suspend fun signUp(email: String, password: String, meta: JSONObject): Boolean {
+        val epoch = beginLogin()
         val o = JSONObject(raw("POST", "/auth/v1/signup",
             JSONObject().put("email", email).put("password", password).put("data", meta).toString(), useUserToken = false))
-        return if (o.has("access_token")) { saveSession(o); true } else false
+        return if (o.has("access_token")) { finishLogin(o,epoch); true } else false
     }
 
     suspend fun signInWithIdToken(idToken: String, rawNonce: String) {
+        val epoch = beginLogin()
         val o = JSONObject(raw("POST", "/auth/v1/token?grant_type=id_token",
             JSONObject().put("provider", "google").put("id_token", idToken).put("nonce", rawNonce).toString(),
             useUserToken = false))
-        saveSession(o)
+        finishLogin(o,epoch)
     }
 
     suspend fun requestPhoneOtp(phone: String, channel: String) {
@@ -245,10 +278,11 @@ object Api {
     }
 
     suspend fun verifyPhoneOtp(phone: String, code: String) {
+        val epoch = beginLogin()
         require(cleanIndianPhone(phone) == phone && Regex("^[0-9]{6}$").matches(code))
         val result = JSONObject(raw("POST", "/auth/v1/verify", JSONObject()
             .put("phone", phone).put("token", code).put("type", "sms").toString(), useUserToken = false))
-        saveSession(result)
+        finishLogin(result,epoch)
     }
 
     suspend fun resetPassword(email: String) {
@@ -258,10 +292,11 @@ object Api {
 
     suspend fun signOut() {
         val owner = userId
+        val epoch = sessionEpoch
         try { if (owner != null) raw("POST", "/auth/v1/logout", "{}") }
         catch (e: kotlinx.coroutines.CancellationException) { throw e }
         catch (_: Exception) { }
-        finally { synchronized(sessionWriteLock) { if (userId == owner) clearSession() } }
+        finally { synchronized(sessionWriteLock) { if (userId == owner && epoch == sessionEpoch) clearSession() } }
     }
 
     // ---------------- database (PostgREST) ----------------
