@@ -169,7 +169,7 @@ fun ProjectScreen(nav: NavHostController, id: String) {
                     TextButton(onClick = { openUrl(ctx, url) }) { Text("Open reference link") }
                 }
             }
-            if (isClient && job.status in setOf("approved","closed") && NativePortfolio.validLink(job.deliveryLink) && job.deliveryLink.isNotBlank()) TextButton(onClick = { openUrl(ctx, job.deliveryLink) }) { Text("Open released final video") }
+            if (isClient && job.status in setOf("approved","closed") && NativePortfolio.validLink(job.deliveryLink) && job.payment == "released" && job.deliveryLink.isNotBlank()) TextButton(onClick = { openUrl(ctx, job.deliveryLink) }) { Text("Open released final video") }
         }
         if ((isClient || isEditor) && job.rawFiles.isNotEmpty()) {
             ProjectAttachments(job.rawFiles)
@@ -231,6 +231,7 @@ fun ProjectScreen(nav: NavHostController, id: String) {
             job.status == "payment-pending" && isClient -> CardBox(border = Blue) {
                 Text("Pay ${money(job.finalAmount)} to start", fontWeight = FontWeight.Bold)
                 MutedText("Checkout is unavailable in this development preview. Do not make a payment from this build.", 12)
+                if (com.syahifilms.sphere.BuildConfig.DEBUG) SecondaryButton("Simulate project checkout") { nav.go("paymentLab") }
                 
             }
             job.status == "payment-pending" && isEditor -> MutedText("Waiting for the client's payment…")

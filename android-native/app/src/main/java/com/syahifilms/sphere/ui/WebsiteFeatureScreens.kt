@@ -98,8 +98,9 @@ fun VaultNativeScreen(nav: NavHostController) {
                     StatusChip(j.status)
                     if (j.filesLink.startsWith("https://") || j.filesLink.startsWith("http://"))
                         TextButton(onClick = { openUrl(ctx, j.filesLink) }) { Text("📂 Open raw files") }
-                    if (j.deliveryLink.startsWith("https://") || j.deliveryLink.startsWith("http://"))
-                        TextButton(onClick = { openUrl(ctx, j.deliveryLink) }) { Text("🎬 Open delivered video") }
+                    if (j.clientId == me.id && j.status in setOf("approved","closed") && j.payment == "released" &&
+                        j.deliveryLink.isNotBlank() && NativePortfolio.validLink(j.deliveryLink))
+                        TextButton(onClick = { openUrl(ctx, j.deliveryLink) }) { Text("Open released final video") }
                     SecondaryButton("View project") { nav.go("project/${j.id}") }
                 }
             }
@@ -114,7 +115,8 @@ fun NativePaymentsScreen(nav: NavHostController) {
         if (AppState.editorSide) Repo.myEditorJobs() else Repo.myClientJobs()
     }
     Page("Payments", onBack = { nav.popBackStack() }) {
-        MutedText("Track the payment status of your Sphere projects")
+        MutedText("Read-only project payment status. No real checkout, payout or refund is enabled in this build.")
+        if (com.syahifilms.sphere.BuildConfig.DEBUG) SecondaryButton("Payment simulation · no real money") { nav.go("paymentLab") }
         when {
             data.error != null -> ErrorBox(data.error) { data.reload() }
             data.data == null -> Loading()
@@ -139,7 +141,7 @@ fun NativeEscrowScreen(nav: NavHostController) {
         GlassPanel(Modifier.fillMaxWidth()) {
             Text("🛡️ SafePay Escrow",fontWeight=FontWeight.ExtraBold,fontSize=22.sp)
             Spacer(Modifier.height(7.dp))
-            MutedText("Projects and payments stay connected to the same secured Sphere backend.")
+            MutedText("This is a project payment-status workflow, not a bank account or guaranteed escrow service. Provider approval and release controls must be verified before real payments are enabled.")
             Text("1 · Agree on the project amount",modifier=Modifier.padding(top=12.dp),fontWeight=FontWeight.SemiBold)
             Text("2 · Pay through the project's verified payment flow",modifier=Modifier.padding(top=8.dp),fontWeight=FontWeight.SemiBold)
             Text("3 · Review delivery and confirm completion",modifier=Modifier.padding(top=8.dp),fontWeight=FontWeight.SemiBold)
@@ -159,7 +161,8 @@ fun NativePremiumScreen(nav: NavHostController) {
             MutedText("Find verified talent and manage premium jobs with Sphere.")
             Spacer(Modifier.height(10.dp))
             Text("Premium options and availability depend on your project.",fontWeight=FontWeight.SemiBold)
-            MutedText("Subscription/payment checkout is not yet built into this native APK. Do not pay from an unverified link.",12)
+            MutedText("Premium checkout is unavailable in this development build. No external checkout or purchase is offered.",12)
+            if (com.syahifilms.sphere.BuildConfig.DEBUG) SecondaryButton("Try local premium simulation") { nav.go("paymentLab") }
         }
         SecondaryButton("Browse editors") { nav.go("editors") }
         SecondaryButton("Help & Support") { nav.go("support") }

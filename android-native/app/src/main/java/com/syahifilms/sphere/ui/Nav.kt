@@ -27,6 +27,7 @@ fun SphereNav() {
         composable("verifiedPc") { NativeAccountGate(nav) { VerifiedPcScreen(nav) } }
         composable("vault") { NativeAccountGate(nav) { VaultNativeScreen(nav) } }
         composable("payments") { NativeAccountGate(nav) { NativePaymentsScreen(nav) } }
+        if (com.syahifilms.sphere.BuildConfig.DEBUG) composable("paymentLab") { NativePaymentLab(nav) }
         composable("escrow") { NativeAccountGate(nav) { NativeEscrowScreen(nav) } }
         composable("premium") { NativeAccountGate(nav) { NativePremiumScreen(nav) } }
         composable("portfolio") { NativeAccountGate(nav) { NativePortfolioScreen(nav) } }

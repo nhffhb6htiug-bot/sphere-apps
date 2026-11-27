@@ -402,6 +402,11 @@ object Api {
 
     /** Calls a Supabase Edge Function (release-payout, sphere-ai, ...). */
     suspend fun function(name: String, body: JSONObject): JSONObject {
+        // Payment operations are deliberately blocked in all preview builds.
+        // This is a client-side safety guard, not a substitute for backend authorization.
+        require(name !in setOf("create-razorpay-order","verify-razorpay-payment","release-payout","refund-payment","sphere-extra-payment","razorpay-webhook")) {
+            "Real payment operations are unavailable in this preview."
+        }
         val t = raw("POST", "/functions/v1/$name", body.toString())
         return if (t.isBlank()) JSONObject() else JSONObject(t)
     }

@@ -276,7 +276,7 @@ fun NativeDeliveryPanel(job:Job,me:Profile,onRefresh:()->Unit) {
             Text("Final review",fontWeight=FontWeight.Bold)
             MutedText(when(job.reviewState){"disputed"->"Dispute opened — Sphere team reviewing";"team_review"->"Sphere team reviewing";else->"Waiting for client decision"})
             if(job.reviewState=="awaiting_client")instant(job.decisionDueAt)?.let{Text("Decision time left: "+timer(it.epochSecond-now))}
-            if(client)MutedText("Clean final link remains locked. Payment release is disabled in this development preview until payment compliance testing.")
+            if(client)MutedText("Clean final link remains locked. Payment release is disabled in this development preview until payment compliance testing. A local simulation is available in Payments.")
         }
     }
     val lateNoPreview=active && phase=="active" && w?.optBoolean("is_late")==true && w.str("preview_at").isBlank()

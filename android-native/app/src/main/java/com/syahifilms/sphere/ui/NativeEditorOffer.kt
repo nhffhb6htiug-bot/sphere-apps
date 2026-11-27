@@ -100,7 +100,7 @@ fun NativeEditorVerificationFee(me: Profile, offer: NativeEditorOffer?, failed: 
         CardBox {
             Text("Verification fee",fontWeight = FontWeight.Bold)
             MutedText("Current payment status: " + offer.feeStatus.ifBlank { "Unknown" })
-            MutedText("Paid verification checkout is unavailable in this development preview.")
+            MutedText("Paid verification checkout is unavailable in this development preview. No payment is needed to test the app; use the simulation in Payments.")
         }
         return
     }

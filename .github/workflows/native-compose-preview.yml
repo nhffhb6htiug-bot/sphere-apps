@@ -26,7 +26,7 @@ jobs:
           ! grep -E 'android\.webkit|WebView|loadUrl\(' app/src/main/java/com/syahifilms/sphere/MainActivity.kt
           grep -F 'SphereNav()' app/src/main/java/com/syahifilms/sphere/MainActivity.kt
           chmod +x gradlew
-          ./gradlew assembleDebug lintDebug --no-daemon --console=plain
+          ./gradlew assembleDebug lintDebug testDebugUnitTest --no-daemon --console=plain
       - name: Upload development test artifact
         uses: actions/upload-artifact@v4
         with:

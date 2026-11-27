@@ -292,10 +292,7 @@ object Repo {
 
     /** Payment release is server-only; never update payment fields from Android. */
     suspend fun approve(job: Job): String {
-        val result = Api.function("release-payout", JSONObject().put("jobId", job.id))
-        if (!result.optBoolean("ok", false))
-            throw ApiException(409, result.str("error").ifBlank { "Payment release was not confirmed. Check the project's payment status." })
-        return result.str("payout")
+        throw ApiException(409, "Payment release is disabled in this development preview.")
     }
 
     suspend fun extendDeadline(job: Job, date: String) {
