@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -71,16 +72,16 @@ object SphereAppearance {
         mode = value
     }
 }
-val Blue get() = if (SphereAppearance.dark) Color(0xFFC69AFF) else Color(0xFF1657FF)
-val BlueSoft get() = if (SphereAppearance.dark) Color(0xFF3D3051) else Color(0xFFE9F0FF)
-val Bg get() = if (SphereAppearance.dark) Color(0xFF100C16) else Color(0xFFE8EDF9)
-val Muted get() = if (SphereAppearance.dark) Color(0xFFC4B7CE) else Color(0xFF6B7280)
+val Blue get() = if (SphereAppearance.dark) Color(0xFFC69AFF) else Color(0xFF7139E4)
+val BlueSoft get() = if (SphereAppearance.dark) Color(0xFF3D3051) else Color(0xFFEBDBFF)
+val Bg get() = if (SphereAppearance.dark) Color(0xFF100C16) else Color(0xFFF7E0F1)
+val Muted get() = if (SphereAppearance.dark) Color(0xFFC4B7CE) else Color(0xFF606780)
 val Danger get() = if (SphereAppearance.dark) Color(0xFFFFA3AE) else Color(0xFFC62828)
 val Success get() = if (SphereAppearance.dark) Color(0xFF8BE6BA) else Color(0xFF2E7D32)
 val Orange get() = if (SphereAppearance.dark) Color(0xFFF4CF86) else Color(0xFFB65D0B)
 val PanelSurface get() = if (SphereAppearance.dark) Color(0xFF241A2B) else Color.White
-val PanelLine get() = if (SphereAppearance.dark) Color(0xFF584363) else Color(0xFFE7EDF9)
-val ActionFill get() = if (SphereAppearance.dark) Color(0xFF8741A5) else Color(0xFF1657FF)
+val PanelLine get() = if (SphereAppearance.dark) Color(0xFF584363) else Color(0xFFE5CFF7)
+val ActionFill get() = if (SphereAppearance.dark) Color(0xFF8741A5) else Color(0xFF7139E4)
 
 @Composable
 fun SphereTheme(content: @Composable () -> Unit) {
@@ -104,9 +105,9 @@ fun SphereTheme(content: @Composable () -> Unit) {
                 isAppearanceLightNavigationBars = !dark
             }
             @Suppress("DEPRECATION")
-            w.statusBarColor = android.graphics.Color.TRANSPARENT
+            w.statusBarColor = Bg.toArgb()
             @Suppress("DEPRECATION")
-            w.navigationBarColor = android.graphics.Color.TRANSPARENT
+            w.navigationBarColor = Bg.toArgb()
         }
     }
     MaterialTheme(colorScheme = scheme) {
@@ -373,9 +374,10 @@ fun VerifiedBadge(code: String) {
 fun PrimaryButton(text: String, enabled: Boolean = true, onClick: () -> Unit) {
     Button(
         onClick = onClick, enabled = enabled,
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).height(50.dp),
-        shape = RoundedCornerShape(25.dp),
-        colors = ButtonDefaults.buttonColors(containerColor=ActionFill,contentColor=Color.White)
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).heightIn(min=50.dp)
+            .clip(RoundedCornerShape(30.dp)).background(if(enabled) WebsiteColors.Accent else Brush.horizontalGradient(listOf(ActionFill.copy(alpha=.55f),ActionFill.copy(alpha=.55f)))),
+        shape = RoundedCornerShape(30.dp),
+        colors = ButtonDefaults.buttonColors(containerColor=Color.Transparent,contentColor=Color.White,disabledContainerColor=Color.Transparent,disabledContentColor=Color.White.copy(alpha=.8f))
     ) { Text(text, fontWeight = FontWeight.Bold) }
 }
 
@@ -383,9 +385,10 @@ fun PrimaryButton(text: String, enabled: Boolean = true, onClick: () -> Unit) {
 fun SecondaryButton(text: String, color: Color = Blue, onClick: () -> Unit) {
     OutlinedButton(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).height(48.dp),
-        shape = RoundedCornerShape(24.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, color)
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).heightIn(min=48.dp)
+            .clip(RoundedCornerShape(30.dp)).background(WebsiteColors.Glass),
+        shape = RoundedCornerShape(30.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, PanelLine)
     ) { Text(text, color = color, fontWeight = FontWeight.SemiBold) }
 }
 
@@ -401,7 +404,8 @@ fun Field(
         keyboardOptions = KeyboardOptions(keyboardType = keyboard),
         minLines = minLines,
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        shape = RoundedCornerShape(17.dp)
+        shape = RoundedCornerShape(17.dp),
+        colors = OutlinedTextFieldDefaults.colors(focusedContainerColor=PanelSurface,unfocusedContainerColor=PanelSurface.copy(alpha=.94f),focusedBorderColor=Blue,unfocusedBorderColor=PanelLine)
     )
 }
 

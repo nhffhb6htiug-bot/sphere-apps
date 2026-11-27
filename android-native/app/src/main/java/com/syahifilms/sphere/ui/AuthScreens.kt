@@ -42,7 +42,7 @@ fun SplashScreen(nav: NavHostController) {
     LaunchedEffect(attempt) {
         error = null
         if (attempt == 0 && animate) delay(650)
-        if (!Api.isLoggedIn) { nav.resetTo("welcome"); return@LaunchedEffect }
+        if (!Api.isLoggedIn) { nav.resetTo(if (Config.previewConfigured) "onboard/0" else "welcome"); return@LaunchedEffect }
         try { routeAfterLogin(nav) }
         catch (e: kotlinx.coroutines.CancellationException) { throw e }
         catch (e: Exception) { error = "Unable to connect. Check your internet and try again." }
@@ -105,58 +105,26 @@ fun WelcomeScreen(nav: NavHostController) {
             confirmButton = { TextButton(onClick = { googleError = null }) { Text("Try again") } }
         )
     }
-    Column(
-        Modifier.fillMaxSize().background(Bg).verticalScroll(rememberScrollState()).padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(Modifier.height(48.dp))
-        Image(painterResource(R.drawable.logo), null, Modifier.size(90.dp))
-        Spacer(Modifier.height(12.dp))
-        Text("Sphere", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = Blue)
-        Text("Hire verified video editors — or find editing work", color = Muted, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(36.dp))
-        if (!authSettings.waRequired && Config.GOOGLE_WEB_CLIENT_ID.isNotBlank()) Button(
-            enabled = !busy,
-            onClick = {
-                scope.launch {
-                    busy = true
-                    googleError = null
-                    try {
-                        if (GoogleAuth.signIn(ctx)) {
-                            routeAfterLogin(nav)
-                        } else {
-                            googleError = "Google account selection was cancelled. If you selected an account but returned here, check Google Play services or use email login while we verify the APK signing certificate."
-                        }
-                    } catch (e: Exception) {
-                        googleError = (e.message ?: "Google sign-in failed") +
-                            "\n\nIf the account picker closes after selection, the APK signing SHA-1 may need registration in Google Cloud. You can log in with email meanwhile."
-                    } finally { busy = false }
-                }
-            },
-            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).height(50.dp),
-            shape = RoundedCornerShape(25.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.White,
-                contentColor = Color(0xFF1F1F1F)
-            ),
-            border = BorderStroke(1.dp, Color(0xFFDADCE0))
-        ) {
-            Image(
-                painter = painterResource(R.drawable.google_g),
-                contentDescription = "Google",
-                modifier = Modifier.padding(end = 12.dp).size(24.dp)
-            )
-            Text(if (busy) "Signing in…" else "Continue with Google", fontWeight = FontWeight.SemiBold)
-        }
-        SecondaryButton("Log in with email") { nav.go("login") }
-        SecondaryButton("Create an account") { nav.go("signup") }
-        Spacer(Modifier.height(20.dp))
-        Row {
-            TextButton(onClick = { openUrl(ctx, Config.WEBSITE + "/terms.html") }) { Text("Terms", color = Muted) }
-            TextButton(onClick = { openUrl(ctx, Config.WEBSITE + "/privacy.html") }) { Text("Privacy", color = Muted) }
-            TextButton(onClick = { openUrl(ctx, Config.WEBSITE + "/refund.html") }) { Text("Refund", color = Muted) }
-        }
-    }
+    AuthLandingLayout(
+        googleVisible = !authSettings.waRequired,
+        googleReady = Config.GOOGLE_WEB_CLIENT_ID.isNotBlank(),
+        busy = busy,
+        onGoogle = {
+            scope.launch {
+                busy = true
+                googleError = null
+                try {
+                    if (GoogleAuth.signIn(ctx)) routeAfterLogin(nav)
+                    else googleError = "Google account selection was cancelled. You can use email login."
+                } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                catch (_: Exception) {
+                    googleError = "Google sign-in did not finish. Check the configured OAuth client and signing certificate."
+                } finally { busy = false }
+            }
+        },
+        onLogin = { nav.go("login") },
+        onSignup = { nav.go("signup") }
+    )
 }
 
 @Composable
@@ -166,22 +134,17 @@ fun LoginScreen(nav: NavHostController) {
     var email by remember { mutableStateOf("") }
     var pass by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
-    Page("Log in", onBack = { nav.popBackStack() }) {
-        Field(email, { email = it.trim() }, "Email", keyboard = KeyboardType.Email)
-        OutlinedTextField(
-            value = pass, onValueChange = { pass = it }, label = { Text("Password") },
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            singleLine = true, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-        )
-        TextButton(onClick = {
+    AuthFormLayout("Welcome Back", "Login to continue", onBack = { nav.popBackStack() }) {
+        AuthField(email, { email = it.trim() }, "Email", "example@email.com", KeyboardType.Email)
+        AuthField(pass, { pass = it }, "Password", "••••••••", KeyboardType.Password, secret = true)
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End) { TextButton(onClick = {
             if (email.isBlank()) { toast(ctx, "Enter your email first"); return@TextButton }
             scope.launch {
                 try { Api.resetPassword(email); toast(ctx, "We sent a password reset link to $email (check Spam too)") }
                 catch (e: Exception) { toast(ctx, e.message ?: "Could not send the link") }
             }
-        }) { Text("Forgot password?") }
-        PrimaryButton(if (busy) "Logging in…" else "Log in", enabled = !busy) {
+        }) { Text("Forgot password?", color=Blue) } }
+        PrimaryButton(if (busy) "Logging in…" else "Log In", enabled = !busy) {
             if (email.isBlank() || pass.isBlank()) { toast(ctx, "Enter your email and password"); return@PrimaryButton }
             scope.launch {
                 busy = true
@@ -193,15 +156,18 @@ fun LoginScreen(nav: NavHostController) {
                 } finally { busy = false }
             }
         }
-        TextButton(onClick = { nav.go("signup") }, modifier = Modifier.fillMaxWidth()) { Text("New here? Create an account") }
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.Center) {
+            Text("Don’t have an account?",color=Muted,fontSize=13.sp)
+            TextButton(onClick={nav.go("signup")}){Text("Sign Up",color=Blue)}
+        }
     }
 }
 
 @Composable
 fun RolePicker(role: String, onPick: (String) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(vertical = 6.dp)) {
-        FilterChip(selected = role == "client", onClick = { onPick("client") }, label = { Text("I want to hire (Client)") })
-        FilterChip(selected = role == "editor", onClick = { onPick("editor") }, label = { Text("I edit videos (Editor)") })
+        FilterChip(selected = role == "client", onClick = { onPick("client") }, label = { Text("Client") })
+        FilterChip(selected = role == "editor", onClick = { onPick("editor") }, label = { Text("Editor") })
     }
 }
 
@@ -216,16 +182,12 @@ fun SignupScreen(nav: NavHostController) {
     var role by remember { mutableStateOf("client") }
     var accepted by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
-    Page("Create account", onBack = { nav.popBackStack() }) {
-        Field(name, { name = it }, "Full name")
-        Field(email, { email = it.trim() }, "Email", keyboard = KeyboardType.Email)
-        PhoneField(phone, { phone = it })
-        OutlinedTextField(
-            value = pass, onValueChange = { pass = it }, label = { Text("Password (8+ characters, letters and numbers)") },
-            visualTransformation = PasswordVisualTransformation(), singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-        )
+    AuthFormLayout("Create Account", onBack = { nav.popBackStack() }) {
+        AuthField(name, { name = it }, "Full Name", "Your name")
+        AuthField(email, { email = it.trim() }, "Email", "example@email.com", KeyboardType.Email)
+        AuthField(phone, { phone = it.filter { ch->ch.isDigit() }.take(10) }, "Mobile number", "10-digit mobile number", KeyboardType.Phone, phonePrefix=true)
+        AuthField(pass, { pass = it }, "Password", "••••••••", KeyboardType.Password, secret=true)
+        MutedText("Use at least 8 characters, with a letter and a number.",12)
         MutedText("I am a…", 12)
         RolePicker(role) { role = it }
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -234,7 +196,7 @@ fun SignupScreen(nav: NavHostController) {
         }
         TextButton(onClick = { openUrl(ctx, Config.WEBSITE + "/terms.html") }) { Text("Read Terms") }
         TextButton(onClick = { openUrl(ctx, Config.WEBSITE + "/privacy.html") }) { Text("Read Privacy Policy") }
-        PrimaryButton(if (busy) "Creating…" else "Create account", enabled = !busy && accepted) {
+        PrimaryButton(if (busy) "Creating…" else "Continue", enabled = !busy && accepted) {
             val p = cleanIndianPhone(phone)
             when {
                 name.isBlank() || email.isBlank() || pass.isBlank() -> toast(ctx, "Please fill in all fields")
@@ -250,10 +212,15 @@ fun SignupScreen(nav: NavHostController) {
                             toast(ctx, "Account created! Check your email to confirm, then log in.")
                             nav.resetTo("login")
                         }
-                    } catch (e: Exception) { toast(ctx, e.message ?: "Could not create the account") }
-                    busy = false
+                    } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                    catch (e: Exception) { toast(ctx, e.message ?: "Could not create the account") }
+                    finally { busy = false }
                 }
             }
+        }
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.Center){
+            Text("Already have an account?",color=Muted,fontSize=13.sp)
+            TextButton(onClick={nav.go("login")}){Text("Log In",color=Blue)}
         }
     }
 }

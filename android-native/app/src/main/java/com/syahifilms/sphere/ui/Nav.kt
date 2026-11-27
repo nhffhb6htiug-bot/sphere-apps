@@ -14,6 +14,9 @@ fun SphereNav() {
     NavHost(navController = nav, startDestination = "splash") {
         composable("splash") { SplashScreen(nav) }
         composable("welcome") { WelcomeScreen(nav) }
+        composable("onboard/{page}",arguments=listOf(navArgument("page"){type=NavType.IntType})) { entry ->
+            NativeOnboardingScreen(nav,(entry.arguments?.getInt("page")?:0).coerceIn(0,2))
+        }
         composable("login") { LoginScreen(nav) }
         composable("signup") { SignupScreen(nav) }
         composable("chooseRole") { ChooseRoleScreen(nav) }

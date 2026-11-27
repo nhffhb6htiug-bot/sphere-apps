@@ -49,9 +49,9 @@ assert(repo.includes('sp_final_submit'),"Native final uses secure RPC");
 assert(repo.includes('sp_rating_submit'),"Native rating uses secure RPC");
 const nativeApi = fs.readFileSync("android-native/app/src/main/java/com/syahifilms/sphere/data/Api.kt","utf8");
 assert(nativeApi.includes("private val sessionWriteLock = Any()"),"Native session writes serialized");
-assert(nativeApi.includes('if (session()?.optString("refresh_token") != refreshToken)'),
+assert(nativeApi.includes('if (epoch != sessionEpoch || session()?.optString("refresh_token") != refreshToken)'),
   "Native stale refresh cannot overwrite a new login");
-assert(nativeApi.includes('if (session()?.optString("refresh_token") == refreshToken) clearSession()'),
+assert(nativeApi.includes('if (epoch == sessionEpoch && session()?.optString("refresh_token") == refreshToken) clearSession()'),
   "Native old refresh errors cannot clear the new session");
 assert(!repo.includes('put("status", "delivered")'),"Native cannot directly set delivered status");
 
