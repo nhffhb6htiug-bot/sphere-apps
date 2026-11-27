@@ -146,9 +146,9 @@ private fun ClientHome(nav: NavHostController, me: Profile) {
     }
     WebsiteSearchBar(nav)
     if (me.role == "admin") {
-        CardBox(onClick = { nav.go("profile") }, border = Orange) {
-            Text("🛡️ Admin account",fontWeight=FontWeight.Bold)
-            MutedText("Manage your Sphere account from Profile.",12)
+        CardBox(onClick = { nav.go("admin") }, border = Orange) {
+            Text("Admin Panel",fontWeight=FontWeight.Bold)
+            MutedText("Review verification queues, projects and users.",12)
         }
     }
     SupportCard()

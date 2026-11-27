@@ -199,7 +199,7 @@ fun ProfileScreen(nav: NavHostController) {
                 } else {
                     MenuRow("🔄", "Switch to Editor", "See available work and place bids", Blue) { AppState.switchMode(false); nav.resetTo("home") }
                 }
-                MenuRow("🛡️", "Admin Panel (website)", "Verify editors, reports, payouts") { openUrl(ctx, Config.WEBSITE) }
+                MenuRow("🛡️", "Admin Panel", "Verification, users, projects and payment status") { nav.go("admin") }
             }
         }
         MenuRow("🚪", "Logout", color = Danger) { confirmLogout = true }

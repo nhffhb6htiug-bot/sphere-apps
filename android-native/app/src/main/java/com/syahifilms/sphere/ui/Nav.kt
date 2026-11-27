@@ -48,6 +48,7 @@ fun SphereNav() {
         composable("chat/{id}") { NativeAccountGate(nav) { ChatScreen(nav, it.arguments?.getString("id") ?: "") } }
         composable("notifications") { NativeAccountGate(nav) { NotificationsScreen(nav) } }
         composable("profile") { NativeAccountGate(nav) { ProfileScreen(nav) } }
+        composable("admin") { NativeAccountGate(nav) { NativeAdminScreen(nav) } }
         composable("support") { SupportScreen(nav) }
         composable("report?job={job}&user={user}", arguments = listOf(optional("job"), optional("user"))) {
             NativeAccountGate(nav) { ReportScreen(nav, it.arguments?.getString("job"), it.arguments?.getString("user")) }
