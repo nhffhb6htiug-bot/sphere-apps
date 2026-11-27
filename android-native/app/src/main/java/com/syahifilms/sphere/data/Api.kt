@@ -350,10 +350,26 @@ object Api {
         http.newCall(req).execute().use { res -> if (!res.isSuccessful) throw toError(res.code, res.body?.string().orEmpty()) }
     }
 
+    suspend fun uploadDeliveryFile(owner: String, job: String, path: String, file: File, mime: String) = withContext(Dispatchers.IO) {
+        require(owner == userId && NativeChat.validId(job) && path.startsWith("$job/"))
+        require(Regex("^[0-9a-fA-F-]{36}/(preview|client)/[0-9a-fA-F-]{36}\\.[A-Za-z0-9]{1,5}$").matches(path))
+        require(file.length() in 1L..ProjectMedia.MAX_BYTES && ProjectMedia.allowedMime(mime))
+        val access = realtimeToken(owner)
+        val req = Request.Builder().url("${Config.SUPABASE_URL}/storage/v1/object/sphere-project/$path")
+            .header("apikey", Config.SUPABASE_KEY).header("Authorization", "Bearer $access")
+            .header("x-upsert", "false").post(file.asRequestBody(mime.toMediaType())).build()
+        http.newCall(req).execute().use { res -> if (!res.isSuccessful) throw toError(res.code, res.body?.string().orEmpty()) }
+    }
+
     suspend fun deliveryPreviewUrl(job: String, path: String): String {
+        require(path.startsWith("$job/preview/"))
+        return deliveryFileUrl(job,path)
+    }
+
+    suspend fun deliveryFileUrl(job: String, path: String): String {
         require(userId != null && NativeChat.validId(job) &&
-            path.startsWith("$job/preview/") &&
-            Regex("^[0-9a-fA-F-]{36}/preview/[0-9a-fA-F-]{36}\\.[A-Za-z0-9]{1,5}$").matches(path))
+            path.startsWith("$job/") &&
+            Regex("^[0-9a-fA-F-]{36}/(preview|client)/[0-9a-fA-F-]{36}\\.[A-Za-z0-9]{1,5}$").matches(path))
         val result = JSONObject(raw("POST", "/storage/v1/object/sign/sphere-project/$path",
             JSONObject().put("expiresIn", 300).toString()))
         val relative = result.str("signedURL").ifBlank { result.str("signedUrl") }

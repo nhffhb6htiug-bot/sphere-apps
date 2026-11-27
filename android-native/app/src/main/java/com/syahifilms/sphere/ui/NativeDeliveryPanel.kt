@@ -1,11 +1,12 @@
 package com.syahifilms.sphere.ui
 
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.widget.VideoView
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -47,6 +48,14 @@ fun NativeDeliveryPanel(job:Job,me:Profile,onRefresh:()->Unit) {
     var error by remember {mutableStateOf("")}
     var confirm by remember {mutableStateOf<Pair<String,suspend ()->Unit>?>(null)}
     var video by remember {mutableStateOf<String?>(null)}
+    var progress by remember {mutableStateOf("")}
+    var selectedPreview by remember(job.id){mutableStateOf<Uri?>(null)}
+    var selectedChanges by remember(job.id){mutableStateOf<List<Uri>>(emptyList())}
+    var attachmentIds by remember(job.id){mutableStateOf<List<String>>(emptyList())}
+    val previewPicker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){selectedPreview=it}
+    val changePicker=rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()){uris->
+        if(uris.size+attachmentIds.size<=ProjectMedia.MAX_FILES)selectedChanges=uris else error="Choose up to five attachments."
+    }
     var now by remember {mutableLongStateOf(Instant.now().epochSecond)}
     LaunchedEffect(job.id){while(true){delay(1000);now=Instant.now().epochSecond}}
     fun act(block:suspend ()->Unit){
@@ -56,7 +65,7 @@ fun NativeDeliveryPanel(job:Job,me:Profile,onRefresh:()->Unit) {
             try{block();loaded.reload();onRefresh()}
             catch(e:CancellationException){throw e}
             catch(e:Exception){error=e.message?:"Action not confirmed. Refresh before retrying."}
-            finally{busy=false}
+            finally{busy=false;progress=""}
         }
     }
     SectionTitle("Project workflow")
@@ -141,7 +150,30 @@ fun NativeDeliveryPanel(job:Job,me:Profile,onRefresh:()->Unit) {
         var url by remember{mutableStateOf("")};var note by remember{mutableStateOf("")};var marked by remember{mutableStateOf(false)}
         CardBox{
             Text("Send watermarked preview",fontWeight=FontWeight.Bold)
-            MutedText("Add the SPHERE watermark to your video before sharing. Automatic watermark encoding is not available in this preview build.")
+            val minutes=d.setting("preview_max_minutes")
+            val maxMb=d.setting("file_max_mb")?.coerceAtMost(50)
+            MutedText("Select a video to export a separate MP4 with a moving SPHERE watermark. Your original will not be uploaded.")
+            if(minutes!=null && maxMb!=null)MutedText("Limit: $minutes minutes, $maxMb MB per file.")
+            TextButton(enabled=!busy,onClick={previewPicker.launch(arrayOf("video/*"))}){Text(if(selectedPreview==null)"Choose preview video" else "Change selected video")}
+            if(selectedPreview!=null) {
+                MutedText("Video selected")
+                TextButton(enabled=!busy,onClick={selectedPreview=null}){Text("Remove video")}
+            }
+            PrimaryButton("Encode & upload preview",enabled=!busy && selectedPreview!=null && minutes!=null && maxMb!=null){
+                val uri=selectedPreview
+                if(uri!=null && minutes!=null && maxMb!=null) confirm="Export and submit watermarked preview?" to {
+                    val original=ProjectMedia.stage(ctx,uri,true)
+                    try {
+                        val encoded=PreviewEncoder.encode(ctx,original,minutes,maxMb){p->progress=p}
+                        try {
+                            progress="Uploading watermarked preview…"
+                            NativeDelivery.uploadEncodedPreview(job,encoded,note.trim())
+                            selectedPreview=null;note=""
+                        } finally {encoded.media.file.delete()}
+                    } finally {original.file.delete()}
+                }
+            }
+            MutedText("Or use an already watermarked HTTPS link.")
             Field(url,{url=it.take(500)},"HTTPS preview link")
             Field(note,{note=it.take(500)},"Optional note")
             Row(verticalAlignment=Alignment.CenterVertically){Checkbox(marked,{marked=it});Text("Video already has the SPHERE watermark")}
@@ -174,6 +206,17 @@ fun NativeDeliveryPanel(job:Job,me:Profile,onRefresh:()->Unit) {
                 Text("Change request · "+r.str("status"),fontWeight=FontWeight.Bold)
                 MutedText(r.str("details"));KeyValue("Extra price",money(r.numOrNull("extra_price")));KeyValue("Extra time",r.optInt("extra_hours").toString()+" hours")
                 if(link(r.str("link")))TextButton(onClick={openUrl(ctx,r.str("link"))}){Text("Open reference")}
+                val ids=r.optJSONArray("file_ids")
+                if(ids!=null)for(i in 0 until ids.length()){
+                    val f=d.files.firstOrNull{it.str("id")==ids.optString(i) && it.str("kind")=="client_file" && it.str("status")=="ready"}
+                    if(f!=null)TextButton(enabled=!busy,onClick={scope.launch{
+                        busy=true
+                        try{openUrl(ctx,Api.deliveryFileUrl(job.id,f.str("storage_path")))}
+                        catch(e:CancellationException){throw e}
+                        catch(e:Exception){error="Attachment unavailable"}
+                        finally{busy=false}
+                    }}){Text("Open "+f.str("file_name").ifBlank{"attachment"})}
+                }
                 if(r.str("editor_note").isNotBlank())MutedText(r.str("editor_note"))
                 if(active && editor && r.str("status")=="pending"){
                     var note by remember(r.str("id")){mutableStateOf("")}
@@ -190,8 +233,27 @@ fun NativeDeliveryPanel(job:Job,me:Profile,onRefresh:()->Unit) {
                 Field(price,{price=it.filter{c->c.isDigit()}.take(7)},"Extra price (₹)")
                 Dropdown("Extra hours",hours,listOf("0","12","24","48","72")){hours=it}
                 Field(ref,{ref=it.take(500)},"Reference link (optional)")
-                PrimaryButton("Send change request",enabled=!busy && details.trim().length>=10 && (price.toLongOrNull()?.let{it in 0L..1000000L}==true) && (ref.isBlank()||link(ref))){
-                    confirm="Send these new requirements to the editor?" to {NativeDelivery.change(job,details.trim(),price.toLong(),hours.toInt(),ref.trim());details="";ref=""}
+                val maxMb=d.setting("file_max_mb")?.coerceAtMost(50)
+                TextButton(enabled=!busy && attachmentIds.size<5,onClick={changePicker.launch(arrayOf("image/*","video/*"))}){Text("Choose photo/video attachments")}
+                if(selectedChanges.isNotEmpty())TextButton(enabled=!busy,onClick={selectedChanges=emptyList()}){Text("Remove selected files (${selectedChanges.size})")}
+                if(attachmentIds.isNotEmpty())MutedText("${attachmentIds.size} uploaded project files will be attached when you retry.")
+                MutedText("Maximum 5 files; ${maxMb ?: 50} MB each. Other file types can be shared with a link.")
+                PrimaryButton("Send change request",enabled=!busy && details.trim().length>=10 && (price.toLongOrNull()?.let{it in 0L..1000000L}==true) && (ref.isBlank()||link(ref)) && (selectedChanges.isEmpty()||maxMb!=null)){
+                    confirm="Send these new requirements to the editor?" to {
+                        while(selectedChanges.isNotEmpty()){
+                            val uri=selectedChanges.first()
+                            val item=ProjectMedia.stage(ctx,uri,false)
+                            try {
+                                require(item.size <= (maxMb ?: 0)*1048576L){"Attachment exceeds the current file limit"}
+                                progress="Uploading change attachment ${attachmentIds.size+1}…"
+                                val id=NativeDelivery.uploadChangeAttachment(job,item)
+                                attachmentIds=attachmentIds+id
+                                selectedChanges=selectedChanges.drop(1)
+                            }finally{item.file.delete()}
+                        }
+                        NativeDelivery.change(job,details.trim(),price.toLong(),hours.toInt(),ref.trim(),attachmentIds)
+                        attachmentIds=emptyList();details="";ref=""
+                    }
                 }
             }
         }
@@ -242,6 +304,7 @@ fun NativeDeliveryPanel(job:Job,me:Profile,onRefresh:()->Unit) {
     var showEvents by remember{mutableStateOf(false)}
     TextButton(onClick={showEvents=!showEvents}){Text(if(showEvents)"Hide timeline" else "Project timeline (${d.events.size})")}
     if(showEvents)d.events.forEach{e->CardBox{Text(e.str("title"),fontWeight=FontWeight.Bold);MutedText(date(e.str("at")));MutedText(e.str("details"))}}
+    if(progress.isNotBlank()){LinearProgressIndicator(modifier=Modifier.fillMaxWidth());MutedText(progress)}
     if(error.isNotBlank())Text(error,color=Danger)
     confirm?.let{(question,action)->AlertDialog(onDismissRequest={confirm=null},title={Text(question)},confirmButton={TextButton(onClick={confirm=null;act(action)}){Text("Confirm")}},dismissButton={TextButton(onClick={confirm=null}){Text("Cancel")}})}
     video?.let{WatermarkedPlayer(it,job.id.take(8)){video=null}}
