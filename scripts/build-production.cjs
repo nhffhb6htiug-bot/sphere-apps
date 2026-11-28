@@ -10,7 +10,7 @@ const publicRoots = new Set(['img','vendor']);
 const publicFiles = new Set([
   'manifest.json','favicon.png','apple-touch-icon-v2.png','icon-192.png','icon-192-v2.png','icon-512.png','icon-512-v2.png','icon-maskable-512-v3.png','notif-icon.png','notif-badge.png',
   'sphere-dark-theme.css','sphere-desktop.css','verify-fee-qr.png',
-  'terms.html','privacy.html','refund.html','contact.html',
+  'terms.html','privacy.html','refund.html','contact.html','delete-account.html',
   'robots.txt','sitemap.xml','sw.js','service-worker.js'
 ]);
 async function copyAssets(){
